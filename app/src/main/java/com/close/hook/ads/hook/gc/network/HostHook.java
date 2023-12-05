@@ -25,15 +25,6 @@ public class HostHook {
     }
 
     public static void init() {
-
-/*
- * 特点应用测试
-
-    if (!lpparam.packageName.equals("target.package.name")) {
-       return;
-    }
- */
-
         hookAllRelevantMethods();
     }
 
