@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<resources>
+    <color name="b">@android:color/system_accent1_100</color>
+    <color name="f">@android:color/system_neutral2_700</color>
+    <color name="searchBar">@android:color/system_neutral1_50</color>
+</resources>

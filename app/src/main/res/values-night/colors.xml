@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<resources>
+    <color name="b">#2e3133</color>
+    <color name="f">#c1e8ff</color>
+    <color name="searchBar">#3f434e</color>
+    <color name="textSecondary">#b2ffffff</color>
+</resources>
