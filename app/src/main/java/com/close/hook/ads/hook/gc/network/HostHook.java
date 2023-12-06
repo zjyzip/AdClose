@@ -44,7 +44,7 @@ public class HostHook {
                             @Override
                             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
 							  String stackTrace = HookUtil.getFormattedStackTrace();
-							  throw new IOException("Blocked by HostHook\nURL: " + url.toString() + "\nStack Trace for Request:\n" + stackTrace);
+							  throw new IOException("URL Blocked by HostHook\nURL: " + url.toString() + "\nStack Trace for Request:\n" + stackTrace);
                             }
                         });
                     }

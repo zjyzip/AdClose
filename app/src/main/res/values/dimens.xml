@@ -2,5 +2,7 @@
 
     <dimen name="error_detail_text_size">12sp</dimen>
     <dimen name="normal_space">10dp</dimen>
+    
+    <dimen name="app_icon_size">150dp</dimen>
 
 </resources>

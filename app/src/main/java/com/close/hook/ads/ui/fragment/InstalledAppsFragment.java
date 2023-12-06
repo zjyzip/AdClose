@@ -42,11 +42,13 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
     private Disposable searchDisposable;
     private AppsFragment appFragment1;
     private AppsFragment appFragment2;
+    private InputMethodManager imm;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
+        imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
     }
 
     @Nullable
@@ -59,7 +61,11 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        initializeViews(view);
+        setupViewPagerAndTabs();
+    }
 
+    private void initializeViews(View view) {
         viewPager = view.findViewById(R.id.view_pager);
         tabLayout = view.findViewById(R.id.tab_layout);
         searchEditText = view.findViewById(R.id.search_edit_text);
@@ -68,28 +74,30 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         appFragment1 = AppsFragment.newInstance(false);
         appFragment2 = AppsFragment.newInstance(true);
 
-        setupViewPagerAndTabs();
-        setupSearchEditText();
         setupSearchIcon();
+        setupSearchEditText();
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")
     private void setupSearchIcon() {
-        InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
         searchIcon.setOnClickListener(view -> {
             if (searchEditText.isFocused()) {
-                searchIcon.setImageDrawable(requireContext().getDrawable(R.drawable.ic_search));
-                searchEditText.setText("");
-                imm.hideSoftInputFromWindow(Objects.requireNonNull(requireActivity().getCurrentFocus()).getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
-                searchEditText.clearFocus();
+                setIconAndFocus(R.drawable.ic_search, false);
             } else {
-                searchIcon.setImageDrawable(requireContext().getDrawable(R.drawable.ic_back));
-                searchEditText.setFocusable(true);
-                searchEditText.setFocusableInTouchMode(true);
-                searchEditText.requestFocus();
-                imm.showSoftInput(searchEditText, 0);
+                setIconAndFocus(R.drawable.ic_back, true);
             }
         });
+    }
+
+    private void setIconAndFocus(int drawableId, boolean focus) {
+        searchIcon.setImageDrawable(requireContext().getDrawable(drawableId));
+        if (focus) {
+            searchEditText.requestFocus();
+            imm.showSoftInput(searchEditText, 0);
+        } else {
+            searchEditText.clearFocus();
+            imm.hideSoftInputFromWindow(searchEditText.getWindowToken(), 0);
+        }
     }
 
     private void setupViewPagerAndTabs() {
@@ -98,27 +106,12 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         viewPager.setAdapter(adapter);
 
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            switch (position) {
-                case 0:
-                    tab.setText(R.string.tab_user_apps);
-                    break;
-                case 1:
-                    tab.setText(R.string.tab_system_apps);
-                    break;
-            }
+            tab.setText(position == 0 ? R.string.tab_user_apps : R.string.tab_system_apps);
         }).attach();
     }
 
-    @SuppressLint("UseCompatLoadingForDrawables")
     private void setupSearchEditText() {
-
-        searchEditText.setOnFocusChangeListener((view, hasFocus) -> {
-            if (hasFocus) {
-                searchIcon.setImageDrawable(requireContext().getDrawable(R.drawable.ic_back));
-            } else {
-                searchIcon.setImageDrawable(requireContext().getDrawable(R.drawable.ic_search));
-            }
-        });
+        searchEditText.setOnFocusChangeListener((view, hasFocus) -> setIcon(hasFocus ? R.drawable.ic_back : R.drawable.ic_search));
 
         searchEditText.addTextChangedListener(new TextWatcher() {
             @Override
@@ -151,6 +144,10 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         });
     }
 
+    private void setIcon(int drawableId) {
+        searchIcon.setImageDrawable(requireContext().getDrawable(drawableId));
+    }
+
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -159,11 +156,10 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         }
     }
 
-
     @Override
     public Boolean onBackPressed() {
         if (searchEditText.isFocused()) {
-            searchEditText.clearFocus();
+            setIconAndFocus(R.drawable.ic_search, false);
             return true;
         }
         return false;
@@ -175,5 +171,4 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         OnBackPressContainer onBackPressContainer = (OnBackPressContainer) requireContext();
         onBackPressContainer.setController(this);
     }
-
 }

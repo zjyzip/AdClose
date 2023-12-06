@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import com.close.hook.ads.data.model.AppInfo;
 import com.close.hook.ads.data.repository.AppRepository;
 
+import java.util.Collections;
 import java.util.List;
 
 import io.reactivex.rxjava3.core.BackpressureStrategy;
@@ -23,22 +24,35 @@ public class AppsViewModel extends AndroidViewModel {
         super(application);
         PackageManager packageManager = application.getPackageManager();
         appRepository = new AppRepository(packageManager);
-        loadApps();
     }
 
     public LiveData<List<AppInfo>> getUserAppsLiveData() {
+        if (userAppsLiveData == null) {
+            userAppsLiveData = loadUserApps();
+        }
         return userAppsLiveData;
     }
 
     public LiveData<List<AppInfo>> getSystemAppsLiveData() {
+        if (systemAppsLiveData == null) {
+            systemAppsLiveData = loadSystemApps();
+        }
         return systemAppsLiveData;
     }
 
-    private void loadApps() {
-        userAppsLiveData = LiveDataReactiveStreams.fromPublisher(appRepository.getInstalledUserApps().toFlowable(BackpressureStrategy.LATEST) // 指定背压策略
-                .subscribeOn(Schedulers.io()));
+    private LiveData<List<AppInfo>> loadUserApps() {
+        return LiveDataReactiveStreams.fromPublisher(
+            appRepository.getInstalledUserApps()
+                .toFlowable(BackpressureStrategy.LATEST)
+                .subscribeOn(Schedulers.io())
+        );
+    }
 
-        systemAppsLiveData = LiveDataReactiveStreams.fromPublisher(appRepository.getInstalledSystemApps().toFlowable(BackpressureStrategy.LATEST) // 指定背压策略
-                .subscribeOn(Schedulers.io()));
+    private LiveData<List<AppInfo>> loadSystemApps() {
+        return LiveDataReactiveStreams.fromPublisher(
+            appRepository.getInstalledSystemApps()
+                .toFlowable(BackpressureStrategy.LATEST)
+                .subscribeOn(Schedulers.io())
+        );
     }
 }
