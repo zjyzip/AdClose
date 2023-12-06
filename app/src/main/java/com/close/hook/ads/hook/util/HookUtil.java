@@ -49,7 +49,7 @@ public class HookUtil {
         });
     }
 
-   private static String getFormattedStackTrace() {
+   public static String getFormattedStackTrace() {
 	  StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
 	  StringBuilder sb = new StringBuilder();
 	  for (StackTraceElement element : stackTrace) {
