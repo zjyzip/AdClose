@@ -1,4 +1,4 @@
-package com.close.hook.ads;
+package com.close.hook.ads.util;
 
 public interface OnBackPressContainer {
 

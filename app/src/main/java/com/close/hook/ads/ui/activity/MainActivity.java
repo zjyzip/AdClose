@@ -2,18 +2,19 @@ package com.close.hook.ads.ui.activity;
 
 import android.os.Bundle;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
-import androidx.viewpager2.adapter.FragmentStateAdapter;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager2.widget.ViewPager2;
-import com.close.hook.ads.OnBackPressListener;
-import com.close.hook.ads.OnBackPressContainer;
+import androidx.viewpager2.adapter.FragmentStateAdapter;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+
+import com.close.hook.ads.util.OnBackPressListener;
+import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.R;
+import com.close.hook.ads.util.AppUtils;
 import com.close.hook.ads.ui.fragment.HostsFragment;
 import com.close.hook.ads.ui.fragment.InstalledAppsFragment;
-import com.close.hook.ads.util.AppUtils;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -122,21 +122,23 @@ public class AppsFragment extends Fragment {
 		BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
 		View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_switches, null);
 		bottomSheetDialog.setContentView(dialogView);
-
-		PreferencesHelper prefsHelper = new PreferencesHelper(requireContext(), PREFERENCES_NAME);
-		setupSwitchListeners(dialogView, appInfo, prefsHelper);
+		setupSwitchListeners(dialogView, appInfo);
 		bottomSheetDialog.show();
 	}
 
 	@SuppressLint("CommitPrefEdits")
-	private void setupSwitchListeners(View dialogView, AppInfo appInfo, PreferencesHelper prefsHelper) {
+	private void setupSwitchListeners(View dialogView, AppInfo appInfo) {
 		@SuppressLint("WorldReadableFiles")
-		int[] switchIds = new int[] { R.id.switch_one, R.id.switch_two, R.id.switch_three, R.id.switch_four,
-				R.id.switch_five, R.id.switch_six, R.id.switch_seven };
+		PreferencesHelper prefsHelper = new PreferencesHelper(dialogView.getContext(), PREFERENCES_NAME);
 
-		for (int switchId : switchIds) {
-			MaterialSwitch switchView = dialogView.findViewById(switchId);
-			String key = "switch_" + (switchId - R.id.switch_one + 1) + "_" + appInfo.getPackageName();
+		int[] switchIds = { R.id.switch_one, R.id.switch_two, R.id.switch_three, R.id.switch_four, R.id.switch_five,
+				R.id.switch_six };
+		String[] prefKeys = { "switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_",
+				"switch_six_", "switch_seven_" };
+
+		for (int i = 0; i < switchIds.length; i++) {
+			MaterialSwitch switchView = dialogView.findViewById(switchIds[i]);
+			String key = prefKeys[i] + appInfo.getPackageName();
 			setupSwitch(switchView, key, prefsHelper);
 		}
 	}

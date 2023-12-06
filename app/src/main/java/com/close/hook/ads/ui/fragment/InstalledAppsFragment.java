@@ -17,8 +17,8 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.close.hook.ads.OnBackPressListener;
-import com.close.hook.ads.OnBackPressContainer;
+import com.close.hook.ads.util.OnBackPressListener;
+import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.R;
 import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
 import com.google.android.material.tabs.TabLayout;
@@ -159,6 +159,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
     @Override
     public Boolean onBackPressed() {
         if (searchEditText.isFocused()) {
+            searchEditText.setText("");
             setIconAndFocus(R.drawable.ic_search, false);
             return true;
         }
