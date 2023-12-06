@@ -13,6 +13,8 @@ import android.webkit.*;
 import de.robv.android.xposed.*;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.*;
 
+import com.close.hook.ads.hook.util.HookUtil;
+
 public class HostHook {
 
     private static final String LOG_PREFIX = "[HostHook] ";
@@ -41,8 +43,8 @@ public class HostHook {
                         XposedBridge.hookMethod(openConnectionMethod, new XC_MethodReplacement() {
                             @Override
                             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                                throw new IOException("Blocked by Close--HostHook");
-						     // throw new IOException("Blocked by HostHook\nURL: " + url.toString() + "\nStack Trace for Request:\n" + stackTrace);
+							  String stackTrace = HookUtil.getFormattedStackTrace();
+							  throw new IOException("Blocked by HostHook\nURL: " + url.toString() + "\nStack Trace for Request:\n" + stackTrace);
                             }
                         });
                     }
@@ -53,17 +55,8 @@ public class HostHook {
         }
     }
 
-   private static String getFormattedStackTrace() {
-	  StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	  StringBuilder sb = new StringBuilder();
-	  for (StackTraceElement element : stackTrace) {
-		 sb.append("\tat ").append(element.toString()).append("\n");
-	  }
-	  return sb.toString();
-   }
-
-private static void loadBlockedHostsAsync() {
-    CompletableFuture.runAsync(() -> {
+    private static void loadBlockedHostsAsync() {
+        CompletableFuture.runAsync(() -> {
         try {
             InputStream inputStream = HostHook.class.getClassLoader().getResourceAsStream("assets/blocked_hosts.txt");
             if (inputStream == null) {
