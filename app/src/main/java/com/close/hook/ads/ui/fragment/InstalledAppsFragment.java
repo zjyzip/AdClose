@@ -10,22 +10,28 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.close.hook.ads.util.OnBackPressListener;
-import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.R;
 import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
+import com.close.hook.ads.util.OnBackPressContainer;
+import com.close.hook.ads.util.OnBackPressListener;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -43,6 +49,9 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
     private AppsFragment appFragment1;
     private AppsFragment appFragment2;
     private InputMethodManager imm;
+    private ImageButton searchClear;
+    private ImageButton searchFilter;
+    private BottomSheetDialog bottomSheetDialog;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,12 +79,84 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         tabLayout = view.findViewById(R.id.tab_layout);
         searchEditText = view.findViewById(R.id.search_edit_text);
         searchIcon = view.findViewById(R.id.search_icon);
+        searchClear = view.findViewById(R.id.search_clear);
+        searchFilter = view.findViewById(R.id.search_filter);
 
         appFragment1 = AppsFragment.newInstance(false);
         appFragment2 = AppsFragment.newInstance(true);
 
         setupSearchIcon();
         setupSearchEditText();
+        setupSearchClear();
+        setupSearchFilter();
+        setupFilter();
+    }
+
+    private void setupFilter() {
+        bottomSheetDialog = new BottomSheetDialog(requireContext());
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_search_filter, null);
+        bottomSheetDialog.setContentView(dialogView);
+        setupFilterListeners(dialogView);
+    }
+
+    private void setupSearchFilter() {
+        searchFilter.setOnClickListener(view -> {
+            bottomSheetDialog.show();
+        });
+    }
+
+    private void setupFilterListeners(View dialogView) {
+        MaterialToolbar toolbar = dialogView.findViewById(R.id.toolbar);
+        toolbar.setNavigationOnClickListener(view -> {
+            bottomSheetDialog.dismiss();
+        });
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_reset) {
+                // TO DO : reset sortList
+            }
+            return false;
+        });
+        ChipGroup sortBy = dialogView.findViewById(R.id.sort_by);
+        sortBy.setSingleSelection(true);
+        List<String> sortList = new ArrayList<>();
+        sortList.add("名称");
+        sortList.add("大小");
+        sortList.add("最常用");
+        sortList.add("最近更新时间");
+        sortList.add("安装日期");
+        sortList.add("目标 SDK");
+        for (String title : sortList) {
+            sortBy.addView(getChip(title));
+        }
+
+        ChipGroup filter = dialogView.findViewById(R.id.filter);
+        filter.setSingleSelection(false);
+        List<String> filterList = new ArrayList<>();
+        filterList.add("用户应用");
+        filterList.add("系统应用");
+        filterList.add("最近更新");
+        filterList.add("已禁用");
+        filterList.add("32位");
+        for (String title : filterList) {
+            filter.addView(getChip(title));
+        }
+    }
+
+    private View getChip(String title) {
+        Chip chip = new Chip(requireContext());
+        chip.setText(title);
+        chip.setCheckable(true);
+        chip.setClickable(true);
+        chip.setOnClickListener(view -> {
+            // TO DO : change SortList
+        });
+        return chip;
+    }
+
+    private void setupSearchClear() {
+        searchClear.setOnClickListener(view -> {
+            searchEditText.setText("");
+        });
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")
@@ -132,6 +213,11 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 
             @Override
             public void afterTextChanged(Editable s) {
+                if (s.toString().equals("")) {
+                    searchClear.setVisibility(View.GONE);
+                } else {
+                    searchClear.setVisibility(View.VISIBLE);
+                }
             }
 
             private void performSearch(String query) {

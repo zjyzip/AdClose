@@ -76,6 +76,17 @@
                         android:src="@drawable/ic_close"
                         android:visibility="gone" />
 
+                    <ImageButton
+                        android:id="@+id/search_filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:paddingLeft="16dp"
+                        android:paddingRight="16dp"
+                        android:src="@drawable/ic_filter"
+                        />
+
                 </LinearLayout>
             </com.google.android.material.appbar.MaterialToolbar>
         </com.google.android.material.card.MaterialCardView>
