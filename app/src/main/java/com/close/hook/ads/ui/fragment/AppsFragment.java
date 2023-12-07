@@ -79,6 +79,7 @@ public class AppsFragment extends Fragment {
 		setupViews(view);
 		setupRecyclerView();
 		setupLiveDataObservation();
+		setupAdapterItemClick();
 	}
 
 	private void setupViews(View view) {
@@ -103,7 +104,6 @@ public class AppsFragment extends Fragment {
 			progressBar.setVisibility(View.GONE);
 			appInfoList = new ArrayList<>(appInfos);
 			appsAdapter.submitList(appInfos);
-			setupAdapterItemClick();
 		});
 	}
 
@@ -113,7 +113,7 @@ public class AppsFragment extends Fragment {
 					if (MainActivity.isModuleActivated()) {
 						showBottomSheetDialog(appInfo);
 					} else {
-						AppUtils.showToast(requireContext(), "模块未激活");
+						AppUtils.showToast(requireContext(), "模块尚未被激活");
 					}
 				}));
 	}
@@ -132,7 +132,7 @@ public class AppsFragment extends Fragment {
 		PreferencesHelper prefsHelper = new PreferencesHelper(dialogView.getContext(), PREFERENCES_NAME);
 
 		int[] switchIds = { R.id.switch_one, R.id.switch_two, R.id.switch_three, R.id.switch_four, R.id.switch_five,
-				R.id.switch_six };
+				R.id.switch_six, R.id.switch_seven };
 		String[] prefKeys = { "switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_",
 				"switch_six_", "switch_seven_" };
 
@@ -153,14 +153,13 @@ public class AppsFragment extends Fragment {
 			appInfoList = new ArrayList<>();
 		}
 
-		String lowerCaseKeyword = keyWord.toLowerCase();
-		List<AppInfo> filteredList = new ArrayList<>();
-		for (AppInfo appInfo : appInfoList) {
-			if (appInfo.getAppName().toLowerCase().contains(lowerCaseKeyword)) {
-				filteredList.add(appInfo);
-			}
+		if (appsAdapter != null) {
+			String lowerCaseKeyword = keyWord.toLowerCase();
+			List<AppInfo> filteredList = appInfoList.stream()
+					.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(lowerCaseKeyword))
+					.collect(Collectors.toList());
+			appsAdapter.submitList(filteredList);
 		}
-		appsAdapter.submitList(filteredList);
 	}
 
 	@Override
