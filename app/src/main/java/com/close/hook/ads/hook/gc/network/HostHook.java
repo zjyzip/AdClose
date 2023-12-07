@@ -13,13 +13,11 @@ import android.webkit.*;
 import de.robv.android.xposed.*;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.*;
 
-import com.close.hook.ads.hook.util.HookUtil;
-
 public class HostHook {
 
     private static final String LOG_PREFIX = "[HostHook] ";
     private static final ConcurrentHashMap<String, Boolean> BLOCKED_HOSTS = new ConcurrentHashMap<>();
-    private static Method openConnectionMethod;
+    private static boolean isURLHooked = false;
 
     static {
         setupURLProxy();
@@ -33,18 +31,18 @@ public class HostHook {
     private static void setupURLProxy() {
         try {
             Constructor<URL> urlConstructor = URL.class.getDeclaredConstructor(String.class);
-            openConnectionMethod = URL.class.getDeclaredMethod("openConnection");
+            Method openConnectionMethod = URL.class.getDeclaredMethod("openConnection");
 
             XposedBridge.hookMethod(urlConstructor, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     final URL url = (URL) param.thisObject;
-                    if (shouldBlockRequest(url.getHost())) {
+                    if (shouldBlockRequest(url.getHost()) && !isURLHooked) {
+                        isURLHooked = true;
                         XposedBridge.hookMethod(openConnectionMethod, new XC_MethodReplacement() {
                             @Override
                             protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-							  String stackTrace = HookUtil.getFormattedStackTrace();
-							  throw new IOException("URL Blocked by HostHook\nURL: " + url.toString() + "\nStack Trace for Request:\n" + stackTrace);
+                                throw new IOException("URL Blocked: " + url);
                             }
                         });
                     }
@@ -57,22 +55,20 @@ public class HostHook {
 
     private static void loadBlockedHostsAsync() {
         CompletableFuture.runAsync(() -> {
-        try {
-            InputStream inputStream = HostHook.class.getClassLoader().getResourceAsStream("assets/blocked_hosts.txt");
-            if (inputStream == null) {
-                throw new FileNotFoundException("Blocked hosts list not found in assets");
-            }
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            try (InputStream inputStream = HostHook.class.getClassLoader().getResourceAsStream("assets/blocked_hosts.txt");
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                if (inputStream == null) {
+                    throw new FileNotFoundException("Blocked hosts list not found in assets");
+                }
                 String host;
                 while ((host = reader.readLine()) != null) {
                     BLOCKED_HOSTS.put(host, Boolean.TRUE);
                 }
+            } catch (IOException e) {
+                XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + e);
             }
-        } catch (IOException e) {
-            XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + e);
-        }
-    });
-}
+        });
+    }
 
     private static boolean shouldBlockRequest(String host) {
         return BLOCKED_HOSTS.containsKey(host);
@@ -83,7 +79,7 @@ public class HostHook {
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = HostExtractor.extractHostFromParam(param);
 			if (host != null && shouldBlockRequest(host)) {
-				param.setThrowable(new UnknownHostException("Connection blocked by HostHook"));
+				param.setResult(null);
 				return;
 			}
 		}
