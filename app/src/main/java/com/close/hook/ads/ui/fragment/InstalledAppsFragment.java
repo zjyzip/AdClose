@@ -132,7 +132,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         });
         ChipGroup sortBy = dialogView.findViewById(R.id.sort_by);
         sortBy.setSingleSelection(true);
-        List<String> sortList = List.of("名称", "已配置", "大小", "最常用", "最近更新时间", "安装日期", "目标 SDK");
+        List<String> sortList = List.of("应用名称", "已配置", "应用大小", "最近更新时间", "安装日期", "Target 版本");
         for (String title : sortList) {
             sortBy.addView(getChip(title));
         }
