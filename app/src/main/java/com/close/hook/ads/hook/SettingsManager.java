@@ -4,8 +4,8 @@ import com.close.hook.ads.hook.preference.PreferencesHelper;
 
 public class SettingsManager {
 
-    private PreferencesHelper prefsHelper;
-    private String packageName;
+    private final PreferencesHelper prefsHelper;
+    private final String packageName;
 
     public SettingsManager(PreferencesHelper prefsHelper, String packageName) {
         this.prefsHelper = prefsHelper;

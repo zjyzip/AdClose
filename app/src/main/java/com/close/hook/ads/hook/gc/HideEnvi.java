@@ -5,12 +5,13 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Arrays;
 
-import de.robv.android.xposed.*;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 
 /*
-* 2023.12.8-10:14
-* 参考 https://d0nuts33.github.io/2023/04/29/加固防护总结
-*/
+ * 2023.12.8-10:14
+ * 参考 https://d0nuts33.github.io/2023/04/29/加固防护总结
+ */
 
 public class HideEnvi {
 
@@ -29,8 +30,8 @@ public class HideEnvi {
                 private boolean isXposedOrMagiskPath(String path) {
                     // Magisk & Xposed paths
                     String[] paths = {"/sbin/.magisk", "/system/bin/magisk", "/data/data/com.topjohnwu.magisk",
-                                      "/system/lib/libriruloader.so", "/system/bin/su", "/system/xbin/su",
-                                      "/system/sbin/su", "/sbin/su", "/vendor/bin/su"};
+                            "/system/lib/libriruloader.so", "/system/bin/su", "/system/xbin/su",
+                            "/system/sbin/su", "/sbin/su", "/vendor/bin/su"};
                     return Arrays.asList(paths).contains(path);
                 }
             });
@@ -46,8 +47,8 @@ public class HideEnvi {
                 private boolean detectXposedOrMagiskInMemory() {
                     try {
                         String[] xposedFeatures = {"xposed.installer", "app_process_xposed", "libriru_", "/data/misc/edxp_",
-                                                   "libxposed_art.so", "libriruloader.so", "app_process_zposed",
-                                                   "liblspd.so", "libriru_edxp.so"};
+                                "libxposed_art.so", "libriruloader.so", "app_process_zposed",
+                                "liblspd.so", "libriru_edxp.so"};
                         String[] magiskFeatures = {"/.magisk", "MAGISK_INJ_"};
 
                         BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"));

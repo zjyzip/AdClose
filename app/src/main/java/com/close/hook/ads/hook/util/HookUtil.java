@@ -1,8 +1,12 @@
 package com.close.hook.ads.hook.util;
 
-import de.robv.android.xposed.*;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
+import de.robv.android.xposed.XC_MethodReplacement;
+import de.robv.android.xposed.XposedBridge;
 
 public class HookUtil {
 
@@ -18,12 +22,12 @@ public class HookUtil {
         }
 
         public HookInfo(String className, String methodName, Object returnValue) {
-            this(className, new String[] { methodName }, returnValue);
+            this(className, new String[]{methodName}, returnValue);
         }
     }
 
     public static void hookMethod(ClassLoader classLoader, String className, String methodName, Object returnValue) {
-        hookMethods(classLoader, className, new String[] { methodName }, returnValue);
+        hookMethods(classLoader, className, new String[]{methodName}, returnValue);
     }
 
     public static void hookMethods(ClassLoader classLoader, String className, String[] methodNames, Object returnValue) {
@@ -49,13 +53,13 @@ public class HookUtil {
         });
     }
 
-   public static String getFormattedStackTrace() {
-	  StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	  StringBuilder sb = new StringBuilder();
-	  for (StackTraceElement element : stackTrace) {
-		 sb.append("\tat ").append(element.toString()).append("\n");
-	  }
-	  return sb.toString();
-   }
+    public static String getFormattedStackTrace() {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        StringBuilder sb = new StringBuilder();
+        for (StackTraceElement element : stackTrace) {
+            sb.append("\tat ").append(element.toString()).append("\n");
+        }
+        return sb.toString();
+    }
 
 }

@@ -1,18 +1,18 @@
 package com.close.hook.ads.hook.gc.network;
 
-import java.util.Arrays;
-import java.util.Optional;
-import java.util.Random;
-import java.util.Objects;
-import java.util.function.Consumer;
-
-import android.net.NetworkInfo;
-import java.net.NetworkInterface;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
 
-import de.robv.android.xposed.*;
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
+import java.net.NetworkInterface;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Random;
+import java.util.function.Consumer;
+
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 
 public class HideVPNStatus {
 
@@ -62,14 +62,14 @@ public class HideVPNStatus {
     }
 
     public static void proxy() {
-        hookMethod(NetworkInfo.class, "getType", param -> 
-            replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
-        hookMethod(NetworkInfo.class, "getSubtype", param -> 
-            replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
-        hookMethod(NetworkInfo.class, "getTypeName", param -> 
-            replaceResultIfEqualsIgnoreCase(param, "VPN", "WIFI"));
-        hookMethod(NetworkInfo.class, "getSubtypeName", param -> 
-            replaceResultIfEqualsIgnoreCase(param, "VPN", "WIFI"));
+        hookMethod(NetworkInfo.class, "getType", param ->
+                replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
+        hookMethod(NetworkInfo.class, "getSubtype", param ->
+                replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
+        hookMethod(NetworkInfo.class, "getTypeName", param ->
+                replaceResultIfEqualsIgnoreCase(param, "VPN", "WIFI"));
+        hookMethod(NetworkInfo.class, "getSubtypeName", param ->
+                replaceResultIfEqualsIgnoreCase(param, "VPN", "WIFI"));
         hookMethod(NetworkCapabilities.class, "hasTransport", param -> {
             if (Objects.equals(param.args[0], NetworkCapabilities.TRANSPORT_VPN)) {
                 param.setResult(false);
@@ -96,7 +96,7 @@ public class HideVPNStatus {
             }
         });
         hookMethod(NetworkInterface.class, "isVirtual", param -> param.setResult(false));
-        hookMethod(NetworkInterface.class, "getName", param -> 
-            replaceResultIfStartsWith(param, "tun", "ppp", "pptp"));
+        hookMethod(NetworkInterface.class, "getName", param ->
+                replaceResultIfStartsWith(param, "tun", "ppp", "pptp"));
     }
 }

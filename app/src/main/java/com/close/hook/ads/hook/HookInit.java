@@ -1,11 +1,11 @@
 package com.close.hook.ads.hook;
 
+import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.util.Log;
-import android.annotation.SuppressLint;
 
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
@@ -28,7 +28,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public class HookInit implements IXposedHookLoadPackage {
     private static final String TAG = "com.close.hook.ads";
 
-	@SuppressLint("SuspiciousIndentation")
+    @SuppressLint("SuspiciousIndentation")
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
         if (shouldIgnorePackage(lpparam)) {
@@ -89,7 +89,7 @@ public class HookInit implements IXposedHookLoadPackage {
                     CharSequence appName = getAppName(context, packageName);
 
                     if (!TAG.equals(packageName)) {
-                    XposedBridge.log("Application Name: " + appName);
+                        XposedBridge.log("Application Name: " + appName);
                     }
 
                     if (settingsManager.isHandlePlatformAdEnabled()) {

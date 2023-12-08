@@ -1,15 +1,15 @@
 package com.close.hook.ads.ui.viewmodel;
 
+import android.app.Application;
+import android.content.pm.PackageManager;
+
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.LiveDataReactiveStreams;
-import android.app.Application;
-import android.content.pm.PackageManager;
 
 import com.close.hook.ads.data.model.AppInfo;
 import com.close.hook.ads.data.repository.AppRepository;
 
-import java.util.Collections;
 import java.util.List;
 
 import io.reactivex.rxjava3.core.BackpressureStrategy;
@@ -42,17 +42,17 @@ public class AppsViewModel extends AndroidViewModel {
 
     private LiveData<List<AppInfo>> loadUserApps() {
         return LiveDataReactiveStreams.fromPublisher(
-            appRepository.getInstalledUserApps()
-                .toFlowable(BackpressureStrategy.LATEST)
-                .subscribeOn(Schedulers.io())
+                appRepository.getInstalledUserApps()
+                        .toFlowable(BackpressureStrategy.LATEST)
+                        .subscribeOn(Schedulers.io())
         );
     }
 
     private LiveData<List<AppInfo>> loadSystemApps() {
         return LiveDataReactiveStreams.fromPublisher(
-            appRepository.getInstalledSystemApps()
-                .toFlowable(BackpressureStrategy.LATEST)
-                .subscribeOn(Schedulers.io())
+                appRepository.getInstalledSystemApps()
+                        .toFlowable(BackpressureStrategy.LATEST)
+                        .subscribeOn(Schedulers.io())
         );
     }
 }

@@ -145,10 +145,10 @@ public class AppsFragment extends Fragment {
 
     private void setupSwitch(MaterialSwitch switchView, String key, PreferencesHelper prefsHelper) {
         switchView.setChecked(prefsHelper.getBoolean(key, false));
-        switchView.setOnCheckedChangeListener((buttonView, isChecked) ->{
+        switchView.setOnCheckedChangeListener((buttonView, isChecked) -> {
             prefsHelper.setBoolean(key, isChecked);
             // TO DO : update isEnable value
-        } );
+        });
     }
 
     public void searchKeyWorld(String keyWord) {

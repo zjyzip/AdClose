@@ -11,7 +11,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestOptions;
-
 import com.close.hook.ads.R;
 import com.close.hook.ads.data.model.AppInfo;
 import com.close.hook.ads.databinding.InstallsItemAppBinding;
@@ -78,11 +77,11 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
             binding.textViewAppVersion.setText(appInfo.getVersionName());
 
             Glide.with(binding.imageViewAppIcon.getContext())
-                .load(appInfo.getAppIcon())
-                .apply(new RequestOptions()
-                    .override(binding.imageViewAppIcon.getContext().getResources().getDimensionPixelSize(R.dimen.app_icon_size))
-                    .diskCacheStrategy(DiskCacheStrategy.ALL))
-                .into(binding.imageViewAppIcon);
+                    .load(appInfo.getAppIcon())
+                    .apply(new RequestOptions()
+                            .override(binding.imageViewAppIcon.getContext().getResources().getDimensionPixelSize(R.dimen.app_icon_size))
+                            .diskCacheStrategy(DiskCacheStrategy.ALL))
+                    .into(binding.imageViewAppIcon);
         }
     }
 }

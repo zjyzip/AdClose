@@ -15,7 +15,7 @@ public class AppInfo implements Parcelable {
     private final Long firstInstallTime;
     private final Long lastUpdateTime;
 
-    public AppInfo(String appName, String packageName, Drawable appIcon, String versionName,int isEnable, Long firstInstallTime, Long lastUpdateTime) {
+    public AppInfo(String appName, String packageName, Drawable appIcon, String versionName, int isEnable, Long firstInstallTime, Long lastUpdateTime) {
         this.appName = appName;
         this.packageName = packageName;
         this.appIcon = appIcon;
@@ -50,12 +50,15 @@ public class AppInfo implements Parcelable {
     public String getVersionName() {
         return versionName;
     }
-    public int getIsEnable()  {
+
+    public int getIsEnable() {
         return isEnable;
     }
+
     public Long getFirstInstallTime() {
         return firstInstallTime;
     }
+
     public Long getLastUpdateTime() {
         return lastUpdateTime;
     }
@@ -63,8 +66,7 @@ public class AppInfo implements Parcelable {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof AppInfo)) return false;
-        AppInfo appInfo = (AppInfo) o;
+        if (!(o instanceof AppInfo appInfo)) return false;
         return Objects.equals(getPackageName(), appInfo.getPackageName());
     }
 

@@ -10,13 +10,13 @@ public class LinearItemDecoration extends RecyclerView.ItemDecoration {
 
     private final int space;
 
-    public LinearItemDecoration(int space){
+    public LinearItemDecoration(int space) {
         this.space = space;
     }
 
-    public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, RecyclerView parent, @NonNull RecyclerView.State state){
+    public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, RecyclerView parent, @NonNull RecyclerView.State state) {
         int position = parent.getChildAdapterPosition(view);
-        if (position == 0){
+        if (position == 0) {
             outRect.top = this.space;
         }
         outRect.left = this.space;
