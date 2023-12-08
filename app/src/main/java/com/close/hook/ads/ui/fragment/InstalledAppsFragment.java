@@ -12,7 +12,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,13 +24,14 @@ import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -52,6 +52,8 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
     private ImageButton searchClear;
     private ImageButton searchFilter;
     private BottomSheetDialog bottomSheetDialog;
+    private MaterialCheckBox reverseSwitch;
+    private String filterTitle;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -88,8 +90,8 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         setupSearchIcon();
         setupSearchEditText();
         setupSearchClear();
-        setupSearchFilter();
         setupFilter();
+        setupSearchFilter();
     }
 
     private void setupFilter() {
@@ -112,31 +114,32 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         });
         toolbar.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == R.id.action_reset) {
-                // TO DO : reset sortList
+                if (viewPager.getCurrentItem() == 0) {
+                    appFragment1.searchKeyWorld("");
+                } else if (viewPager.getCurrentItem() == 1) {
+                    appFragment2.searchKeyWorld("");
+                }
             }
             return false;
         });
+        reverseSwitch = dialogView.findViewById(R.id.reverse_switch);
+        reverseSwitch.setOnCheckedChangeListener((compoundButton, b) -> {
+            if (viewPager.getCurrentItem() == 0) {
+                appFragment1.updateSortList(filterTitle, searchEditText.getText().toString(), b);
+            } else if (viewPager.getCurrentItem() == 1) {
+                appFragment2.updateSortList(filterTitle, searchEditText.getText().toString(), b);
+            }
+        });
         ChipGroup sortBy = dialogView.findViewById(R.id.sort_by);
         sortBy.setSingleSelection(true);
-        List<String> sortList = new ArrayList<>();
-        sortList.add("名称");
-        sortList.add("大小");
-        sortList.add("最常用");
-        sortList.add("最近更新时间");
-        sortList.add("安装日期");
-        sortList.add("目标 SDK");
+        List<String> sortList = List.of("名称", "已配置", "大小", "最常用", "最近更新时间", "安装日期", "目标 SDK");
         for (String title : sortList) {
             sortBy.addView(getChip(title));
         }
 
         ChipGroup filter = dialogView.findViewById(R.id.filter);
         filter.setSingleSelection(false);
-        List<String> filterList = new ArrayList<>();
-        filterList.add("用户应用");
-        filterList.add("系统应用");
-        filterList.add("最近更新");
-        filterList.add("已禁用");
-        filterList.add("32位");
+        List<String> filterList = List.of("最近更新", "已禁用", "32位");
         for (String title : filterList) {
             filter.addView(getChip(title));
         }
@@ -147,10 +150,22 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         chip.setText(title);
         chip.setCheckable(true);
         chip.setClickable(true);
+        if (Objects.equals(title, "名称")) {
+            chip.setChecked(true);
+        }
         chip.setOnClickListener(view -> {
-            // TO DO : change SortList
+            filterTitle = title;
+            updateSortList(title);
         });
         return chip;
+    }
+
+    private void updateSortList(String title) {
+        if (viewPager.getCurrentItem() == 0) {
+            appFragment1.updateSortList(title, searchEditText.getText().toString(), reverseSwitch.isChecked());
+        } else if (viewPager.getCurrentItem() == 1) {
+            appFragment2.updateSortList(title, searchEditText.getText().toString(), reverseSwitch.isChecked());
+        }
     }
 
     private void setupSearchClear() {

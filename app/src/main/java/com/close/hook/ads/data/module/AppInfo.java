@@ -11,12 +11,18 @@ public class AppInfo implements Parcelable {
     private final String packageName;
     private final Drawable appIcon;
     private final String versionName;
+    private final int isEnable;
+    private final Long firstInstallTime;
+    private final Long lastUpdateTime;
 
-    public AppInfo(String appName, String packageName, Drawable appIcon, String versionName) {
+    public AppInfo(String appName, String packageName, Drawable appIcon, String versionName,int isEnable, Long firstInstallTime, Long lastUpdateTime) {
         this.appName = appName;
         this.packageName = packageName;
         this.appIcon = appIcon;
         this.versionName = versionName;
+        this.isEnable = isEnable;
+        this.firstInstallTime = firstInstallTime;
+        this.lastUpdateTime = lastUpdateTime;
     }
 
     protected AppInfo(Parcel in) {
@@ -24,6 +30,9 @@ public class AppInfo implements Parcelable {
         packageName = in.readString();
         versionName = in.readString();
         appIcon = (Drawable) in.readValue(Drawable.class.getClassLoader());
+        isEnable = in.readInt();
+        firstInstallTime = in.readLong();
+        lastUpdateTime = in.readLong();
     }
 
     public String getAppName() {
@@ -40,6 +49,15 @@ public class AppInfo implements Parcelable {
 
     public String getVersionName() {
         return versionName;
+    }
+    public int getIsEnable()  {
+        return isEnable;
+    }
+    public Long getFirstInstallTime() {
+        return firstInstallTime;
+    }
+    public Long getLastUpdateTime() {
+        return lastUpdateTime;
     }
 
     @Override
@@ -61,6 +79,9 @@ public class AppInfo implements Parcelable {
         dest.writeString(packageName);
         dest.writeString(versionName);
         dest.writeValue(appIcon);
+        dest.writeInt(isEnable);
+        dest.writeLong(firstInstallTime);
+        dest.writeLong(lastUpdateTime);
     }
 
     @Override
