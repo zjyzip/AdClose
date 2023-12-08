@@ -29,7 +29,7 @@
     <string name="remove_flag_secure">去除截图录屏限制</string>
     <string name="remove_vpn_state">去除VPN代理检测</string>
     <string name="remove_sensor_monitor">去除遥感器监听</string>
-    <string name="remove_envi_detection">去除Root检测</string>
+    <string name="remove_envi_detection">去除环境检测</string>
     <string name="sort_filter">排序和过滤</string>
     <string name="reset">重置</string>
     <string name="sort_by">排序方式</string>

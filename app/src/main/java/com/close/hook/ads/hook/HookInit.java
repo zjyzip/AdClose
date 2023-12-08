@@ -87,7 +87,10 @@ public class HookInit implements IXposedHookLoadPackage {
 
                     String packageName = context.getPackageName();
                     CharSequence appName = getAppName(context, packageName);
+
+                    if (!TAG.equals(packageName)) {
                     XposedBridge.log("Application Name: " + appName);
+                    }
 
                     if (settingsManager.isHandlePlatformAdEnabled()) {
                         SDKHooks.hookAds(classLoader);
@@ -111,10 +114,6 @@ public class HookInit implements IXposedHookLoadPackage {
     }
 
     private CharSequence getAppName(Context context, String packageName) {
-        if (TAG.equals(packageName)) {
-            return null;
-        }
-
         PackageManager packageManager = context.getPackageManager();
         try {
             ApplicationInfo appInfo = packageManager.getApplicationInfo(packageName, 0);
