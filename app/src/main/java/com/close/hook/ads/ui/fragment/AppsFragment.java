@@ -37,6 +37,8 @@ import java.util.stream.Collectors;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
+import me.zhanghai.android.fastscroll.FastScrollerBuilder;
+
 import java.util.stream.Stream;
 
 public class AppsFragment extends Fragment {
@@ -93,12 +95,11 @@ public class AppsFragment extends Fragment {
 	}
 
 	private void setupRecyclerView() {
+		new FastScrollerBuilder(recyclerView).useMd2Style().build();
 		recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 		recyclerView.setAdapter(appsAdapter);
-		if (recyclerView.getItemDecorationCount() == 0) {
-			int space = getResources().getDimensionPixelSize(ITEM_DECORATION_SPACE);
-			recyclerView.addItemDecoration(new LinearItemDecoration(space));
-		}
+		int space = getResources().getDimensionPixelSize(ITEM_DECORATION_SPACE);
+		recyclerView.addItemDecoration(new LinearItemDecoration(space));
 	}
 
 	private void setupLiveDataObservation() {
