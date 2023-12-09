@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 
 public class AppRepository {
 	private final PackageManager packageManager;
@@ -41,7 +42,9 @@ public class AppRepository {
 			}
 			appList.sort((app1, app2) -> app1.getAppName().compareToIgnoreCase(app2.getAppName()));
 			return appList;
-		}).subscribeOn(Schedulers.io());
+		})
+		.subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread());
 	}
 
 	private boolean isSystemApp(ApplicationInfo applicationInfo) {

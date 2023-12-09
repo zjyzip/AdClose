@@ -28,6 +28,8 @@ import com.close.hook.ads.util.LinearItemDecoration;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
+import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -149,37 +151,33 @@ public class AppsFragment extends Fragment {
 		}
 	}
 
-	private void setupSwitch(MaterialSwitch switchView,String packageName, String key, PreferencesHelper prefsHelper) {
+	private void setupSwitch(MaterialSwitch switchView, String packageName, String key, PreferencesHelper prefsHelper) {
 		switchView.setChecked(prefsHelper.getBoolean(key, false));
 		switchView.setOnCheckedChangeListener((buttonView, isChecked) -> {
 			prefsHelper.setBoolean(key, isChecked);
-            appInfoList.get(getAppPosition(packageName)).setIsEnable(isAppEnabled(packageName));
+			appInfoList.get(getAppPosition(packageName)).setIsEnable(isAppEnabled(packageName));
 		});
 	}
 
-    private int getAppPosition(String packageName){
-        int position = 0;
-        for (AppInfo appInfo : appInfoList) {
-            if (Objects.equals(appInfo.getPackageName(), packageName))
-                break;
-            else
-                position++;
-        }
-        return position;
-    }
+	private int getAppPosition(String packageName) {
+		int position = 0;
+		for (AppInfo appInfo : appInfoList) {
+			if (Objects.equals(appInfo.getPackageName(), packageName))
+				break;
+			else
+				position++;
+		}
+		return position;
+	}
 
 	public void searchKeyWorld(String keyWord) {
-		if (appInfoList == null) {
-			appInfoList = new ArrayList<>();
-		}
-
-		if (appsAdapter != null) {
-			String lowerCaseKeyword = keyWord.toLowerCase();
-			List<AppInfo> filteredList = appInfoList.stream()
-					.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(lowerCaseKeyword))
+		disposables.add(Observable.fromCallable(() -> {
+			return appInfoList.stream()
+					.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
 					.collect(Collectors.toList());
+		}).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(filteredList -> {
 			appsAdapter.submitList(filteredList);
-		}
+		}));
 	}
 
 	public void updateSortList(String title, String keyWord, Boolean isReverse) {
@@ -211,17 +209,18 @@ public class AppsFragment extends Fragment {
 
 		Predicate<AppInfo> predicate;
 		if (title.equals("已配置")) {
-			predicate = appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()) && appInfo.getIsEnable() == 1;
+			predicate = appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+					&& appInfo.getIsEnable() == 1;
 		} else {
 			predicate = appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
 		}
-
 
 		if (comparator != null) {
 			if (isReverse) {
 				comparator = comparator.reversed();
 			}
-			List<AppInfo> sortedList = appInfoList.stream().filter(predicate).sorted(comparator).collect(Collectors.toList());
+			List<AppInfo> sortedList = appInfoList.stream().filter(predicate).sorted(comparator)
+					.collect(Collectors.toList());
 			appsAdapter.submitList(sortedList);
 		}
 	}
