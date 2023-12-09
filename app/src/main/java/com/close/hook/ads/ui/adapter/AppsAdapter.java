@@ -80,7 +80,7 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
                     .load(appInfo.getAppIcon())
                     .apply(new RequestOptions()
                             .override(binding.imageViewAppIcon.getContext().getResources().getDimensionPixelSize(R.dimen.app_icon_size))
-                            .diskCacheStrategy(DiskCacheStrategy.ALL))
+                            .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
                     .into(binding.imageViewAppIcon);
         }
     }
