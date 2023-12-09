@@ -89,7 +89,7 @@ public class HostHook {
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
             String host = HostExtractor.extractHostFromParam(param);
             if (host != null && shouldBlockRequest(host)) {
-                param.setResult(null);
+                param.setThrowable(new UnknownHostException("Connection blocked by HostHook"));
             }
         }
     };
