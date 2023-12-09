@@ -14,7 +14,7 @@ public class PreferencesHelper {
 
     // 普通 Android 环境
     public PreferencesHelper(Context context, String prefsName) {
-        prefs = Optional.ofNullable(context.getSharedPreferences(prefsName, Context.MODE_WORLD_READABLE));
+        prefs = Optional.ofNullable(context.getSharedPreferences(prefsName, Context.MODE_PRIVATE));
         xPrefs = Optional.empty();
     }
 

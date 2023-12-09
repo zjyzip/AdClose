@@ -112,8 +112,11 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         toolbar.setNavigationOnClickListener(view -> {
             bottomSheetDialog.dismiss();
         });
+        ChipGroup sortBy = dialogView.findViewById(R.id.sort_by);
         toolbar.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == R.id.action_reset) {
+                sortBy.check(0);
+                reverseSwitch.setChecked(false);
                 if (viewPager.getCurrentItem() == 0) {
                     appFragment1.searchKeyWorld("");
                 } else if (viewPager.getCurrentItem() == 1) {
@@ -130,13 +133,11 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
                 appFragment2.updateSortList(filterTitle, searchEditText.getText().toString(), b);
             }
         });
-        ChipGroup sortBy = dialogView.findViewById(R.id.sort_by);
         sortBy.setSingleSelection(true);
         List<String> sortList = List.of("应用名称", "已配置", "应用大小", "最近更新时间", "安装日期", "Target 版本");
         for (String title : sortList) {
             sortBy.addView(getChip(title));
         }
-
         ChipGroup filter = dialogView.findViewById(R.id.filter);
         filter.setSingleSelection(false);
         List<String> filterList = List.of("最近更新", "已禁用", "32位");
@@ -150,8 +151,9 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         chip.setText(title);
         chip.setCheckable(true);
         chip.setClickable(true);
-        if (Objects.equals(title, "名称")) {
+        if (Objects.equals(title, "应用名称")) {
             chip.setChecked(true);
+            chip.setId(0);
         }
         chip.setOnClickListener(view -> {
             filterTitle = title;

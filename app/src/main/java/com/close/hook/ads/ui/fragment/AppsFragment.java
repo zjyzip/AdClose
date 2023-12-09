@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -194,11 +195,19 @@ public class AppsFragment extends Fragment {
 			break;
 		}
 
+		Predicate<AppInfo> predicate;
+		if (title.equals("已配置")) {
+			predicate = appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()) && appInfo.getIsEnable() == 1;
+		} else {
+			predicate = appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
+		}
+
+
 		if (comparator != null) {
 			if (isReverse) {
 				comparator = comparator.reversed();
 			}
-			List<AppInfo> sortedList = appInfoList.stream().sorted(comparator).collect(Collectors.toList());
+			List<AppInfo> sortedList = appInfoList.stream().filter(predicate).sorted(comparator).collect(Collectors.toList());
 			appsAdapter.submitList(sortedList);
 		}
 	}
