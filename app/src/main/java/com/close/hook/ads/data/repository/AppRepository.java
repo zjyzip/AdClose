@@ -1,6 +1,7 @@
 package com.close.hook.ads.data.repository;
 
 import static com.close.hook.ads.CloseApplication.context;
+import static com.close.hook.ads.util.AppUtils.isAppEnabled;
 
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -56,18 +57,6 @@ public class AppRepository {
 		int isEnable = isAppEnabled(packageInfo.packageName);
 		return new AppInfo(appName, packageInfo.packageName, appIcon, versionName, isEnable,
 				packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk);
-	}
-
-	private int isAppEnabled(String packageName) {
-		PreferencesHelper prefsHelper = new PreferencesHelper(context, "com.close.hook.ads_preferences");
-		String[] prefKeys = { "switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_",
-				"switch_six_", "switch_seven_" };
-		for (String prefKey : prefKeys) {
-			if (prefsHelper.getBoolean(prefKey + packageName, false)) {
-				return 1;
-			}
-		}
-		return 0;
 	}
 
 	private String getAppName(ApplicationInfo appInfo) {

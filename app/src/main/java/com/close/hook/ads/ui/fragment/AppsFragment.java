@@ -1,5 +1,7 @@
 package com.close.hook.ads.ui.fragment;
 
+import static com.close.hook.ads.util.AppUtils.isAppEnabled;
+
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -142,17 +144,28 @@ public class AppsFragment extends Fragment {
 		for (int i = 0; i < switchIds.length; i++) {
 			MaterialSwitch switchView = dialogView.findViewById(switchIds[i]);
 			String key = prefKeys[i] + appInfo.getPackageName();
-			setupSwitch(switchView, key, prefsHelper);
+			setupSwitch(switchView, appInfo.getPackageName(), key, prefsHelper);
 		}
 	}
 
-	private void setupSwitch(MaterialSwitch switchView, String key, PreferencesHelper prefsHelper) {
+	private void setupSwitch(MaterialSwitch switchView,String packageName, String key, PreferencesHelper prefsHelper) {
 		switchView.setChecked(prefsHelper.getBoolean(key, false));
 		switchView.setOnCheckedChangeListener((buttonView, isChecked) -> {
 			prefsHelper.setBoolean(key, isChecked);
-			// TO DO : update isEnable value
+            appInfoList.get(getAppPosition(packageName)).setIsEnable(isAppEnabled(packageName));
 		});
 	}
+
+    private int getAppPosition(String packageName){
+        int position = 0;
+        for (AppInfo appInfo : appInfoList) {
+            if (Objects.equals(appInfo.getPackageName(), packageName))
+                break;
+            else
+                position++;
+        }
+        return position;
+    }
 
 	public void searchKeyWorld(String keyWord) {
 		if (appInfoList == null) {

@@ -11,7 +11,7 @@ public class AppInfo implements Parcelable {
 	private final String packageName;
 	private final Drawable appIcon;
 	private final String versionName;
-	private final int isEnable;
+	private int isEnable;
 	private final Long firstInstallTime;
 	private final Long lastUpdateTime;
 	private final long size;
@@ -61,6 +61,10 @@ public class AppInfo implements Parcelable {
 	public int getIsEnable() {
 		return isEnable;
 	}
+	public void setIsEnable(int isEnable) {
+		this.isEnable = isEnable;
+	}
+
 
 	public Long getFirstInstallTime() {
 		return firstInstallTime;
