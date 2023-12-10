@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -29,12 +30,12 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.functions.Predicate;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -186,7 +187,7 @@ public class AppsFragment extends Fragment {
 			}
 
 			disposables.add(Observable.just(appInfoList).flatMapIterable(list -> list) // 将列表转换为单个元素的流
-					.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
+					.filter(getAppInfoFilter(title, keyWord))
 					.sorted(comparator) // 使用Comparator进行排序
 					.toList() // 将排序后的流转换回列表
 					.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(sortedList -> {
@@ -199,8 +200,6 @@ public class AppsFragment extends Fragment {
 		switch (title) {
 		case "应用名称":
 			return Comparator.comparing(AppInfo::getAppName, String.CASE_INSENSITIVE_ORDER);
-		case "已配置":
-			return Comparator.comparingInt(AppInfo::getIsEnable);
 		case "应用大小":
 			return Comparator.comparingLong(AppInfo::getSize);
 		case "最近更新时间":
@@ -211,6 +210,16 @@ public class AppsFragment extends Fragment {
 			return Comparator.comparingInt(AppInfo::getTargetSdk);
 		default:
 			return null;
+		}
+	}
+
+	private Predicate<AppInfo> getAppInfoFilter(String title, String keyWord) {
+		switch (title) {
+			case "已配置":
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						&& appInfo.getIsEnable() == 1;
+			default:
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
 		}
 	}
 
