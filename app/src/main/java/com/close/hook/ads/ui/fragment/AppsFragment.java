@@ -110,7 +110,7 @@ public class AppsFragment extends Fragment {
 
 		appsLiveData.observe(getViewLifecycleOwner(), appInfos -> {
 			progressBar.setVisibility(View.GONE);
-			appInfoList = new ArrayList<>(appInfos);
+			appInfoList = appInfos;
 			appsAdapter.submitList(appInfos);
 		});
 	}
@@ -171,57 +171,46 @@ public class AppsFragment extends Fragment {
 	}
 
 	public void searchKeyWorld(String keyWord) {
-		disposables.add(Observable.fromCallable(() -> {
-			return appInfoList.stream()
-					.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
-					.collect(Collectors.toList());
-		}).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(filteredList -> {
-			appsAdapter.submitList(filteredList);
-		}));
+		disposables.add(Observable.just(appInfoList).flatMapIterable(list -> list) // 将列表转换为单个元素的流
+				.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())).toList() // 将过滤后的流转换回列表
+				.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(filteredList -> {
+					appsAdapter.submitList(filteredList);
+				}));
 	}
 
 	public void updateSortList(String title, String keyWord, Boolean isReverse) {
-		if (appInfoList == null) {
-			appInfoList = new ArrayList<>();
-		}
-
-		Comparator<AppInfo> comparator = null;
-		switch (title) {
-		case "应用名称":
-			comparator = Comparator.comparing(AppInfo::getAppName, String.CASE_INSENSITIVE_ORDER);
-			break;
-		case "已配置":
-			comparator = Comparator.comparingInt(AppInfo::getIsEnable);
-			break;
-		case "应用大小":
-			comparator = Comparator.comparingLong(AppInfo::getSize);
-			break;
-		case "最近更新时间":
-			comparator = Comparator.comparing(AppInfo::getLastUpdateTime);
-			break;
-		case "安装日期":
-			comparator = Comparator.comparing(AppInfo::getFirstInstallTime);
-			break;
-		case "Target 版本":
-			comparator = Comparator.comparingInt(AppInfo::getTargetSdk);
-			break;
-		}
-
-		Predicate<AppInfo> predicate;
-		if (title.equals("已配置")) {
-			predicate = appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
-					&& appInfo.getIsEnable() == 1;
-		} else {
-			predicate = appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
-		}
-
+		Comparator<AppInfo> comparator = getAppInfoComparator(title);
 		if (comparator != null) {
 			if (isReverse) {
 				comparator = comparator.reversed();
 			}
-			List<AppInfo> sortedList = appInfoList.stream().filter(predicate).sorted(comparator)
-					.collect(Collectors.toList());
-			appsAdapter.submitList(sortedList);
+
+			disposables.add(Observable.just(appInfoList).flatMapIterable(list -> list) // 将列表转换为单个元素的流
+					.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
+					.sorted(comparator) // 使用Comparator进行排序
+					.toList() // 将排序后的流转换回列表
+					.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(sortedList -> {
+						appsAdapter.submitList(sortedList);
+					}));
+		}
+	}
+
+	private Comparator<AppInfo> getAppInfoComparator(String title) {
+		switch (title) {
+		case "应用名称":
+			return Comparator.comparing(AppInfo::getAppName, String.CASE_INSENSITIVE_ORDER);
+		case "已配置":
+			return Comparator.comparingInt(AppInfo::getIsEnable);
+		case "应用大小":
+			return Comparator.comparingLong(AppInfo::getSize);
+		case "最近更新时间":
+			return Comparator.comparing(AppInfo::getLastUpdateTime);
+		case "安装日期":
+			return Comparator.comparing(AppInfo::getFirstInstallTime);
+		case "Target 版本":
+			return Comparator.comparingInt(AppInfo::getTargetSdk);
+		default:
+			return null;
 		}
 	}
 
