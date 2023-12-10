@@ -11,19 +11,17 @@ public class AppInfo implements Parcelable {
 	private final String packageName;
 	private final Drawable appIcon;
 	private final String versionName;
-	private int isEnable;
 	private final Long firstInstallTime;
 	private final Long lastUpdateTime;
 	private final long size;
 	private final int targetSdk;
 
-	public AppInfo(String appName, String packageName, Drawable appIcon, String versionName, int isEnable,
+	public AppInfo(String appName, String packageName, Drawable appIcon, String versionName,
 			Long firstInstallTime, Long lastUpdateTime, long size, int targetSdk) {
 		this.appName = appName;
 		this.packageName = packageName;
 		this.appIcon = appIcon;
 		this.versionName = versionName;
-		this.isEnable = isEnable;
 		this.firstInstallTime = firstInstallTime;
 		this.lastUpdateTime = lastUpdateTime;
 		this.size = size;
@@ -35,7 +33,6 @@ public class AppInfo implements Parcelable {
 		packageName = in.readString();
 		versionName = in.readString();
 		appIcon = (Drawable) in.readValue(Drawable.class.getClassLoader());
-		isEnable = in.readInt();
 		firstInstallTime = in.readLong();
 		lastUpdateTime = in.readLong();
 		size = in.readLong();
@@ -57,14 +54,6 @@ public class AppInfo implements Parcelable {
 	public String getVersionName() {
 		return versionName;
 	}
-
-	public int getIsEnable() {
-		return isEnable;
-	}
-	public void setIsEnable(int isEnable) {
-		this.isEnable = isEnable;
-	}
-
 
 	public Long getFirstInstallTime() {
 		return firstInstallTime;
@@ -102,7 +91,6 @@ public class AppInfo implements Parcelable {
 		dest.writeString(packageName);
 		dest.writeString(versionName);
 		dest.writeValue(appIcon);
-		dest.writeInt(isEnable);
 		dest.writeLong(firstInstallTime);
 		dest.writeLong(lastUpdateTime);
 		dest.writeLong(size);

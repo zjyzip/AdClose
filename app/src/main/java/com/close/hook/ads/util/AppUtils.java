@@ -1,7 +1,5 @@
 package com.close.hook.ads.util;
 
-import static com.close.hook.ads.CloseApplication.context;
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -22,23 +20,9 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
-import com.close.hook.ads.hook.preference.PreferencesHelper;
-
 import java.util.Objects;
 
 public class AppUtils {
-
-    public static int isAppEnabled(String packageName) {
-        PreferencesHelper prefsHelper = new PreferencesHelper(context, "com.close.hook.ads_preferences");
-        String[] prefKeys = { "switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_",
-                "switch_six_", "switch_seven_" };
-        for (String prefKey : prefKeys) {
-            if (prefsHelper.getBoolean(prefKey + packageName, false)) {
-                return 1;
-            }
-        }
-        return 0;
-    }
 
     public static float dipToPixels(Context context, float dipValue) {
         DisplayMetrics metrics = context.getResources().getDisplayMetrics();

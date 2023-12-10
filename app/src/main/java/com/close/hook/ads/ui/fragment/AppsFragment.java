@@ -1,7 +1,5 @@
 package com.close.hook.ads.ui.fragment;
 
-import static com.close.hook.ads.util.AppUtils.isAppEnabled;
-
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -9,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -33,6 +32,8 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.functions.Predicate;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.ArrayList;
+import java.util.Optional;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -73,7 +74,9 @@ public class AppsFragment extends Fragment {
 			isSystemApp = getArguments().getBoolean(ARG_IS_SYSTEM_APP);
 		}
 		appsAdapter = new AppsAdapter();
-		appsViewModel = new ViewModelProvider(requireActivity()).get(AppsViewModel.class);
+        if (appsViewModel == null) {
+            appsViewModel = new ViewModelProvider(requireActivity()).get(AppsViewModel.class);
+        }
 	}
 
 	@Nullable
@@ -90,7 +93,12 @@ public class AppsFragment extends Fragment {
 		setupRecyclerView();
 		setupLiveDataObservation();
 		setupAdapterItemClick();
-	}
+
+        String currentSearchKeyword = appsViewModel.getCurrentSearchKeyword();
+        if (!currentSearchKeyword.isEmpty()) {
+          searchKeyWorld(currentSearchKeyword);
+        }
+    }
 
 	private void setupViews(View view) {
 		progressBar = view.findViewById(R.id.progress_bar);
@@ -141,42 +149,36 @@ public class AppsFragment extends Fragment {
 		PreferencesHelper prefsHelper = new PreferencesHelper(dialogView.getContext(), PREFERENCES_NAME);
 
 		int[] switchIds = { R.id.switch_one, R.id.switch_two, R.id.switch_three, R.id.switch_four, R.id.switch_five,
-				R.id.switch_six, R.id.switch_seven };
+				R.id.switch_six };
 		String[] prefKeys = { "switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_",
 				"switch_six_", "switch_seven_" };
 
 		for (int i = 0; i < switchIds.length; i++) {
 			MaterialSwitch switchView = dialogView.findViewById(switchIds[i]);
 			String key = prefKeys[i] + appInfo.getPackageName();
-			setupSwitch(switchView, appInfo.getPackageName(), key, prefsHelper);
+			setupSwitch(switchView, key, prefsHelper);
 		}
 	}
 
-	private void setupSwitch(MaterialSwitch switchView, String packageName, String key, PreferencesHelper prefsHelper) {
+	private void setupSwitch(MaterialSwitch switchView, String key, PreferencesHelper prefsHelper) {
 		switchView.setChecked(prefsHelper.getBoolean(key, false));
-		switchView.setOnCheckedChangeListener((buttonView, isChecked) -> {
-			prefsHelper.setBoolean(key, isChecked);
-			appInfoList.get(getAppPosition(packageName)).setIsEnable(isAppEnabled(packageName));
-		});
-	}
-
-	private int getAppPosition(String packageName) {
-		int position = 0;
-		for (AppInfo appInfo : appInfoList) {
-			if (Objects.equals(appInfo.getPackageName(), packageName))
-				break;
-			else
-				position++;
-		}
-		return position;
+		switchView.setOnCheckedChangeListener((buttonView, isChecked) -> prefsHelper.setBoolean(key, isChecked));
 	}
 
 	public void searchKeyWorld(String keyWord) {
-		disposables.add(Observable.just(appInfoList).flatMapIterable(list -> list) // 将列表转换为单个元素的流
-				.filter(appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())).toList() // 将过滤后的流转换回列表
-				.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(filteredList -> {
-					appsAdapter.submitList(filteredList);
-				}));
+        if (appsViewModel != null) {
+        appsViewModel.setCurrentSearchKeyword(keyWord);
+		List<AppInfo> safeAppInfoList = Optional.ofNullable(appInfoList).orElseGet(Collections::emptyList);
+
+		disposables.add(Observable.fromIterable(safeAppInfoList)
+				.filter(appInfo -> appInfo.getAppName().contains(keyWord)
+						|| appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
+				.toList().observeOn(AndroidSchedulers.mainThread())
+				.subscribe(filteredList -> appsAdapter.submitList(filteredList),
+						throwable -> Log.e("AppsFragment", "Error in searchKeyWorld", throwable)));
+        } else {
+             Log.e("AppsFragment", "AppsViewModel is null");
+        }
 	}
 
 	public void updateSortList(String title, String keyWord, Boolean isReverse) {
@@ -186,13 +188,12 @@ public class AppsFragment extends Fragment {
 				comparator = comparator.reversed();
 			}
 
-			disposables.add(Observable.just(appInfoList).flatMapIterable(list -> list) // 将列表转换为单个元素的流
-					.filter(getAppInfoFilter(title, keyWord))
-					.sorted(comparator) // 使用Comparator进行排序
-					.toList() // 将排序后的流转换回列表
-					.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribe(sortedList -> {
-						appsAdapter.submitList(sortedList);
-					}));
+			List<AppInfo> safeAppInfoList = Optional.ofNullable(appInfoList).orElseGet(Collections::emptyList);
+
+			disposables.add(Observable.fromIterable(safeAppInfoList).filter(getAppInfoFilter(title, keyWord))
+					.sorted(comparator).toList().observeOn(AndroidSchedulers.mainThread())
+					.subscribe(sortedList -> appsAdapter.submitList(sortedList),
+							throwable -> Log.e("AppsFragment", "Error in updateSortList", throwable)));
 		}
 	}
 
@@ -214,13 +215,7 @@ public class AppsFragment extends Fragment {
 	}
 
 	private Predicate<AppInfo> getAppInfoFilter(String title, String keyWord) {
-		switch (title) {
-			case "已配置":
-				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
-						&& appInfo.getIsEnable() == 1;
-			default:
-				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
-		}
+		return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
 	}
 
 	@Override

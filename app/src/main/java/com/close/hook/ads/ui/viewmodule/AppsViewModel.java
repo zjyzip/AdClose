@@ -19,6 +19,7 @@ public class AppsViewModel extends AndroidViewModel {
     private LiveData<List<AppInfo>> userAppsLiveData;
     private LiveData<List<AppInfo>> systemAppsLiveData;
     private final AppRepository appRepository;
+    private String currentSearchKeyword = "";
 
     public AppsViewModel(Application application) {
         super(application);
@@ -55,4 +56,13 @@ public class AppsViewModel extends AndroidViewModel {
                         .subscribeOn(Schedulers.io())
         );
     }
+
+    public String getCurrentSearchKeyword() {
+        return currentSearchKeyword;
+    }
+
+    public void setCurrentSearchKeyword(String searchKeyword) {
+        this.currentSearchKeyword = searchKeyword;
+    }
+
 }

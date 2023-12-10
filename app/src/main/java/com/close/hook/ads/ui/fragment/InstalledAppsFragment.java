@@ -134,7 +134,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
             }
         });
         sortBy.setSingleSelection(true);
-        List<String> sortList = List.of("应用名称", "已配置", "应用大小", "最近更新时间", "安装日期", "Target 版本");
+        List<String> sortList = List.of("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本");
         for (String title : sortList) {
             sortBy.addView(getChip(title));
         }

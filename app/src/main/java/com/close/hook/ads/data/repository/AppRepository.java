@@ -1,8 +1,5 @@
 package com.close.hook.ads.data.repository;
 
-import static com.close.hook.ads.CloseApplication.context;
-import static com.close.hook.ads.util.AppUtils.isAppEnabled;
-
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -12,6 +9,7 @@ import com.close.hook.ads.hook.preference.PreferencesHelper;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -44,7 +42,8 @@ public class AppRepository {
 			return appList;
 		})
 		.subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread());
+        .observeOn(AndroidSchedulers.mainThread())
+        .onErrorReturnItem(Collections.emptyList());
 	}
 
 	private boolean isSystemApp(ApplicationInfo applicationInfo) {
@@ -57,8 +56,7 @@ public class AppRepository {
 		String versionName = getAppVersion(packageInfo);
 		long size = new File(packageInfo.applicationInfo.sourceDir).length();
 		int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
-		int isEnable = isAppEnabled(packageInfo.packageName);
-		return new AppInfo(appName, packageInfo.packageName, appIcon, versionName, isEnable,
+		return new AppInfo(appName, packageInfo.packageName, appIcon, versionName,
 				packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk);
 	}
 
