@@ -7,11 +7,6 @@
     <item
         android:id="@+id/bottom_item_2"
         android:enabled="true"
-        android:icon="@drawable/ic_host"
-        android:title="@string/bottom_item_2" />
-    <item
-        android:id="@+id/bottom_item_3"
-        android:enabled="true"
         android:icon="@drawable/ic_about"
-        android:title="@string/bottom_item_3" />
+        android:title="@string/bottom_item_2" />
 </menu>

@@ -34,13 +34,13 @@ class AboutFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.toolBar.title = requireContext().getString(R.string.bottom_item_3)
+        binding.toolBar.title = requireContext().getString(R.string.bottom_item_2)
 
         initDataList()
 
         binding.aboutLayout.apply {
             addView(generateCard(aboutList, null))
-            addView(generateCard(developerList, "Developer"))
+            addView(generateCard(developerList, "Developers"))
             addView(generateCard(companyList, "Company"))
         }
 
@@ -54,7 +54,8 @@ class AboutFragment : Fragment() {
                     R.drawable.ic_launcher,
                     null,
                     requireContext().getString(R.string.app_name),
-                    "your desc"
+                "这个一个Xposed模块，用于阻止常见广告与部分sdk的初始化加载，和屏蔽域名请求。" +
+                "同时提供了一些其他Hook功能和特定应用去广告适配。\n请在拥有环境下使用。"
                 )
             )
             add(
@@ -72,16 +73,16 @@ class AboutFragment : Fragment() {
                 ItemBean(
                     R.drawable.ic_person,
                     DensityTool.dp2px(requireContext(), 20f).toInt(),
-                    "your name",
-                    "your desc"
+                    "Reese",
+                    "Loyal to life."
                 )
             )
             add(
                 ItemBean(
                     R.drawable.ic_person,
                     DensityTool.dp2px(requireContext(), 20f).toInt(),
-                    "your name",
-                    "your desc"
+                    "bggRGjQaUbCoE",
+                    "No desc, is a lazy man."
                 )
             )
         }

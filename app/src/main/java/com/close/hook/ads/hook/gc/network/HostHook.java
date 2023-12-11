@@ -107,7 +107,6 @@ public class HostHook {
     };
 
     private static void hookAllRelevantMethods() {
-
         XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddressHook);
 
         XposedHelpers.findAndHookMethod(Socket.class, "connect", SocketAddress.class, int.class, blockHook);
@@ -122,7 +121,6 @@ public class HostHook {
         static String extractHostFromParam(XC_MethodHook.MethodHookParam param) {
 
             if (param.args == null || param.args.length == 0 || param.args[0] == null) {
-                logMethodInvocationIssue(param, "args array is null or first argument is null");
                 return null;
 
             }
@@ -140,11 +138,6 @@ public class HostHook {
                 return null;
             }
         }
-
-        private static void logMethodInvocationIssue(XC_MethodHook.MethodHookParam param, String issue) {
-            String methodName = param.method != null ? param.method.getName() : "Unknown Method";
-            String className = param.method != null ? param.method.getDeclaringClass().getName() : "Unknown Class";
-            XposedBridge.log(LOG_PREFIX + "Issue in " + className + "." + methodName + ": " + issue);
-        }
     }
+
 }
