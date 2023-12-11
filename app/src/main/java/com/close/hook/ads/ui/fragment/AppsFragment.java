@@ -73,33 +73,32 @@ public class AppsFragment extends Fragment {
 		if (getArguments() != null) {
 			isSystemApp = getArguments().getBoolean(ARG_IS_SYSTEM_APP);
 		}
-		if (appsViewModel == null) {
-			appsViewModel = new ViewModelProvider(requireActivity()).get(AppsViewModel.class);
-		}
+		appsAdapter = new AppsAdapter();
+        if (appsViewModel == null) {
+            appsViewModel = new ViewModelProvider(requireActivity()).get(AppsViewModel.class);
+        }
 	}
 
 	@Nullable
 	@Override
 	public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
 			@Nullable Bundle savedInstanceState) {
-		View view = inflater.inflate(R.layout.fragment_apps, container, false);
-		setupViews(view);
-		return view;
+		return inflater.inflate(R.layout.fragment_apps, container, false);
 	}
 
 	@Override
 	public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
 		super.onViewCreated(view, savedInstanceState);
-		appsAdapter = new AppsAdapter();
+		setupViews(view);
 		setupRecyclerView();
 		setupLiveDataObservation();
 		setupAdapterItemClick();
 
-		String currentSearchKeyword = appsViewModel.getCurrentSearchKeyword();
-		if (!currentSearchKeyword.isEmpty()) {
-			searchKeyWorld(currentSearchKeyword);
-		}
-	}
+        String currentSearchKeyword = appsViewModel.getCurrentSearchKeyword();
+        if (!currentSearchKeyword.isEmpty()) {
+          searchKeyWorld(currentSearchKeyword);
+        }
+    }
 
 	private void setupViews(View view) {
 		progressBar = view.findViewById(R.id.progress_bar);
@@ -120,6 +119,7 @@ public class AppsFragment extends Fragment {
 
 		appsLiveData.observe(getViewLifecycleOwner(), appInfos -> {
 			progressBar.setVisibility(View.GONE);
+			appInfoList = appInfos;
 			appsAdapter.submitList(appInfos);
 		});
 	}
@@ -166,19 +166,19 @@ public class AppsFragment extends Fragment {
 	}
 
 	public void searchKeyWorld(String keyWord) {
-		if (appsViewModel != null) {
-			appsViewModel.setCurrentSearchKeyword(keyWord);
-			List<AppInfo> safeAppInfoList = Optional.ofNullable(appInfoList).orElseGet(Collections::emptyList);
+        if (appsViewModel != null) {
+        appsViewModel.setCurrentSearchKeyword(keyWord);
+		List<AppInfo> safeAppInfoList = Optional.ofNullable(appInfoList).orElseGet(Collections::emptyList);
 
-			disposables.add(Observable.fromIterable(safeAppInfoList)
-					.filter(appInfo -> appInfo.getAppName().contains(keyWord)
-							|| appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
-					.toList().observeOn(AndroidSchedulers.mainThread())
-					.subscribe(filteredList -> appsAdapter.submitList(filteredList),
-							throwable -> Log.e("AppsFragment", "Error in searchKeyWorld", throwable)));
-		} else {
-			Log.e("AppsFragment", "AppsViewModel is null");
-		}
+		disposables.add(Observable.fromIterable(safeAppInfoList)
+				.filter(appInfo -> appInfo.getAppName().contains(keyWord)
+						|| appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
+				.toList().observeOn(AndroidSchedulers.mainThread())
+				.subscribe(filteredList -> appsAdapter.submitList(filteredList),
+						throwable -> Log.e("AppsFragment", "Error in searchKeyWorld", throwable)));
+        } else {
+             Log.e("AppsFragment", "AppsViewModel is null");
+        }
 	}
 
 	public void updateSortList(String title, String keyWord, Boolean isReverse) {
@@ -219,8 +219,8 @@ public class AppsFragment extends Fragment {
 	}
 
 	@Override
-	public void onDestroy() {
-		super.onDestroy();
+	public void onDestroyView() {
+		super.onDestroyView();
 		disposables.clear();
 	}
 }
