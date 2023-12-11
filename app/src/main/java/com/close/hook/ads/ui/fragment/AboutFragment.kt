@@ -1,11 +1,16 @@
 package com.close.hook.ads.ui.fragment
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.fragment.app.Fragment
 import com.close.hook.ads.BuildConfig
@@ -21,7 +26,7 @@ class AboutFragment : Fragment() {
     private lateinit var binding: FragmentAboutBinding
     private lateinit var aboutList: ArrayList<ItemBean>
     private lateinit var developerList: ArrayList<ItemBean>
-    private lateinit var companyList: ArrayList<ItemBean>
+    private lateinit var feedBackList: ArrayList<ItemBean>
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -41,7 +46,7 @@ class AboutFragment : Fragment() {
         binding.aboutLayout.apply {
             addView(generateCard(aboutList, null))
             addView(generateCard(developerList, "Developers"))
-            addView(generateCard(companyList, "Company"))
+            addView(generateCard(feedBackList, "FeedBack"))
         }
 
     }
@@ -95,22 +100,14 @@ class AboutFragment : Fragment() {
                 )
             )
         }
-        companyList = ArrayList()
-        companyList.apply {
+        feedBackList = ArrayList()
+        feedBackList.apply {
             add(
                 ItemBean(
-                    R.drawable.ic_company,
+                    R.drawable.ic_feedback,
                     DensityTool.dp2px(requireContext(), 20f).toInt(),
-                    "your name",
-                    "your desc"
-                )
-            )
-            add(
-                ItemBean(
-                    R.drawable.ic_location,
-                    DensityTool.dp2px(requireContext(), 20f).toInt(),
-                    "your name",
-                    "your desc"
+                    "Reese_XPModule",
+                    "https://t.me/Reese_XPModule"
                 )
             )
         }
@@ -184,6 +181,16 @@ class AboutFragment : Fragment() {
         }
         binding.title.text = title
         binding.desc.text = desc
+        if (title == "Reese_XPModule")
+            binding.root.setOnClickListener {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Reese_XPModule"))
+                try {
+                    startActivity(intent)
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(requireContext(), "打开失败", Toast.LENGTH_SHORT).show()
+                    Log.w("error", "Activity was not found for intent, $intent")
+                }
+            }
         return binding.root
     }
 
