@@ -54,8 +54,17 @@ class AboutFragment : Fragment() {
                     R.drawable.ic_launcher,
                     null,
                     requireContext().getString(R.string.app_name),
-                "这个一个Xposed模块，用于阻止常见广告与部分sdk的初始化加载，和屏蔽域名请求。" +
-                "同时提供了一些其他Hook功能和特定应用去广告适配。\n请在拥有环境下使用。"
+                    """
+    |这个一个Xposed模块
+    |
+    |用于阻止常见平台广告与部分SDK的初始化和屏蔽域名请求。
+    |同时提供了一些其他Hook功能和特定应用去广告适配。
+    |请在拥有LSPosed框架环境下使用。
+    |
+    |
+    |这个模块也是本人在空闲之时写的，目前只是提供了基础的功能，
+    |后续也会慢慢更新，也欢迎大家提供建议和反馈。
+    """.trimMargin()
                 )
             )
             add(
