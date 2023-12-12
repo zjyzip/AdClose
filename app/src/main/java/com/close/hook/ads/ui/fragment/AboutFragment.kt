@@ -17,6 +17,7 @@ import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentAboutBinding
 import com.close.hook.ads.databinding.ItemAboutBinding
+import com.close.hook.ads.ui.activity.AboutActivity
 import com.example.c001apk.util.DensityTool
 import com.google.android.material.card.MaterialCardView
 
@@ -27,6 +28,7 @@ class AboutFragment : Fragment() {
     private lateinit var aboutList: ArrayList<ItemBean>
     private lateinit var developerList: ArrayList<ItemBean>
     private lateinit var feedBackList: ArrayList<ItemBean>
+    private lateinit var thanksList: ArrayList<ItemBean>
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -41,11 +43,27 @@ class AboutFragment : Fragment() {
 
         binding.toolBar.title = requireContext().getString(R.string.bottom_item_2)
 
+        binding.toolBar.apply {
+            inflateMenu(R.menu.menu_about)
+            setOnMenuItemClickListener {
+                if (it.itemId == R.id.about) {
+                    requireContext().startActivity(
+                        Intent(
+                            requireContext(),
+                            AboutActivity::class.java
+                        )
+                    )
+                }
+                true
+            }
+        }
+
         initDataList()
 
         binding.aboutLayout.apply {
             addView(generateCard(aboutList, null))
             addView(generateCard(developerList, "Developers"))
+            addView(generateCard(thanksList, "Thanks"))
             addView(generateCard(feedBackList, "FeedBack"))
         }
 
@@ -104,10 +122,21 @@ class AboutFragment : Fragment() {
         feedBackList.apply {
             add(
                 ItemBean(
-                    R.drawable.ic_feedback,
+                    R.drawable.ic_telegram,
                     DensityTool.dp2px(requireContext(), 20f).toInt(),
                     "Reese_XPModule",
                     "https://t.me/Reese_XPModule"
+                )
+            )
+        }
+        thanksList = ArrayList()
+        thanksList.apply {
+            add(
+                ItemBean(
+                    R.drawable.ic_github,
+                    DensityTool.dp2px(requireContext(), 20f).toInt(),
+                    "Twilight(AWAvenue-Ads-Rule)",
+                    "https://github.com/TG-Twilight/AWAvenue-Ads-Rule"
                 )
             )
         }
@@ -118,12 +147,20 @@ class AboutFragment : Fragment() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            setMargins(
-                DensityTool.dp2px(requireContext(), 10f).toInt(),
-                DensityTool.dp2px(requireContext(), 10f).toInt(),
-                DensityTool.dp2px(requireContext(), 10f).toInt(),
-                0
-            )
+            if (title == "FeedBack")
+                setMargins(
+                    DensityTool.dp2px(requireContext(), 10f).toInt(),
+                    DensityTool.dp2px(requireContext(), 10f).toInt(),
+                    DensityTool.dp2px(requireContext(), 10f).toInt(),
+                    DensityTool.dp2px(requireContext(), 10f).toInt()
+                )
+            else
+                setMargins(
+                    DensityTool.dp2px(requireContext(), 10f).toInt(),
+                    DensityTool.dp2px(requireContext(), 10f).toInt(),
+                    DensityTool.dp2px(requireContext(), 10f).toInt(),
+                    0
+                )
         }
         val aboutCard = MaterialCardView(requireContext()).apply {
             strokeWidth = 0
@@ -191,6 +228,20 @@ class AboutFragment : Fragment() {
                     Log.w("error", "Activity was not found for intent, $intent")
                 }
             }
+        else if (title == "Twilight(AWAvenue-Ads-Rule)") {
+            binding.root.setOnClickListener {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/TG-Twilight/AWAvenue-Ads-Rule")
+                )
+                try {
+                    startActivity(intent)
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(requireContext(), "打开失败", Toast.LENGTH_SHORT).show()
+                    Log.w("error", "Activity was not found for intent, $intent")
+                }
+            }
+        }
         return binding.root
     }
 

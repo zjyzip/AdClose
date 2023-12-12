@@ -15,6 +15,11 @@
         android:theme="@style/AppTheme">
 
         <activity
+            android:name=".ui.activity.AboutActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.About" />
+
+        <activity
             android:name=".ui.activity.MainActivity"
             android:exported="true">
             <intent-filter>
