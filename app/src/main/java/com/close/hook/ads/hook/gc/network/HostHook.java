@@ -18,37 +18,40 @@ public class HostHook {
 	private static final String LOG_PREFIX = "[HostHook] ";
 	private static final ConcurrentHashMap<String, Boolean> BLOCKED_HOSTS = new ConcurrentHashMap<>();
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
-    private static boolean isURLHooked = false;
 
 	static {
 		setupURLProxy();
 		loadBlockedHostsAsync();
 	}
 
-    private static void setupURLProxy() {
-        try {
-            Constructor<URL> urlConstructor = URL.class.getDeclaredConstructor(String.class);
-            Method openConnectionMethod = URL.class.getDeclaredMethod("openConnection");
+	private static void setupURLProxy() {
+		try {
+			Constructor<URL> urlConstructor = URL.class.getDeclaredConstructor(String.class);
+			Method openConnectionMethod = URL.class.getDeclaredMethod("openConnection");
 
-            XposedBridge.hookMethod(urlConstructor, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    final URL url = (URL) param.thisObject;
-                    if (shouldBlockRequest(url.getHost()) && !isURLHooked) {
-                        isURLHooked = true;
-                        XposedBridge.hookMethod(openConnectionMethod, new XC_MethodReplacement() {
-                            @Override
-                            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                                throw new IOException("Just URL Blocked: " + url);
-                            }
-                        });
-                    }
-                }
-            });
-        } catch (NoSuchMethodException e) {
-            XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
-        }
-    }
+			XposedBridge.hookMethod(urlConstructor, new XC_MethodHook() {
+				@Override
+				protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+					URL url = (URL) param.thisObject;
+					if (shouldBlockRequest(url.getHost())) {
+						param.setObjectExtra("block", true);
+					}
+				}
+			});
+
+			XposedBridge.hookMethod(openConnectionMethod, new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					URL url = (URL) param.thisObject;
+					if (Boolean.TRUE.equals(param.getObjectExtra("block"))) {
+						throw new IOException("Connection blocked: " + url);
+					}
+				}
+			});
+		} catch (NoSuchMethodException e) {
+			XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
+		}
+	}
 
 	public static void init() {
 		try {
@@ -76,9 +79,9 @@ public class HostHook {
 			} catch (IOException e) {
 				emitter.onError(e);
 			}
-		}, io.reactivex.rxjava3.core.BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io())
-				.observeOn(Schedulers.computation()).doFinally(loadDataLatch::countDown).subscribe(host -> {
-				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
+		}, io.reactivex.rxjava3.core.BackpressureStrategy.DROP).subscribeOn(Schedulers.io())
+				.observeOn(Schedulers.computation()).doFinally(loadDataLatch::countDown)
+				.subscribe(error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
 	}
 
 	private static boolean shouldBlockRequest(String host) {
