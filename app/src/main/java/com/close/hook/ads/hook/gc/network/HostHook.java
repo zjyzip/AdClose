@@ -79,9 +79,9 @@ public class HostHook {
 			} catch (IOException e) {
 				emitter.onError(e);
 			}
-		}, io.reactivex.rxjava3.core.BackpressureStrategy.DROP).subscribeOn(Schedulers.io())
-				.observeOn(Schedulers.computation()).doFinally(loadDataLatch::countDown)
-				.subscribe(error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
+		}, io.reactivex.rxjava3.core.BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io())
+				.observeOn(Schedulers.computation()).doFinally(loadDataLatch::countDown).subscribe(host -> {
+				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
 	}
 
 	private static boolean shouldBlockRequest(String host) {
