@@ -1,6 +1,9 @@
 package com.close.hook.ads.ui.fragment;
 
 import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -133,6 +136,19 @@ public class AppsFragment extends Fragment {
 						AppUtils.showToast(requireContext(), "模块尚未被激活");
 					}
 				}));
+
+        disposables
+                .add(appsAdapter.getOnLongClickObservable().observeOn(AndroidSchedulers.mainThread()).subscribe(appInfo -> {
+                    Intent intent = new Intent();
+                    intent.setAction("android.settings.APPLICATION_DETAILS_SETTINGS");
+                    intent.setData(Uri.fromParts("package", appInfo.getPackageName(), null));
+                    try {
+                        requireContext().startActivity(intent);
+                    } catch (ActivityNotFoundException e) {
+                        Toast.makeText(requireContext(), "打开失败", Toast.LENGTH_SHORT).show();
+                        e.printStackTrace();
+                    }
+                }));
 	}
 
 	private void showBottomSheetDialog(AppInfo appInfo) {

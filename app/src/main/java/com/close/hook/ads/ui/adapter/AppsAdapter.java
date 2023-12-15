@@ -24,6 +24,7 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
 
     private final AsyncListDiffer<AppInfo> differ = new AsyncListDiffer<>(this, DIFF_CALLBACK);
     private final PublishSubject<AppInfo> onClickSubject = PublishSubject.create();
+    private final PublishSubject<AppInfo> onLongClickSubject = PublishSubject.create();
 
     private static final DiffUtil.ItemCallback<AppInfo> DIFF_CALLBACK = new DiffUtil.ItemCallback<AppInfo>() {
         @Override
@@ -45,6 +46,10 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
         return onClickSubject;
     }
 
+    public Observable<AppInfo> getOnLongClickObservable() {
+        return onLongClickSubject;
+    }
+
     @NonNull
     @Override
     public AppViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -57,6 +62,10 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
         AppInfo appInfo = differ.getCurrentList().get(position);
         holder.bind(appInfo);
         holder.binding.getRoot().setOnClickListener(v -> onClickSubject.onNext(appInfo));
+        holder.binding.getRoot().setOnLongClickListener(v -> {
+            onLongClickSubject.onNext(appInfo);
+            return true;
+        });
     }
 
     @Override
