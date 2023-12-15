@@ -58,9 +58,16 @@ public class AppRepository {
 		long size = new File(packageInfo.applicationInfo.sourceDir).length();
 		int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
 		int abi = AbiHelper.INSTANCE.getAbi(packageInfo.packageName);
-		return new AppInfo(appName, packageInfo.packageName, appIcon, versionName,
-				packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, abi);
-	}
+        int isAppEnable = getIsAppEnable(packageInfo.packageName);
+        return new AppInfo(appName, packageInfo.packageName, appIcon, versionName,
+                packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, abi, isAppEnable);
+    }
+
+    private int getIsAppEnable(String packageName) {
+        if (packageManager.getApplicationEnabledSetting(packageName) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
+            return 0;
+        return 1;
+    }
 
 	private String getAppName(ApplicationInfo appInfo) {
 		return packageManager.getApplicationLabel(appInfo).toString();

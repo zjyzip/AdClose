@@ -220,6 +220,9 @@ public class AppsFragment extends Fragment {
             case "32位":
                 return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
                         && (appInfo.getAbi() == 1 || appInfo.getAbi() == 2);
+			case "已禁用":
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						&& appInfo.getIsAppEnable() == 0;
             default:
                 return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
         }
