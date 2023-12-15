@@ -4,6 +4,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+
 import com.close.hook.ads.data.model.AppInfo;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
 import java.io.File;
@@ -56,8 +57,9 @@ public class AppRepository {
 		String versionName = getAppVersion(packageInfo);
 		long size = new File(packageInfo.applicationInfo.sourceDir).length();
 		int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
+		int abi = AbiHelper.INSTANCE.getAbi(packageInfo.packageName);
 		return new AppInfo(appName, packageInfo.packageName, appIcon, versionName,
-				packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk);
+				packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, abi);
 	}
 
 	private String getAppName(ApplicationInfo appInfo) {

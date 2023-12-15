@@ -213,11 +213,15 @@ public class AppsFragment extends Fragment {
 
     private Predicate<AppInfo> getAppInfoFilter(String title, String keyWord) {
         long time = 7 * 24 * 3600L;
-        if (Objects.equals(title, "最近更新")) {
-            return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
-            && (System.currentTimeMillis() / 1000 - appInfo.getLastUpdateTime() / 1000) < time;
-        } else {
-            return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
+        switch (title) {
+            case "最近更新":
+                return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+                        && (System.currentTimeMillis() / 1000 - appInfo.getLastUpdateTime() / 1000) < time;
+            case "32位":
+                return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+                        && (appInfo.getAbi() == 1 || appInfo.getAbi() == 2);
+            default:
+                return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
         }
     }
 
