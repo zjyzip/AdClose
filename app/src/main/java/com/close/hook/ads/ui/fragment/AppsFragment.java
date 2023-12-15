@@ -183,7 +183,6 @@ public class AppsFragment extends Fragment {
 
 	public void updateSortList(String title, String keyWord, Boolean isReverse) {
 		Comparator<AppInfo> comparator = getAppInfoComparator(title);
-		if (comparator != null) {
 			if (isReverse) {
 				comparator = comparator.reversed();
 			}
@@ -194,13 +193,11 @@ public class AppsFragment extends Fragment {
 					.sorted(comparator).toList().observeOn(AndroidSchedulers.mainThread())
 					.subscribe(sortedList -> appsAdapter.submitList(sortedList),
 							throwable -> Log.e("AppsFragment", "Error in updateSortList", throwable)));
-		}
+
 	}
 
 	private Comparator<AppInfo> getAppInfoComparator(String title) {
 		switch (title) {
-		case "应用名称":
-			return Comparator.comparing(AppInfo::getAppName, String.CASE_INSENSITIVE_ORDER);
 		case "应用大小":
 			return Comparator.comparingLong(AppInfo::getSize);
 		case "最近更新时间":
@@ -210,13 +207,19 @@ public class AppsFragment extends Fragment {
 		case "Target 版本":
 			return Comparator.comparingInt(AppInfo::getTargetSdk);
 		default:
-			return null;
+            return Comparator.comparing(AppInfo::getAppName, String.CASE_INSENSITIVE_ORDER);
 		}
 	}
 
-	private Predicate<AppInfo> getAppInfoFilter(String title, String keyWord) {
-		return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
-	}
+    private Predicate<AppInfo> getAppInfoFilter(String title, String keyWord) {
+        long time = 7 * 24 * 3600L;
+        if (Objects.equals(title, "最近更新")) {
+            return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+            && (System.currentTimeMillis() / 1000 - appInfo.getLastUpdateTime() / 1000) < time;
+        } else {
+            return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
+        }
+    }
 
 	@Override
 	public void onDestroyView() {
