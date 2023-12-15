@@ -34,7 +34,7 @@ public class HostHook {
 				protected void afterHookedMethod(MethodHookParam param) throws Throwable {
 					URL url = (URL) param.thisObject;
 					if (shouldBlockRequest(url.getHost())) {
-						param.setObjectExtra("block", true);
+						param.setObjectExtra("url_block", true);
 					}
 				}
 			});
@@ -43,8 +43,8 @@ public class HostHook {
 				@Override
 				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 					URL url = (URL) param.thisObject;
-					if (Boolean.TRUE.equals(param.getObjectExtra("block"))) {
-						throw new IOException("Connection blocked: " + url);
+					if (Boolean.TRUE.equals(param.getObjectExtra("url_block"))) {
+						throw new IOException("Connection blocked");
 					}
 				}
 			});
@@ -113,9 +113,14 @@ public class HostHook {
 		@Override
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
-			if (host != null && shouldBlockRequest(host)) {
+			boolean shouldBlock = host != null && shouldBlockRequest(host);
+			param.setObjectExtra("Inet_block", shouldBlock);
+		}
+
+		@Override
+		protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+			if (Boolean.TRUE.equals(param.getObjectExtra("Inet_block"))) {
 				param.setResult(new InetAddress[0]);
-				return;
 			}
 		}
 	};
