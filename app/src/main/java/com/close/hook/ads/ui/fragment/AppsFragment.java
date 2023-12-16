@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.close.hook.ads.R;
 import com.close.hook.ads.data.model.AppInfo;
+import com.close.hook.ads.data.module.FilterBean;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.ui.activity.MainActivity;
 import com.close.hook.ads.ui.adapter.AppsAdapter;
@@ -32,7 +33,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import io.reactivex.rxjava3.core.Observable;
-import io.reactivex.rxjava3.functions.Predicate;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -197,51 +198,63 @@ public class AppsFragment extends Fragment {
         }
 	}
 
-	public void updateSortList(String title, String keyWord, Boolean isReverse) {
-		Comparator<AppInfo> comparator = getAppInfoComparator(title);
+	public void updateSortList(FilterBean filterBean, String keyWord, Boolean isReverse) {
+		Comparator<AppInfo> comparator = getAppInfoComparator(filterBean.getTitle());
 			if (isReverse) {
 				comparator = comparator.reversed();
 			}
+			
+		List<AppInfo> safeAppInfoList = Optional.ofNullable(appInfoList).orElseGet(Collections::emptyList);
 
-			List<AppInfo> safeAppInfoList = Optional.ofNullable(appInfoList).orElseGet(Collections::emptyList);
-
-			disposables.add(Observable.fromIterable(safeAppInfoList).filter(getAppInfoFilter(title, keyWord))
+		if (!filterBean.getFilter().isEmpty()) {
+			for (String title : filterBean.getFilter()) {
+				safeAppInfoList = safeAppInfoList.stream()
+						.filter(getAppInfoFilter(title, keyWord))
+						.collect(Collectors.toList());
+			}
+			disposables.add(Observable.fromIterable(safeAppInfoList)
 					.sorted(comparator).toList().observeOn(AndroidSchedulers.mainThread())
 					.subscribe(sortedList -> appsAdapter.submitList(sortedList),
 							throwable -> Log.e("AppsFragment", "Error in updateSortList", throwable)));
+		} else {
+			disposables.add(Observable.fromIterable(safeAppInfoList)
+					.sorted(comparator).toList().observeOn(AndroidSchedulers.mainThread())
+					.subscribe(sortedList -> appsAdapter.submitList(sortedList),
+							throwable -> Log.e("AppsFragment", "Error in updateSortList", throwable)));
+		}
 
 	}
 
 	private Comparator<AppInfo> getAppInfoComparator(String title) {
 		switch (title) {
-		case "应用大小":
-			return Comparator.comparingLong(AppInfo::getSize);
-		case "最近更新时间":
-			return Comparator.comparing(AppInfo::getLastUpdateTime);
-		case "安装日期":
-			return Comparator.comparing(AppInfo::getFirstInstallTime);
-		case "Target 版本":
-			return Comparator.comparingInt(AppInfo::getTargetSdk);
-		default:
-            return Comparator.comparing(AppInfo::getAppName, String.CASE_INSENSITIVE_ORDER);
+			case "应用大小":
+				return Comparator.comparingLong(AppInfo::getSize);
+			case "最近更新时间":
+				return Comparator.comparing(AppInfo::getLastUpdateTime);
+			case "安装日期":
+				return Comparator.comparing(AppInfo::getFirstInstallTime);
+			case "Target 版本":
+				return Comparator.comparingInt(AppInfo::getTargetSdk);
+			default:
+				return Comparator.comparing(AppInfo::getAppName, String.CASE_INSENSITIVE_ORDER);
 		}
 	}
 
     private Predicate<AppInfo> getAppInfoFilter(String title, String keyWord) {
-        long time = 7 * 24 * 3600L;
-        switch (title) {
-            case "最近更新":
-                return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
-                        && (System.currentTimeMillis() / 1000 - appInfo.getLastUpdateTime() / 1000) < time;
-            case "32位":
-                return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
-                        && (appInfo.getAbi() == 1 || appInfo.getAbi() == 2);
+		long time = 7 * 24 * 3600L;
+		switch (title) {
+			case "最近更新":
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						&& (System.currentTimeMillis() / 1000 - appInfo.getLastUpdateTime() / 1000) < time;
+			case "32位":
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						&& (appInfo.getAbi() == 1 || appInfo.getAbi() == 2);
 			case "已禁用":
 				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
 						&& appInfo.getIsAppEnable() == 0;
-            default:
-                return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
-        }
+			default:
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
+		}
     }
 
 	@Override

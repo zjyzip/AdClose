@@ -19,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
+import com.close.hook.ads.data.module.FilterBean;
 import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
@@ -30,6 +31,7 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -53,7 +55,8 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 	private ImageButton searchFilter;
 	private BottomSheetDialog bottomSheetDialog;
 	private MaterialCheckBox reverseSwitch;
-	private String filterTitle;
+    private List<String> filterList;
+    private FilterBean filterBean;
 
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -128,9 +131,9 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 		reverseSwitch = dialogView.findViewById(R.id.reverse_switch);
 		reverseSwitch.setOnCheckedChangeListener((compoundButton, b) -> {
 			if (viewPager.getCurrentItem() == 0) {
-				appFragment1.updateSortList(filterTitle, searchEditText.getText().toString(), b);
+				appFragment1.updateSortList(filterBean, searchEditText.getText().toString(), b);
 			} else if (viewPager.getCurrentItem() == 1) {
-				appFragment2.updateSortList(filterTitle, searchEditText.getText().toString(), b);
+				appFragment2.updateSortList(filterBean, searchEditText.getText().toString(), b);
 			}
 		});
 		sortBy.setSingleSelection(true);
@@ -146,27 +149,39 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 		}
 	}
 
-	private View getChip(String title) {
-		Chip chip = new Chip(requireContext());
-		chip.setText(title);
-		chip.setCheckable(true);
-		chip.setClickable(true);
-		if (Objects.equals(title, "应用名称")) {
-			chip.setChecked(true);
-			chip.setId(0);
-		}
-		chip.setOnClickListener(view -> {
-			filterTitle = title;
-			updateSortList(title);
-		});
-		return chip;
-	}
+    private View getChip(String title) {
+        Chip chip = new Chip(requireContext());
+        chip.setText(title);
+        chip.setCheckable(true);
+        chip.setClickable(true);
+        if (Objects.equals(title, "应用名称")) {
+            chip.setChecked(true);
+            chip.setId(0);
+        }
+        chip.setOnClickListener(view -> {
+            if (filterList == null)
+                filterList = new ArrayList<>();
+            if (Objects.equals(title, "最近更新") || Objects.equals(title, "已禁用") || Objects.equals(title, "32位")) {
+                if (chip.isChecked())
+                    filterList.add(title);
+                else
+                    filterList.remove(title);
+            }
+            if (filterBean == null)
+                filterBean = new FilterBean();
+            filterBean.setTitle(title);
+            filterBean.setFilter(filterList);
+            updateSortList(filterBean);
 
-	private void updateSortList(String title) {
+        });
+        return chip;
+    }
+
+	private void updateSortList(FilterBean filterBean) {
 		if (viewPager.getCurrentItem() == 0) {
-			appFragment1.updateSortList(title, searchEditText.getText().toString(), reverseSwitch.isChecked());
+			appFragment1.updateSortList(filterBean, searchEditText.getText().toString(), reverseSwitch.isChecked());
 		} else if (viewPager.getCurrentItem() == 1) {
-			appFragment2.updateSortList(title, searchEditText.getText().toString(), reverseSwitch.isChecked());
+			appFragment2.updateSortList(filterBean, searchEditText.getText().toString(), reverseSwitch.isChecked());
 		}
 	}
 
