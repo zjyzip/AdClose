@@ -41,7 +41,7 @@ class AboutFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.toolBar.title = requireContext().getString(R.string.bottom_item_2)
+        binding.toolBar.title = requireContext().getString(R.string.bottom_item_3)
 
         binding.toolBar.apply {
             inflateMenu(R.menu.menu_about)
