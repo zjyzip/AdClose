@@ -21,7 +21,7 @@ public class SDKHooks {
 */
 
             // ByteDance (Pangolin) Ads
-            new HookInfo("com.bytedance.sdk.openadsdk.TTAdSdk", "init", null),
+            new HookInfo("com.bytedance.sdk.openadsdk.TTAdSdk", new String[] { "init", "start" }, null),
 
             new HookInfo("com.bytedance.sdk.openadsdk.TTAppContextHolder", "setContext", null),
 
@@ -144,11 +144,15 @@ public class SDKHooks {
 
 
             // Google Ads
-            new HookInfo("com.google.android.gms.ads.MobileAds", "initialize", null),
+    		new HookInfo("com.google.android.gms.ads.MobileAdsInitProvider","attachInfo",null),
 
-            new HookInfo("com.google.android.gms.ads.AdRequest", "getContentUrl", null),
+    		new HookInfo("com.google.android.gms.ads.identifier.AdvertisingIdClient","getAdvertisingIdInfo",null),
 
-            new HookInfo("com.google.android.gms.ads.AdRequest$Builder", new String[]{"setRequestAgent", "setContentUrl", "setRequestAgent", "setAdString", "setAdInfo"}, null),
+    		new HookInfo("com.google.android.gms.ads.identifier.AdvertisingIdClient$Info","getId",null),
+
+     		new HookInfo("com.google.android.gms.ads.AdRequest","getContentUrl",null),
+
+            new HookInfo("com.google.android.gms.ads.AdRequest$Builder", new String[] { "setRequestAgent", "setContentUrl", "setRequestAgent", "setAdString", "setAdInfo" }, null),
 
 
             // FaceBook Ads

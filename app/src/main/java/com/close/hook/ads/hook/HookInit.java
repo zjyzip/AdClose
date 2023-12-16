@@ -13,7 +13,6 @@ import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.HostHook;
 import com.close.hook.ads.hook.ha.AppAds;
-import com.close.hook.ads.hook.ha.Others;
 import com.close.hook.ads.hook.ha.SDKHooks;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.ui.activity.MainActivity;
@@ -38,9 +37,12 @@ public class HookInit implements IXposedHookLoadPackage {
         performHooking(lpparam);
     }
 
-    private void performHooking(XC_LoadPackage.LoadPackageParam lpparam) {
-        Others.handle(lpparam); // 另适配
+    private void activateModule(XC_LoadPackage.LoadPackageParam lpparam) {
+        XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isModuleActivated",
+                XC_MethodReplacement.returnConstant(true));
+    }
 
+    private void performHooking(XC_LoadPackage.LoadPackageParam lpparam) {
         if (TAG.equals(lpparam.packageName)) {
             activateModule(lpparam);
         }
@@ -49,11 +51,6 @@ public class HookInit implements IXposedHookLoadPackage {
         SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
         applySettings(settingsManager, lpparam);
-    }
-
-    private void activateModule(XC_LoadPackage.LoadPackageParam lpparam) {
-        XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isModuleActivated",
-                XC_MethodReplacement.returnConstant(true));
     }
 
     private void applySettings(SettingsManager settingsManager, XC_LoadPackage.LoadPackageParam lpparam) {
