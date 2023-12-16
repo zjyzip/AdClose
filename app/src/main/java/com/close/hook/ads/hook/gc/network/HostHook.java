@@ -1,12 +1,11 @@
 package com.close.hook.ads.hook.gc.network;
 
 import java.io.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
-
-import java.lang.reflect.*;
-import java.lang.reflect.Proxy;
 
 import java.net.*;
 import android.webkit.*;
@@ -14,52 +13,21 @@ import android.webkit.*;
 import de.robv.android.xposed.*;
 
 public class HostHook {
-
-	private static final String LOG_PREFIX = "[HostHook] ";
-	private static final ConcurrentHashMap<String, Boolean> BLOCKED_HOSTS = new ConcurrentHashMap<>();
+    private static final String LOG_PREFIX = "[HostHook] ";
+    private static final ConcurrentHashMap<String, Boolean> BLOCKED_HOSTS = new ConcurrentHashMap<>();
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
 
 	static {
-		setupURLProxy();
 		loadBlockedHostsAsync();
 	}
 
-	private static void setupURLProxy() {
-		try {
-			Constructor<URL> urlConstructor = URL.class.getDeclaredConstructor(String.class);
-			Method openConnectionMethod = URL.class.getDeclaredMethod("openConnection");
-
-			XposedBridge.hookMethod(urlConstructor, new XC_MethodHook() {
-				@Override
-				protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-					URL url = (URL) param.thisObject;
-					if (shouldBlockRequest(url.getHost())) {
-						param.setObjectExtra("url_block", true);
-					}
-				}
-			});
-
-			XposedBridge.hookMethod(openConnectionMethod, new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					URL url = (URL) param.thisObject;
-					if (Boolean.TRUE.equals(param.getObjectExtra("url_block"))) {
-						throw new IOException("Connection blocked");
-					}
-				}
-			});
-		} catch (NoSuchMethodException e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
-		}
-	}
-
-	public static void init() {
-		try {
-			hookAllRelevantMethods();
-		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
-		}
-	}
+    public static void init() {
+        try {
+            hookAllRelevantMethods();
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
+        }
+    }
 
 	private static void loadBlockedHostsAsync() {
 		Flowable.<String>create(emitter -> {
@@ -80,13 +48,11 @@ public class HostHook {
 				emitter.onError(e);
 			}
 		}, io.reactivex.rxjava3.core.BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io())
-				.observeOn(Schedulers.computation()).doFinally(loadDataLatch::countDown).subscribe(host -> {
-				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
-	}
-
-	private static boolean shouldBlockRequest(String host) {
-		waitForDataLoading();
-		return BLOCKED_HOSTS.containsKey(host);
+		.observeOn(Schedulers.computation())
+		.doFinally(loadDataLatch::countDown)
+	    .subscribe(
+	        host -> {},
+      		error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
 	}
 
 	private static void waitForDataLoading() {
@@ -98,13 +64,30 @@ public class HostHook {
 		}
 	}
 
+    private static boolean shouldBlockRequest(String host) {
+        if (host == null) {
+            return false;
+        }
+
+        waitForDataLoading();
+        return BLOCKED_HOSTS.containsKey(host);
+    }
+
+    private static boolean isSocketConnection(XC_MethodHook.MethodHookParam param) {
+        return param.thisObject instanceof Socket ||
+            (param.args.length > 0 && param.args[0] instanceof SocketAddress);
+    }
+
 	private static final XC_MethodHook blockHook = new XC_MethodHook() {
 		@Override
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = HostExtractor.extractHostFromParam(param);
 			if (host != null && shouldBlockRequest(host)) {
-				param.setThrowable(new UnknownHostException("Connection blocked by HostHook"));
-				return;
+                if (isSocketConnection(param)) {
+                    param.setThrowable(new SocketException("Socket blocked by HostHook"));
+                } else {
+		     		param.setResult(null);
+                }
 			}
 		}
 	};
@@ -113,23 +96,20 @@ public class HostHook {
 		@Override
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
-			boolean shouldBlock = host != null && shouldBlockRequest(host);
-			param.setObjectExtra("Inet_block", shouldBlock);
-		}
-
-		@Override
-		protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-			if (Boolean.TRUE.equals(param.getObjectExtra("Inet_block"))) {
+			if (host != null && shouldBlockRequest(host)) {
 				param.setResult(new InetAddress[0]);
+				return;
 			}
 		}
 	};
 
 	private static void hookAllRelevantMethods() {
 
-		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddressHook);
+		XposedHelpers.findAndHookConstructor(URL.class, String.class, blockHook);
 
 		XposedHelpers.findAndHookMethod(Socket.class, "connect", SocketAddress.class, int.class, blockHook);
+
+		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddressHook);
 
 		XposedBridge.hookAllMethods(WebView.class, "loadUrl", blockHook);
 		XposedBridge.hookAllMethods(WebView.class, "postUrl", blockHook);
@@ -140,14 +120,20 @@ public class HostHook {
 
 		static String extractHostFromParam(XC_MethodHook.MethodHookParam param) {
 
-			if (param.args == null || param.args.length == 0 || param.args[0] == null) {
+			if (param.args == null || param.args.length == 0) {
 				return null;
 
 			}
 
 			Object arg = param.args[0];
 
-			if (arg instanceof InetSocketAddress) {
+			if (arg instanceof String) {
+				return extractHostFromString((String) arg);
+
+			} else if (arg instanceof URL) {
+				return ((URL) arg).getHost();
+
+			} else if (arg instanceof InetSocketAddress) {
 				return ((InetSocketAddress) arg).getHostName();
 
 			} else if (arg instanceof WebResourceRequest) {
@@ -158,6 +144,17 @@ public class HostHook {
 				return null;
 			}
 		}
+
+		static String extractHostFromString(String urlString) {
+			try {
+				URI uri = new URI(urlString);
+				return uri.getHost();
+			} catch (URISyntaxException e) {
+				XposedBridge.log(LOG_PREFIX + "Invalid URI: " + urlString);
+				return null;
+			}
+		}
+
 	}
 
 }
