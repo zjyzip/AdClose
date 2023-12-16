@@ -15,11 +15,10 @@ public class AppInfo implements Parcelable {
 	private final Long lastUpdateTime;
 	private final long size;
 	private final int targetSdk;
-	private final int abi;
 	private final int isAppEnable;
 
 	public AppInfo(String appName, String packageName, Drawable appIcon, String versionName,
-			Long firstInstallTime, Long lastUpdateTime, long size, int targetSdk, int abi, int isAppEnable) {
+			Long firstInstallTime, Long lastUpdateTime, long size, int targetSdk, int isAppEnable) {
 		this.appName = appName;
 		this.packageName = packageName;
 		this.appIcon = appIcon;
@@ -28,7 +27,6 @@ public class AppInfo implements Parcelable {
 		this.lastUpdateTime = lastUpdateTime;
 		this.size = size;
 		this.targetSdk = targetSdk;
-		this.abi = abi;
 		this.isAppEnable = isAppEnable;
 	}
 
@@ -41,7 +39,6 @@ public class AppInfo implements Parcelable {
 		lastUpdateTime = in.readLong();
 		size = in.readLong();
 		targetSdk = in.readInt();
-		abi = in.readInt();
 		isAppEnable = in.readInt();
 	}
 
@@ -77,10 +74,6 @@ public class AppInfo implements Parcelable {
 		return targetSdk;
 	}
 
-	public int getAbi() {
-		return abi;
-	}
-
 	public int getIsAppEnable() {
 		return isAppEnable;
 	}
@@ -109,7 +102,6 @@ public class AppInfo implements Parcelable {
 		dest.writeLong(lastUpdateTime);
 		dest.writeLong(size);
 		dest.writeInt(targetSdk);
-		dest.writeInt(abi);
 		dest.writeInt(isAppEnable);
 	}
 

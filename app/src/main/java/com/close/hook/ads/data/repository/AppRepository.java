@@ -57,10 +57,9 @@ public class AppRepository {
 		String versionName = getAppVersion(packageInfo);
 		long size = new File(packageInfo.applicationInfo.sourceDir).length();
 		int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
-		int abi = AbiHelper.INSTANCE.getAbi(packageInfo.packageName);
         int isAppEnable = getIsAppEnable(packageInfo.packageName);
         return new AppInfo(appName, packageInfo.packageName, appIcon, versionName,
-                packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, abi, isAppEnable);
+                packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, isAppEnable);
     }
 
     private int getIsAppEnable(String packageName) {

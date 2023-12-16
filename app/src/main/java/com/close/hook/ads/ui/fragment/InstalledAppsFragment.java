@@ -146,7 +146,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 			sortBy.addView(getChip(title));
 		}
 		filter.setSingleSelection(false);
-		List<String> filterList = List.of("最近更新", "已禁用", "32位");
+		List<String> filterList = List.of("最近更新", "已禁用");
 		for (String title : filterList) {
 			filter.addView(getChip(title));
 		}
