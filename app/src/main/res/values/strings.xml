@@ -5,8 +5,7 @@
 
 
     <string name="bottom_item_1">Apps</string>
-    <string name="bottom_item_2">Hosts</string>
-    <string name="bottom_item_3">About</string>
+    <string name="bottom_item_2">About</string>
 
 
     <string name="search_hint">搜索</string>
@@ -30,11 +29,11 @@
     <string name="handle_platform_ad">处理平台广告</string>
     <string name="handle_apps_ad">处理应用广告</string>
 
-    <string name="block_host">主机域名拦截(屏蔽)</string>
+    <string name="block_host">屏蔽广告域名请求</string>
 
     <string name="remove_flag_secure">去除截图录屏限制</string>
     <string name="remove_vpn_state">去除VPN代理检测</string>
-    <string name="remove_sensor_monitor">去除遥感器监听</string>
+    <string name="remove_sensor_monitor">去除传感器监听</string>
     <string name="remove_envi_detection">去除环境检测(Magisk,Xposed)</string>
 
 </resources>
