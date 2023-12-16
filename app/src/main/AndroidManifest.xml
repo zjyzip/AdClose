@@ -55,5 +55,9 @@
             android:name="xposedsharedprefs"
             android:value="true" />
 
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/scope" />
+
     </application>
 </manifest>
