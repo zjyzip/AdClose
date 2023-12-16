@@ -41,7 +41,7 @@ class AboutFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.toolBar.title = requireContext().getString(R.string.bottom_item_3)
+        binding.toolBar.title = requireContext().getString(R.string.bottom_item_2)
 
         binding.toolBar.apply {
             inflateMenu(R.menu.menu_about)
@@ -80,13 +80,14 @@ class AboutFragment : Fragment() {
                     """
     |这个一个Xposed模块
     |
-    |用于阻止常见平台广告与部分SDK的初始化和屏蔽域名请求。
+    |用于阻止常见平台广告与部分SDK的初始化加载和屏蔽应用的广告请求。
+    |
     |同时提供了一些其他Hook功能和特定应用去广告适配。
+    |
     |请在拥有LSPosed框架环境下使用。
     |
     |
-    |这个模块也是本人在空闲之时写的，目前只是提供了基础的功能，
-    |后续也会慢慢更新，也欢迎大家提供建议和反馈。
+    |这个模块也是本人在空闲之时写的，目前只是提供了基础的功能，后续也会慢慢更新，也欢迎大家提供建议和反馈。
     """.trimMargin()
                 )
             )
