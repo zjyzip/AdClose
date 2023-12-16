@@ -98,6 +98,10 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 	}
 
 	private void setupFilter() {
+		filterBean = new FilterBean();
+		filterList = new ArrayList<>();
+		filterBean.setTitle("应用名称");
+		filterBean.setFilter(filterList);
 		bottomSheetDialog = new BottomSheetDialog(requireContext());
 		View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_search_filter, null);
 		bottomSheetDialog.setContentView(dialogView);
@@ -162,16 +166,12 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
             chip.setId(0);
         }
         chip.setOnClickListener(view -> {
-            if (filterList == null)
-                filterList = new ArrayList<>();
-            if (Objects.equals(title, "最近更新") || Objects.equals(title, "已禁用") || Objects.equals(title, "32位")) {
+            if (Objects.equals(title, "最近更新") || Objects.equals(title, "已禁用")) {
                 if (chip.isChecked())
                     filterList.add(title);
                 else
                     filterList.remove(title);
             }
-            if (filterBean == null)
-                filterBean = new FilterBean();
             filterBean.setTitle(title);
             filterBean.setFilter(filterList);
             updateSortList(filterBean);
