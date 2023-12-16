@@ -203,7 +203,7 @@ public class AppsFragment extends Fragment {
 			if (isReverse) {
 				comparator = comparator.reversed();
 			}
-			
+
 		List<AppInfo> safeAppInfoList = Optional.ofNullable(appInfoList).orElseGet(Collections::emptyList);
 
 		if (!filterBean.getFilter().isEmpty()) {
