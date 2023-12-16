@@ -166,7 +166,7 @@ public class AppsFragment extends Fragment {
 		PreferencesHelper prefsHelper = new PreferencesHelper(dialogView.getContext(), PREFERENCES_NAME);
 
 		int[] switchIds = { R.id.switch_one, R.id.switch_two, R.id.switch_three, R.id.switch_four, R.id.switch_five,
-				R.id.switch_six };
+				R.id.switch_six, R.id.switch_seven };
 		String[] prefKeys = { "switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_",
 				"switch_six_", "switch_seven_" };
 
