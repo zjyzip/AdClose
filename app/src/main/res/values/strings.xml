@@ -5,8 +5,8 @@
 
 
     <string name="bottom_item_1">Apps</string>
-    <string name="bottom_item_2">About</string>
-
+    <string name="bottom_item_2">Hosts</string>
+    <string name="bottom_item_3">About</string>
 
     <string name="search_hint">搜索</string>
 
