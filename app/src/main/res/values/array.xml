@@ -11,5 +11,7 @@
 
         <item>com.qiyi.video.pad</item>
         <item>com.qiyi.video</item>
+
+        <item>com.duowan.kiwi</item>
     </string-array>
 </resources>
