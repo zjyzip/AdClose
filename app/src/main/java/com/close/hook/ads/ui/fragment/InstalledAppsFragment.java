@@ -198,6 +198,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 	private void setupSearchIcon() {
 		searchIcon.setOnClickListener(view -> {
 			if (searchEditText.isFocused()) {
+				searchEditText.setText("");
 				setIconAndFocus(R.drawable.ic_search, false);
 			} else {
 				setIconAndFocus(R.drawable.ic_back, true);

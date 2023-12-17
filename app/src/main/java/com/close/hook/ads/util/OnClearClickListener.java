@@ -4,4 +4,6 @@ public interface OnClearClickListener {
 
     void onClearAll();
 
+    void search(String keyWord);
+
 }

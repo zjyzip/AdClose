@@ -5,7 +5,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.View
@@ -14,6 +13,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.ThemeUtils
+import androidx.recyclerview.widget.AsyncListDiffer
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.module.BlockedRequest
@@ -23,8 +24,28 @@ import java.util.Date
 
 class BlockedRequestsAdapter(
     private val context: Context,
-    private val blockedRequests: List<BlockedRequest>
 ) : RecyclerView.Adapter<BlockedRequestsAdapter.ViewHolder?>() {
+
+
+    private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> =
+        object : DiffUtil.ItemCallback<BlockedRequest>() {
+            override fun areItemsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean {
+                return oldItem.hashCode() == newItem.hashCode()
+            }
+
+            @SuppressLint("DiffUtilEquals")
+            override fun areContentsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean {
+                return oldItem.hashCode() == newItem.hashCode()
+            }
+        }
+
+    private val differ: AsyncListDiffer<BlockedRequest> =
+        AsyncListDiffer<BlockedRequest>(this, DIFF_CALLBACK)
+
+    fun submitList(list: List<BlockedRequest?>?) {
+        differ.submitList(list)
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.blocked_request_item, parent, false)
@@ -43,7 +64,7 @@ class BlockedRequestsAdapter(
 
     @SuppressLint("RestrictedApi")
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val request = blockedRequests[position]
+        val request = differ.currentList[position]
         holder.appName.text = request.appName
         holder.request.text = request.request
         if (request.blockType =="all" && request.isBlocked){
@@ -68,7 +89,7 @@ class BlockedRequestsAdapter(
     }
 
     override fun getItemCount(): Int {
-        return blockedRequests.size
+        return differ.currentList.size
     }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
