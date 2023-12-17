@@ -20,7 +20,6 @@ import com.close.hook.ads.util.OnClearClickListener
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
-import java.util.Locale
 import java.util.Optional
 
 
@@ -105,7 +104,9 @@ class HostsListFragment : Fragment(), OnClearClickListener {
             Optional.ofNullable<List<BlockedRequest>>(requestList).orElseGet { emptyList() }
         disposables.add(Observable.fromIterable(safeAppInfoList)
             .filter { blockRequest: BlockedRequest ->
-                (blockRequest.request.contains(keyWord.toString()))
+                (blockRequest.request.contains(keyWord.toString())
+                        || blockRequest.packageName.contains(keyWord.toString())
+                        || blockRequest.appName.contains(keyWord.toString()))
             }
             .toList().observeOn(AndroidSchedulers.mainThread())
             .subscribe(
