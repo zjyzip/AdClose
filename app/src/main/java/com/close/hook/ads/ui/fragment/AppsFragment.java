@@ -189,7 +189,9 @@ public class AppsFragment extends Fragment {
 
 		disposables.add(Observable.fromIterable(safeAppInfoList)
 				.filter(appInfo -> appInfo.getAppName().contains(keyWord)
-						|| appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase()))
+								|| appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						|| appInfo.getPackageName().toLowerCase().contains(keyWord.toLowerCase())
+				)
 				.toList().observeOn(AndroidSchedulers.mainThread())
 				.subscribe(filteredList -> appsAdapter.submitList(filteredList),
 						throwable -> Log.e("AppsFragment", "Error in searchKeyWorld", throwable)));
