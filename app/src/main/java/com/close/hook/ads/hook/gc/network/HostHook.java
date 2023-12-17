@@ -18,6 +18,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.webkit.*;
 
+import androidx.annotation.Nullable;
+
 import com.close.hook.ads.data.module.BlockedRequest;
 
 import de.robv.android.xposed.*;
@@ -49,12 +51,12 @@ public class HostHook {
 						XposedBridge.hookMethod(openConnectionMethod, new XC_MethodReplacement() {
 							@Override
 							protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-								sendBlockedRequestBroadcast("block", host);
+								sendBlockedRequestBroadcast("block"," setupURLProxy",null, url.toString());
 								throw new IOException("Just URL Blocked: " + url);
 							}
 						});
 					} else if (host != null && !shouldBlockRequest(host)) {
-						sendBlockedRequestBroadcast("pass", host);
+						sendBlockedRequestBroadcast("pass",null,null, url.toString());
 					}
 				}
 			});
@@ -113,7 +115,7 @@ public class HostHook {
 		}
 
 		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", host);
+		sendBlockedRequestBroadcast("all",null,BLOCKED_HOSTS.containsKey(host), host);
 		return BLOCKED_HOSTS.containsKey(host);
 	}
 
@@ -122,10 +124,10 @@ public class HostHook {
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = HostExtractor.extractHostFromParam(param);
 			if (host != null && shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("block", host);
+				sendBlockedRequestBroadcast("block"," blockHook",null,  host);
 				param.setThrowable(new UnknownHostException("Connection blocked by HostHook"));
 			} else if (host != null && !shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("pass", host);
+				sendBlockedRequestBroadcast("pass",null, null,host);
 			}
 		}
 	};
@@ -135,11 +137,11 @@ public class HostHook {
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
 			if (host != null && shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("block", host);
+				sendBlockedRequestBroadcast("block"," InetAddressHook",null, host);
 				param.setResult(new InetAddress[0]);
 				return;
 			} else if (host != null && !shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("pass", host);
+				sendBlockedRequestBroadcast("pass",null,null, host);
 			}
 		}
 	};
@@ -180,7 +182,7 @@ public class HostHook {
 
 	}
 
-	private static void sendBlockedRequestBroadcast(String type, String request) {
+	private static void sendBlockedRequestBroadcast(String type, @Nullable String blockType,@Nullable Boolean isBlocked, String request) {
 		Intent intent;
 		if (Objects.equals(type, "all")) {
 			intent = new Intent("com.rikkati.ALL_REQUEST");
@@ -202,8 +204,11 @@ public class HostHook {
 			appName = currentContext.getPackageName(); // 使用包名作为备选名称
 
 		}
+		if (Objects.equals(type, "block")){
+			appName += blockType;
+		}
 		String packageName = currentContext.getPackageName();
-		BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request, System.currentTimeMillis());
+		BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request, System.currentTimeMillis(), type, isBlocked);
 
 		intent.putExtra("request", blockedRequest);
 		AndroidAppHelper.currentApplication().sendBroadcast(intent);

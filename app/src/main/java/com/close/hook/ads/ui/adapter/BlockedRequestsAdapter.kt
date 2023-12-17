@@ -1,9 +1,11 @@
 package com.close.hook.ads.ui.adapter
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.View
@@ -11,6 +13,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.widget.ThemeUtils
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.module.BlockedRequest
@@ -38,10 +41,16 @@ class BlockedRequestsAdapter(
         return viewHolder
     }
 
+    @SuppressLint("RestrictedApi")
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val request = blockedRequests[position]
         holder.appName.text = request.appName
         holder.request.text = request.request
+        if (request.blockType =="all" && request.isBlocked){
+            holder.request.setTextColor(ThemeUtils.getThemeAttrColor(context, com.google.android.material.R.attr.colorError))
+        }else{
+            holder.request.setTextColor(ThemeUtils.getThemeAttrColor(context, com.google.android.material.R.attr.colorControlNormal))
+        }
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         holder.timestamp.text = sdf.format(Date(request.timestamp))
         holder.icon.setImageDrawable(getAppIcon(request.packageName))

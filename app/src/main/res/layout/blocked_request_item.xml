@@ -39,10 +39,6 @@
             android:id="@+id/request"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:lines="1"
-            android:maxLines="1"
-            android:singleLine="true"
             android:textSize="13sp" />
 
         <TextView
