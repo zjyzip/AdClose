@@ -197,8 +197,7 @@ public class HostHook {
 
 		}
 		String packageName = currentContext.getPackageName();
-		BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
-				System.currentTimeMillis());
+		BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request, System.currentTimeMillis());
 
 		intent.putExtra("request", blockedRequest);
 		AndroidAppHelper.currentApplication().sendBroadcast(intent);
