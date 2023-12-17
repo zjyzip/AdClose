@@ -94,13 +94,14 @@ public class HostHook {
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = HostExtractor.extractHostFromParam(param);
 			if (host != null && shouldBlockRequest(host)) {
-                if (isSocketConnection(param)) {
-					sendBlockedRequestBroadcast("block", host);
-                    param.setThrowable(new SocketException("Socket blocked by HostHook"));
-                } else {
-					sendBlockedRequestBroadcast("pass", host);
-		     		param.setResult(null);
-                }
+				sendBlockedRequestBroadcast("block", host);
+				if (isSocketConnection(param)) {
+					param.setThrowable(new SocketException("Socket blocked by HostHook"));
+				} else {
+					param.setResult(null);
+				}
+			} else if (host != null && !shouldBlockRequest(host)){
+				sendBlockedRequestBroadcast("pass", host);
 			}
 		}
 	};
