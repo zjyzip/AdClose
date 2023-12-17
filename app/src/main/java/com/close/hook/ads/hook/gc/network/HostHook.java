@@ -1,6 +1,7 @@
 package com.close.hook.ads.hook.gc.network;
 
 import java.io.*;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
@@ -8,7 +9,15 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
 import java.net.*;
+
+import android.annotation.SuppressLint;
+import android.app.AndroidAppHelper;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.webkit.*;
+
+import com.close.hook.ads.data.module.BlockedRequest;
 
 import de.robv.android.xposed.*;
 
@@ -29,6 +38,7 @@ public class HostHook {
         }
     }
 
+	@SuppressLint("CheckResult")
 	private static void loadBlockedHostsAsync() {
 		Flowable.<String>create(emitter -> {
 			try (InputStream inputStream = HostHook.class.getResourceAsStream("/assets/blocked_hosts.txt");
@@ -70,6 +80,7 @@ public class HostHook {
         }
 
         waitForDataLoading();
+		sendBlockedRequestBroadcast("all", host);
         return BLOCKED_HOSTS.containsKey(host);
     }
 
@@ -84,8 +95,10 @@ public class HostHook {
 			String host = HostExtractor.extractHostFromParam(param);
 			if (host != null && shouldBlockRequest(host)) {
                 if (isSocketConnection(param)) {
+					sendBlockedRequestBroadcast("block", host);
                     param.setThrowable(new SocketException("Socket blocked by HostHook"));
                 } else {
+					sendBlockedRequestBroadcast("pass", host);
 		     		param.setResult(null);
                 }
 			}
@@ -97,8 +110,11 @@ public class HostHook {
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
 			if (host != null && shouldBlockRequest(host)) {
+				sendBlockedRequestBroadcast("block", host);
 				param.setResult(new InetAddress[0]);
 				return;
+			} else if (host != null && !shouldBlockRequest(host)){
+				sendBlockedRequestBroadcast("pass", host);
 			}
 		}
 	};
@@ -155,6 +171,36 @@ public class HostHook {
 			}
 		}
 
+	}
+
+	private static void sendBlockedRequestBroadcast(String type, String request) {
+		Intent intent;
+		if (Objects.equals(type, "all")) {
+			intent = new Intent("com.rikkati.ALL_REQUEST");
+		} else if (Objects.equals(type, "block")) {
+			intent = new Intent("com.rikkati.BLOCKED_REQUEST");
+		} else {
+			intent = new Intent("com.rikkati.PASS_REQUEST");
+		}
+
+		Context currentContext = AndroidAppHelper.currentApplication();
+		PackageManager pm = currentContext.getPackageManager();
+		String appName;
+		try {
+			appName = pm
+					.getApplicationLabel(
+							pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
+					.toString();
+		} catch (PackageManager.NameNotFoundException e) {
+			appName = currentContext.getPackageName(); // 使用包名作为备选名称
+
+		}
+		String packageName = currentContext.getPackageName();
+		BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
+				System.currentTimeMillis());
+
+		intent.putExtra("request", blockedRequest);
+		AndroidAppHelper.currentApplication().sendBroadcast(intent);
 	}
 
 }

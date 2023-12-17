@@ -23,7 +23,7 @@
 
     <string name="tab_domain_list">请求列表</string>
     <string name="tab_host_list">拦截列表</string>
-    <string name="tab_host_whitelist">白名单</string>
+    <string name="tab_host_whitelist">放行列表</string>
 
 
     <string name="handle_platform_ad">处理平台广告</string>
