@@ -125,8 +125,8 @@ class AboutFragment : Fragment() {
                 ItemBean(
                     R.drawable.ic_telegram,
                     DensityTool.dp2px(requireContext(), 20f).toInt(),
-                    "Reese_XPModule",
-                    "https://t.me/Reese_XPModule"
+                    "AdClose",
+                    "https://t.me/AdClose"
                 )
             )
         }

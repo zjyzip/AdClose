@@ -31,7 +31,7 @@ class AboutActivity : AbsAboutActivity() {
     """.trimMargin()))
 
         items.add(Category("FeedBack"))
-        items.add(Card("Telegram\nhttps://t.me/Reese_XPModule"))
+        items.add(Card("Telegram\nhttps://t.me/AdClose"))
 
         items.add(Category("Open Source"))
         items.add(License("kotlin", "JetBrains", License.APACHE_2, "https://github.com/JetBrains/kotlin"))

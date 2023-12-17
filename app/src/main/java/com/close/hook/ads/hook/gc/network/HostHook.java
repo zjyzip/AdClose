@@ -16,6 +16,7 @@ import android.app.AndroidAppHelper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.util.Log;
 import android.webkit.*;
 
 import androidx.annotation.Nullable;
@@ -191,25 +192,30 @@ public class HostHook {
 		}
 
 		Context currentContext = AndroidAppHelper.currentApplication();
-		PackageManager pm = currentContext.getPackageManager();
-		String appName;
-		try {
-			appName = pm
-					.getApplicationLabel(
-							pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
-					.toString();
-		} catch (PackageManager.NameNotFoundException e) {
-			appName = currentContext.getPackageName(); // 使用包名作为备选名称
+		if (currentContext != null){
+			PackageManager pm = currentContext.getPackageManager();
+			String appName;
+			try {
+				appName = pm
+						.getApplicationLabel(
+								pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
+						.toString();
+			} catch (PackageManager.NameNotFoundException e) {
+				appName = currentContext.getPackageName(); // 使用包名作为备选名称
 
-		}
-		if (Objects.equals(type, "block")){
-			appName += blockType;
-		}
-		String packageName = currentContext.getPackageName();
-		BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request, System.currentTimeMillis(), type, isBlocked);
+			}
+			if (Objects.equals(type, "block")){
+				appName += blockType;
+			}
+			String packageName = currentContext.getPackageName();
+			BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request, System.currentTimeMillis(), type, isBlocked);
 
-		intent.putExtra("request", blockedRequest);
-		AndroidAppHelper.currentApplication().sendBroadcast(intent);
+			intent.putExtra("request", blockedRequest);
+			AndroidAppHelper.currentApplication().sendBroadcast(intent);
+		} else {
+			Log.w("HostHook", "sendBlockedRequestBroadcast: currentContext is null");
+		}
+
 	}
 
 }
