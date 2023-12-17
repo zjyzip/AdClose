@@ -81,7 +81,7 @@ class HostsListFragment : Fragment(), OnClearClickListener {
 
     private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val request = intent.getSerializableExtra("request") as BlockedRequest?
+            val request = intent.getParcelableExtra("request") as BlockedRequest?
             requestList.add(0, request!!)
             val newList = ArrayList<BlockedRequest>()
             newList.addAll(requestList)
