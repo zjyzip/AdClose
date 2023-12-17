@@ -28,42 +28,40 @@ public class HostHook {
 	private static final String LOG_PREFIX = "[HostHook] ";
 	private static final ConcurrentHashMap<String, Boolean> BLOCKED_HOSTS = new ConcurrentHashMap<>();
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
-	private static boolean isURLHooked = false;
 
 	static {
 		setupURLProxy();
 		loadBlockedHostsAsync();
 	}
 
-	private static void setupURLProxy() {
-		try {
-			Constructor<URL> urlConstructor = URL.class.getDeclaredConstructor(String.class);
-			Method openConnectionMethod = URL.class.getDeclaredMethod("openConnection");
+    private static void setupURLProxy() {
+        try {
+            Constructor<URL> urlConstructor = URL.class.getDeclaredConstructor(String.class);
+            Method openConnectionMethod = URL.class.getDeclaredMethod("openConnection");
 
-			XposedBridge.hookMethod(urlConstructor, new XC_MethodHook() {
-				@Override
-				protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-					final URL url = (URL) param.thisObject;
-					String host = url != null ? url.getHost() : null;
+            XposedBridge.hookMethod(urlConstructor, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    final URL url = (URL) param.thisObject;
+                    String host = url != null ? url.getHost() : null;
 
-					if (host != null && shouldBlockRequest(host) && !isURLHooked) {
-						isURLHooked = true;
-						XposedBridge.hookMethod(openConnectionMethod, new XC_MethodReplacement() {
-							@Override
-							protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                    if (host != null && shouldBlockRequest(host)) {
+                        XposedBridge.hookMethod(openConnectionMethod, new XC_MethodReplacement() {
+                            @Override
+                            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
 								sendBlockedRequestBroadcast("block"," setupURLProxy",null, url.toString());
-								throw new IOException("Just URL Blocked: " + url);
-							}
-						});
-					} else if (host != null && !shouldBlockRequest(host)) {
+                                return new BlockedURLConnection(url);
+                            }
+                        });
+                    } else if (host != null && !shouldBlockRequest(host)) {
 						sendBlockedRequestBroadcast("pass",null,null, url.toString());
-					}
-				}
-			});
-		} catch (NoSuchMethodException e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
-		}
-	}
+                    }
+                }
+            });
+        } catch (NoSuchMethodException e) {
+            XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
+        }
+    }
 
 	public static void init() {
 		try {
