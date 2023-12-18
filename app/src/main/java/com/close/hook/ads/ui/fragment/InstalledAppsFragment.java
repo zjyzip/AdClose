@@ -20,11 +20,13 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
 import com.close.hook.ads.util.AppUtils;
-import com.close.hook.ads.data.module.FilterBean;
+import com.close.hook.ads.data.model.FilterBean;
 import com.close.hook.ads.ui.activity.MainActivity;
 import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
+import com.close.hook.ads.util.OnCLearCLickContainer;
+import com.close.hook.ads.util.OnClearClickListener;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.checkbox.MaterialCheckBox;
@@ -43,15 +45,13 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
-public class InstalledAppsFragment extends Fragment implements OnBackPressListener {
+public class InstalledAppsFragment extends Fragment implements OnBackPressListener , OnCLearCLickContainer {
 
 	private ViewPager2 viewPager;
 	private TabLayout tabLayout;
 	private EditText searchEditText;
 	private ImageView searchIcon;
 	private Disposable searchDisposable;
-	private AppsFragment appFragment1;
-	private AppsFragment appFragment2;
 	private InputMethodManager imm;
 	private ImageButton searchClear;
 	private ImageButton searchFilter;
@@ -59,6 +59,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 	private MaterialCheckBox reverseSwitch;
     private List<String> filterList;
     private FilterBean filterBean;
+	private OnClearClickListener onClearClickListener;
 
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -88,9 +89,6 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 		searchIcon = view.findViewById(R.id.search_icon);
 		searchClear = view.findViewById(R.id.search_clear);
 		searchFilter = view.findViewById(R.id.search_filter);
-
-		appFragment1 = AppsFragment.newInstance(false);
-		appFragment2 = AppsFragment.newInstance(true);
 
 		setupSearchIcon();
 		setupSearchEditText();
@@ -131,20 +129,16 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 				filterBean.setTitle("应用名称");
 				filterList.clear();
 				if (viewPager.getCurrentItem() == 0) {
-					appFragment1.searchKeyWorld("");
+					onClearClickListener.search("");
 				} else if (viewPager.getCurrentItem() == 1) {
-					appFragment2.searchKeyWorld("");
+					onClearClickListener.search("");
 				}
 			}
 			return false;
 		});
 		reverseSwitch = dialogView.findViewById(R.id.reverse_switch);
 		reverseSwitch.setOnCheckedChangeListener((compoundButton, b) -> {
-			if (viewPager.getCurrentItem() == 0) {
-				appFragment1.updateSortList(filterBean, searchEditText.getText().toString(), b);
-			} else if (viewPager.getCurrentItem() == 1) {
-				appFragment2.updateSortList(filterBean, searchEditText.getText().toString(), b);
-			}
+			onClearClickListener.updateSortList(filterBean, searchEditText.getText().toString(), b);
 		});
 		sortBy.setSingleSelection(true);
 		List<String> sortList = List.of("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本");
@@ -188,11 +182,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
     }
 
 	private void updateSortList(FilterBean filterBean) {
-		if (viewPager.getCurrentItem() == 0) {
-			appFragment1.updateSortList(filterBean, searchEditText.getText().toString(), reverseSwitch.isChecked());
-		} else if (viewPager.getCurrentItem() == 1) {
-			appFragment2.updateSortList(filterBean, searchEditText.getText().toString(), reverseSwitch.isChecked());
-		}
+		onClearClickListener.updateSortList(filterBean, searchEditText.getText().toString(), reverseSwitch.isChecked());
 	}
 
 	private void setupSearchClear() {
@@ -225,7 +215,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 	}
 
 	private void setupViewPagerAndTabs() {
-		UniversalPagerAdapter adapter = new UniversalPagerAdapter(this, List.of(appFragment1, appFragment2));
+		UniversalPagerAdapter adapter = new UniversalPagerAdapter(this, List.of(AppsFragment.newInstance(false), AppsFragment.newInstance(true)));
 		viewPager.setAdapter(adapter);
 
 		new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
@@ -244,12 +234,16 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 
 			@Override
 			public void onTextChanged(CharSequence s, int start, int before, int count) {
-				if (searchDisposable != null && !searchDisposable.isDisposed()) {
-					searchDisposable.dispose();
+
+				if (searchEditText.isFocused()){
+					if (searchDisposable != null && !searchDisposable.isDisposed()) {
+						searchDisposable.dispose();
+					}
+					searchDisposable = Observable.just(s.toString()).debounce(300, TimeUnit.MILLISECONDS)
+							.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
+							.subscribe(this::performSearch);
 				}
-				searchDisposable = Observable.just(s.toString()).debounce(300, TimeUnit.MILLISECONDS)
-						.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-						.subscribe(this::performSearch);
+
 			}
 
 			@Override
@@ -262,8 +256,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 			}
 
 			private void performSearch(String query) {
-				AppsFragment currentFragment = viewPager.getCurrentItem() == 0 ? appFragment1 : appFragment2;
-				currentFragment.searchKeyWorld(query);
+				onClearClickListener.search(query);
 			}
 		});
 	}
@@ -295,5 +288,15 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 		super.onResume();
 		OnBackPressContainer onBackPressContainer = (OnBackPressContainer) requireContext();
 		onBackPressContainer.setController(this);
+	}
+
+	@Override
+	public OnClearClickListener getController() {
+		return this.onClearClickListener;
+	}
+
+	@Override
+	public void setController(OnClearClickListener onClearClickListener) {
+		this.onClearClickListener = onClearClickListener;
 	}
 }

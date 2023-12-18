@@ -17,7 +17,7 @@ import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
-import com.close.hook.ads.data.module.BlockedRequest
+import com.close.hook.ads.data.model.BlockedRequest
 import java.text.SimpleDateFormat
 import java.util.Date
 

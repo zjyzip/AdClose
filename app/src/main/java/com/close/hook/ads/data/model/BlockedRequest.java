@@ -1,4 +1,4 @@
-package com.close.hook.ads.data.module;
+package com.close.hook.ads.data.model;
 
 import android.os.Parcel;
 import android.os.Parcelable;
