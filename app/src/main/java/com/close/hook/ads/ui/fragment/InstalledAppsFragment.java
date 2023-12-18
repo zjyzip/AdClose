@@ -12,6 +12,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,6 +21,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
 import com.close.hook.ads.data.module.FilterBean;
+import com.close.hook.ads.ui.activity.MainActivity;
 import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
@@ -166,6 +168,11 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
             chip.setId(0);
         }
         chip.setOnClickListener(view -> {
+			if (Objects.equals(title, "已配置") && !MainActivity.isModuleActivated()){
+				Toast.makeText(requireContext(), "模块尚未被激活", Toast.LENGTH_SHORT).show();
+				chip.setChecked(false);
+				return;
+			}
             if (Objects.equals(title, "最近更新") || Objects.equals(title, "已禁用") || Objects.equals(title, "已配置")) {
                 if (chip.isChecked())
                     filterList.add(title);
