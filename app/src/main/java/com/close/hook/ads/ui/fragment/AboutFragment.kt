@@ -78,16 +78,17 @@ class AboutFragment : Fragment() {
                     null,
                     requireContext().getString(R.string.app_name),
                     """
-    |这个一个Xposed模块
+    |这是一个Xposed模块，请在拥有LSPosed框架环境下使用。
+    |
     |
     |用于阻止常见平台广告与部分SDK的初始化加载和屏蔽应用的广告请求。
+    |(感谢Twilight提供的AWAvenue-Ads-Rule广告规则)
     |
     |同时提供了一些其他Hook功能和特定应用去广告适配。
     |
-    |请在拥有LSPosed框架环境下使用。
     |
-    |
-    |这个模块也是本人在空闲之时写的，目前只是提供了基础的功能，后续也会慢慢更新，也欢迎大家提供建议和反馈。
+    |这个模块也是本人在空闲之时写的，目前只是提供了基础的功能，后续会慢慢更新，也欢迎大家提供建议和反馈。
+    |获取更多相关内容信息请加入我们的Telegram频道。
     """.trimMargin()
                 )
             )
@@ -125,7 +126,7 @@ class AboutFragment : Fragment() {
                 ItemBean(
                     R.drawable.ic_telegram,
                     DensityTool.dp2px(requireContext(), 20f).toInt(),
-                    "AdClose",
+                    "AdClose Officer",
                     "https://t.me/AdClose"
                 )
             )
@@ -219,9 +220,9 @@ class AboutFragment : Fragment() {
         }
         binding.title.text = title
         binding.desc.text = desc
-        if (title == "Reese_XPModule")
+        if (title == "AdClose Officer")
             binding.root.setOnClickListener {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Reese_XPModule"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/AdClose"))
                 try {
                     startActivity(intent)
                 } catch (e: ActivityNotFoundException) {
