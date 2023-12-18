@@ -8,7 +8,6 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 
 import com.close.hook.ads.data.model.AppInfo;
-import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.ui.activity.MainActivity;
 
 import java.io.File;

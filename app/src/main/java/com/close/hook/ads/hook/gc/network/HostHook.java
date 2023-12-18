@@ -21,7 +21,7 @@ import android.webkit.*;
 
 import androidx.annotation.Nullable;
 
-import com.close.hook.ads.data.module.BlockedRequest;
+import com.close.hook.ads.data.model.BlockedRequest;
 
 import de.robv.android.xposed.*;
 

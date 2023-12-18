@@ -9,8 +9,10 @@ import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.close.hook.ads.data.model.AppInfo;
+import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.repository.AppRepository;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -18,6 +20,10 @@ import io.reactivex.rxjava3.core.BackpressureStrategy;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class AppsViewModel extends AndroidViewModel {
+
+	public List<BlockedRequest> requestList = new ArrayList<>();
+	public List<AppInfo> appInfoList = new ArrayList<>();
+
 	private final AppRepository appRepository;
 	private final MediatorLiveData<List<AppInfo>> userAppsLiveData = new MediatorLiveData<>();
 	private final MediatorLiveData<List<AppInfo>> systemAppsLiveData = new MediatorLiveData<>();
