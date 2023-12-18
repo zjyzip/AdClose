@@ -253,14 +253,17 @@ public class AppsFragment extends Fragment {
 	private Predicate<AppInfo> getAppInfoFilter(String title, String keyWord) {
 		long time = 7 * 24 * 3600L;
 		switch (title) {
-		case "最近更新":
-			return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
-					&& (System.currentTimeMillis() / 1000 - appInfo.getLastUpdateTime() / 1000) < time;
-		case "已禁用":
-			return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
-					&& appInfo.getIsAppEnable() == 0;
-		default:
-			return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
+			case "已配置":
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						&& appInfo.getIsEnable() == 1;
+			case "最近更新":
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						&& (System.currentTimeMillis() / 1000 - appInfo.getLastUpdateTime() / 1000) < time;
+			case "已禁用":
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase())
+						&& appInfo.getIsAppEnable() == 0;
+			default:
+				return appInfo -> appInfo.getAppName().toLowerCase().contains(keyWord.toLowerCase());
 		}
 	}
 

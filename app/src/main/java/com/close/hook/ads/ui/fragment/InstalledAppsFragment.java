@@ -150,7 +150,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 			sortBy.addView(getChip(title));
 		}
 		filter.setSingleSelection(false);
-		List<String> filterList = List.of("最近更新", "已禁用");
+		List<String> filterList = List.of("已配置", "最近更新", "已禁用");
 		for (String title : filterList) {
 			filter.addView(getChip(title));
 		}
@@ -166,7 +166,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
             chip.setId(0);
         }
         chip.setOnClickListener(view -> {
-            if (Objects.equals(title, "最近更新") || Objects.equals(title, "已禁用")) {
+            if (Objects.equals(title, "最近更新") || Objects.equals(title, "已禁用") || Objects.equals(title, "已配置")) {
                 if (chip.isChecked())
                     filterList.add(title);
                 else
