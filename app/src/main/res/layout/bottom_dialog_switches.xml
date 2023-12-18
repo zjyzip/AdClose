@@ -8,6 +8,13 @@
         android:orientation="vertical"
         android:padding="16dp" >
 
+    <TextView
+        android:id="@+id/sheet_app_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="20sp"
+        android:gravity="center" />
+  
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_one"
             android:layout_width="match_parent"

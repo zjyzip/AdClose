@@ -20,15 +20,18 @@ class AboutActivity : AbsAboutActivity() {
         items.add(Category("About"))
         items.add(Card("""
     |这是一个Xposed模块，请在拥有LSPosed框架环境下使用。
+    |(建议关闭LSPosed管理器中的Xposed API调用保护功能，否则导致部分功能失效)
     |
     |
     |主要用于阻止常见平台广告与部分SDK的初始化加载和屏蔽应用的广告请求。
+    |(感谢Twilight提供的AWAvenue-Ads-Rule广告规则)
     |
     |同时提供了一些其他Hook功能和特定应用去广告适配。
     |
     |
-    |这个模块也是本人在空闲之时写的，目前只是提供了基础的功能，后续会慢慢更新，也欢迎大家提供建议和反馈。
-    |获取更多相关内容信息请加入我们的Telegram频道。
+    |请不要请将此模块发送分享于QQ群，酷安，葫芦侠等社区，谢谢配合。
+    |为此，我已经将AdClose上架到了LSPosed模块仓库。
+    |做这个模块的初衷是为了能够给大家获得更好的应用体验，所以请不要做出以上的行为，我们真的花了很多心思，非常不希望看到这些事情发生。
     """.trimMargin()))
 
         items.add(Category("Developer"))

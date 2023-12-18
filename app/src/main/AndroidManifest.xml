@@ -45,7 +45,7 @@
 
         <meta-data
             android:name="xposeddescription"
-            android:value="本模块用于阻止常见广告与部分sdk的初始化加载和请求，仅供学习交流，请勿用于非法用途，且模块完全免费使用" />
+            android:value="本模块用于阻止常见广告与部分sdk的初始化加载和请求，仅供学习交流，请勿用于违法违规用途，且模块完全免费使用。\n                            By TG-@AdClose"/>
 
         <meta-data
             android:name="xposedminversion"
