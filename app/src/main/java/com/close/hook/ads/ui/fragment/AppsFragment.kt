@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.Toast
+import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModelProvider
@@ -118,6 +119,8 @@ class AppsFragment : Fragment(), OnClearClickListener {
         val dialogView =
             LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_switches, null)
         bottomSheetDialog.setContentView(dialogView)
+        val appNameTextView = dialogView.findViewById<TextView>(R.id.sheet_app_name)
+        appNameTextView.text = appInfo.appName
         val closeButton = dialogView.findViewById<ImageButton>(R.id.button_close)
         closeButton.setOnClickListener { bottomSheetDialog.dismiss() }
         setupListeners(dialogView, appInfo)

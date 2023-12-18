@@ -119,8 +119,6 @@ public class HookInit implements IXposedHookLoadPackage {
 
 	private boolean shouldIgnorePackage(XC_LoadPackage.LoadPackageParam lpparam) {
 		return lpparam.appInfo == null
-				|| (lpparam.appInfo.flags
-						& (ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
 				|| !lpparam.isFirstApplication;
 	}
 
