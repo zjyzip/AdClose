@@ -3,16 +3,15 @@ package com.close.hook.ads.ui.activity;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
-import com.close.hook.ads.ui.fragment.AboutFragment;
 import com.close.hook.ads.ui.fragment.HostsFragment;
 import com.close.hook.ads.ui.fragment.InstalledAppsFragment;
+import com.close.hook.ads.ui.fragment.SettingsFragment;
 import com.close.hook.ads.util.AppUtils;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
@@ -21,7 +20,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements OnBackPressContainer {
+public class MainActivity extends BaseActivity implements OnBackPressContainer {
 
     private OnBackPressListener currentFragmentController;
     private ViewPager2 viewPager2;
@@ -32,7 +31,7 @@ public class MainActivity extends AppCompatActivity implements OnBackPressContai
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        AppUtils.setSystemBarsColor(findViewById(android.R.id.content));
+        //AppUtils.setSystemBarsColor(findViewById(android.R.id.content));
         setupViewPagerAndBottomNavigation();
     }
 
@@ -47,7 +46,7 @@ public class MainActivity extends AppCompatActivity implements OnBackPressContai
         List<Fragment> fragments = new ArrayList<>();
         fragments.add(new InstalledAppsFragment());
         fragments.add(new HostsFragment());
-        fragments.add(new AboutFragment());
+        fragments.add(new SettingsFragment());
 
         BottomFragmentStateAdapter adapter = new BottomFragmentStateAdapter(this, fragments);
         viewPager2.setAdapter(adapter);

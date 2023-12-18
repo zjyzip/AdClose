@@ -3,16 +3,53 @@ import java.util.Calendar
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("dev.rikka.tools.materialthemebuilder")
+}
+
+materialThemeBuilder {
+    themes {
+        for ((name, color) in listOf(
+            "Default" to "6750A4",
+            "Red" to "F44336",
+            "Pink" to "E91E63",
+            "Purple" to "9C27B0",
+            "DeepPurple" to "673AB7",
+            "Indigo" to "3F51B5",
+            "Blue" to "2196F3",
+            "LightBlue" to "03A9F4",
+            "Cyan" to "00BCD4",
+            "Teal" to "009688",
+            "Green" to "4FAF50",
+            "LightGreen" to "8BC3A4",
+            "Lime" to "CDDC39",
+            "Yellow" to "FFEB3B",
+            "Amber" to "FFC107",
+            "Orange" to "FF9800",
+            "DeepOrange" to "FF5722",
+            "Brown" to "795548",
+            "BlueGrey" to "607D8F",
+            "Sakura" to "FF9CA8"
+        )) {
+            create("Material$name") {
+                lightThemeFormat = "ThemeOverlay.Light.%s"
+                darkThemeFormat = "ThemeOverlay.Dark.%s"
+                primaryColor = "#$color"
+            }
+        }
+    }
+    // Add Material Design 3 color tokens (such as palettePrimary100) in generated theme
+    // rikka.material >= 2.0.0 provides such attributes
+    generatePalette = true
 }
 
 android {
     namespace = "com.close.hook.ads"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.close.hook.ads"
         minSdk = 26
-        targetSdk = 33
+        targetSdk = 34
         versionCode = calculateVersionCode()
         versionName = "1.0"
 
@@ -54,20 +91,29 @@ fun calculateVersionCode(): Int {
     return year * 10000 + month * 100 + day
 }
 
+configurations.configureEach {
+    exclude("androidx.appcompat", "appcompat")
+}
+
 dependencies {
     compileOnly("de.robv.android.xposed:api:82")
 
-    implementation("com.google.android.material:material:1.8.0")
+    implementation("com.google.android.material:material:1.10.0")
 
     implementation("io.reactivex.rxjava3:rxjava:3.1.5")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
 
-    implementation("androidx.lifecycle:lifecycle-reactivestreams:2.4.1")
+    implementation("androidx.lifecycle:lifecycle-reactivestreams:2.6.2")
 
-    implementation("com.github.bumptech.glide:glide:4.12.0")
-    annotationProcessor("com.github.bumptech.glide:compiler:4.12.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
     implementation("me.zhanghai.android.fastscroll:library:1.3.0")
 
     implementation("com.drakeet.about:about:2.5.2")
+
+    implementation("androidx.preference:preference-ktx:1.2.1")
+
+    implementation("dev.rikka.rikkax.material:material:2.7.0")
+    implementation("dev.rikka.rikkax.material:material-preference:2.0.0")
 }
