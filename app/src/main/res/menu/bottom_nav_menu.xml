@@ -12,6 +12,6 @@
     <item
         android:id="@+id/bottom_item_3"
         android:enabled="true"
-        android:icon="@drawable/ic_about"
+        android:icon="@drawable/ic_setting"
         android:title="@string/bottom_item_3" />
 </menu>

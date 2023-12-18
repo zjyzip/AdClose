@@ -31,6 +31,14 @@ class AboutActivity : AbsAboutActivity() {
     |获取更多相关内容信息请加入我们的Telegram频道。
     """.trimMargin()))
 
+        items.add(Category("Developer"))
+        items.add(Contributor(R.drawable.cont_author, "zjyzip", "Developer & Designer", "https://github.com/zjyzip"))
+        items.add(Line())
+        items.add(Contributor(R.drawable.cont_bggrgjqaubcoe, "bggRGjQaUbCoE", "Developer & Collaborator", "https://github.com/bggRGjQaUbCoE"))
+
+        items.add(Category("Thanks"))
+        items.add(Card("Twilight(AWAvenue-Ads-Rule)\nhttps://github.com/TG-Twilight/AWAvenue-Ads-Rule"))
+
         items.add(Category("FeedBack"))
         items.add(Card("Telegram\nhttps://t.me/AdClose"))
 
@@ -43,5 +51,6 @@ class AboutActivity : AbsAboutActivity() {
         items.add(License("RxJava", "RxAndroid", License.APACHE_2, "https://github.com/ReactiveX/RxAndroid"))
         items.add(License("glide", "bumptech", License.APACHE_2, "https://github.com/bumptech/glide"))
         items.add(License("AndroidFastScroll", "zhanghai", License.APACHE_2, "https://github.com/zhanghai/AndroidFastScroll"))
+        items.add(License("RikkaX", "RikkaApps", License.MIT, "https://github.com/RikkaApps/RikkaX"))
     }
 }
