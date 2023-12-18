@@ -12,7 +12,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
+import com.close.hook.ads.util.AppUtils;
 import com.close.hook.ads.data.module.FilterBean;
 import com.close.hook.ads.ui.activity.MainActivity;
 import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
@@ -169,7 +169,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         }
         chip.setOnClickListener(view -> {
 			if (Objects.equals(title, "已配置") && !MainActivity.isModuleActivated()){
-				Toast.makeText(requireContext(), "模块尚未被激活", Toast.LENGTH_SHORT).show();
+				AppUtils.showToast(requireContext(), "模块尚未被激活");
 				chip.setChecked(false);
 				return;
 			}

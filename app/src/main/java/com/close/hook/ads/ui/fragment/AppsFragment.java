@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 import android.util.Log;
@@ -157,6 +158,8 @@ public class AppsFragment extends Fragment {
 		BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
 		View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_switches, null);
 		bottomSheetDialog.setContentView(dialogView);
+        ImageButton closeButton = dialogView.findViewById(R.id.button_close);
+        closeButton.setOnClickListener(view -> bottomSheetDialog.dismiss());
 		setupListeners(dialogView, appInfo);
 		bottomSheetDialog.show();
 	}

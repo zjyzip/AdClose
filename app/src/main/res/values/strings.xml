@@ -27,15 +27,16 @@
 
 
     <string name="update_checkbox_status">保存开关配置</string>
+    <string name="description_seven">•仅针对一般性的Magisk和Xposed检测</string>
 
     <string name="handle_platform_ad">处理平台广告</string>
     <string name="handle_apps_ad">处理特定应用广告</string>
 
-    <string name="block_host">屏蔽广告域名请求</string>
+    <string name="block_host">屏蔽广告请求</string>
 
-    <string name="remove_flag_secure">去除截图录屏限制</string>
+    <string name="remove_flag_secure">移除截图录屏限制</string>
     <string name="remove_vpn_state">去除VPN代理检测</string>
-    <string name="remove_sensor_monitor">去除传感器监听</string>
+    <string name="remove_sensor_monitor">移除传感器监听</string>
     <string name="remove_envi_detection">去除环境检测</string>
 
 </resources>
