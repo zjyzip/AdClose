@@ -1,15 +1,11 @@
 package com.close.hook.ads.hook;
 
+import android.util.Log;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-
-import android.util.Log;
-import android.widget.Toast;
-import java.util.HashMap;
-import java.util.Map;
 
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
@@ -30,7 +26,6 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookInit implements IXposedHookLoadPackage {
 	private static final String TAG = "com.close.hook.ads";
-//	private static HashMap<String, Boolean> toastShownMap = new HashMap<>();
 
 	@SuppressLint("SuspiciousIndentation")
 	@Override
@@ -90,25 +85,14 @@ public class HookInit implements IXposedHookLoadPackage {
 					CharSequence appName = getAppName(context, packageName);
 
 					if (!TAG.equals(packageName)) {
-
-/*
-						if (!toastShownMap.containsKey(packageName)) {
-							toastShownMap.put(packageName, true);
-							Toast.makeText(context, "Hook成功: " + getAppName(context, packageName), Toast.LENGTH_SHORT)
-									.show();
-						}
-*/
-
 						XposedBridge.log("found classload is => " + classLoader.toString());
 						XposedBridge.log("Application Name: " + appName);
 					}
 
+					AppAds.progress(classLoader, packageName);
+
 					if (settingsManager.isHandlePlatformAdEnabled()) {
 						SDKHooks.hookAds(classLoader);
-					}
-
-					if (settingsManager.isHandleAppsAdEnabled()) {
-						AppAds.progress(classLoader, packageName);
 					}
 				}
 			});

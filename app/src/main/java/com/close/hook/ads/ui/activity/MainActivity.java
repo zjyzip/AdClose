@@ -33,8 +33,6 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        //AppUtils.setSystemBarsColor(findViewById(android.R.id.content));
         setupViewPagerAndBottomNavigation();
     }
 

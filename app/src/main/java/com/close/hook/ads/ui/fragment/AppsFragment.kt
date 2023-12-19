@@ -11,7 +11,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.TextView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModelProvider
@@ -126,7 +125,7 @@ class AppsFragment : Fragment(), OnClearClickListener {
                 try {
                     requireContext().startActivity(intent)
                 } catch (e: ActivityNotFoundException) {
-                    Toast.makeText(requireContext(), "打开失败", Toast.LENGTH_SHORT).show()
+                    AppUtils.showToast(requireContext(), "打开失败")
                     e.printStackTrace()
                 }
             })
@@ -180,7 +179,6 @@ class AppsFragment : Fragment(), OnClearClickListener {
             R.id.switch_four,
             R.id.switch_five,
             R.id.switch_six,
-            R.id.switch_seven
         )
         val prefKeys = arrayOf(
             "switch_one_",
@@ -189,13 +187,11 @@ class AppsFragment : Fragment(), OnClearClickListener {
             "switch_four_",
             "switch_five_",
             "switch_six_",
-            "switch_seven_"
         )
 
         selectAll = dialogView.findViewById(R.id.select_all)
         totalCheck = checkBoxIds.size
         appsViewModel.checkHashMap[appInfo.packageName] = checkBoxIds.size
-        // 初始化状态
         for (i in checkBoxIds.indices) {
             val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
             val key = prefKeys[i] + appInfo.packageName
@@ -212,16 +208,14 @@ class AppsFragment : Fragment(), OnClearClickListener {
             }
         }
 
-        // 设置点击监听器
         val buttonUpdate = dialogView.findViewById<MaterialButton>(R.id.button_update)
         buttonUpdate.setOnClickListener {
-            // 保存状态
             for (i in checkBoxIds.indices) {
                 val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
                 val key = prefKeys[i] + appInfo.packageName
                 prefsHelper.setBoolean(key, checkBoxView.isChecked)
             }
-            Toast.makeText(dialogView.context, "保存成功", Toast.LENGTH_SHORT).show()
+            AppUtils.showToast(requireContext(), "保存成功")
             bottomSheetDialog.dismiss()
         }
 
