@@ -16,27 +16,23 @@ public class SettingsManager {
         return prefsHelper.getBoolean("switch_one_" + packageName, false);
     }
 
-    public boolean isHandleAppsAdEnabled() {
+    public boolean isHostHookEnabled() {
         return prefsHelper.getBoolean("switch_two_" + packageName, false);
     }
 
-    public boolean isHostHookEnabled() {
+    public boolean isHideVPNStatusEnabled() {
         return prefsHelper.getBoolean("switch_three_" + packageName, false);
     }
 
-    public boolean isHideVPNStatusEnabled() {
+    public boolean isDisableFlagSecureEnabled() {
         return prefsHelper.getBoolean("switch_four_" + packageName, false);
     }
 
-    public boolean isDisableFlagSecureEnabled() {
+    public boolean isDisableShakeAdEnabled() {
         return prefsHelper.getBoolean("switch_five_" + packageName, false);
     }
 
-    public boolean isDisableShakeAdEnabled() {
-        return prefsHelper.getBoolean("switch_six_" + packageName, false);
-    }
-
     public boolean IsHideEnivEnabled() {
-        return prefsHelper.getBoolean("switch_seven_" + packageName, false);
+        return prefsHelper.getBoolean("switch_six_" + packageName, false);
     }
 }
