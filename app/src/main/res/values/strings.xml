@@ -74,4 +74,6 @@
     <string name="others">其他</string>
     <string name="about">关于</string>
     <string name="feedback">反馈</string>
+    <string name="cache_clean">缓存清理</string>
+    <string name="select_all">全选</string>
 </resources>

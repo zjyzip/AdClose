@@ -10,8 +10,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
-import android.widget.Toast
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModelProvider
@@ -28,6 +28,7 @@ import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
+import com.close.hook.ads.util.OnSetHintListener
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
@@ -47,6 +48,8 @@ class AppsFragment : Fragment(), OnClearClickListener {
     private lateinit var appsAdapter: AppsAdapter
     private var isSystemApp = false
     private lateinit var bottomSheetDialog: BottomSheetDialog
+    private lateinit var selectAll: MaterialCheckBox
+    private var totalCheck = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,6 +89,7 @@ class AppsFragment : Fragment(), OnClearClickListener {
         appsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
             binding.progressBar.visibility = View.GONE
             appsViewModel.appInfoList = appInfo
+            (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
             appsAdapter.submitList(appInfo)
         }
     }
@@ -127,6 +131,29 @@ class AppsFragment : Fragment(), OnClearClickListener {
         bottomSheetDialog.show()
     }
 
+    private fun updateCheckNum(packageName: String, isChecked: Boolean?) {
+        isChecked?.let {
+            appsViewModel.checkHashMap[packageName] =
+                if (isChecked) appsViewModel.checkHashMap[packageName]!! + 1
+                else appsViewModel.checkHashMap[packageName]!! - 1
+        }
+        when (appsViewModel.checkHashMap[packageName]) {
+            0 -> {
+                selectAll.isChecked = false
+                selectAll.checkedState = MaterialCheckBox.STATE_UNCHECKED
+            }
+
+            totalCheck -> {
+                selectAll.isChecked = true
+                selectAll.checkedState = MaterialCheckBox.STATE_CHECKED
+            }
+
+            else -> {
+                selectAll.checkedState = MaterialCheckBox.STATE_INDETERMINATE
+            }
+        }
+    }
+
     @SuppressLint("CommitPrefEdits")
     private fun setupListeners(dialogView: View, appInfo: AppInfo) {
         @SuppressLint("WorldReadableFiles") val prefsHelper =
@@ -150,11 +177,24 @@ class AppsFragment : Fragment(), OnClearClickListener {
             "switch_seven_"
         )
 
+        selectAll = dialogView.findViewById(R.id.select_all)
+        totalCheck = checkBoxIds.size
+        appsViewModel.checkHashMap[appInfo.packageName] = checkBoxIds.size
         // 初始化状态
         for (i in checkBoxIds.indices) {
             val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
             val key = prefKeys[i] + appInfo.packageName
             checkBoxView.isChecked = prefsHelper.getBoolean(key, false)
+            if (!checkBoxView.isChecked) {
+                appsViewModel.checkHashMap[appInfo.packageName] =
+                    appsViewModel.checkHashMap[appInfo.packageName]!! - 1
+            }
+            if (i == checkBoxIds.size - 1) {
+                updateCheckNum(appInfo.packageName, null)
+            }
+            checkBoxView.addOnCheckedStateChangedListener { checkBox, _ ->
+                updateCheckNum(appInfo.packageName, checkBox.isChecked)
+            }
         }
 
         // 设置点击监听器
@@ -169,6 +209,25 @@ class AppsFragment : Fragment(), OnClearClickListener {
             Toast.makeText(dialogView.context, "保存成功", Toast.LENGTH_SHORT).show()
             bottomSheetDialog.dismiss()
         }
+
+        selectAll.addOnCheckedStateChangedListener { _, state ->
+            when (state) {
+                MaterialCheckBox.STATE_CHECKED -> {
+                    for (i in checkBoxIds.indices) {
+                        val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
+                        checkBoxView.isChecked = true
+                    }
+                }
+
+                MaterialCheckBox.STATE_UNCHECKED -> {
+                    for (i in checkBoxIds.indices) {
+                        val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
+                        checkBoxView.isChecked = false
+                    }
+                }
+            }
+        }
+
     }
 
     override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
@@ -287,27 +346,28 @@ class AppsFragment : Fragment(), OnClearClickListener {
         appsViewModel.currentSearchKeyword = keyWord
         val safeAppInfoList: List<AppInfo> =
             Optional.ofNullable<List<AppInfo>?>(appsViewModel.appInfoList).orElseGet { emptyList() }
-        disposables.add(Observable.fromIterable(safeAppInfoList).filter { appInfo: AppInfo ->
-            (appInfo.packageName.contains(keyWord) || appInfo.appName.lowercase(Locale.getDefault())
-                .contains(
+        disposables.add(
+            Observable.fromIterable(safeAppInfoList).filter { appInfo: AppInfo ->
+                (appInfo.packageName.contains(keyWord) || appInfo.appName.lowercase(Locale.getDefault())
+                    .contains(
+                        keyWord.lowercase(
+                            Locale.getDefault()
+                        )
+                    ) || appInfo.packageName.lowercase(Locale.getDefault()).contains(
                     keyWord.lowercase(
                         Locale.getDefault()
                     )
-                ) || appInfo.packageName.lowercase(Locale.getDefault()).contains(
-                keyWord.lowercase(
-                    Locale.getDefault()
-                )
-            ))
-        }.toList().observeOn(AndroidSchedulers.mainThread())
-            .subscribe({ filteredList: List<AppInfo?>? ->
-                appsAdapter.submitList(
-                    filteredList
-                )
-            }, { throwable: Throwable? ->
-                Log.e(
-                    "AppsFragment", "Error in searchKeyWorld", throwable
-                )
-            })
+                ))
+            }.toList().observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ filteredList: List<AppInfo?>? ->
+                    appsAdapter.submitList(
+                        filteredList
+                    )
+                }, { throwable: Throwable? ->
+                    Log.e(
+                        "AppsFragment", "Error in searchKeyWorld", throwable
+                    )
+                })
         )
     }
 
@@ -315,6 +375,8 @@ class AppsFragment : Fragment(), OnClearClickListener {
         super.onResume()
 
         (requireParentFragment() as OnCLearCLickContainer).controller = this
+
+        (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
 
     }
 

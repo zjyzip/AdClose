@@ -1,66 +1,80 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content" >
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp" >
+        android:padding="16dp">
 
-    <TextView
-        android:id="@+id/sheet_app_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="20sp"
-        android:gravity="center" />
-  
+        <TextView
+            android:id="@+id/sheet_app_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textSize="20sp" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/select_all"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/select_all" />
+
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_one"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="@string/handle_platform_ad" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_two"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="@string/handle_apps_ad" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_three"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="@string/block_host" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_four"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="@string/remove_vpn_state" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_five"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="@string/remove_flag_secure" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_six"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="@string/remove_sensor_monitor" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_seven"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="@string/remove_envi_detection" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="32dp"
+            android:layout_marginStart="48dp"
             android:text="@string/description_seven"
             android:textSize="10sp" />
 
