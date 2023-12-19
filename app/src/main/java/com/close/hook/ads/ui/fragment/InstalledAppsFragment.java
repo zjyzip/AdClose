@@ -27,6 +27,7 @@ import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
 import com.close.hook.ads.util.OnCLearCLickContainer;
 import com.close.hook.ads.util.OnClearClickListener;
+import com.close.hook.ads.util.OnSetHintListener;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.checkbox.MaterialCheckBox;
@@ -45,7 +46,8 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
-public class InstalledAppsFragment extends Fragment implements OnBackPressListener , OnCLearCLickContainer {
+public class InstalledAppsFragment extends Fragment implements OnBackPressListener , OnCLearCLickContainer,
+		OnSetHintListener {
 
 	private ViewPager2 viewPager;
 	private TabLayout tabLayout;
@@ -298,5 +300,14 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
 	@Override
 	public void setController(OnClearClickListener onClearClickListener) {
 		this.onClearClickListener = onClearClickListener;
+	}
+
+	@Override
+	public void setHint(int totalApp) {
+		if (totalApp != 0) {
+			searchEditText.setHint("搜索 " + totalApp + "个应用");
+		} else {
+			searchEditText.setHint("搜索");
+		}
 	}
 }

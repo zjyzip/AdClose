@@ -38,6 +38,10 @@
             android:icon="@drawable/ic_about"
             android:key="about"
             android:title="@string/about" />
+        <Preference
+            android:icon="@drawable/ic_clean"
+            android:key="clean"
+            android:title="@string/cache_clean" />
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -14,6 +14,7 @@ import com.close.hook.ads.data.repository.AppRepository;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 import io.reactivex.rxjava3.core.BackpressureStrategy;
@@ -21,6 +22,7 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class AppsViewModel extends AndroidViewModel {
 
+	public HashMap<String, Integer> checkHashMap = new HashMap<>();
 	public List<BlockedRequest> requestList = new ArrayList<>();
 	public List<AppInfo> appInfoList = new ArrayList<>();
 

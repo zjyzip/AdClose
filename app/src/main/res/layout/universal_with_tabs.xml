@@ -54,7 +54,6 @@
                         android:layout_weight="1.0"
                         android:background="@android:color/transparent"
                         android:focusable="true"
-                        android:hint="@string/search_hint"
                         android:imeOptions="actionSearch"
                         android:importantForAutofill="no"
                         android:inputType="text"

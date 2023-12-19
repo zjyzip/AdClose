@@ -10,7 +10,9 @@ import androidx.preference.PreferenceFragmentCompat
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.ui.activity.AboutActivity
+import com.close.hook.ads.util.CacheDataManager
 import com.close.hook.ads.util.PrefManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.core.util.ResourceUtils
 import rikka.material.preference.MaterialSwitchPreference
 import rikka.preference.SimpleMenuPreference
@@ -86,6 +88,23 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         findPreference<Preference>("about")?.setOnPreferenceClickListener {
             startActivity(Intent(requireContext(), AboutActivity::class.java))
             true
+        }
+
+        findPreference<Preference>("clean")?.apply {
+            summary = CacheDataManager.getTotalCacheSize(requireContext())
+            setOnPreferenceClickListener {
+                MaterialAlertDialogBuilder(requireContext()).apply {
+                    setTitle("确定清除缓存吗？")
+                    setMessage("当前缓存${CacheDataManager.getTotalCacheSize(requireContext())}")
+                    setNegativeButton(android.R.string.cancel, null)
+                    setPositiveButton(android.R.string.ok) { _, _ ->
+                        CacheDataManager.clearAllCache(requireContext())
+                        findPreference<Preference>("clean")?.summary = "刚刚清理"
+                    }
+                    show()
+                }
+                true
+            }
         }
 
     }
