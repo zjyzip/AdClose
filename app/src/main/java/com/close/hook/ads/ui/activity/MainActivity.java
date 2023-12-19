@@ -3,6 +3,7 @@ package com.close.hook.ads.ui.activity;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
@@ -12,19 +13,21 @@ import com.close.hook.ads.R;
 import com.close.hook.ads.ui.fragment.HostsFragment;
 import com.close.hook.ads.ui.fragment.InstalledAppsFragment;
 import com.close.hook.ads.ui.fragment.SettingsFragment;
-import com.close.hook.ads.util.AppUtils;
+import com.close.hook.ads.util.INavContainer;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
+import com.google.android.material.behavior.HideBottomViewOnScrollBehavior;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends BaseActivity implements OnBackPressContainer {
+public class MainActivity extends BaseActivity implements OnBackPressContainer, INavContainer {
 
     private OnBackPressListener currentFragmentController;
     private ViewPager2 viewPager2;
     private BottomNavigationView bottomNavigationView;
+    private HideBottomViewOnScrollBehavior<BottomNavigationView> hideBottomViewOnScrollBehavior;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +45,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer {
     private void setupViewPagerAndBottomNavigation() {
         viewPager2 = findViewById(R.id.view_pager);
         bottomNavigationView = findViewById(R.id.bottom_navigation);
+        hideBottomViewOnScrollBehavior = new HideBottomViewOnScrollBehavior<BottomNavigationView>();
 
         List<Fragment> fragments = new ArrayList<>();
         fragments.add(new InstalledAppsFragment());
@@ -62,6 +66,8 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer {
             }
             return true;
         });
+        CoordinatorLayout.LayoutParams layoutParams = (CoordinatorLayout.LayoutParams) bottomNavigationView.getLayoutParams();
+        layoutParams.setBehavior(hideBottomViewOnScrollBehavior);
 
         viewPager2.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -97,6 +103,16 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer {
     @Override
     public void setController(OnBackPressListener onBackPressListener) {
         this.currentFragmentController = onBackPressListener;
+    }
+
+    @Override
+    public void showNavigation() {
+        hideBottomViewOnScrollBehavior.slideUp(bottomNavigationView);
+    }
+
+    @Override
+    public void hideNavigation() {
+        hideBottomViewOnScrollBehavior.slideDown(bottomNavigationView);
     }
 
     static class BottomFragmentStateAdapter extends FragmentStateAdapter {
