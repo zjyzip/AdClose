@@ -107,12 +107,14 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
 
     @Override
     public void showNavigation() {
-        hideBottomViewOnScrollBehavior.slideUp(bottomNavigationView);
+        if (hideBottomViewOnScrollBehavior.isScrolledDown())
+            hideBottomViewOnScrollBehavior.slideUp(bottomNavigationView);
     }
 
     @Override
     public void hideNavigation() {
-        hideBottomViewOnScrollBehavior.slideDown(bottomNavigationView);
+        if (hideBottomViewOnScrollBehavior.isScrolledUp())
+            hideBottomViewOnScrollBehavior.slideDown(bottomNavigationView);
     }
 
     static class BottomFragmentStateAdapter extends FragmentStateAdapter {
