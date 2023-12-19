@@ -3,8 +3,10 @@ package com.close.hook.ads.ui.fragment
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Context.RECEIVER_NOT_EXPORTED
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -74,7 +76,10 @@ class HostsListFragment : Fragment(), OnClearClickListener {
             "pass" -> IntentFilter("com.rikkati.PASS_REQUEST")
             else -> throw IllegalArgumentException("type error: $type")
         }
-        requireContext().registerReceiver(receiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            requireContext().registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
+        else
+            requireContext().registerReceiver(receiver, filter)
     }
 
     override fun onDestroy() {
@@ -104,7 +109,8 @@ class HostsListFragment : Fragment(), OnClearClickListener {
 
     override fun search(keyWord: String?) {
         val safeAppInfoList: List<BlockedRequest> =
-            Optional.ofNullable<List<BlockedRequest>>(viewModel.requestList).orElseGet { emptyList() }
+            Optional.ofNullable<List<BlockedRequest>>(viewModel.requestList)
+                .orElseGet { emptyList() }
         disposables.add(Observable.fromIterable(safeAppInfoList)
             .filter { blockRequest: BlockedRequest ->
                 (blockRequest.request.contains(keyWord.toString())
