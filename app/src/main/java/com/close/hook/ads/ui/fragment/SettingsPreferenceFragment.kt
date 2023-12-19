@@ -3,14 +3,18 @@ package com.close.hook.ads.ui.fragment
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
+import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.util.CacheDataManager
+import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.PrefManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.core.util.ResourceUtils
@@ -18,6 +22,31 @@ import rikka.material.preference.MaterialSwitchPreference
 import rikka.preference.SimpleMenuPreference
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
+
+    override fun onCreateRecyclerView(
+        inflater: LayoutInflater,
+        parent: ViewGroup,
+        savedInstanceState: Bundle?
+    ): RecyclerView {
+        val recyclerView =
+            super.onCreateRecyclerView(inflater, parent, savedInstanceState)
+        recyclerView.apply {
+            isVerticalScrollBarEnabled = false
+
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    if (dy > 0) {
+                        (activity as INavContainer).hideNavigation()
+                    } else if (dy < 0) {
+                        (activity as INavContainer).showNavigation()
+                    }
+                }
+            })
+
+        }
+        return recyclerView
+    }
 
     class SettingsPreferenceDataStore : PreferenceDataStore() {
         override fun getString(key: String?, defValue: String?): String {

@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.FilterBean
@@ -25,6 +26,7 @@ import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.AppUtils
+import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
@@ -80,6 +82,19 @@ class AppsFragment : Fragment(), OnClearClickListener {
             layoutManager = LinearLayoutManager(context)
             adapter = appsAdapter
             addItemDecoration(LinearItemDecoration(space))
+
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+
+                    if (dy > 0) {
+                        (activity as INavContainer).hideNavigation()
+                    } else if (dy < 0) {
+                        (activity as INavContainer).showNavigation()
+                    }
+
+                }
+            })
         }
     }
 

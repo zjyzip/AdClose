@@ -3,7 +3,7 @@ package com.close.hook.ads.ui.fragment
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Context.RECEIVER_NOT_EXPORTED
+import android.content.Context.RECEIVER_EXPORTED
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
@@ -15,11 +15,13 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
+import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
@@ -65,9 +67,22 @@ class HostsListFragment : Fragment(), OnClearClickListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         adapter = BlockedRequestsAdapter(requireContext())
-        binding.recyclerView.adapter = adapter
+        binding.recyclerView.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+
+                    if (dy > 0) {
+                        (activity as INavContainer).hideNavigation()
+                    } else if (dy < 0) {
+                        (activity as INavContainer).showNavigation()
+                    }
+
+                }
+            })
+        }.adapter = adapter
 
         // 注册广播接收器
         filter = when (type) {
@@ -77,7 +92,7 @@ class HostsListFragment : Fragment(), OnClearClickListener {
             else -> throw IllegalArgumentException("type error: $type")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-            requireContext().registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
+            requireContext().registerReceiver(receiver, filter, RECEIVER_EXPORTED)
         else
             requireContext().registerReceiver(receiver, filter)
     }
