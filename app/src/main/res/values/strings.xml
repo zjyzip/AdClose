@@ -74,4 +74,5 @@
     <string name="feedback">反馈</string>
     <string name="cache_clean">缓存清理</string>
     <string name="select_all">全选</string>
+    <string name="hide_icon">隐藏桌面图标</string>
 </resources>
