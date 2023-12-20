@@ -42,6 +42,10 @@
             android:icon="@drawable/ic_clean"
             android:key="clean"
             android:title="@string/cache_clean" />
+        <rikka.material.preference.MaterialSwitchPreference
+            android:icon="@drawable/outline_hide_image_24"
+            android:key="hideIcon"
+            android:title="@string/hide_icon" />
     </PreferenceCategory>
 
 </PreferenceScreen>

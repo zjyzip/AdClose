@@ -1,7 +1,9 @@
 package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -20,6 +22,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.core.util.ResourceUtils
 import rikka.material.preference.MaterialSwitchPreference
 import rikka.preference.SimpleMenuPreference
+
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
@@ -69,6 +72,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             return when (key) {
                 "blackDarkTheme" -> PrefManager.blackDarkTheme
                 "followSystemAccent" -> PrefManager.followSystemAccent
+                "hideIcon" -> PrefManager.hideIcon
                 else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }
@@ -77,6 +81,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             when (key) {
                 "blackDarkTheme" -> PrefManager.blackDarkTheme = value
                 "followSystemAccent" -> PrefManager.followSystemAccent = value
+                "hideIcon" -> PrefManager.hideIcon = value
                 else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }
