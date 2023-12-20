@@ -9,8 +9,6 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton
-import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModelProvider
@@ -19,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.FilterBean
+import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.hook.preference.PreferencesHelper
 import com.close.hook.ads.ui.activity.MainActivity
@@ -134,14 +133,15 @@ class AppsFragment : Fragment(), OnClearClickListener {
     @SuppressLint("InflateParams")
     private fun showBottomSheetDialog(appInfo: AppInfo) {
         bottomSheetDialog = BottomSheetDialog(requireContext())
-        val dialogView =
-            LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_switches, null)
-        bottomSheetDialog.setContentView(dialogView)
-        val appNameTextView = dialogView.findViewById<TextView>(R.id.sheet_app_name)
-        appNameTextView.text = appInfo.appName
-        val closeButton = dialogView.findViewById<ImageButton>(R.id.button_close)
-        closeButton.setOnClickListener { bottomSheetDialog.dismiss() }
-        setupListeners(dialogView, appInfo)
+        val binding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
+        bottomSheetDialog.setContentView(binding.root)
+        binding.apply {
+            sheetAppName.text = appInfo.appName
+            buttonClose.setOnClickListener { bottomSheetDialog.dismiss() }
+            version.text = appInfo.versionName
+            icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
+        }
+        setupListeners(binding.root, appInfo)
         bottomSheetDialog.show()
     }
 

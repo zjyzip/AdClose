@@ -4,8 +4,11 @@ import static com.close.hook.ads.CloseApplication.context;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
@@ -27,6 +30,18 @@ import com.close.hook.ads.hook.preference.PreferencesHelper;
 import java.util.Objects;
 
 public class AppUtils {
+
+    public static Drawable getAppIcon(String packageName) {
+        try {
+            PackageManager pm = context.getPackageManager();
+            ApplicationInfo info = pm.getApplicationInfo(packageName, 0);
+            return info.loadIcon(pm);
+        } catch (Exception e) {
+            e.printStackTrace();
+
+        }
+        return null;
+    }
 
     public static int isAppEnabled(String packageName) {
         PreferencesHelper prefsHelper = new PreferencesHelper(context, "com.close.hook.ads_preferences");

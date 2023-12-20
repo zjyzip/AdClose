@@ -1,91 +1,153 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:padding="16dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:id="@+id/sheet_app_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:textSize="20sp" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/select_all"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/select_all" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/switch_one"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/handle_platform_ad" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/switch_two"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/block_host" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/switch_three"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/remove_vpn_state" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/switch_four"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/remove_flag_secure" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/switch_five"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/remove_sensor_monitor" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/switch_six"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/remove_envi_detection" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="48dp"
-            android:text="@string/description_seven"
-            android:textSize="10sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button_update"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:text="@string/update_checkbox_status"
-            android:theme="@style/Widget.MaterialComponents.Button" />
-    </LinearLayout>
 
     <ImageButton
         android:id="@+id/button_close"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
-        android:layout_margin="16dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_close" />
+        android:src="@drawable/ic_close"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-</RelativeLayout>
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="10dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/button_close"
+        app:shapeAppearance="@style/circleImageStyle"
+        tools:src="#000000" />
+
+    <TextView
+        android:id="@+id/sheet_app_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@id/icon"
+        app:layout_constraintTop_toBottomOf="@id/button_close"
+        tools:text="appName" />
+
+    <TextView
+        android:id="@+id/version"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:textSize="14sp"
+        app:layout_constraintStart_toEndOf="@id/icon"
+        app:layout_constraintTop_toBottomOf="@id/sheet_app_name"
+        tools:text="appVersion" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/select_all"
+        app:layout_constraintBottom_toBottomOf="@id/version"
+        app:layout_constraintEnd_toStartOf="@id/select_all"
+        app:layout_constraintTop_toTopOf="@id/sheet_app_name" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/select_all"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        app:layout_constraintBottom_toBottomOf="@id/version"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/sheet_app_name" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_one"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/handle_platform_ad"
+        app:layout_constraintTop_toBottomOf="@id/version" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_two"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/block_host"
+        app:layout_constraintTop_toBottomOf="@id/switch_one" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_three"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/remove_vpn_state"
+        app:layout_constraintTop_toBottomOf="@id/switch_two" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_four"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/remove_flag_secure"
+        app:layout_constraintTop_toBottomOf="@id/switch_three" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_five"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/remove_sensor_monitor"
+        app:layout_constraintTop_toBottomOf="@id/switch_four" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_six"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/remove_envi_detection"
+        app:layout_constraintTop_toBottomOf="@id/switch_five" />
+
+    <TextView
+        android:id="@+id/desc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/description_seven"
+        android:textSize="10sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/switch_six" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_update"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="10dp"
+        android:text="@string/update_checkbox_status"
+        android:theme="@style/Widget.MaterialComponents.Button"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/desc" />
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

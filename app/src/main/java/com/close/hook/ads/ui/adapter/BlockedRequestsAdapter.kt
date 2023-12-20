@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.util.AppUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -74,18 +75,7 @@ class BlockedRequestsAdapter(
         }
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         holder.timestamp.text = sdf.format(Date(request.timestamp))
-        holder.icon.setImageDrawable(getAppIcon(request.packageName))
-    }
-
-    private fun getAppIcon(packageName: String): Drawable? {
-        try {
-            val pm: PackageManager = context.packageManager
-            val info = pm.getApplicationInfo(packageName, 0)
-            return info.loadIcon(pm)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return null
+        holder.icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
     }
 
     override fun getItemCount(): Int {
