@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
         android:id="@+id/feedback"
-        android:title="@string/feedback"
-        android:showAsAction="never" />
+        android:showAsAction="never"
+        android:title="@string/feedback" />
 
     <item
         android:id="@+id/about"
-        android:title="@string/about"
-        android:showAsAction="never" />
+        android:showAsAction="never"
+        android:title="@string/about" />
 
 </menu>

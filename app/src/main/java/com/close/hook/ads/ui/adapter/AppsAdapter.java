@@ -14,6 +14,7 @@ import com.bumptech.glide.request.RequestOptions;
 import com.close.hook.ads.R;
 import com.close.hook.ads.data.model.AppInfo;
 import com.close.hook.ads.databinding.InstallsItemAppBinding;
+import com.close.hook.ads.util.AppUtils;
 
 import java.util.List;
 
@@ -84,13 +85,7 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
         void bind(AppInfo appInfo) {
             binding.textViewAppName.setText(appInfo.getAppName());
             binding.textViewAppVersion.setText(appInfo.getVersionName());
-
-            Glide.with(binding.imageViewAppIcon.getContext())
-                    .load(appInfo.getAppIcon())
-                    .apply(new RequestOptions()
-                            .override(binding.imageViewAppIcon.getContext().getResources().getDimensionPixelSize(R.dimen.app_icon_size))
-                            .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
-                    .into(binding.imageViewAppIcon);
+            binding.imageViewAppIcon.setImageDrawable(AppUtils.getAppIcon(appInfo.getPackageName()));
         }
     }
 }

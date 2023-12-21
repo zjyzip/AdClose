@@ -56,7 +56,6 @@ public class AppRepository {
 
 	private AppInfo createAppInfo(PackageInfo packageInfo) {
 		String appName = getAppName(packageInfo.applicationInfo);
-		Drawable appIcon = getAppIcon(packageInfo.applicationInfo);
 		String versionName = getAppVersion(packageInfo);
 		long size = new File(packageInfo.applicationInfo.sourceDir).length();
 		int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
@@ -67,7 +66,7 @@ public class AppRepository {
 		} else {
 			isEnable = 0;
 		}
-        return new AppInfo(appName, packageInfo.packageName, appIcon, versionName,
+        return new AppInfo(appName, packageInfo.packageName, versionName,
                 packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, isAppEnable,
 				isEnable);
     }
