@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("dev.rikka.tools.materialthemebuilder")
+    id("com.google.devtools.ksp")
 }
 
 materialThemeBuilder {
@@ -116,4 +117,7 @@ dependencies {
 
     implementation("dev.rikka.rikkax.material:material:2.7.0")
     implementation("dev.rikka.rikkax.material:material-preference:2.0.0")
+
+    implementation("androidx.room:room-runtime:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
 }
