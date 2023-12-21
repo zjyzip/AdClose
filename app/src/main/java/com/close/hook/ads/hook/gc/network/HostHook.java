@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import io.reactivex.rxjava3.core.BackpressureStrategy;
 
 import java.net.*;
 
@@ -49,11 +50,11 @@ public class HostHook {
 				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 					URL url = (URL) param.thisObject;
 					String host = url.getHost();
-					if (host != null && shouldBlockRequest(host)) {
-						sendBlockedRequestBroadcast("block", " setupURLHook", null, url.toString());
+					if (host != null && shouldBlockHttpsRequest(host)) {
+						sendBlockedRequestBroadcast("block", " HTTPS", null, url.toString());
 						param.setResult(new BlockedURLConnection(url));
-					} else if (host != null && !shouldBlockRequest(host)) {
-						sendBlockedRequestBroadcast("pass", null, null, url.toString());
+					} else if (host != null && !shouldBlockHttpsRequest(host)) {
+						sendBlockedRequestBroadcast("pass", "HTTPS", null, url.toString());
 					}
 				}
 			});
@@ -68,12 +69,12 @@ public class HostHook {
 				@Override
 				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 					URL url = (URL) param.thisObject;
-					if (shouldBlockRequest(url)) {
+					if (shouldBlockHttpsRequest(url)) {
 						XposedBridge.log("Has been blocked" + url);
-						sendBlockedRequestBroadcast("block", "setupFullURLHook", null, url.toString());
+						sendBlockedRequestBroadcast("block", "HTTPS", null, url.toString());
 						param.setResult(new BlockedURLConnection(url));
-					} else if (url != null && !shouldBlockRequest(url)) {
-						sendBlockedRequestBroadcast("pass", null, null, url.toString());
+					} else if (url != null && !shouldBlockHttpsRequest(url)) {
+						sendBlockedRequestBroadcast("pass", "HTTPS", null, url.toString());
 					}
 				}
 			});
@@ -84,14 +85,12 @@ public class HostHook {
 
 	@SuppressLint("CheckResult")
 	private static void loadBlockedHostsAsync() {
-		Flowable.<String>create(emitter -> {
+		Flowable.create(emitter -> {
 			try (InputStream inputStream = HostHook.class.getResourceAsStream("/assets/blocked_hosts.txt");
 					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
 				if (inputStream == null) {
-					emitter.onError(new FileNotFoundException("Blocked hosts list not found"));
 					return;
 				}
-
 				String host;
 				while ((host = reader.readLine()) != null) {
 					BLOCKED_HOSTS.put(host, Boolean.TRUE);
@@ -101,33 +100,30 @@ public class HostHook {
 			} catch (IOException e) {
 				emitter.onError(e);
 			}
-		}, io.reactivex.rxjava3.core.BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io())
-				.observeOn(Schedulers.computation()).doFinally(loadDataLatch::countDown).subscribe(host -> {
+		}, BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation())
+				.doFinally(loadDataLatch::countDown).subscribe(host -> {
 				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
 	}
 
 	@SuppressLint("CheckResult")
 	private static void loadBlockedFullURLAsync() {
-		Flowable.<String>create(emitter -> {
+		Flowable.create(emitter -> {
 			try (InputStream inputStream = HostHook.class.getResourceAsStream("/assets/blocked_full_urls.txt");
 					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
 				if (inputStream == null) {
-					emitter.onError(new FileNotFoundException("Blocked full URL list not found"));
 					return;
 				}
-
 				String url;
 				while ((url = reader.readLine()) != null) {
 					BLOCKED_FullURL.put(url.trim(), Boolean.TRUE);
 					emitter.onNext(url);
-					XposedBridge.log(LOG_PREFIX + "Loaded blocked URL: " + url);
 				}
 				emitter.onComplete();
 			} catch (IOException e) {
 				emitter.onError(e);
 			}
-		}, io.reactivex.rxjava3.core.BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io())
-				.observeOn(Schedulers.computation()).doFinally(loadDataLatch::countDown).subscribe(url -> {
+		}, BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation())
+				.doFinally(loadDataLatch::countDown).subscribe(url -> {
 				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked full URLs: " + error));
 	}
 
@@ -140,36 +136,44 @@ public class HostHook {
 		}
 	}
 
-	private static boolean shouldBlockRequest(String host) {
+	private static boolean shouldBlockDnsRequest(String host) {
 		if (host == null) {
 			return false;
 		}
 		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", null, BLOCKED_HOSTS.containsKey(host), host);
+		sendBlockedRequestBroadcast("all", "DNS", BLOCKED_HOSTS.containsKey(host), host);
 		return BLOCKED_HOSTS.containsKey(host);
 	}
 
-	private static boolean shouldBlockRequest(URL url) {
+	private static boolean shouldBlockHttpsRequest(String host) {
+		if (host == null) {
+			return false;
+		}
+		waitForDataLoading();
+		sendBlockedRequestBroadcast("all", "HTTPS", BLOCKED_HOSTS.containsKey(host), host);
+		return BLOCKED_HOSTS.containsKey(host);
+	}
+
+	private static boolean shouldBlockHttpsRequest(URL url) {
 		if (url == null) {
 			return false;
 		}
-		String urlString = url.toExternalForm();
-		String baseUrlString = urlString.split("\\?")[0];
 		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", null, BLOCKED_FullURL.containsKey(baseUrlString), baseUrlString);
-		return BLOCKED_FullURL.containsKey(baseUrlString);
+		String urlString = url.toString();
+		sendBlockedRequestBroadcast("all", "HTTPS", BLOCKED_FullURL.containsKey(urlString), urlString);
+		return BLOCKED_FullURL.containsKey(urlString);
 	}
 
 	private static final XC_MethodHook InetAddress1Hook = new XC_MethodHook() {
 		@Override
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
-			if (host != null && shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("block", " InetAddress1Hook", null, host);
+			if (host != null && shouldBlockDnsRequest(host)) {
+				sendBlockedRequestBroadcast("block", " DNS", null, host);
 				param.setResult(new InetAddress[0]);
 				return;
-			} else if (host != null && !shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("pass", null, null, host);
+			} else if (host != null && !shouldBlockDnsRequest(host)) {
+				sendBlockedRequestBroadcast("pass", "DNS", null, host);
 			}
 		}
 	};
@@ -178,12 +182,12 @@ public class HostHook {
 		@Override
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
-			if (host != null && shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("block", " InetAddress2Hook", null, host);
+			if (host != null && shouldBlockDnsRequest(host)) {
+				sendBlockedRequestBroadcast("block", " DNS", null, host);
 				param.setResult(InetAddress.getByAddress(new byte[4]));
 				return;
-			} else if (host != null && !shouldBlockRequest(host)) {
-				sendBlockedRequestBroadcast("pass", null, null, host);
+			} else if (host != null && !shouldBlockDnsRequest(host)) {
+				sendBlockedRequestBroadcast("pass", "DNS", null, host);
 			}
 		}
 	};
@@ -219,9 +223,7 @@ public class HostHook {
 				appName = currentContext.getPackageName();
 
 			}
-			if (Objects.equals(type, "block")) {
-				appName += blockType;
-			}
+			appName += blockType;
 			String packageName = currentContext.getPackageName();
 			BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
 					System.currentTimeMillis(), type, isBlocked);
