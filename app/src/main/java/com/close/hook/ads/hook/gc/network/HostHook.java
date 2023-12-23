@@ -125,22 +125,6 @@ public class HostHook {
 		}
 	}
 
-	private static boolean shouldBlockRequest(String host, String requestType,
-			ConcurrentHashMap<String, Boolean> blockedList) {
-		if (host == null) {
-			return false;
-		}
-		waitForDataLoading();
-		boolean isBlocked = blockedList.containsKey(host);
-		sendBlockedRequestBroadcast("all", requestType, isBlocked, host);
-		if (isBlocked) {
-			sendBlockedRequestBroadcast("block", requestType, true, host);
-		} else if (host != null && !isBlocked) {
-			sendBlockedRequestBroadcast("pass", requestType, false, host);
-		}
-		return isBlocked;
-	}
-
 	private static boolean shouldBlockDnsRequest(String host) {
 		return shouldBlockRequest(host, "DNS", BLOCKED_HOSTS);
 	}
@@ -149,15 +133,35 @@ public class HostHook {
 		return shouldBlockRequest(host, " HTTPS-host", BLOCKED_HOSTS);
 	}
 
+	private static boolean shouldBlockRequest(String host, String requestType,
+			ConcurrentHashMap<String, Boolean> blockedList) {
+		sendBlockedRequestBroadcast("all", requestType, null, host);
+		if (host == null) {
+			return false;
+		}
+		waitForDataLoading();
+		boolean isBlocked = blockedList.containsKey(host);
+		if (isBlocked) {
+			sendBlockedRequestBroadcast("block", requestType, true, host);
+		} else {
+			sendBlockedRequestBroadcast("pass", requestType, false, host);
+		}
+		return isBlocked;
+	}
+
 	private static boolean shouldBlockHttpsRequest(URL url) {
 		if (url == null) {
 			return false;
 		}
 
-		String baseUrlString = null;
+		String host = url.getHost();
+		if (BLOCKED_HOSTS.containsKey(host)) {
+			return true;
+		}
 
+		String baseUrlString;
 		try {
-            baseUrlString = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath()).toExternalForm();
+			baseUrlString = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath()).toExternalForm();
 		} catch (MalformedURLException e) {
 			XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
 			return false;
@@ -168,10 +172,10 @@ public class HostHook {
 		}
 
 		boolean isBlocked = BLOCKED_FullURL.containsKey(baseUrlString);
-		sendBlockedRequestBroadcast("all", " HTTPS-full", isBlocked, baseUrlString);
+		sendBlockedRequestBroadcast("all", " HTTPS-full", null, baseUrlString);
 		if (isBlocked) {
 			sendBlockedRequestBroadcast("block", " HTTPS-full", true, baseUrlString);
-		} else if (baseUrlString != null && !isBlocked) {
+		} else {
 			sendBlockedRequestBroadcast("pass", " HTTPS-full", false, baseUrlString);
 		}
 
