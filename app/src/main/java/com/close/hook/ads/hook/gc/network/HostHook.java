@@ -155,7 +155,9 @@ public class HostHook {
 		}
 
 		String host = url.getHost();
-		if (BLOCKED_HOSTS.containsKey(host)) {
+		boolean alreadyBlockedByHost = shouldBlockHttpsRequest(host);
+
+		if (alreadyBlockedByHost) {
 			return true;
 		}
 
