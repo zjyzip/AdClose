@@ -55,7 +55,7 @@ public class HookInit implements IXposedHookLoadPackage {
 
 	private void applySettings(SettingsManager settingsManager, XC_LoadPackage.LoadPackageParam lpparam) {
 		if (settingsManager.isHostHookEnabled()) {
-			HostHook.init();
+			HostHook.init(lpparam);
 		}
 
 		if (settingsManager.isHideVPNStatusEnabled()) {
@@ -89,7 +89,7 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("Application Name: " + appName);
 					}
 
-					AppAds.progress(classLoader, packageName);
+  // 暂时删除					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
 						SDKHooks.hookAds(classLoader);
