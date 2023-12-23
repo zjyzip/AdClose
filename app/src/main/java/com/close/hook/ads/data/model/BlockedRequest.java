@@ -10,15 +10,15 @@ public class BlockedRequest implements Parcelable {
     public String packageName;
     public String request;
     public long timestamp;
-    public String blockType;
+    public String requestType;
     public Boolean isBlocked;
 
-    public BlockedRequest(String appName, String packageName, String request, long timestamp, @Nullable String blockType, @Nullable Boolean isBlocked) {
+    public BlockedRequest(String appName, String packageName, String request, long timestamp, @Nullable String requestType, @Nullable Boolean isBlocked) {
         this.appName = appName;
         this.packageName = packageName;
         this.request = request;
         this.timestamp = timestamp;
-        this.blockType = blockType;
+        this.requestType = requestType;
         this.isBlocked = isBlocked;
     }
 
@@ -27,7 +27,7 @@ public class BlockedRequest implements Parcelable {
         packageName = in.readString();
         request = in.readString();
         timestamp = in.readLong();
-        blockType = in.readString();
+        requestType = in.readString();
         byte tmpIsBlocked = in.readByte();
         isBlocked = tmpIsBlocked == 0 ? null : tmpIsBlocked == 1;
     }
@@ -38,7 +38,7 @@ public class BlockedRequest implements Parcelable {
         dest.writeString(packageName);
         dest.writeString(request);
         dest.writeLong(timestamp);
-        dest.writeString(blockType);
+        dest.writeString(requestType);
         dest.writeByte((byte) (isBlocked == null ? 0 : isBlocked ? 1 : 2));
     }
 

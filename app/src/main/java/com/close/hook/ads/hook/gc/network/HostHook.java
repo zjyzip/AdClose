@@ -21,6 +21,7 @@ import android.content.pm.PackageManager;
 import com.close.hook.ads.data.model.BlockedRequest;
 
 import de.robv.android.xposed.*;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HostHook {
 	private static final String LOG_PREFIX = "[HostHook] ";
@@ -29,57 +30,43 @@ public class HostHook {
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(2);
 
 	static {
-		setupURLHook();
-		setupFullURLHook();
 		loadBlockedHostsAsync();
 		loadBlockedFullURLAsync();
 	}
 
-	public static void init() {
+	public static void init(XC_LoadPackage.LoadPackageParam lpparam) {
 		try {
-			hookAllRelevantMethods();
+			setupDNSRequestHook();
+			setupHttpConnectionHook(lpparam);
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
 		}
 	}
 
-	private static void setupURLHook() {
-		try {
-			XposedHelpers.findAndHookMethod(URL.class, "openConnection", new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					URL url = (URL) param.thisObject;
-					String host = url.getHost();
-					if (host != null && shouldBlockHttpsRequest(host)) {
-						sendBlockedRequestBroadcast("block", " HTTPS", null, url.toString());
-						param.setResult(new BlockedURLConnection(url));
-					} else if (host != null && !shouldBlockHttpsRequest(host)) {
-						sendBlockedRequestBroadcast("pass", "HTTPS", null, url.toString());
-					}
-				}
-			});
-		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
-		}
+	private static void setupDNSRequestHook() {
+		XposedHelpers.findAndHookMethod(InetAddress.class, "getByName", String.class, InetAddress2Hook);
+		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddress1Hook);
 	}
 
-	private static void setupFullURLHook() {
+	private static void setupHttpConnectionHook(XC_LoadPackage.LoadPackageParam lpparam) {
 		try {
-			XposedHelpers.findAndHookMethod(URL.class, "openConnection", new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					URL url = (URL) param.thisObject;
-					if (shouldBlockHttpsRequest(url)) {
-						XposedBridge.log("Has been blocked" + url);
-						sendBlockedRequestBroadcast("block", "HTTPS", null, url.toString());
-						param.setResult(new BlockedURLConnection(url));
-					} else if (url != null && !shouldBlockHttpsRequest(url)) {
-						sendBlockedRequestBroadcast("pass", "HTTPS", null, url.toString());
-					}
-				}
-			});
+			XposedHelpers.findAndHookMethod("com.android.okhttp.internal.huc.HttpURLConnectionImpl",
+					lpparam.classLoader, "getInputStream", new XC_MethodHook() { // 待调整(getOutputStream)
+						@Override
+						protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+							HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
+							URL url = httpURLConnection.getURL();
+							String host = url.getHost();
+
+							if (url != null && shouldBlockHttpsRequest(url)) {
+								param.setResult(new BlockedURLConnection(url));
+							} else if (host != null && shouldBlockHttpsRequest(host)) {
+								param.setResult(new BlockedURLConnection(url));
+							}
+						}
+					});
 		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up Full URL proxy: " + e.getMessage());
+			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
 		}
 	}
 
@@ -128,40 +115,67 @@ public class HostHook {
 	}
 
 	private static void waitForDataLoading() {
-		try {
-			loadDataLatch.await();
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
+		if (BLOCKED_HOSTS.isEmpty() && BLOCKED_FullURL.isEmpty()) {
+			try {
+				loadDataLatch.await();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
+			}
 		}
+	}
+
+	private static boolean shouldBlockRequest(String host, String requestType,
+			ConcurrentHashMap<String, Boolean> blockedList) {
+		if (host == null) {
+			return false;
+		}
+		waitForDataLoading();
+		boolean isBlocked = blockedList.containsKey(host);
+		sendBlockedRequestBroadcast("all", requestType, isBlocked, host);
+		if (isBlocked) {
+			sendBlockedRequestBroadcast("block", requestType, true, host);
+		} else if (host != null && !isBlocked) {
+			sendBlockedRequestBroadcast("pass", requestType, false, host);
+		}
+		return isBlocked;
 	}
 
 	private static boolean shouldBlockDnsRequest(String host) {
-		if (host == null) {
-			return false;
-		}
-		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", "DNS", BLOCKED_HOSTS.containsKey(host), host);
-		return BLOCKED_HOSTS.containsKey(host);
+		return shouldBlockRequest(host, "DNS", BLOCKED_HOSTS);
 	}
 
 	private static boolean shouldBlockHttpsRequest(String host) {
-		if (host == null) {
-			return false;
-		}
-		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", "HTTPS", BLOCKED_HOSTS.containsKey(host), host);
-		return BLOCKED_HOSTS.containsKey(host);
+		return shouldBlockRequest(host, " HTTPS-host", BLOCKED_HOSTS);
 	}
 
 	private static boolean shouldBlockHttpsRequest(URL url) {
 		if (url == null) {
 			return false;
 		}
-		waitForDataLoading();
-		String urlString = url.toString();
-		sendBlockedRequestBroadcast("all", "HTTPS", BLOCKED_FullURL.containsKey(urlString), urlString);
-		return BLOCKED_FullURL.containsKey(urlString);
+
+		String baseUrlString = null;
+
+		try {
+            baseUrlString = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath()).toExternalForm();
+		} catch (MalformedURLException e) {
+			XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
+			return false;
+		}
+
+		if (BLOCKED_FullURL.isEmpty()) {
+			waitForDataLoading();
+		}
+
+		boolean isBlocked = BLOCKED_FullURL.containsKey(baseUrlString);
+		sendBlockedRequestBroadcast("all", " HTTPS-full", isBlocked, baseUrlString);
+		if (isBlocked) {
+			sendBlockedRequestBroadcast("block", " HTTPS-full", true, baseUrlString);
+		} else if (baseUrlString != null && !isBlocked) {
+			sendBlockedRequestBroadcast("pass", " HTTPS-full", false, baseUrlString);
+		}
+
+		return isBlocked;
 	}
 
 	private static final XC_MethodHook InetAddress1Hook = new XC_MethodHook() {
@@ -169,11 +183,8 @@ public class HostHook {
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
 			if (host != null && shouldBlockDnsRequest(host)) {
-				sendBlockedRequestBroadcast("block", " DNS", null, host);
 				param.setResult(new InetAddress[0]);
 				return;
-			} else if (host != null && !shouldBlockDnsRequest(host)) {
-				sendBlockedRequestBroadcast("pass", "DNS", null, host);
 			}
 		}
 	};
@@ -183,23 +194,13 @@ public class HostHook {
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 			String host = (String) param.args[0];
 			if (host != null && shouldBlockDnsRequest(host)) {
-				sendBlockedRequestBroadcast("block", " DNS", null, host);
 				param.setResult(InetAddress.getByAddress(new byte[4]));
 				return;
-			} else if (host != null && !shouldBlockDnsRequest(host)) {
-				sendBlockedRequestBroadcast("pass", "DNS", null, host);
 			}
 		}
 	};
 
-	private static void hookAllRelevantMethods() {
-
-		XposedHelpers.findAndHookMethod(InetAddress.class, "getByName", String.class, InetAddress2Hook);
-		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddress1Hook);
-
-	}
-
-	private static void sendBlockedRequestBroadcast(String type, @Nullable String blockType,
+	private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,
 			@Nullable Boolean isBlocked, String request) {
 		Intent intent;
 		if (Objects.equals(type, "all")) {
@@ -223,7 +224,7 @@ public class HostHook {
 				appName = currentContext.getPackageName();
 
 			}
-			appName += blockType;
+			appName += requestType;
 			String packageName = currentContext.getPackageName();
 			BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
 					System.currentTimeMillis(), type, isBlocked);

@@ -86,7 +86,7 @@ class BlockedRequestsAdapter(
         val request = differ.currentList[position]
         holder.appName.text = request.appName
         holder.request.text = request.request
-        if (request.blockType == "all" && request.isBlocked) {
+        if (request.requestType == "all" && request.isBlocked) {
             holder.request.setTextColor(
                 ThemeUtils.getThemeAttrColor(
                     context,
