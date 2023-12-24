@@ -38,9 +38,6 @@ public class BlockedURLConnection extends HttpURLConnection {
 
     @Override
     public InputStream getInputStream() throws IOException {
-        if (!connected) {
-            throw new IOException("Not connected");
-        }
         // 模拟空响应体
         return new ByteArrayInputStream(new byte[0]);
     }

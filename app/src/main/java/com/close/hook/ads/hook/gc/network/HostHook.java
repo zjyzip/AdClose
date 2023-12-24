@@ -2,6 +2,7 @@ package com.close.hook.ads.hook.gc.network;
 
 import java.io.*;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import io.reactivex.rxjava3.core.Flowable;
@@ -44,30 +45,105 @@ public class HostHook {
 	}
 
 	private static void setupDNSRequestHook() {
-		XposedHelpers.findAndHookMethod(InetAddress.class, "getByName", String.class, InetAddress2Hook);
-		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddress1Hook);
+		XposedHelpers.findAndHookMethod(InetAddress.class, "getByName", String.class, InetAddressHook);
+		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddressHook);
 	}
+
+	private static final XC_MethodHook InetAddressHook = new XC_MethodHook() {
+		@Override
+		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+			String host = (String) param.args[0];
+			if (host != null && shouldBlockDnsRequest(host)) {
+				String methodName = param.method.getName();
+				if ("getByName".equals(methodName)) {
+					param.setResult(InetAddress.getByAddress(new byte[4]));
+				} else if ("getAllByName".equals(methodName)) {
+					param.setResult(new InetAddress[0]);
+				}
+				return;
+			}
+		}
+	};
 
 	private static void setupHttpConnectionHook(XC_LoadPackage.LoadPackageParam lpparam) {
 		try {
 			XposedHelpers.findAndHookMethod("com.android.okhttp.internal.huc.HttpURLConnectionImpl",
-					lpparam.classLoader, "getInputStream", new XC_MethodHook() { // 待调整(getOutputStream)
+					lpparam.classLoader, "getInputStream", new XC_MethodHook() {
 						@Override
 						protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 							HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
-							URL url = httpURLConnection.getURL();
-							String host = url.getHost();
-
-							if (url != null && shouldBlockHttpsRequest(url)) {
-								param.setResult(new BlockedURLConnection(url));
-							} else if (host != null && shouldBlockHttpsRequest(host)) {
-								param.setResult(new BlockedURLConnection(url));
+							if (shouldInterceptHttpConnection(httpURLConnection)) {
+								BlockedURLConnection blockedConnection = new BlockedURLConnection(httpURLConnection.getURL());
+                                param.setResult(blockedConnection.getInputStream());
 							}
 						}
 					});
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
 		}
+	}
+
+	private static boolean shouldInterceptHttpConnection(HttpURLConnection httpURLConnection) {
+		if (httpURLConnection == null) {
+			return false;
+		}
+		URL url = httpURLConnection.getURL();
+		if (url != null && shouldBlockHttpsRequest(url)) {
+			return true;
+		}
+		return url != null && shouldBlockHttpsRequest(url.getHost());
+	}
+
+	private static void waitForDataLoading() {
+		if (BLOCKED_HOSTS.isEmpty() && BLOCKED_FullURL.isEmpty()) {
+			try {
+				loadDataLatch.await();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
+			}
+		}
+	}
+
+	private static boolean checkAndBlockRequest(String host, String requestType,
+			Function<String, Boolean> blockChecker) {
+		sendBlockedRequestBroadcast("all", requestType, null, host);
+		if (host == null) {
+			return false;
+		}
+		waitForDataLoading();
+		boolean isBlocked = blockChecker.apply(host);
+		sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", requestType, isBlocked, host);
+		return isBlocked;
+	}
+
+	private static boolean shouldBlockDnsRequest(String host) {
+		return checkAndBlockRequest(host, "DNS", BLOCKED_HOSTS::containsKey);
+	}
+
+	private static boolean shouldBlockHttpsRequest(String host) {
+		return checkAndBlockRequest(host, " HTTPS-host", BLOCKED_HOSTS::containsKey);
+	}
+
+	private static boolean shouldBlockHttpsRequest(URL url) {
+		if (url == null) {
+			return false;
+		}
+
+		String host = url.getHost();
+		if (shouldBlockDnsRequest(host) || shouldBlockHttpsRequest(host)) {
+			return true;
+		}
+
+		String baseUrlString;
+		try {
+			baseUrlString = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath()).toExternalForm();
+		} catch (MalformedURLException e) {
+			XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
+			return false;
+		}
+
+		return checkAndBlockRequest(baseUrlString, " HTTPS-full", BLOCKED_FullURL::containsKey);
 	}
 
 	@SuppressLint("CheckResult")
@@ -113,98 +189,6 @@ public class HostHook {
 				.doFinally(loadDataLatch::countDown).subscribe(url -> {
 				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked full URLs: " + error));
 	}
-
-	private static void waitForDataLoading() {
-		if (BLOCKED_HOSTS.isEmpty() && BLOCKED_FullURL.isEmpty()) {
-			try {
-				loadDataLatch.await();
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
-			}
-		}
-	}
-
-	private static boolean shouldBlockDnsRequest(String host) {
-		return shouldBlockRequest(host, "DNS", BLOCKED_HOSTS);
-	}
-
-	private static boolean shouldBlockHttpsRequest(String host) {
-		return shouldBlockRequest(host, " HTTPS-host", BLOCKED_HOSTS);
-	}
-
-	private static boolean shouldBlockRequest(String host, String requestType,
-			ConcurrentHashMap<String, Boolean> blockedList) {
-		sendBlockedRequestBroadcast("all", requestType, null, host);
-		if (host == null) {
-			return false;
-		}
-		waitForDataLoading();
-		boolean isBlocked = blockedList.containsKey(host);
-		if (isBlocked) {
-			sendBlockedRequestBroadcast("block", requestType, true, host);
-		} else {
-			sendBlockedRequestBroadcast("pass", requestType, false, host);
-		}
-		return isBlocked;
-	}
-
-	private static boolean shouldBlockHttpsRequest(URL url) {
-		if (url == null) {
-			return false;
-		}
-
-		String host = url.getHost();
-		boolean alreadyBlockedByHost = shouldBlockHttpsRequest(host);
-
-		if (alreadyBlockedByHost) {
-			return true;
-		}
-
-		String baseUrlString;
-		try {
-			baseUrlString = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath()).toExternalForm();
-		} catch (MalformedURLException e) {
-			XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
-			return false;
-		}
-
-		if (BLOCKED_FullURL.isEmpty()) {
-			waitForDataLoading();
-		}
-
-		boolean isBlocked = BLOCKED_FullURL.containsKey(baseUrlString);
-		sendBlockedRequestBroadcast("all", " HTTPS-full", null, baseUrlString);
-		if (isBlocked) {
-			sendBlockedRequestBroadcast("block", " HTTPS-full", true, baseUrlString);
-		} else {
-			sendBlockedRequestBroadcast("pass", " HTTPS-full", false, baseUrlString);
-		}
-
-		return isBlocked;
-	}
-
-	private static final XC_MethodHook InetAddress1Hook = new XC_MethodHook() {
-		@Override
-		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-			String host = (String) param.args[0];
-			if (host != null && shouldBlockDnsRequest(host)) {
-				param.setResult(new InetAddress[0]);
-				return;
-			}
-		}
-	};
-
-	private static final XC_MethodHook InetAddress2Hook = new XC_MethodHook() {
-		@Override
-		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-			String host = (String) param.args[0];
-			if (host != null && shouldBlockDnsRequest(host)) {
-				param.setResult(InetAddress.getByAddress(new byte[4]));
-				return;
-			}
-		}
-	};
 
 	private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,
 			@Nullable Boolean isBlocked, String request) {

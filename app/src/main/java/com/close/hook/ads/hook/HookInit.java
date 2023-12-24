@@ -89,7 +89,7 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("Application Name: " + appName);
 					}
 
-  // 暂时删除					AppAds.progress(classLoader, packageName);
+//					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
 						SDKHooks.hookAds(classLoader);
