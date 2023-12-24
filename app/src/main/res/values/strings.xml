@@ -8,71 +8,72 @@
     <string name="bottom_item_2">Hosts</string>
     <string name="bottom_item_3">Setting</string>
 
-    <string name="search_hint">搜索</string>
+    <string name="search_hint">Search</string>
 
-    <string name="sort_filter">排序和过滤</string>
-    <string name="reset">重置</string>
-    <string name="sort_by">排序方式</string>
-    <string name="reverse">反转</string>
-    <string name="filter">过滤器</string>
-
-
-    <string name="tab_user_apps">用户应用</string>
-    <string name="tab_system_apps">系统应用</string>
+    <string name="sort_filter">sort and filter</string>
+    <string name="reset">reset</string>
+    <string name="sort_by">Sort By</string>
+    <string name="reverse">Reverse</string>
+    <string name="filter">Filter</string>
 
 
-    <string name="tab_domain_list">请求列表</string>
-    <string name="tab_host_list">拦截列表</string>
-    <string name="tab_host_whitelist">放行列表</string>
+    <string name="tab_user_apps">User Apps</string>
+    <string name="tab_system_apps">System Apps</string>
 
 
-    <string name="update_checkbox_status">保存开关配置</string>
-    <string name="description_seven">•仅针对一般性的Magisk和Xposed检测</string>
+    <string name="tab_domain_list">Request List</string>
+    <string name="tab_host_list">Block List</string>
+    <string name="tab_host_whitelist">Pass List</string>
 
-    <string name="handle_platform_ad">阻止平台广告初始化</string>
-    <string name="block_host">屏蔽广告请求</string>
 
-    <string name="remove_flag_secure">移除截图录屏限制</string>
-    <string name="remove_vpn_state">去除VPN代理检测</string>
-    <string name="remove_sensor_monitor">移除传感器监听</string>
-    <string name="remove_envi_detection">去除环境检测</string>
+    <string name="update_checkbox_status">Save</string>
+    <string name="description_seven">•For Common Magisk and Xposed Detection Only</string>
 
-    <string name="settings_theme">主题</string>
-    <string name="settings_system_theme_color_summary">系统取色</string>
-    <string name="settings_system_theme_color">系统主题色</string>
-    <string name="settings_theme_color">主题颜色</string>
-    <string name="dark_theme">深色主题</string>
-    <string name="settings_pure_black_dark_theme">纯黑主题</string>
-    <string name="settings_pure_black_dark_theme_summary">当深色主题启用时使用纯黑主题</string>
-    <string name="dark_theme_off">总是关闭</string>
-    <string name="dark_theme_on">总是开启</string>
-    <string name="follow_system">跟随系统</string>
+    <string name="handle_platform_ad">Stop platform ad initialization</string>
+    <string name="block_host">Block Ad Request</string>
+
+    <string name="remove_flag_secure">Remove Flag Secure</string>
+    <string name="remove_vpn_state">Remove VPN Check</string>
+    <string name="remove_sensor_monitor">Remove Sensor Monitor</string>
+    <string name="remove_envi_detection">Remove Environment Detection</string>
+
+    <string name="settings_theme">Theme</string>
+    <string name="settings_system_theme_color_summary">Theme color from system</string>
+    <string name="settings_system_theme_color">System Theme Color</string>
+    <string name="settings_theme_color">Theme Color</string>
+    <string name="dark_theme">Dark Theme</string>
+    <string name="settings_pure_black_dark_theme">Pure Black Dark Theme</string>
+    <string name="settings_pure_black_dark_theme_summary">Use the pure black theme if dark theme is enabled</string>    <string name="dark_theme_off">Always Off</string>
+    <string name="dark_theme_on">Always On</string>
+    <string name="follow_system">Follow System</string>
     <string name="dark_theme_follow_system">@string/follow_system</string>
 
     <!-- Colors -->
-    <string name="color_sakura">樱花</string>
-    <string name="color_red">红色</string>
-    <string name="color_pink">粉色</string>
-    <string name="color_purple">紫色</string>
-    <string name="color_deep_purple">深紫</string>
-    <string name="color_indigo">靛青</string>
-    <string name="color_blue">蓝色</string>
-    <string name="color_light_blue">浅蓝</string>
-    <string name="color_cyan">青色</string>
-    <string name="color_teal">青绿</string>
-    <string name="color_green">绿色</string>
-    <string name="color_light_green">浅绿</string>
-    <string name="color_lime">黄绿</string>
-    <string name="color_yellow">黄色</string>
-    <string name="color_amber">琥珀</string>
-    <string name="color_orange">橙色</string>
-    <string name="color_deep_orange">深橙</string>
-    <string name="color_brown">棕色</string>
-    <string name="color_blue_grey">灰蓝</string>
-    <string name="others">其他</string>
-    <string name="about">关于</string>
-    <string name="feedback">反馈</string>
-    <string name="cache_clean">缓存清理</string>
-    <string name="select_all">全选</string>
-    <string name="hide_icon">隐藏桌面图标</string>
+    <string name="color_default">Default</string>
+    <string name="color_sakura">Sakura</string>
+    <string name="color_red">Red</string>
+    <string name="color_pink">Pink</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_deep_purple">Deep purple</string>
+    <string name="color_indigo">Indigo</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_light_blue">Light blue</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_teal">Teal</string>
+    <string name="color_green">Green</string>
+    <string name="color_light_green">Light green</string>
+    <string name="color_lime">Lime</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_amber">Amber</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_deep_orange">Deep orange</string>
+    <string name="color_brown">Brown</string>
+    <string name="color_blue_grey">Blue grey</string>
+
+    <string name="others">Others</string>
+    <string name="about">About</string>
+    <string name="feedback">FeedBack</string>
+    <string name="cache_clean">Cache Clean</string>
+    <string name="select_all">Select All</string>
+    <string name="hide_icon">Hide Icon</string>
 </resources>
