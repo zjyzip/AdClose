@@ -24,7 +24,6 @@ class AboutActivity : AbsAboutActivity() {
     |
     |
     |主要用于阻止常见平台广告与部分SDK的初始化加载和屏蔽应用的广告请求。
-    |(感谢Twilight提供的AWAvenue-Ads-Rule广告规则)
     |
     |同时提供了一些其他Hook功能和特定应用去广告适配。
     |

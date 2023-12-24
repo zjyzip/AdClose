@@ -36,6 +36,7 @@ public class SDKHooks {
 
             // Kwai Ads
             new HookInfo("com.kwad.sdk.KsAdSDKImpl", "init", null),
+            new HookInfo("com.kwad.framework.filedownloader.download.DownloadLaunchRunnable", "run", null),
 
             // Tencent Ads
             new HookInfo("com.qq.e.comm.managers.status.SDKStatus", "getPluginVersion", 0),
