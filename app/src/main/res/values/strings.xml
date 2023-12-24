@@ -75,7 +75,4 @@
     <string name="cache_clean">缓存清理</string>
     <string name="select_all">全选</string>
     <string name="hide_icon">隐藏桌面图标</string>
-    <string name="add_to_blocklist">加入黑名单</string>
-    <string name="remove_from_blocklist">移除黑名单</string>
-    <string name="copy">复制</string>
 </resources>

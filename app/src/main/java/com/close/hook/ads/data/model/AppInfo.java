@@ -51,6 +51,7 @@ public class AppInfo implements Parcelable {
 		return packageName;
 	}
 
+
 	public String getVersionName() {
 		return versionName;
 	}
