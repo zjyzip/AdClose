@@ -9,6 +9,7 @@ import java.util.Objects;
 public class AppInfo implements Parcelable {
 	private final String appName;
 	private final String packageName;
+	private final Drawable appIcon;
 	private final String versionName;
 	private final Long firstInstallTime;
 	private final Long lastUpdateTime;
@@ -17,11 +18,12 @@ public class AppInfo implements Parcelable {
 	private final int isAppEnable;
 	private final int isEnable;
 
-	public AppInfo(String appName, String packageName, String versionName,
+	public AppInfo(String appName, String packageName, Drawable appIcon, String versionName,
 			Long firstInstallTime, Long lastUpdateTime, long size, int targetSdk, int isAppEnable,
 				   int isEnable) {
 		this.appName = appName;
 		this.packageName = packageName;
+		this.appIcon = appIcon;
 		this.versionName = versionName;
 		this.firstInstallTime = firstInstallTime;
 		this.lastUpdateTime = lastUpdateTime;
@@ -34,6 +36,7 @@ public class AppInfo implements Parcelable {
 	protected AppInfo(Parcel in) {
 		appName = in.readString();
 		packageName = in.readString();
+		appIcon = (Drawable) in.readValue(Drawable.class.getClassLoader());
 		versionName = in.readString();
 		firstInstallTime = in.readLong();
 		lastUpdateTime = in.readLong();
@@ -51,6 +54,9 @@ public class AppInfo implements Parcelable {
 		return packageName;
 	}
 
+	public Drawable getAppIcon() {
+		return appIcon;
+	}
 
 	public String getVersionName() {
 		return versionName;
@@ -98,6 +104,7 @@ public class AppInfo implements Parcelable {
 		dest.writeString(appName);
 		dest.writeString(packageName);
 		dest.writeString(versionName);
+		dest.writeValue(appIcon);
 		dest.writeLong(firstInstallTime);
 		dest.writeLong(lastUpdateTime);
 		dest.writeLong(size);
