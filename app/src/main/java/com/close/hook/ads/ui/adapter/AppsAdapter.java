@@ -85,7 +85,12 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
         void bind(AppInfo appInfo) {
             binding.textViewAppName.setText(appInfo.getAppName());
             binding.textViewAppVersion.setText(appInfo.getVersionName());
-            binding.imageViewAppIcon.setImageDrawable(AppUtils.getAppIcon(appInfo.getPackageName()));
+            Glide.with(binding.imageViewAppIcon.getContext())
+                    .load(appInfo.getAppIcon())
+                    .apply(new RequestOptions()
+                            .override(binding.imageViewAppIcon.getContext().getResources().getDimensionPixelSize(R.dimen.app_icon_size))
+                            .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
+                    .into(binding.imageViewAppIcon);
         }
     }
 }
