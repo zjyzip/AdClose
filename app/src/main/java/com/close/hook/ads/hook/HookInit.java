@@ -11,7 +11,7 @@ import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
 import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
-import com.close.hook.ads.hook.gc.network.HostHook;
+import com.close.hook.ads.hook.gc.network.RequestHook;
 import com.close.hook.ads.hook.ha.AppAds;
 import com.close.hook.ads.hook.ha.SDKHooks;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
@@ -54,8 +54,8 @@ public class HookInit implements IXposedHookLoadPackage {
 	}
 
 	private void applySettings(SettingsManager settingsManager, XC_LoadPackage.LoadPackageParam lpparam) {
-		if (settingsManager.isHostHookEnabled()) {
-			HostHook.init(lpparam);
+		if (settingsManager.isRequestHookEnabled()) {
+			RequestHook.init(lpparam);
 		}
 
 		if (settingsManager.isHideVPNStatusEnabled()) {
@@ -77,7 +77,7 @@ public class HookInit implements IXposedHookLoadPackage {
 		try {
 			XposedHelpers.findAndHookMethod(Application.class, "attach", Context.class, new XC_MethodHook() {
 				@Override
-				protected void afterHookedMethod(MethodHookParam param) {
+				protected void beforeHookedMethod(MethodHookParam param) {
 					Context context = (Context) param.args[0];
 					ClassLoader classLoader = context.getClassLoader();
 
@@ -89,7 +89,7 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("Application Name: " + appName);
 					}
 
-//					AppAds.progress(classLoader, packageName);
+					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
 						SDKHooks.hookAds(classLoader);

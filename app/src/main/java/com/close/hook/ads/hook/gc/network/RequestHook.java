@@ -10,6 +10,7 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.reactivex.rxjava3.core.BackpressureStrategy;
 
 import java.net.*;
+import java.util.*;
 
 import android.util.Log;
 import android.content.Context;
@@ -24,8 +25,8 @@ import com.close.hook.ads.data.model.BlockedRequest;
 import de.robv.android.xposed.*;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-public class HostHook {
-	private static final String LOG_PREFIX = "[HostHook] ";
+public class RequestHook {
+	private static final String LOG_PREFIX = "[RequestHook] ";
 	private static final ConcurrentHashMap<String, Boolean> BLOCKED_HOSTS = new ConcurrentHashMap<>();
 	private static final ConcurrentHashMap<String, Boolean> BLOCKED_FullURL = new ConcurrentHashMap<>();
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(2);
@@ -38,6 +39,7 @@ public class HostHook {
 	public static void init(XC_LoadPackage.LoadPackageParam lpparam) {
 		try {
 			setupDNSRequestHook();
+			setupRequestHook(lpparam);
 			setupHttpConnectionHook(lpparam);
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
@@ -56,7 +58,7 @@ public class HostHook {
 			if (host != null && shouldBlockDnsRequest(host)) {
 				String methodName = param.method.getName();
 				if ("getByName".equals(methodName)) {
-					param.setResult(InetAddress.getByAddress(new byte[4]));
+					param.setResult(null);
 				} else if ("getAllByName".equals(methodName)) {
 					param.setResult(new InetAddress[0]);
 				}
@@ -64,6 +66,72 @@ public class HostHook {
 			}
 		}
 	};
+
+	private static void setupRequestHook(XC_LoadPackage.LoadPackageParam lpparam) {
+		try {
+			XposedHelpers.findAndHookMethod("com.android.okhttp.internal.huc.HttpURLConnectionImpl",
+					lpparam.classLoader, "execute", boolean.class, new XC_MethodHook() {
+						@Override
+						protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+							try {
+								Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+
+								boolean isResponseAvailable = (boolean) XposedHelpers.callMethod(httpEngine,
+										"hasResponse");
+								if (!isResponseAvailable) {
+									XposedBridge.log(LOG_PREFIX + "Response not available yet.");
+									return;
+								}
+
+								// 处理请求
+								Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
+								Object requestHeaders = XposedHelpers.callMethod(request, "headers");
+								String method = (String) XposedHelpers.callMethod(request, "method");
+								String urlString = (String) XposedHelpers.callMethod(request, "urlString");
+								// 处理响应
+								if (param.hasThrowable()) {
+									XposedBridge.log(
+											LOG_PREFIX + "Error during request execution: " + param.getThrowable());
+									return;
+								}
+
+								Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
+								int code = (int) XposedHelpers.callMethod(response, "code");
+								String message = (String) XposedHelpers.callMethod(response, "message");
+								Object responseHeaders = XposedHelpers.callMethod(response, "headers");
+
+								// 获取响应体
+								Object responseBody = XposedHelpers.callMethod(response, "body");
+								String bodyString = "";
+								if (responseBody != null) {
+									try {
+										bodyString = new String(
+												(byte[]) XposedHelpers.callMethod(responseBody, "bytes"), "UTF-8");
+									} catch (UnsupportedEncodingException e) {
+										XposedBridge.log(LOG_PREFIX + "Unsupported Encoding: " + e.getMessage());
+									}
+								}
+
+								// 格式化打印
+								XposedBridge.log(LOG_PREFIX + String.format("%-20s: %s", "Request Method", method));
+								XposedBridge.log(LOG_PREFIX + String.format("%-20s: %s", "Request URL", urlString));
+								XposedBridge.log(LOG_PREFIX
+										+ String.format("%-20s: %s", "Request Headers", requestHeaders.toString()));
+								XposedBridge.log(LOG_PREFIX + String.format("%-20s: %d", "Response Code", code));
+								XposedBridge.log(LOG_PREFIX + String.format("%-20s: %s", "Response Message", message));
+								XposedBridge.log(LOG_PREFIX
+										+ String.format("%-20s: %s", "Response Headers", responseHeaders.toString()));
+								XposedBridge.log(LOG_PREFIX + String.format("%-20s: %s", "Response Body", bodyString));
+							} catch (Exception e) {
+								XposedBridge
+										.log(LOG_PREFIX + "Error processing request or response: " + e.getMessage());
+							}
+						}
+					});
+		} catch (Exception e) {
+			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
+		}
+	}
 
 	private static void setupHttpConnectionHook(XC_LoadPackage.LoadPackageParam lpparam) {
 		try {
@@ -73,8 +141,9 @@ public class HostHook {
 						protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 							HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
 							if (shouldInterceptHttpConnection(httpURLConnection)) {
-								BlockedURLConnection blockedConnection = new BlockedURLConnection(httpURLConnection.getURL());
-                                param.setResult(blockedConnection.getInputStream());
+								BlockedURLConnection blockedConnection = new BlockedURLConnection(
+										httpURLConnection.getURL());
+								param.setResult(blockedConnection.getInputStream());
 							}
 						}
 					});
@@ -149,7 +218,7 @@ public class HostHook {
 	@SuppressLint("CheckResult")
 	private static void loadBlockedHostsAsync() {
 		Flowable.create(emitter -> {
-			try (InputStream inputStream = HostHook.class.getResourceAsStream("/assets/blocked_hosts.txt");
+			try (InputStream inputStream = RequestHook.class.getResourceAsStream("/assets/blocked_hosts.txt");
 					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
 				if (inputStream == null) {
 					return;
@@ -171,7 +240,7 @@ public class HostHook {
 	@SuppressLint("CheckResult")
 	private static void loadBlockedFullURLAsync() {
 		Flowable.create(emitter -> {
-			try (InputStream inputStream = HostHook.class.getResourceAsStream("/assets/blocked_full_urls.txt");
+			try (InputStream inputStream = RequestHook.class.getResourceAsStream("/assets/blocked_full_urls.txt");
 					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
 				if (inputStream == null) {
 					return;
@@ -222,7 +291,7 @@ public class HostHook {
 			intent.putExtra("request", blockedRequest);
 			AndroidAppHelper.currentApplication().sendBroadcast(intent);
 		} else {
-			Log.w("HostHook", "sendBlockedRequestBroadcast: currentContext is null");
+			Log.w("RequestHook", "sendBlockedRequestBroadcast: currentContext is null");
 		}
 
 	}

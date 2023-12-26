@@ -1,9 +1,7 @@
 package com.close.hook.ads.hook.util;
 
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import androidx.collection.ArrayMap;
 
 import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
@@ -33,10 +31,13 @@ public class HookUtil {
     public static void hookMethods(ClassLoader classLoader, String className, String[] methodNames, Object returnValue) {
         try {
             Class<?> clazz = classLoader.loadClass(className);
-            Set<String> methodNameSet = new HashSet<>(Arrays.asList(methodNames));
+            ArrayMap<String, Boolean> methodNameMap = new ArrayMap<>();
+            for (String methodName : methodNames) {
+                methodNameMap.put(methodName, true);
+            }
 
             for (Method method : clazz.getDeclaredMethods()) {
-                if (methodNameSet.contains(method.getName())) {
+                if (methodNameMap.containsKey(method.getName())) {
                     hookMethodWithReplacement(method, returnValue);
                 }
             }
