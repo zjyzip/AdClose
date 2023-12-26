@@ -5,7 +5,7 @@
 
 
     <string name="bottom_item_1">Apps</string>
-    <string name="bottom_item_2">Hosts</string>
+    <string name="bottom_item_2">Request</string>
     <string name="bottom_item_3">Setting</string>
 
     <string name="search_hint">Search</string>
@@ -27,10 +27,11 @@
 
 
     <string name="update_checkbox_status">Save</string>
+    <string name="description_two">•automatically blocks ad requests, does not affect normal network</string>
     <string name="description_seven">•For Common Magisk and Xposed Detection Only</string>
 
     <string name="handle_platform_ad">Stop platform ad initialization</string>
-    <string name="block_host">Block Ad Request</string>
+    <string name="check_request">App request checking</string>
 
     <string name="remove_flag_secure">Remove Flag Secure</string>
     <string name="remove_vpn_state">Remove VPN Check</string>

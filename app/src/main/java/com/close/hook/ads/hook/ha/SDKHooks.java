@@ -13,6 +13,9 @@ public class SDKHooks {
             //岳鹰全景监控
             new HookInfo("com.uc.crashsdk.export.CrashApi", "createInstanceEx", null),
 
+            // Appic Ads
+            new HookInfo("com.ap.android.trunk.sdk.core.APSDK", "init", null),
+
 /*
         // 应用解锁 - com.ming.app.clickplus
         new HookInfo("com.ming.app.clickplus.util.UserInfoStorgeKt", "getUserType", 3),

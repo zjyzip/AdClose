@@ -16,7 +16,7 @@ public class SettingsManager {
         return prefsHelper.getBoolean("switch_one_" + packageName, false);
     }
 
-    public boolean isHostHookEnabled() {
+    public boolean isRequestHookEnabled() {
         return prefsHelper.getBoolean("switch_two_" + packageName, false);
     }
 
