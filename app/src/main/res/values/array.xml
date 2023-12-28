@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="scope">
+        <item>android</item>
+
         <item>com.tencent.qqlive</item>
 
         <item>cn.kuwo.player</item>
@@ -13,6 +15,12 @@
         <item>com.qiyi.video</item>
 
         <item>com.duowan.kiwi</item>
+
+        <item>com.tencent.mm</item>
+
+        <item>com.ximalaya.ting.android</item>
+
+        <item>com.sinovatech.unicom.ui</item>
 
         <item>com.sup.android.superb</item>
     </string-array>
