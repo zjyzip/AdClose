@@ -16,7 +16,7 @@ public class AppInfo implements Parcelable {
 	private final long size;
 	private final int targetSdk;
 	private final int isAppEnable;
-	private final int isEnable;
+	private int isEnable;
 
 	public AppInfo(String appName, String packageName, Drawable appIcon, String versionName,
 			Long firstInstallTime, Long lastUpdateTime, long size, int targetSdk, int isAppEnable,
@@ -83,6 +83,10 @@ public class AppInfo implements Parcelable {
 	}
 	public int getIsEnable() {
 		return isEnable;
+	}
+
+	public void setIsEnable(int isEnable) {
+		this.isEnable = isEnable;
 	}
 
 	@Override

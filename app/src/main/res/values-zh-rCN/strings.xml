@@ -18,6 +18,7 @@
 
 
     <string name="tab_user_apps">用户应用</string>
+    <string name="tab_configured_apps">已配置应用</string>
     <string name="tab_system_apps">系统应用</string>
 
 

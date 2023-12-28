@@ -88,6 +88,15 @@
         android:text="@string/check_request"
         app:layout_constraintTop_toBottomOf="@id/switch_one" />
 
+    <TextView
+        android:id="@+id/description_two"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/description_two"
+        android:textSize="10sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/switch_two" />
+
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_three"
         android:layout_width="match_parent"
@@ -96,7 +105,7 @@
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/remove_vpn_state"
-        app:layout_constraintTop_toBottomOf="@id/switch_two" />
+        app:layout_constraintTop_toBottomOf="@id/description_two" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_four"

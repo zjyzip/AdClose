@@ -46,7 +46,7 @@ class AppsFragment : Fragment(), OnClearClickListener {
     private val disposables = CompositeDisposable()
     private val appsViewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var appsAdapter: AppsAdapter
-    private var isSystemApp = false
+    private lateinit var type: String
     private lateinit var bottomSheetDialog: BottomSheetDialog
     private lateinit var selectAll: MaterialCheckBox
     private var totalCheck = 0
@@ -54,7 +54,7 @@ class AppsFragment : Fragment(), OnClearClickListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
-            isSystemApp = requireArguments().getBoolean(ARG_IS_SYSTEM_APP)
+            type = requireArguments().getString("type")!!
         }
     }
 
@@ -97,14 +97,43 @@ class AppsFragment : Fragment(), OnClearClickListener {
     }
 
     private fun setupLiveDataObservation() {
-        val appsLiveData: LiveData<List<AppInfo>> =
-            if (isSystemApp) appsViewModel.systemAppsLiveData else appsViewModel.userAppsLiveData
-        appsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
-            binding.progressBar.visibility = View.GONE
-            appsViewModel.appInfoList = appInfo
-            (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
-            appsAdapter.submitList(appInfo)
+
+        when (type) {
+            "configured" -> {
+                val userAppsLiveData: LiveData<List<AppInfo>> = appsViewModel.userAppsLiveData
+                userAppsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
+                    for (element in appInfo)
+                        if (element.isEnable == 1)
+                            appsViewModel.appInfoList.add(element)
+                    val systemAppsLiveData: LiveData<List<AppInfo>> =
+                        appsViewModel.systemAppsLiveData
+                    systemAppsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
+                        binding.progressBar.visibility = View.GONE
+                        for (element in appInfo)
+                            if (element.isEnable == 1)
+                                appsViewModel.appInfoList.add(element)
+                        appsAdapter.submitList(appsViewModel.appInfoList)
+                        (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
+                        binding.progressBar.visibility = View.GONE
+                    }
+                }
+            }
+
+            else -> {
+                val appsLiveData: LiveData<List<AppInfo>> =
+                    if (type == "user") appsViewModel.userAppsLiveData
+                    else appsViewModel.systemAppsLiveData
+                appsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
+                    binding.progressBar.visibility = View.GONE
+                    appsViewModel.appInfoList = appInfo
+                    (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
+                    appsAdapter.submitList(appInfo)
+                }
+            }
+
         }
+
+
     }
 
     private fun setupAdapterItemClick() {
@@ -210,11 +239,20 @@ class AppsFragment : Fragment(), OnClearClickListener {
 
         val buttonUpdate = dialogView.findViewById<MaterialButton>(R.id.button_update)
         buttonUpdate.setOnClickListener {
+            var total = 0
             for (i in checkBoxIds.indices) {
                 val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
+                if (checkBoxView.isChecked)
+                    total++
                 val key = prefKeys[i] + appInfo.packageName
                 prefsHelper.setBoolean(key, checkBoxView.isChecked)
             }
+            val position = getAppPosition(appInfo.packageName)
+            if (position != -1)
+                if (total == 0)
+                    appsViewModel.appInfoList[position].isEnable = 0
+                else
+                    appsViewModel.appInfoList[position].isEnable = 1
             AppUtils.showToast(requireContext(), "保存成功")
             bottomSheetDialog.dismiss()
         }
@@ -237,6 +275,14 @@ class AppsFragment : Fragment(), OnClearClickListener {
             }
         }
 
+    }
+
+    private fun getAppPosition(packageName: String): Int {
+        for ((index, element) in appsViewModel.appInfoList.withIndex()) {
+            if (element.packageName == packageName)
+                return index
+        }
+        return -1
     }
 
     override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
@@ -336,14 +382,13 @@ class AppsFragment : Fragment(), OnClearClickListener {
 
     companion object {
         private const val PREFERENCES_NAME = "com.close.hook.ads_preferences"
-        private const val ARG_IS_SYSTEM_APP = "IS_SYSTEM_APP"
         private val ITEM_DECORATION_SPACE = R.dimen.normal_space
 
         @JvmStatic
-        fun newInstance(isSystemApp: Boolean): AppsFragment {
+        fun newInstance(type: String): AppsFragment {
             val fragment = AppsFragment()
             val args = Bundle()
-            args.putBoolean(ARG_IS_SYSTEM_APP, isSystemApp)
+            args.putString("type", type)
             fragment.arguments = args
             return fragment
         }
