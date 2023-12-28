@@ -18,6 +18,7 @@
 
 
     <string name="tab_user_apps">User Apps</string>
+    <string name="tab_configured_apps">Configured Apps</string>
     <string name="tab_system_apps">System Apps</string>
 
 
