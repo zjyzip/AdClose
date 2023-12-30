@@ -5,7 +5,6 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 
 import java.net.NetworkInterface;
-import java.net.Proxy;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
@@ -72,21 +71,9 @@ public class HideVPNStatus {
 		});
 	}
 
-	private static void preventOkHttpProxyUsage() {
-		try {
-			Class<?> okhttpClientBuilderClass = Class.forName("okhttp3.OkHttpClient$Builder");
-			hookMethod(okhttpClientBuilderClass, "proxy", param -> {
-				param.args[0] = Proxy.NO_PROXY;
-			});
-		} catch (ClassNotFoundException e) {
-			XposedBridge.log("HideVPNStatus - OkHttp Builder class not found: " + e.getMessage());
-		}
-	}
-
 	public static void proxy() {
 
 		bypassSystemProxyCheck();
-		preventOkHttpProxyUsage();
 
 		hookMethod(NetworkInfo.class, "getType",
 				param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
