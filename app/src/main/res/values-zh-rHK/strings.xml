@@ -31,11 +31,11 @@
     <string name="description_two">•自动屏蔽广告请求，不影响正常网络</string>
     <string name="description_seven">•仅针对一般性的Magisk和Xposed检测</string>
 
-    <string name="handle_platform_ad">阻止平台广告初始化</string>
+    <string name="handle_platform_ad">阻止SDK广告初始化</string>
     <string name="check_request">应用请求检查</string>
 
     <string name="remove_flag_secure">移除截图录屏限制</string>
-    <string name="remove_vpn_state">去除VPN代理检测</string>
+    <string name="remove_vpn_state">去除VPN与系统代理检测</string>
     <string name="remove_sensor_monitor">移除传感器监听</string>
     <string name="remove_envi_detection">去除环境检测</string>
 

@@ -35,7 +35,7 @@
     <string name="check_request">App request checking</string>
 
     <string name="remove_flag_secure">Remove Flag Secure</string>
-    <string name="remove_vpn_state">Remove VPN Check</string>
+    <string name="remove_vpn_state">Remove VPN and system proxy detection</string>
     <string name="remove_sensor_monitor">Remove Sensor Monitor</string>
     <string name="remove_envi_detection">Remove Environment Detection</string>
 

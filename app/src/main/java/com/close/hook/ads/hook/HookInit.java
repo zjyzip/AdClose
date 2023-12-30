@@ -13,6 +13,7 @@ import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
 import com.close.hook.ads.hook.ha.AppAds;
+import com.close.hook.ads.hook.ha.BlockForeignAd;
 import com.close.hook.ads.hook.ha.SDKHooks;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.ui.activity.MainActivity;
@@ -58,6 +59,10 @@ public class HookInit implements IXposedHookLoadPackage {
 			RequestHook.init();
 		}
 
+    	if (settingsManager.isHandlePlatformAdEnabled()) {
+		    BlockForeignAd.INSTANCE.blockAds(lpparam);
+		}
+
 		if (settingsManager.isHideVPNStatusEnabled()) {
 			HideVPNStatus.proxy();
 		}
@@ -66,7 +71,7 @@ public class HookInit implements IXposedHookLoadPackage {
 			DisableFlagSecure.process();
 		}
 
-		if (settingsManager.IsHideEnivEnabled()) {
+		if (settingsManager.isHideEnivEnabled()) {
 			HideEnvi.handle();
 		}
 
@@ -77,7 +82,7 @@ public class HookInit implements IXposedHookLoadPackage {
 		try {
 			XposedHelpers.findAndHookMethod(Application.class, "attach", Context.class, new XC_MethodHook() {
 				@Override
-				protected void beforeHookedMethod(MethodHookParam param) {
+				protected void afterHookedMethod(MethodHookParam param) {
 					Context context = (Context) param.args[0];
 					ClassLoader classLoader = context.getClassLoader();
 

@@ -154,8 +154,6 @@ public class SDKHooks {
 
     		new HookInfo("com.google.android.gms.ads.identifier.AdvertisingIdClient$Info","getId",null),
 
-     		new HookInfo("com.google.android.gms.ads.AdRequest","getContentUrl",null),
-
             new HookInfo("com.google.android.gms.ads.AdRequest$Builder", new String[] { "setRequestAgent", "setContentUrl", "setRequestAgent", "setAdString", "setAdInfo" }, null),
 
 

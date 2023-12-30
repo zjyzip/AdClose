@@ -32,7 +32,7 @@ public class SettingsManager {
         return prefsHelper.getBoolean("switch_five_" + packageName, false);
     }
 
-    public boolean IsHideEnivEnabled() {
+    public boolean isHideEnivEnabled() {
         return prefsHelper.getBoolean("switch_six_" + packageName, false);
     }
 }

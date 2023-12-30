@@ -98,9 +98,11 @@ configurations.configureEach {
 dependencies {
     compileOnly("de.robv.android.xposed:api:82")
 
+    implementation("org.luckypray:dexkit:2.0.0")
+
     implementation("com.google.android.material:material:1.10.0")
 
-    implementation("io.reactivex.rxjava3:rxjava:3.1.5")
+    implementation("io.reactivex.rxjava3:rxjava:3.1.8")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
 
     implementation("androidx.lifecycle:lifecycle-reactivestreams:2.6.2")

@@ -10,7 +10,6 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.reactivex.rxjava3.core.BackpressureStrategy;
 
 import java.net.*;
-import java.util.*;
 
 import android.util.Log;
 import android.content.Context;
@@ -38,7 +37,6 @@ public class RequestHook {
 	public static void init() {
 		try {
 			setupDNSRequestHook();
-//			setupRequestHook();
 			setupHttpConnectionHook();
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
@@ -66,115 +64,34 @@ public class RequestHook {
 		}
 	};
 
-	private static void setupRequestHook() {
-		try {
-            Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "execute", boolean.class, new XC_MethodHook() {
-						@Override
-						protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-							processRequestAsync(param);
-						}
-					});
-		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
-		}
-	}
-
-	private static void processRequestAsync(XC_MethodHook.MethodHookParam param) {
-		Flowable.fromCallable(() -> processRequest(param)).subscribeOn(Schedulers.io())
-				.observeOn(Schedulers.computation()).subscribe(RequestHook::logRequestDetails,
-						error -> XposedBridge.log(LOG_PREFIX + "Error processing request: " + error));
-	}
-
-	private static RequestDetails processRequest(XC_MethodHook.MethodHookParam param) {
-		try {
-			Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
-			Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
-			Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
-
-			String method = (String) XposedHelpers.callMethod(request, "method");
-			String urlString = (String) XposedHelpers.callMethod(request, "urlString");
-			Object requestHeaders = XposedHelpers.callMethod(request, "headers");
-
-			int code = (int) XposedHelpers.callMethod(response, "code");
-			String message = (String) XposedHelpers.callMethod(response, "message");
-			Object responseHeaders = XposedHelpers.callMethod(response, "headers");
-
-			return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
-		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
-			return null;
-		}
-	}
-
-	private static void logRequestDetails(RequestDetails details) {
-		if (details != null) {
-			XposedBridge.log(LOG_PREFIX + "Request Method: " + details.getMethod());
-			XposedBridge.log(LOG_PREFIX + "Request URL: " + details.getUrlString());
-			XposedBridge.log(LOG_PREFIX + "Request Headers: " + details.getRequestHeaders().toString());
-			XposedBridge.log(LOG_PREFIX + "Response Code: " + details.getResponseCode());
-			XposedBridge.log(LOG_PREFIX + "Response Message: " + details.getResponseMessage());
-			XposedBridge.log(LOG_PREFIX + "Response Headers: " + details.getResponseHeaders().toString());
-		}
-	}
-
-	static class RequestDetails {
-		private final String method;
-		private final String urlString;
-		private final Object requestHeaders;
-		private final int responseCode;
-		private final String responseMessage;
-		private final Object responseHeaders;
-
-		public RequestDetails(String method, String urlString, Object requestHeaders, int responseCode,
-				String responseMessage, Object responseHeaders) {
-			this.method = method;
-			this.urlString = urlString;
-			this.requestHeaders = requestHeaders;
-			this.responseCode = responseCode;
-			this.responseMessage = responseMessage;
-			this.responseHeaders = responseHeaders;
-		}
-
-		public String getMethod() {
-			return method;
-		}
-
-		public String getUrlString() {
-			return urlString;
-		}
-
-		public Object getRequestHeaders() {
-			return requestHeaders;
-		}
-
-		public int getResponseCode() {
-			return responseCode;
-		}
-
-		public String getResponseMessage() {
-			return responseMessage;
-		}
-
-		public Object getResponseHeaders() {
-			return responseHeaders;
-		}
-	}
-
 	private static void setupHttpConnectionHook() {
 		try {
-            Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getInputStream", new XC_MethodHook() {
-						@Override
-						protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-							HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
-							if (shouldInterceptHttpConnection(httpURLConnection)) {
-								BlockedURLConnection blockedConnection = new BlockedURLConnection(
-										httpURLConnection.getURL());
-								param.setResult(blockedConnection.getInputStream());
-							}
-						}
-					});
+			ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
+			Class<?> httpURLConnectionImplClass = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl",
+					true, systemClassLoader);
+
+			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getInputStream", new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
+					if (shouldInterceptHttpConnection(httpURLConnection)) {
+						BlockedURLConnection blockedConnection = new BlockedURLConnection(httpURLConnection.getURL());
+						param.setResult(blockedConnection.getInputStream());
+					}
+				}
+			});
+
+			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getOutputStream", new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
+					if (shouldInterceptHttpConnection(httpURLConnection)) {
+						BlockedURLConnection blockedConnection = new BlockedURLConnection(httpURLConnection.getURL());
+						param.setResult(blockedConnection.getOutputStream());
+					}
+				}
+			});
+
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
 		}
@@ -191,17 +108,6 @@ public class RequestHook {
 		return url != null && shouldBlockHttpsRequest(url.getHost());
 	}
 
-	private static void waitForDataLoading() {
-		if (BLOCKED_HOSTS.isEmpty() && BLOCKED_FullURL.isEmpty()) {
-			try {
-				loadDataLatch.await();
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
-			}
-		}
-	}
-
 	private static boolean checkAndBlockRequest(String host, String requestType,
 			Function<String, Boolean> blockChecker) {
 		sendBlockedRequestBroadcast("all", requestType, null, host);
@@ -215,6 +121,7 @@ public class RequestHook {
 	}
 
 	private static boolean shouldBlockDnsRequest(String host) {
+//		XposedBridge.log(LOG_PREFIX + "Checking DNS Request: " + host);
 		return checkAndBlockRequest(host, "DNS", BLOCKED_HOSTS::containsKey);
 	}
 
@@ -226,6 +133,8 @@ public class RequestHook {
 		if (url == null) {
 			return false;
 		}
+
+//		XposedBridge.log(LOG_PREFIX + "Checking URL: " + url.toString());
 
 		String host = url.getHost();
 		if (shouldBlockDnsRequest(host) || shouldBlockHttpsRequest(host)) {
@@ -241,6 +150,17 @@ public class RequestHook {
 		}
 
 		return checkAndBlockRequest(baseUrlString, " HTTPS-full", BLOCKED_FullURL::containsKey);
+	}
+
+	private static void waitForDataLoading() {
+		if (BLOCKED_HOSTS.isEmpty() && BLOCKED_FullURL.isEmpty()) {
+			try {
+				loadDataLatch.await();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
+			}
+		}
 	}
 
 	@SuppressLint("CheckResult")
