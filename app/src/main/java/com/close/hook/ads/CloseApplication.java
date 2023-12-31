@@ -7,7 +7,9 @@ import android.content.Context;
 import androidx.appcompat.app.AppCompatDelegate;
 
 import com.close.hook.ads.util.PrefManager;
-import com.google.android.material.color.DynamicColors;
+import com.microsoft.appcenter.AppCenter;
+import com.microsoft.appcenter.analytics.Analytics;
+import com.microsoft.appcenter.crashes.Crashes;
 
 public class CloseApplication extends Application {
 
@@ -18,6 +20,10 @@ public class CloseApplication extends Application {
     public void onCreate() {
         super.onCreate();
         context = getApplicationContext();
+
+        AppCenter.start(this, "621cdb49-4473-44d3-a8f8-e76f28ba43d7",
+                Analytics.class, Crashes.class);
+
         AppCompatDelegate.setDefaultNightMode(PrefManager.INSTANCE.getDarkTheme());
         //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
         //DynamicColors.applyToActivitiesIfAvailable(this);
