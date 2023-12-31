@@ -118,4 +118,7 @@ dependencies {
 
     implementation("dev.rikka.rikkax.material:material:2.7.0")
     implementation("dev.rikka.rikkax.material:material-preference:2.0.0")
+
+    implementation("com.microsoft.appcenter:appcenter-analytics:5.0.4")
+    implementation("com.microsoft.appcenter:appcenter-crashes:5.0.4")
 }
