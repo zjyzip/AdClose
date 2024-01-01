@@ -50,12 +50,19 @@ public class SDKHooks {
 
             // Sigmob Ads
             new HookInfo("com.sigmob.sdk.Sigmob", "init", null),
+            new HookInfo("com.sigmob.windad.WindAds", "startWithOptions", null),
 
             // ADSuyiSdk Ads
             new HookInfo("cn.admobiletop.adsuyi.ADSuyiSdk", "init", null),
 
+            // JingDong Ads
+            new HookInfo("com.jd.ad.sdk.bl.initsdk.JADYunSdk", "init", null),
+
             // AdScope
             new HookInfo("com.beizi.fusion.BeiZis", new String[]{"init", "asyncInit"}, null),
+
+            // MeiShu Ads
+            new HookInfo("com.meishu.sdk.core.AdSdk", "init", null),
 
             // BJXingu Ads
             new HookInfo("com.link.sdk.client.AdRequest", "init", null),
@@ -68,8 +75,8 @@ public class SDKHooks {
 
             // Huawei Ads
             new HookInfo("com.huawei.hms.ads.HwAds", "init", null),
-
             new HookInfo("com.huawei.hms.hatool.HmsHiAnalyticsUtils", "init", null),
+            new HookInfo("com.huawei.openalliance.ad.inter.IHiAd", "enableUserInfo", null),
 
             // Mbridge Ads
             new HookInfo("com.mbridge.msdk.foundation.entity.CampaignUnit", "getAdHtml", null),

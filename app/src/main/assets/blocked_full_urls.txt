@@ -1,1 +1,3 @@
 https://mp.weixin.qq.com/mp/getappmsgad
+https://api.zhihu.com/commercial_api/launch_v2
+http://api.zhihu.dev/commercial_api/launch_v2

@@ -1,15 +1,10 @@
 package com.close.hook.ads.hook.gc.network;
 
 import java.io.*;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.schedulers.Schedulers;
-import io.reactivex.rxjava3.core.BackpressureStrategy;
-
 import java.net.*;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Function;
 
 import android.util.Log;
 import android.content.Context;
@@ -20,13 +15,18 @@ import android.app.AndroidAppHelper;
 import android.content.pm.PackageManager;
 
 import com.close.hook.ads.data.model.BlockedRequest;
+import com.close.hook.ads.data.model.RequestDetails;
 
 import de.robv.android.xposed.*;
+import io.reactivex.rxjava3.core.BackpressureStrategy;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class RequestHook {
 	private static final String LOG_PREFIX = "[RequestHook] ";
-	private static final ConcurrentHashMap<String, Boolean> BLOCKED_HOSTS = new ConcurrentHashMap<>();
-	private static final ConcurrentHashMap<String, Boolean> BLOCKED_FullURL = new ConcurrentHashMap<>();
+	private static final Set<String> BLOCKED_HOSTS = ConcurrentHashMap.newKeySet();
+	private static final Set<String> BLOCKED_FULL_URLS = ConcurrentHashMap.newKeySet();
+	private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(2);
 
 	static {
@@ -37,7 +37,7 @@ public class RequestHook {
 	public static void init() {
 		try {
 			setupDNSRequestHook();
-			setupHttpConnectionHook();
+			setupRequestHook();
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
 		}
@@ -63,6 +63,17 @@ public class RequestHook {
 			}
 		}
 	};
+
+	private static boolean shouldInterceptHttpConnection(HttpURLConnection httpURLConnection) {
+		if (httpURLConnection == null) {
+			return false;
+		}
+		URL url = httpURLConnection.getURL();
+		if (url != null && shouldBlockHttpsRequest(url)) {
+			return true;
+		}
+		return url != null && shouldBlockHttpsRequest(url.getHost());
+	}
 
 	private static void setupHttpConnectionHook() {
 		try {
@@ -97,15 +108,69 @@ public class RequestHook {
 		}
 	}
 
-	private static boolean shouldInterceptHttpConnection(HttpURLConnection httpURLConnection) {
-		if (httpURLConnection == null) {
-			return false;
+	private static void setupRequestHook() {
+		try {
+			Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
+			XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "execute", boolean.class, new XC_MethodHook() {
+
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					setupHttpConnectionHook();
+				}
+
+				@Override
+				protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+					processRequestAsync(param);
+				}
+			});
+		} catch (Exception e) {
+			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
 		}
-		URL url = httpURLConnection.getURL();
-		if (url != null && shouldBlockHttpsRequest(url)) {
-			return true;
+	}
+
+	private static void processRequestAsync(final XC_MethodHook.MethodHookParam param) {
+		executorService.submit(() -> {
+			try {
+				RequestDetails details = processRequest(param);
+				if (details != null) {
+					logRequestDetails(details);
+				}
+			} catch (Exception e) {
+				XposedBridge.log(LOG_PREFIX + "Error processing request: " + e.getMessage());
+			}
+		});
+	}
+
+	private static RequestDetails processRequest(XC_MethodHook.MethodHookParam param) {
+		try {
+			Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+			Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
+			Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
+
+			String method = (String) XposedHelpers.callMethod(request, "method");
+			String urlString = (String) XposedHelpers.callMethod(request, "urlString");
+			Object requestHeaders = XposedHelpers.callMethod(request, "headers");
+
+			int code = (int) XposedHelpers.callMethod(response, "code");
+			String message = (String) XposedHelpers.callMethod(response, "message");
+			Object responseHeaders = XposedHelpers.callMethod(response, "headers");
+
+			return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
+		} catch (Exception e) {
+			XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
+			return null;
 		}
-		return url != null && shouldBlockHttpsRequest(url.getHost());
+	}
+
+	private static void logRequestDetails(RequestDetails details) {
+		if (details != null) {
+			XposedBridge.log(LOG_PREFIX + "Request Method: " + details.getMethod());
+			XposedBridge.log(LOG_PREFIX + "Request URL: " + details.getUrlString());
+			XposedBridge.log(LOG_PREFIX + "Request Headers: " + details.getRequestHeaders().toString());
+			XposedBridge.log(LOG_PREFIX + "Response Code: " + details.getResponseCode());
+			XposedBridge.log(LOG_PREFIX + "Response Message: " + details.getResponseMessage());
+			XposedBridge.log(LOG_PREFIX + "Response Headers: " + details.getResponseHeaders().toString());
+		}
 	}
 
 	private static boolean checkAndBlockRequest(String host, String requestType,
@@ -121,20 +186,17 @@ public class RequestHook {
 	}
 
 	private static boolean shouldBlockDnsRequest(String host) {
-//		XposedBridge.log(LOG_PREFIX + "Checking DNS Request: " + host);
-		return checkAndBlockRequest(host, "DNS", BLOCKED_HOSTS::containsKey);
+		return checkAndBlockRequest(host, "DNS", BLOCKED_HOSTS::contains);
 	}
 
 	private static boolean shouldBlockHttpsRequest(String host) {
-		return checkAndBlockRequest(host, " HTTPS-host", BLOCKED_HOSTS::containsKey);
+		return checkAndBlockRequest(host, " HTTPS-host", BLOCKED_HOSTS::contains);
 	}
 
 	private static boolean shouldBlockHttpsRequest(URL url) {
 		if (url == null) {
 			return false;
 		}
-
-//		XposedBridge.log(LOG_PREFIX + "Checking URL: " + url.toString());
 
 		String host = url.getHost();
 		if (shouldBlockDnsRequest(host) || shouldBlockHttpsRequest(host)) {
@@ -149,62 +211,46 @@ public class RequestHook {
 			return false;
 		}
 
-		return checkAndBlockRequest(baseUrlString, " HTTPS-full", BLOCKED_FullURL::containsKey);
+		return checkAndBlockRequest(baseUrlString, " HTTPS-full", BLOCKED_FULL_URLS::contains);
 	}
 
 	private static void waitForDataLoading() {
-		if (BLOCKED_HOSTS.isEmpty() && BLOCKED_FullURL.isEmpty()) {
-			try {
-				loadDataLatch.await();
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
-			}
+		try {
+			loadDataLatch.await();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
 		}
 	}
 
-	@SuppressLint("CheckResult")
 	private static void loadBlockedHostsAsync() {
-		Flowable.create(emitter -> {
-			try (InputStream inputStream = RequestHook.class.getResourceAsStream("/assets/blocked_hosts.txt");
-					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-				if (inputStream == null) {
-					return;
-				}
-				String host;
-				while ((host = reader.readLine()) != null) {
-					BLOCKED_HOSTS.put(host, Boolean.TRUE);
-					emitter.onNext(host);
-				}
-				emitter.onComplete();
-			} catch (IOException e) {
-				emitter.onError(e);
-			}
-		}, BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation())
-				.doFinally(loadDataLatch::countDown).subscribe(host -> {
-				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked hosts: " + error));
+		loadListAsync("/assets/blocked_hosts.txt", BLOCKED_HOSTS, "Error loading blocked hosts");
 	}
 
-	@SuppressLint("CheckResult")
 	private static void loadBlockedFullURLAsync() {
+		loadListAsync("/assets/blocked_full_urls.txt", BLOCKED_FULL_URLS, "Error loading blocked full URLs");
+	}
+
+	private static void loadListAsync(String resourcePath, Set<String> set, String errorMessage) {
 		Flowable.create(emitter -> {
-			try (InputStream inputStream = RequestHook.class.getResourceAsStream("/assets/blocked_full_urls.txt");
+			try (InputStream inputStream = RequestHook.class.getResourceAsStream(resourcePath);
 					BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
 				if (inputStream == null) {
+					emitter.onError(new FileNotFoundException("Resource not found: " + resourcePath));
 					return;
 				}
-				String url;
-				while ((url = reader.readLine()) != null) {
-					BLOCKED_FullURL.put(url.trim(), Boolean.TRUE);
-					emitter.onNext(url);
+				String line;
+				while ((line = reader.readLine()) != null) {
+					set.add(line.trim());
+					emitter.onNext(line);
 				}
 				emitter.onComplete();
 			} catch (IOException e) {
 				emitter.onError(e);
 			}
 		}, BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation())
-				.doFinally(loadDataLatch::countDown).subscribe(url -> {
-				}, error -> XposedBridge.log(LOG_PREFIX + "Error loading blocked full URLs: " + error));
+				.doFinally(loadDataLatch::countDown).subscribe(item -> {
+				}, error -> XposedBridge.log(LOG_PREFIX + errorMessage + ": " + error));
 	}
 
 	private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,

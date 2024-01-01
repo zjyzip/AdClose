@@ -9,12 +9,20 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
-import java.util.function.Consumer;
 
-import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XC_MethodHook;
+
+import com.close.hook.ads.hook.util.HookUtil;
 
 public class HideVPNStatus {
+
+    private static final String VPN = "VPN";
+    private static final String WIFI = "WIFI";
+    private static final String HTTP_PROXY_HOST = "http.proxyHost";
+    private static final String HTTP_PROXY_PORT = "http.proxyPort";
+    private static final String EMPTY_STRING = "";
+    private static final String DEFAULT_PROXY_PORT = "-1";
 
 	private static void replaceResultIfEquals(XC_MethodHook.MethodHookParam param, Object compareTo, Object newValue) {
 		if (Objects.equals(Optional.ofNullable(param.getResult()).orElse(-1), compareTo)) {
@@ -49,65 +57,68 @@ public class HideVPNStatus {
 		return result.toString();
 	}
 
-	private static void hookMethod(Class<?> clazz, String methodName, Consumer<XC_MethodHook.MethodHookParam> action) {
-		try {
-			XposedBridge.hookAllMethods(clazz, methodName, new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					action.accept(param);
-				}
-			});
-		} catch (Throwable e) {
-			XposedBridge.log("HideVPNStatus - Error occurred while hooking " + clazz.getSimpleName() + "." + methodName
-					+ ": " + e.getMessage());
-		}
-	}
+    private static void bypassSystemProxyCheck() {
+        HookUtil.hookMethod(System.class, "getProperty", param -> {
+            String propertyName = (String) param.args[0];
+            if (HTTP_PROXY_HOST.equals(propertyName)) {
+                param.setResult(EMPTY_STRING);
+            } else if (HTTP_PROXY_PORT.equals(propertyName)) {
+                param.setResult(DEFAULT_PROXY_PORT);
+            }
+        });
 
-	private static void bypassSystemProxyCheck() {
-		hookMethod(System.class, "getProperty", param -> {
-			if ("http.proxyHost".equals(param.args[0]) || "http.proxyPort".equals(param.args[0])) {
-				param.setResult(null);
-			}
-		});
-	}
+        HookUtil.hookMethod(System.class, "setProperty", param -> {
+            String propertyName = (String) param.args[0];
+            if (HTTP_PROXY_HOST.equals(propertyName)) {
+                param.args[1] = EMPTY_STRING;
+            } else if (HTTP_PROXY_PORT.equals(propertyName)) {
+                param.args[1] = DEFAULT_PROXY_PORT;
+            }
+        });
+    }
 
-	public static void proxy() {
+    public static void proxy() {
+        bypassSystemProxyCheck();
+        modifyNetworkInfo();
+        modifyNetworkCapabilities();
+    }
 
-		bypassSystemProxyCheck();
+    private static void modifyNetworkInfo() {
+        HookUtil.hookMethod(NetworkInfo.class, "getType",
+                param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
+        HookUtil.hookMethod(NetworkInfo.class, "getSubtype",
+                param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
+        HookUtil.hookMethod(NetworkInfo.class, "getTypeName", param -> replaceResultIfEqualsIgnoreCase(param, VPN, WIFI));
+        HookUtil.hookMethod(NetworkInfo.class, "getSubtypeName", param -> replaceResultIfEqualsIgnoreCase(param, VPN, WIFI));
+        HookUtil.hookMethod(ConnectivityManager.class, "getNetworkInfo", param -> {
+            if (Objects.equals(Optional.ofNullable(param.args[0]).orElse(-1), ConnectivityManager.TYPE_VPN)) {
+                param.setResult(null);
+            }
+        });
+    }
 
-		hookMethod(NetworkInfo.class, "getType",
-				param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
-		hookMethod(NetworkInfo.class, "getSubtype",
-				param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
-		hookMethod(NetworkInfo.class, "getTypeName", param -> replaceResultIfEqualsIgnoreCase(param, "VPN", "WIFI"));
-		hookMethod(NetworkInfo.class, "getSubtypeName", param -> replaceResultIfEqualsIgnoreCase(param, "VPN", "WIFI"));
-		hookMethod(NetworkCapabilities.class, "hasTransport", param -> {
-			if (Objects.equals(param.args[0], NetworkCapabilities.TRANSPORT_VPN)) {
-				param.setResult(false);
-			}
-		});
-		hookMethod(NetworkCapabilities.class, "hasCapability", param -> {
-			if (Objects.equals(param.args[0], NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
-				param.setResult(true);
-			}
-		});
-		hookMethod(NetworkCapabilities.class, "getCapabilities", param -> {
-			Optional.ofNullable(param.getResult()).ifPresent(resultObj -> {
-				int[] result = (int[]) resultObj;
-				if (result.length > 0
-						&& Arrays.stream(result).noneMatch(c -> c == NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
-					int[] newResult = Arrays.copyOf(result, result.length + 1);
-					newResult[result.length] = NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
-					param.setResult(newResult);
-				}
-			});
-		});
-		hookMethod(ConnectivityManager.class, "getNetworkInfo", param -> {
-			if (Optional.ofNullable(param.args[0]).orElse(-1).equals(ConnectivityManager.TYPE_VPN)) {
-				param.setResult(null);
-			}
-		});
-		hookMethod(NetworkInterface.class, "isVirtual", param -> param.setResult(false));
-		hookMethod(NetworkInterface.class, "getName", param -> replaceResultIfStartsWith(param, "tun", "ppp", "pptp"));
-	}
+    private static void modifyNetworkCapabilities() {
+        HookUtil.hookMethod(NetworkCapabilities.class, "hasTransport", param -> {
+            if (Objects.equals(param.args[0], NetworkCapabilities.TRANSPORT_VPN)) {
+                param.setResult(false);
+            }
+        });
+        HookUtil.hookMethod(NetworkCapabilities.class, "hasCapability", param -> {
+            if (Objects.equals(param.args[0], NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+                param.setResult(true);
+            }
+        });
+        HookUtil.hookMethod(NetworkCapabilities.class, "getCapabilities", param -> {
+            Optional.ofNullable(param.getResult()).ifPresent(resultObj -> {
+                int[] result = (int[]) resultObj;
+                if (result.length > 0
+                        && Arrays.stream(result).noneMatch(c -> c == NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+                    int[] newResult = Arrays.copyOf(result, result.length + 1);
+                    newResult[result.length] = NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+                    param.setResult(newResult);
+                }
+            });
+        });
+    }
+
 }
