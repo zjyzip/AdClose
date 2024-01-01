@@ -12,14 +12,29 @@ public class BlockedRequest implements Parcelable {
     public long timestamp;
     public String requestType;
     public Boolean isBlocked;
+    public String method;
+    public String urlString;
+    public String requestHeaders;
+    public int responseCode;
+    public String responseMessage;
+    public String responseHeaders;
 
-    public BlockedRequest(String appName, String packageName, String request, long timestamp, @Nullable String requestType, @Nullable Boolean isBlocked) {
+    public BlockedRequest(String appName, String packageName, String request, long timestamp,
+                          @Nullable String requestType, @Nullable Boolean isBlocked,
+                          String method, String urlString, String requestHeaders, int responseCode,
+                          String responseMessage, String responseHeaders) {
         this.appName = appName;
         this.packageName = packageName;
         this.request = request;
         this.timestamp = timestamp;
         this.requestType = requestType;
         this.isBlocked = isBlocked;
+        this.method = method;
+        this.urlString = urlString;
+        this.requestHeaders = requestHeaders;
+        this.responseCode = responseCode;
+        this.responseMessage = responseMessage;
+        this.responseHeaders = responseHeaders;
     }
 
     protected BlockedRequest(Parcel in) {
@@ -30,6 +45,12 @@ public class BlockedRequest implements Parcelable {
         requestType = in.readString();
         byte tmpIsBlocked = in.readByte();
         isBlocked = tmpIsBlocked == 0 ? null : tmpIsBlocked == 1;
+        method = in.readString();
+        urlString = in.readString();
+        requestHeaders = in.readString();
+        responseCode = in.readInt();
+        responseMessage = in.readString();
+        responseHeaders = in.readString();
     }
 
     @Override
@@ -40,6 +61,12 @@ public class BlockedRequest implements Parcelable {
         dest.writeLong(timestamp);
         dest.writeString(requestType);
         dest.writeByte((byte) (isBlocked == null ? 0 : isBlocked ? 1 : 2));
+        dest.writeString(method);
+        dest.writeString(urlString);
+        dest.writeString(requestHeaders);
+        dest.writeInt(responseCode);
+        dest.writeString(responseMessage);
+        dest.writeString(responseHeaders);
     }
 
     @Override
