@@ -59,10 +59,6 @@ public class HookInit implements IXposedHookLoadPackage {
 			RequestHook.init();
 		}
 
-    	if (settingsManager.isHandlePlatformAdEnabled()) {
-		    BlockForeignAd.INSTANCE.blockAds(lpparam);
-		}
-
 		if (settingsManager.isHideVPNStatusEnabled()) {
 			HideVPNStatus.proxy();
 		}
@@ -97,6 +93,7 @@ public class HookInit implements IXposedHookLoadPackage {
 					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
+            		    BlockForeignAd.INSTANCE.blockAds(context);
 						SDKHooks.hookAds(classLoader);
 					}
 				}

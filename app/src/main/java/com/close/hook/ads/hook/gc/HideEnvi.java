@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -15,24 +17,22 @@ import de.robv.android.xposed.XposedBridge;
 
 public class HideEnvi {
 
-    public static void handle() {
+    private static final Set<String> XPOSED_MAGISK_PATHS = new HashSet<>(Arrays.asList(
+            "/sbin/.magisk", "/system/bin/magisk", "/data/data/com.topjohnwu.magisk",
+            "/system/lib/libriruloader.so", "/system/bin/su", "/system/xbin/su",
+            "/system/sbin/su", "/sbin/su", "/vendor/bin/su"));
 
+    private static Boolean xposedMagiskDetectedInMemory = null;
+
+    public static void handle() {
         try {
             XposedBridge.hookMethod(File.class.getDeclaredMethod("exists"), new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    String path = ((File) param.thisObject).getAbsolutePath();
-                    if (isXposedOrMagiskPath(path)) {
+                    File file = (File) param.thisObject;
+                    if (XPOSED_MAGISK_PATHS.contains(file.getAbsolutePath())) {
                         param.setResult(false);
                     }
-                }
-
-                private boolean isXposedOrMagiskPath(String path) {
-                    // Magisk & Xposed paths
-                    String[] paths = {"/sbin/.magisk", "/system/bin/magisk", "/data/data/com.topjohnwu.magisk",
-                            "/system/lib/libriruloader.so", "/system/bin/su", "/system/xbin/su",
-                            "/system/sbin/su", "/sbin/su", "/vendor/bin/su"};
-                    return Arrays.asList(paths).contains(path);
                 }
             });
 
@@ -43,41 +43,50 @@ public class HideEnvi {
                         param.setResult(null);
                     }
                 }
-
-                private boolean detectXposedOrMagiskInMemory() {
-                    try {
-                        String[] xposedFeatures = {"xposed.installer", "app_process_xposed", "libriru_", "/data/misc/edxp_",
-                                "libxposed_art.so", "libriruloader.so", "app_process_zposed",
-                                "liblspd.so", "libriru_edxp.so"};
-                        String[] magiskFeatures = {"/.magisk", "MAGISK_INJ_"};
-
-                        BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"));
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            for (String feature : xposedFeatures) {
-                                if (line.contains(feature)) {
-                                    reader.close();
-                                    return true;
-                                }
-                            }
-                            for (String feature : magiskFeatures) {
-                                if ((line.contains(feature) && line.contains("r-xp")) || line.length() > 8192) {
-                                    reader.close();
-                                    return true;
-                                }
-                            }
-                        }
-                        reader.close();
-                    } catch (Exception e) {
-                        XposedBridge.log("HideEnvi Error: " + e.getMessage());
-                    }
-                    return false;
-                }
             });
         } catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
+            XposedBridge.log("HideEnvi Error: " + e.getMessage());
         }
-
     }
 
+    private static boolean detectXposedOrMagiskInMemory() {
+        if (xposedMagiskDetectedInMemory != null) {
+            return xposedMagiskDetectedInMemory;
+        }
+
+        try {
+            xposedMagiskDetectedInMemory = false;
+            BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (lineContainsXposedMagiskFeatures(line)) {
+                    xposedMagiskDetectedInMemory = true;
+                    break;
+                }
+            }
+            reader.close();
+        } catch (Exception e) {
+            XposedBridge.log("HideEnvi Error: " + e.getMessage());
+        }
+        return xposedMagiskDetectedInMemory;
+    }
+
+    private static boolean lineContainsXposedMagiskFeatures(String line) {
+        String[] xposedFeatures = {"xposed.installer", "app_process_xposed", "libriru_", "/data/misc/edxp_",
+                "libxposed_art.so", "libriruloader.so", "app_process_zposed",
+                "liblspd.so", "libriru_edxp.so"};
+        String[] magiskFeatures = {"/.magisk", "MAGISK_INJ_"};
+
+        for (String feature : xposedFeatures) {
+            if (line.contains(feature)) {
+                return true;
+            }
+        }
+        for (String feature : magiskFeatures) {
+            if ((line.contains(feature) && line.contains("r-xp")) || line.length() > 8192) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
