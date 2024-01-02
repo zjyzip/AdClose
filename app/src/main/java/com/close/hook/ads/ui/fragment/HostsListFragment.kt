@@ -120,6 +120,7 @@ class HostsListFragment : Fragment(), OnClearClickListener {
         newList.addAll(viewModel.requestList)
         adapter.submitList(newList)
         //adapter.notifyDataSetChanged()
+        (activity as INavContainer).showNavigation()
     }
 
     override fun search(keyWord: String?) {
