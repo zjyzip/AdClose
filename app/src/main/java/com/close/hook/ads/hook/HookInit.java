@@ -90,6 +90,10 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("Application Name: " + appName);
 					}
 
+                   if (packageName.equals("com.zhihu.android")) { // 知乎
+            		    BlockForeignAd.INSTANCE.blockAds(context);
+                    }
+
 					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
