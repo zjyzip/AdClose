@@ -33,6 +33,34 @@ object BlockForeignAd {
             findAndCacheMethods(packageName, context.classLoader, adPackages)
         }
         methodCache[packageName]?.let { hookMethods(it, context.classLoader) }
+
+        blockZhihuLaunchAds(context.classLoader)
+    }
+
+    fun blockZhihuLaunchAds(classLoader: ClassLoader) {
+        val zhihuPackage = "com.zhihu.android.app.util"
+        val methodName = "isShowLaunchAd"
+
+        val foundMethods = bridge?.findMethod {
+            searchPackages(listOf(zhihuPackage))
+            matcher {
+                modifiers = Modifier.PUBLIC
+                returnType(java.lang.Boolean.TYPE)
+                name = methodName
+            }
+        }?.toList()
+
+        foundMethods?.let { hookZhihuMethods(it, classLoader) }
+    }
+
+    private fun hookZhihuMethods(methods: List<MethodData>, classLoader: ClassLoader) {
+        methods.forEach { methodData ->
+            try {
+                val method = methodData.getMethodInstance(classLoader)
+                XposedBridge.hookMethod(method, XC_MethodReplacement.returnConstant(false))
+            } catch (e: NoClassDefFoundError) {
+            }
+        }
     }
 
     private fun initializeDexKitBridge(context: Context) {
@@ -66,7 +94,7 @@ object BlockForeignAd {
             try {
                 val method = methodData.getMethodInstance(classLoader)
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-    //            XposedBridge.log("hook $methodData")
+                // XposedBridge.log("hook $methodData")
             } catch (e: NoClassDefFoundError) {
             }
         }

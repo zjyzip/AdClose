@@ -1795,6 +1795,7 @@ api.iimedia.cn
 api.ijunhai.com
 api.installer.xiaomi.com
 api.itaoxiaoshuo.com
+api.jietuhb.com
 api.joybj.com
 api.ketedata.com
 api.kingdata.ksyun.com
@@ -1893,6 +1894,7 @@ appc.baidu.com
 appcdn.wapx.cn
 appcdn.wapx.com
 appchannel.html5.qq.com
+appcloud.zhihu.com
 appcpa.net
 appdriver.cn
 appdriver.com.cn
@@ -2020,6 +2022,7 @@ au.youmi.net
 au6w0.xyz
 auction.unityads.unity3d.com
 audid-api.taobao.com
+audid.umeng.com
 audience.network
 autchoog.net
 auth.be.sec.miui.com
@@ -2761,6 +2764,7 @@ cccrir.com
 cchvc.net
 ccnim.xyz
 ccr.yxdown.com
+ccs.umeng.com
 cctv.adsunion.com
 cctyly.com
 cd.bendibao.com
@@ -3243,6 +3247,7 @@ cpro88.vip
 cps.360buy.com
 cpt.9136.com
 cpu-admin.baidu.com
+cpu-openapi.baidu.com
 cpucdn.baidu.com
 cpv-adv.ggytc.com
 cpv.channelray
@@ -3264,6 +3269,7 @@ cr-p16.ladsp.com
 cr.m.liebao.cn
 crab.baidu.com
 crash.browser.qq.com
+crash2.zhihu.com
 crashapi.growingio.com
 crashes.mo.wps.cn
 crasheye.cn
@@ -3977,6 +3983,7 @@ dsp.toutiao.com
 dsp.youdao.com
 dspmnt.autohome.com.cn
 dspmy.ge95.com
+dspsdk.pinduoduo.com
 dspserver.ad.cmvideo.cn
 dsqzk.cn
 dstbekdf.xyz
@@ -4426,6 +4433,7 @@ erfskhnpter.xyz
 erjiyouhuiquan.com
 erlirscid.com
 err.ifengcloud.ifeng.com
+errlog.umeng.com
 errnewlog.umeng.com
 ers.baidu.com
 ert.pengwenli.top
@@ -4815,6 +4823,7 @@ g.baidu.com
 g.bitauto.com
 g.brothersoft.com
 g.chuiyao.com
+g.cn.miaozhen.com
 g.d.yoyi.tv
 g.daman.cc
 g.f11w.com
@@ -5527,6 +5536,7 @@ hudiecaifu.com
 hudong.alicdn.com
 hudong.pl.youku.com
 hugelog.fcbox.com
+huichuan-mc.sm.cn
 huichuan.sm.cn
 huicpu.com
 huifangwen.com
@@ -6660,6 +6670,7 @@ kl91ccp.com
 klbvqqqj.com
 kld666.com
 kldmm.com
+klink.volceapplog.com
 kljslku.com
 klsdmr.com
 klufjdo.com
@@ -6888,6 +6899,7 @@ lestv7.icu
 letv.irs01.com
 lezbrja.cn
 leztc.com
+lf-cdn-tos.bytescm.com
 lf1-cdn-tos.bytegoofy.com
 lf3-ad-union-sdk.pglstatp-toutiao.com
 lfjtiuy.cn
@@ -7736,6 +7748,7 @@ mengbli.com
 menghuanzs.com
 mengmengdas.com
 mengyuanwei.com
+mercury-gateway.ixiaochuan.cn
 mercury-sdk.snssdk.com
 mercury.jd.com
 message.meitu.com
@@ -8448,6 +8461,7 @@ ooss.oss.aliyuncs.com
 ootyx24.com
 op.ssp.qq.com
 op00w.baiyangzs.com
+open.e.kuaishou.cn
 open.e.kuaishou.com
 open.kuaishouzt.com
 open.kwaizt.com
@@ -8503,6 +8517,7 @@ otheve.play.aiseet.atianqi.com
 othstr.beacon.qq.com
 othstr.play.aiseet.atianqi.com
 otienlk.top
+otk.pinduoduo.com
 ou188.com
 oueia.xyz
 ougannike.com
@@ -8575,11 +8590,14 @@ p0y.cn
 p1-be-endcard.pglstatp-toutiao.com
 p1-be-pack-sign.pglstatp-toutiao.com
 p1-feedback.byteimg.com
+p1-ff.adkwai.com
 p1-lm.adkwai.com
+p1-lm.adukwai.com
 p1.18zhongyao.com
 p1.qinsx.cn
 p11q.cn
 p2-be-pack-sign.pglstatp-toutiao.com
+p2-ff.adkwai.com
 p2-lm.adkwai.com
 p2.hyz86.com
 p2.l.qq.com
@@ -8855,6 +8873,7 @@ player.insuranceandhealth.com
 playinfo.gomlab.com
 playstats.v.duowan.com
 plbs9k.icu
+plbslog.umeng.com
 plista.com
 plmkolp.m.58xs.tw
 plmn5.com
@@ -9250,6 +9269,7 @@ qtienly.top
 qtmdzsj.cn
 qtmojo.cn
 qtmojo.com
+quanguo.mygolbs.com
 quanliyouxi.cn
 quansj.cn
 quantcount.com
@@ -9439,6 +9459,7 @@ res.dxpmedia.com
 res.hubcloud.com.cn
 res.icast.cn
 res.ipingke.com
+res.kfc.com.cn
 res.qhupdate.com
 res1.hubcloud.com.cn
 res2.hubcloud.com.cn
@@ -10136,6 +10157,7 @@ sm1.todgo.com
 sm2.todgo.com
 sm2kz.net
 smabye.com
+smartad.10010.com
 smartmad.com
 smartmail.cyou
 smartmuchang.com
@@ -10559,6 +10581,9 @@ t1.a.market.xiaomi.com
 t1.jzkapp.com
 t1.visualrevenue.com
 t1.wshufa.com
+t10.baidu.com
+t11.baidu.com
+t12.baidu.com
 t188.dazhonghua.cn
 t1tgame.com
 t2.58cdn.com.cn
@@ -10625,6 +10650,7 @@ tb060x.corp.youdao.com
 tb104x.corp.youdao.com
 tbaocdn.com
 tbcgumkadc.xyz
+tbfile.ixiaochuan.cn
 tbjfw.com
 tbm.snssdk.com
 tc.51la.net
@@ -10795,6 +10821,7 @@ tns-counter.ru
 tns.simba.taobao.com
 toastspinner.com
 tobapplog.ctobsnssdk.com
+tobapplog.volceapplog.com
 toblog.ctobsnssdk.com
 toblog.snssdk.com
 toblog.volceapplog.com
@@ -11233,6 +11260,7 @@ util.nphoto.net
 utility.baidu.com
 utility.rogersmedia.com
 utk.baidu.com
+utoken.umeng.com
 utp.ucweb.com
 uttlinediv.top
 utywsi.cn
@@ -12964,27 +12992,3 @@ zzy1.quyaoya.com
 zzycj.com
 zzz7.52896368.com
 zzzzz4.52896368.com
-toblog.ctobsnssdk.com
-t-dsp.pinduoduo.com
-smartad.10010.com
-g.cn.miaozhen.com
-res.kfc.com.cn
-ccs.umeng.com
-audid.umeng.com
-errlog.umeng.com
-lf-cdn-tos.bytescm.com
-utoken.umeng.com
-p1-lm.adukwai.com
-p2-lm.adkwai.com
-p2-ff.adkwai.com
-p1-ff.adkwai.com
-p1-lm.adkwai.com
-open.e.kuaishou.cn
-tobapplog.volceapplog.com
-klink.volceapplog.com
-huichuan-mc.sm.cn
-api.jietuhb.com
-tbfile.ixiaochuan.cn
-mercury-gateway.ixiaochuan.cn
-appcloud.zhihu.com
-crash2.zhihu.com
