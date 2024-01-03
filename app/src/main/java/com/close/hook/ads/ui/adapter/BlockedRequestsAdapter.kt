@@ -57,10 +57,11 @@ class BlockedRequestsAdapter(
             .inflate(R.layout.blocked_request_item, parent, false)
         val viewHolder = ViewHolder(view)
         viewHolder.itemView.setOnClickListener {
-            MaterialAlertDialogBuilder(parent.context).apply {
-                setTitle("请求参数")
-                setMessage(
-                    """
+            if (viewHolder.urlString?.contains(viewHolder.request.text) == true)
+                MaterialAlertDialogBuilder(parent.context).apply {
+                    setTitle("请求参数")
+                    setMessage(
+                        """
 method: ${viewHolder.method}
 urlString = ${viewHolder.urlString}
 requestHeaders = ${viewHolder.requestHeaders}
@@ -68,10 +69,10 @@ responseCode = ${viewHolder.responseCode}
 responseMessage = ${viewHolder.responseMessage}
 responseHeaders = ${viewHolder.responseHeaders}
                 """.trimIndent()
-                )
-                setPositiveButton("关闭", null)
-                show()
-            }
+                    )
+                    setPositiveButton("关闭", null)
+                    show()
+                }
         }
         viewHolder.itemView.setOnLongClickListener {
             val clipboardManager =
