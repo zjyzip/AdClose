@@ -10,11 +10,13 @@ import android.content.pm.PackageManager;
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
 import com.close.hook.ads.hook.gc.HideEnvi;
+import com.close.hook.ads.hook.gc.HideXposed;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
 import com.close.hook.ads.hook.ha.AppAds;
-import com.close.hook.ads.hook.ha.BlockForeignAd;
-import com.close.hook.ads.hook.ha.SDKHooks;
+import com.close.hook.ads.hook.ha.AppAdsKit;
+import com.close.hook.ads.hook.ha.SDKAds;
+import com.close.hook.ads.hook.ha.SDKAdsKit;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.ui.activity.MainActivity;
 
@@ -69,6 +71,7 @@ public class HookInit implements IXposedHookLoadPackage {
 
 		if (settingsManager.isHideEnivEnabled()) {
 			HideEnvi.handle();
+			HideXposed.handle(lpparam);
 		}
 
 		if (settingsManager.isDisableShakeAdEnabled()) {
@@ -91,14 +94,14 @@ public class HookInit implements IXposedHookLoadPackage {
 					}
 
                    if (packageName.equals("com.zhihu.android")) { // 知乎
-            		    BlockForeignAd.INSTANCE.blockAds(context);
+            		    AppAdsKit.INSTANCE.blockAds(context);
                     }
 
 					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
-            		    BlockForeignAd.INSTANCE.blockAds(context);
-						SDKHooks.hookAds(classLoader);
+            		    SDKAdsKit.INSTANCE.blockAds(context);
+						SDKAds.hookAds(classLoader);
 					}
 				}
 			});

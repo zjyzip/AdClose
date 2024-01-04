@@ -2,13 +2,12 @@ package com.close.hook.ads.hook.ha
 
 import android.content.Context
 import java.lang.reflect.Modifier
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.MethodData
 import de.robv.android.xposed.XposedBridge
+import com.close.hook.ads.hook.util.DexKitUtil
+import org.luckypray.dexkit.result.MethodData
 import de.robv.android.xposed.XC_MethodReplacement
 
-object BlockForeignAd {
-    private var bridge: DexKitBridge? = null
+object SDKAdsKit {
     private val methodCache = mutableMapOf<String, List<MethodData>>()
 
     fun blockAds(context: Context) {
@@ -29,49 +28,15 @@ object BlockForeignAd {
         )
 
         if (!methodCache.containsKey(packageName)) {
-            initializeDexKitBridge(context)
+            DexKitUtil.initializeDexKitBridge(context)
             findAndCacheMethods(packageName, context.classLoader, adPackages)
         }
         methodCache[packageName]?.let { hookMethods(it, context.classLoader) }
 
-        blockZhihuLaunchAds(context.classLoader)
-    }
-
-    fun blockZhihuLaunchAds(classLoader: ClassLoader) {
-        val zhihuPackage = "com.zhihu.android.app.util"
-        val methodName = "isShowLaunchAd"
-
-        val foundMethods = bridge?.findMethod {
-            searchPackages(listOf(zhihuPackage))
-            matcher {
-                modifiers = Modifier.PUBLIC
-                returnType(java.lang.Boolean.TYPE)
-                name = methodName
-            }
-        }?.toList()
-
-        foundMethods?.let { hookZhihuMethods(it, classLoader) }
-    }
-
-    private fun hookZhihuMethods(methods: List<MethodData>, classLoader: ClassLoader) {
-        methods.forEach { methodData ->
-            try {
-                val method = methodData.getMethodInstance(classLoader)
-                XposedBridge.hookMethod(method, XC_MethodReplacement.returnConstant(false))
-            } catch (e: NoClassDefFoundError) {
-            }
-        }
-    }
-
-    private fun initializeDexKitBridge(context: Context) {
-        if (bridge == null) {
-            System.loadLibrary("dexkit")
-            bridge = DexKitBridge.create(context.applicationInfo.sourceDir)
-        }
     }
 
     private fun findAndCacheMethods(packageName: String, classLoader: ClassLoader, adPackages: List<String>) {
-        val foundMethods = bridge?.findMethod {
+        val foundMethods = DexKitUtil.getBridge().findMethod {
             searchPackages(adPackages)
             matcher {
                 modifiers = Modifier.PUBLIC
@@ -94,15 +59,9 @@ object BlockForeignAd {
             try {
                 val method = methodData.getMethodInstance(classLoader)
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-                // XposedBridge.log("hook $methodData")
+    //            XposedBridge.log("hook $methodData")
             } catch (e: NoClassDefFoundError) {
             }
         }
-    }
-
-    fun releaseBridge() {
-        bridge?.close()
-        bridge = null
-        methodCache.clear()
     }
 }

@@ -1,15 +1,11 @@
 package com.close.hook.ads.hook.ha;
 
-import java.util.Map;
-import java.util.Set;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedHelpers;
 import java.util.HashSet;
-
-import android.os.Bundle;
-import android.widget.Toast;
-import android.app.Activity;
-import android.app.AndroidAppHelper;
-
-import de.robv.android.xposed.*;
+import java.util.Map;
+import java.util.function.Consumer;
+import com.close.hook.ads.hook.util.HookUtil;
 
 public class WeiboIE {
 
@@ -17,106 +13,52 @@ public class WeiboIE {
         blockAds(classLoader);
         modifySettings(classLoader);
         blockQueryUveAdRequest(classLoader);
-
     }
 
     private static void blockAds(ClassLoader classLoader) {
-
-        Class<?> StatusClass = XposedHelpers.findClass("com.weico.international.model.sina.Status", classLoader);
-        XposedHelpers.findAndHookMethod("com.weico.international.utility.KotlinExtendKt", classLoader, "isWeiboUVEAd", StatusClass, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false);
-                }
-            });
-
-        Class<?> PageInfo = XposedHelpers.findClass("com.weico.international.model.sina.PageInfo", classLoader);
-        XposedHelpers.findAndHookMethod("com.weico.international.utility.KotlinUtilKt", classLoader, "findUVEAd", PageInfo, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(null);
-                }
-            });
-
-        XposedHelpers.findAndHookMethod("com.weico.international.activity.LogoActivity", classLoader, "doWhatNext", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (param != null) {
-                        if ("AD".equals(param.getResult())) {
-                            param.setResult("main");
-                        }
-                    }
-                }
-            });
-
-        try {
-            XposedHelpers.findAndHookMethod("com.weico.international.manager.ProcessMonitor", classLoader, "displayAd", Long.class, Activity.class, Boolean.class, new XC_MethodReplacement() {
-                    @Override
-                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                        return true;
-                    }
-                });
-        } catch (NoSuchMethodError e) {
-        }
+        HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinExtendKt", "isWeiboUVEAd", false);
+        HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinUtilKt", "findUVEAd", null);
+        HookUtil.hookMethod(classLoader, "com.weico.international.activity.LogoActivity", "doWhatNext", "main");
     }
 
     private static void modifySettings(ClassLoader classLoader) {
-        XposedHelpers.findAndHookMethod("com.weico.international.activity.v4.Setting", classLoader, "loadBoolean", String.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    String key = (String) param.args[0];
-                    if ("BOOL_UVE_FEED_AD".equals(key)) {
-                        param.setResult(false);
-                    } else if (key.startsWith("BOOL_AD_ACTIVITY_BLOCK_")) {
+        Consumer<XC_MethodHook.MethodHookParam> settingBlocker = param -> {
+            String key = (String) param.args[0];
+            switch (key) {
+                case "BOOL_UVE_FEED_AD_BLOCK":
+                    param.setResult(true);
+                    break;
+                case "ad_interval":
+                    param.setResult(Integer.MAX_VALUE);
+                    break;
+                case "display_ad":
+                    param.setResult(0);
+                    break;
+                case "video_ad":
+                    param.setResult("");
+                    break;
+                case "CYT_DAYS":
+                    param.setResult(new HashSet<String>());
+                    break;
+                default:
+                    if (key.startsWith("BOOL_AD_ACTIVITY_BLOCK_")) {
                         param.setResult(true);
                     }
-                }
-            });
+                    break;
+            }
+        };
 
-        XposedHelpers.findAndHookMethod("com.weico.international.activity.v4.Setting", classLoader, "loadInt", String.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    String key = (String) param.args[0];
-                    if ("ad_interval".equals(key)) {
-                        param.setResult(Integer.MAX_VALUE);
-                    } else if ("display_ad".equals(key)) {
-                        param.setResult(0);
-                    }
-                }
-            });
-
-        XposedHelpers.findAndHookMethod("com.weico.international.activity.v4.Setting", classLoader, "loadStringSet", String.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    String key = (String) param.args[0];
-                    if ("CYT_DAYS".equals(key)) {
-                        param.setResult(new HashSet<String>());
-                    }
-                }
-            });
-
-        XposedHelpers.findAndHookMethod("com.weico.international.activity.v4.Setting", classLoader, "loadString", String.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    String key = (String) param.args[0];
-                    if ("video_ad".equals(key)) {
-                        param.setResult("");
-                    }
-                }
-            });
-
-
+        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadBoolean", settingBlocker);
+        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadInt", settingBlocker);
+        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadStringSet", settingBlocker);
+        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadString", settingBlocker);
     }
 
-
     private static void blockQueryUveAdRequest(ClassLoader classLoader) {
-        XposedHelpers.findAndHookMethod("com.weico.international.api.RxApiKt", classLoader, "queryUveAdRequest", Map.class, String.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    Map<String, Object> map = (Map<String, Object>) param.args[0];
-                    map.remove("ip");
-                    map.remove("uid");
-                }
-            });
+        HookUtil.hookMethod(XposedHelpers.findClass("com.weico.international.api.RxApiKt", classLoader), "queryUveAdRequest", param -> {
+            Map<String, Object> map = (Map<String, Object>) param.args[0];
+            map.remove("ip");
+            map.remove("uid");
+        });
     }
 }
