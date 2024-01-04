@@ -33,7 +33,7 @@ public class HideXposed {
 //		hookModifierIsNative();
 		hookSystemGetProperty();
 		hookFileList();
-//		hookRuntimeExec();
+		hookRuntimeExec();
 		hookSystemGetenv();
 	}
 
@@ -148,7 +148,6 @@ public class HideXposed {
 		XposedHelpers.findAndHookMethod(File.class, "list", fileListHook);
 	}
 
-/*
 	private static void hookRuntimeExec() {
 		XC_MethodHook execHook = new XC_MethodHook() {
 			@Override
@@ -162,10 +161,9 @@ public class HideXposed {
 		try {
 			XposedHelpers.findAndHookMethod(Process.class, "getInputStream", execHook);
 		} catch (Exception e) {
-		    XposedBridge.log("Hook Process.getInputStream failed: " + e.getMessage());
+	//	    XposedBridge.log("Hook Process.getInputStream failed: " + e.getMessage());
 		}
 	}
-*/
 
 	private static void hookSystemGetenv() {
 		XC_MethodHook getenvHook = new XC_MethodHook() {
