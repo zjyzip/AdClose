@@ -30,7 +30,7 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable
 import java.util.Optional
 
 
-class HostsListFragment : Fragment(), OnClearClickListener {
+class RequestsListFragment : Fragment(), OnClearClickListener {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var binding: FragmentHostsListBinding
@@ -49,7 +49,7 @@ class HostsListFragment : Fragment(), OnClearClickListener {
     companion object {
         @JvmStatic
         fun newInstance(type: String) =
-            HostsListFragment().apply {
+            RequestsListFragment().apply {
                 arguments = Bundle().apply {
                     putString("type", type)
                 }

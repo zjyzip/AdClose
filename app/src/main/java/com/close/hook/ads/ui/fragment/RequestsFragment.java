@@ -36,7 +36,7 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
-public class HostsFragment extends Fragment implements OnCLearCLickContainer, OnBackPressListener {
+public class RequestsFragment extends Fragment implements OnCLearCLickContainer, OnBackPressListener {
 
     private ViewPager2 viewPager;
     private TabLayout tabLayout;
@@ -76,9 +76,9 @@ public class HostsFragment extends Fragment implements OnCLearCLickContainer, On
 
         List<Fragment> fragments = new ArrayList<>();
 
-        fragments.add(HostsListFragment.newInstance("all"));
-        fragments.add(HostsListFragment.newInstance("block"));
-        fragments.add(HostsListFragment.newInstance("pass"));
+        fragments.add(RequestsListFragment.newInstance("all"));
+        fragments.add(RequestsListFragment.newInstance("block"));
+        fragments.add(RequestsListFragment.newInstance("pass"));
 
         UniversalPagerAdapter adapter = new UniversalPagerAdapter(this, fragments);
         viewPager.setAdapter(adapter);
