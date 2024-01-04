@@ -4,10 +4,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 import java.util.function.Consumer;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-
 import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XC_MethodHook;
@@ -36,16 +32,27 @@ public class HookUtil {
 
 	public static void hookMethods(ClassLoader classLoader, String className, String[] methodNames,
 			Object returnValue) {
+		Class<?> clazz;
 		try {
-			Class<?> clazz = classLoader.loadClass(className);
-			Set<String> methodNameSet = new HashSet<>(Arrays.asList(methodNames));
+			clazz = Class.forName(className, false, classLoader);
+		} catch (ClassNotFoundException e) {
+	//		XposedBridge.log("Class not found: " + className + ", " + e);
+			return;
+		}
 
-			for (Method method : clazz.getDeclaredMethods()) {
-				if (methodNameSet.contains(method.getName())) {
-					hookMethodWithReplacement(method, returnValue);
+		for (Method method : clazz.getDeclaredMethods()) {
+			String methodName = method.getName();
+			for (String targetMethodName : methodNames) {
+				if (methodName.equals(targetMethodName)) {
+					XposedBridge.hookMethod(method, new XC_MethodReplacement() {
+						@Override
+						protected Object replaceHookedMethod(MethodHookParam param) {
+							return returnValue;
+						}
+					});
+					break;
 				}
 			}
-		} catch (ClassNotFoundException e) {
 		}
 	}
 
@@ -58,35 +65,36 @@ public class HookUtil {
 		});
 	}
 
-    public static void hookMethod(Class<?> clazz, String methodName, Consumer<XC_MethodHook.MethodHookParam> action) {
-        try {
-            XposedBridge.hookAllMethods(clazz, methodName, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    action.accept(param);
-                }
-            });
-        } catch (Throwable e) {
-            XposedBridge.log("HookUtil - Error occurred while hooking " + clazz.getSimpleName() + "." + methodName
-                    + ": " + e.getMessage());
-        }
-    }
+	public static void hookMethod(Class<?> clazz, String methodName, Consumer<XC_MethodHook.MethodHookParam> action) {
+		try {
+			XposedBridge.hookAllMethods(clazz, methodName, new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					action.accept(param);
+				}
+			});
+		} catch (Throwable e) {
+			XposedBridge.log("HookUtil - Error occurred while hooking " + clazz.getSimpleName() + "." + methodName
+					+ ": " + e.getMessage());
+		}
+	}
 
-    public static void hookAllConstructors(Class<?> clazz, Consumer<XC_MethodHook.MethodHookParam> action) {
-        try {
-            Constructor<?>[] constructors = clazz.getDeclaredConstructors();
-            for (Constructor<?> constructor : constructors) {
-                XposedBridge.hookMethod(constructor, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        action.accept(param);
-                    }
-                });
-            }
-        } catch (Throwable e) {
-            XposedBridge.log("HookUtil - Error occurred while hooking constructors of " + clazz.getSimpleName() + ": " + e.getMessage());
-        }
-    }
+	public static void hookAllConstructors(Class<?> clazz, Consumer<XC_MethodHook.MethodHookParam> action) {
+		try {
+			Constructor<?>[] constructors = clazz.getDeclaredConstructors();
+			for (Constructor<?> constructor : constructors) {
+				XposedBridge.hookMethod(constructor, new XC_MethodHook() {
+					@Override
+					protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+						action.accept(param);
+					}
+				});
+			}
+		} catch (Throwable e) {
+			XposedBridge.log("HookUtil - Error occurred while hooking constructors of " + clazz.getSimpleName() + ": "
+					+ e.getMessage());
+		}
+	}
 
 	public static String getFormattedStackTrace() {
 		StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();

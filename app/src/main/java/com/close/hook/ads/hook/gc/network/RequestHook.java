@@ -37,7 +37,8 @@ public class RequestHook {
 	public static void init() {
 		try {
 			setupDNSRequestHook();
-			setupRequestHook();
+			setupHttpConnectionHook();
+	//		setupRequestHook();
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
 		}
@@ -108,6 +109,7 @@ public class RequestHook {
 		}
 	}
 
+/*
 	private static void setupRequestHook() {
 		try {
 			Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
@@ -172,6 +174,7 @@ public class RequestHook {
 			XposedBridge.log(LOG_PREFIX + "Response Headers: " + details.getResponseHeaders().toString());
 		}
 	}
+*/
 
 	private static boolean checkAndBlockRequest(String host, String requestType,
 			Function<String, Boolean> blockChecker) {
