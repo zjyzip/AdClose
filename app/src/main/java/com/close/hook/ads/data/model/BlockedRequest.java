@@ -10,16 +10,39 @@ public class BlockedRequest implements Parcelable {
     public String packageName;
     public String request;
     public long timestamp;
+    @Nullable
     public String requestType;
+    @Nullable
     public Boolean isBlocked;
+    @Nullable
+    public String method;
+    @Nullable
+    public String urlString;
+    @Nullable
+    public String requestHeaders;
+    public int responseCode;
+    @Nullable
+    public String responseMessage;
+    @Nullable
+    public String responseHeaders;
 
-    public BlockedRequest(String appName, String packageName, String request, long timestamp, @Nullable String requestType, @Nullable Boolean isBlocked) {
+    public BlockedRequest(String appName, String packageName, String request, long timestamp,
+                          @Nullable String requestType, @Nullable Boolean isBlocked,
+                          @Nullable String method, @Nullable String urlString, @Nullable String requestHeaders,
+                          int responseCode, @Nullable String responseMessage,
+                          @Nullable String responseHeaders) {
         this.appName = appName;
         this.packageName = packageName;
         this.request = request;
         this.timestamp = timestamp;
         this.requestType = requestType;
         this.isBlocked = isBlocked;
+        this.method = method;
+        this.urlString = urlString;
+        this.requestHeaders = requestHeaders;
+        this.responseCode = responseCode;
+        this.responseMessage = responseMessage;
+        this.responseHeaders = responseHeaders;
     }
 
     protected BlockedRequest(Parcel in) {
@@ -30,6 +53,12 @@ public class BlockedRequest implements Parcelable {
         requestType = in.readString();
         byte tmpIsBlocked = in.readByte();
         isBlocked = tmpIsBlocked == 0 ? null : tmpIsBlocked == 1;
+        method = in.readString();
+        urlString = in.readString();
+        requestHeaders = in.readString();
+        responseCode = in.readInt();
+        responseMessage = in.readString();
+        responseHeaders = in.readString();
     }
 
     @Override
@@ -40,6 +69,12 @@ public class BlockedRequest implements Parcelable {
         dest.writeLong(timestamp);
         dest.writeString(requestType);
         dest.writeByte((byte) (isBlocked == null ? 0 : isBlocked ? 1 : 2));
+        dest.writeString(method);
+        dest.writeString(urlString);
+        dest.writeString(requestHeaders);
+        dest.writeInt(responseCode);
+        dest.writeString(responseMessage);
+        dest.writeString(responseHeaders);
     }
 
     @Override

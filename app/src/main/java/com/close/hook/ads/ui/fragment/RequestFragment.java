@@ -36,7 +36,7 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
-public class RequestsFragment extends Fragment implements OnCLearCLickContainer, OnBackPressListener {
+public class RequestFragment extends Fragment implements OnCLearCLickContainer, OnBackPressListener {
 
     private ViewPager2 viewPager;
     private TabLayout tabLayout;
@@ -68,7 +68,7 @@ public class RequestsFragment extends Fragment implements OnCLearCLickContainer,
         materialToolbar.setTitle(R.string.bottom_item_2);
         materialToolbar.inflateMenu(R.menu.menu_hosts);
         materialToolbar.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == R.id.clear){
+            if (item.getItemId() == R.id.clear) {
                 onClearClickListener.onClearAll();
             }
             return true;
@@ -76,9 +76,9 @@ public class RequestsFragment extends Fragment implements OnCLearCLickContainer,
 
         List<Fragment> fragments = new ArrayList<>();
 
-        fragments.add(RequestsListFragment.newInstance("all"));
-        fragments.add(RequestsListFragment.newInstance("block"));
-        fragments.add(RequestsListFragment.newInstance("pass"));
+        fragments.add(RequestListFragment.newInstance("all"));
+        fragments.add(RequestListFragment.newInstance("block"));
+        fragments.add(RequestListFragment.newInstance("pass"));
 
         UniversalPagerAdapter adapter = new UniversalPagerAdapter(this, fragments);
         viewPager.setAdapter(adapter);
@@ -171,7 +171,7 @@ public class RequestsFragment extends Fragment implements OnCLearCLickContainer,
             }
 
             private void performSearch(String query) {
-                if (onClearClickListener!=null)
+                if (onClearClickListener != null)
                     onClearClickListener.search(query);
             }
         });
