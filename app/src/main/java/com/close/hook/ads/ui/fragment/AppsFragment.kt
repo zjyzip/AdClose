@@ -57,7 +57,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
-        setupLiveDataObservation()
+        if (appsViewModel.appInfoList.isEmpty())
+            setupLiveDataObservation()
+        else {
+            appsAdapter.submitList(appsViewModel.appInfoList)
+            binding.progressBar.visibility = View.GONE
+        }
         setupAdapterItemClick()
     }
 
@@ -86,7 +91,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener {
     }
 
     private fun setupLiveDataObservation() {
-
+        appsViewModel.appInfoList.clear()
         when (type) {
             "configured" -> {
                 val userAppsLiveData: LiveData<List<AppInfo>> = appsViewModel.userAppsLiveData
@@ -106,6 +111,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener {
                         binding.progressBar.visibility = View.GONE
                     }
                 }
+
             }
 
             else -> {
