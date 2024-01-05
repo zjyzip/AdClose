@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -67,20 +66,17 @@ class BlockedRequestsAdapter(
             true
         }
         viewHolder.itemView.setOnClickListener {
-            Log.d("czzzzzzzzzzzzzzzzzzz", "viewHolder.urlString: ${viewHolder.urlString}")
-            Log.d("czzzzzzzzzzzzzzzzzzz", "viewHolder.request: ${viewHolder.request.text}")
-
-            if (viewHolder.urlString?.contains(viewHolder.request.text) == true)
+            if (viewHolder.urlString.toString().contains(viewHolder.request.text))
                 MaterialAlertDialogBuilder(parent.context).apply {
                     setTitle("请求参数")
                     setMessage(
                         """
 method: ${viewHolder.method}
-urlString = ${viewHolder.urlString}
-requestHeaders = ${viewHolder.requestHeaders}
-responseCode = ${viewHolder.responseCode}
-responseMessage = ${viewHolder.responseMessage}
-responseHeaders = ${viewHolder.responseHeaders}
+urlString: ${viewHolder.urlString}
+requestHeaders: ${viewHolder.requestHeaders}
+responseCode: ${viewHolder.responseCode}
+responseMessage: ${viewHolder.responseMessage}
+responseHeaders: ${viewHolder.responseHeaders}
                 """.trimIndent()
                     )
                     setPositiveButton("关闭", null)
