@@ -27,10 +27,11 @@ import com.close.hook.ads.util.OnClearClickListener
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
+import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.util.Optional
 
 
-class RequestsListFragment : Fragment(), OnClearClickListener {
+class RequestListFragment : Fragment(), OnClearClickListener {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var binding: FragmentHostsListBinding
@@ -49,7 +50,7 @@ class RequestsListFragment : Fragment(), OnClearClickListener {
     companion object {
         @JvmStatic
         fun newInstance(type: String) =
-            RequestsListFragment().apply {
+            RequestListFragment().apply {
                 arguments = Bundle().apply {
                     putString("type", type)
                 }
@@ -66,6 +67,8 @@ class RequestsListFragment : Fragment(), OnClearClickListener {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
 
         adapter = BlockedRequestsAdapter(requireContext())
         binding.recyclerView.apply {

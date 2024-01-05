@@ -10,7 +10,7 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
-import com.close.hook.ads.ui.fragment.RequestsFragment;
+import com.close.hook.ads.ui.fragment.RequestFragment;
 import com.close.hook.ads.ui.fragment.InstalledAppsFragment;
 import com.close.hook.ads.ui.fragment.SettingsFragment;
 import com.close.hook.ads.util.INavContainer;
@@ -47,7 +47,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
 
         List<Fragment> fragments = new ArrayList<>();
         fragments.add(new InstalledAppsFragment());
-        fragments.add(new RequestsFragment());
+        fragments.add(new RequestFragment());
         fragments.add(new SettingsFragment());
 
         BottomFragmentStateAdapter adapter = new BottomFragmentStateAdapter(this, fragments);
