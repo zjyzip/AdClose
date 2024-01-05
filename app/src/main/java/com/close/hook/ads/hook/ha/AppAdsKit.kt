@@ -12,13 +12,12 @@ object AppAdsKit {
     private val executor = Executors.newSingleThreadExecutor()
 
     fun blockAds(context: Context) {
+        DexKitUtil.initializeDexKitBridge(context)
         val packageName = context.packageName
         val zhihuPackage = "com.zhihu.android.app.util"
         val methodName = "isShowLaunchAd"
 
-        DexKitUtil.initializeDexKitBridge(context)
         val cachedMethods = DexKitUtil.getCachedMethods(packageName)
-
         if (cachedMethods == null) {
             executor.execute {
                 val foundMethods = DexKitUtil.getBridge().findMethod {
@@ -29,11 +28,10 @@ object AppAdsKit {
                         name = methodName
                     }
                 }?.toList()
-                foundMethods?.let { 
+                foundMethods?.let {
                     DexKitUtil.cacheMethods(packageName, it)
                     hookZhihuMethods(it, context.classLoader)
                 }
-                DexKitUtil.releaseBridge()
             }
         } else {
             hookZhihuMethods(cachedMethods, context.classLoader)
