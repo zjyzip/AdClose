@@ -2,17 +2,14 @@ package com.close.hook.ads.hook.ha
 
 import android.content.Context
 import java.lang.reflect.Modifier
-import java.util.concurrent.Executors
 import de.robv.android.xposed.XposedBridge
 import com.close.hook.ads.hook.util.DexKitUtil
 import org.luckypray.dexkit.result.MethodData
 import de.robv.android.xposed.XC_MethodReplacement
 
 object SDKAdsKit {
-    private val executor = Executors.newSingleThreadExecutor()
 
     fun blockAds(context: Context) {
-        DexKitUtil.initializeDexKitBridge(context)
         val packageName = context.packageName
         val adPackages = listOf(
             "com.applovin",
@@ -29,26 +26,20 @@ object SDKAdsKit {
             "com.vungle.warren"
         )
 
-        val cachedMethods = DexKitUtil.getCachedMethods(packageName)
-        if (cachedMethods == null) {
-            executor.execute {
-                val foundMethods = DexKitUtil.getBridge().findMethod {
-                    searchPackages(adPackages)
-                    matcher {
-                        modifiers = Modifier.PUBLIC
-                        returnType(Void.TYPE)
-                    }
-                }?.filter { methodData ->
-                    isValidAdMethod(methodData)
-                }?.toList()
-                foundMethods?.let {
-                    DexKitUtil.cacheMethods(packageName, it)
-                    hookMethods(it, context.classLoader)
+        DexKitUtil.initializeDexKitBridge(context)
+
+        val foundMethods = DexKitUtil.getCachedOrFindMethods(packageName) {
+            DexKitUtil.getBridge().findMethod {
+                searchPackages(adPackages)
+                matcher {
+                    modifiers = Modifier.PUBLIC
+                    returnType(Void.TYPE)
                 }
-            }
-        } else {
-            hookMethods(cachedMethods, context.classLoader)
+            }?.filter { isValidAdMethod(it) }?.toList()
         }
+
+        foundMethods?.let { hookMethods(it, context.classLoader) }
+        DexKitUtil.releaseBridge()
     }
 
     private fun isValidAdMethod(methodData: MethodData): Boolean {
@@ -61,7 +52,6 @@ object SDKAdsKit {
             try {
                 val method = methodData.getMethodInstance(classLoader)
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-    //            XposedBridge.log("hook $methodData")
             } catch (e: NoClassDefFoundError) {
             }
         }

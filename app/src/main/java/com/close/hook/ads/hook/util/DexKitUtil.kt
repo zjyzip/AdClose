@@ -8,7 +8,6 @@ import java.lang.ref.WeakReference
 object DexKitUtil {
     @Volatile private var bridge: DexKitBridge? = null
     private val methodCache = mutableMapOf<String, WeakReference<List<MethodData>>>()
-    private const val CACHE_SIZE_LIMIT = 50
 
     fun initializeDexKitBridge(context: Context) {
         if (bridge == null) {
@@ -37,9 +36,12 @@ object DexKitUtil {
     }
 
     fun cacheMethods(packageName: String, methods: List<MethodData>) {
-        if (methodCache.size >= CACHE_SIZE_LIMIT) {
-            methodCache.clear()
-        }
         methodCache[packageName] = WeakReference(methods)
+    }
+
+    fun getCachedOrFindMethods(packageName: String, findMethodLogic: () -> List<MethodData>?): List<MethodData>? {
+        return getCachedMethods(packageName) ?: findMethodLogic().also {
+            it?.let { methods -> cacheMethods(packageName, methods) }
+        }
     }
 }
