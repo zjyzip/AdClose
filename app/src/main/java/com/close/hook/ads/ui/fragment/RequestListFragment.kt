@@ -9,10 +9,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -31,10 +28,9 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.util.Optional
 
 
-class RequestListFragment : Fragment(), OnClearClickListener {
+class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
-    private lateinit var binding: FragmentHostsListBinding
     private lateinit var adapter: BlockedRequestsAdapter
     private lateinit var type: String
     private lateinit var filter: IntentFilter
@@ -55,14 +51,6 @@ class RequestListFragment : Fragment(), OnClearClickListener {
                     putString("type", type)
                 }
             }
-    }
-
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        binding = FragmentHostsListBinding.inflate(inflater, container, false)
-        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
