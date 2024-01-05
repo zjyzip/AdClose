@@ -12,6 +12,7 @@ object SDKAdsKit {
     private val executor = Executors.newSingleThreadExecutor()
 
     fun blockAds(context: Context) {
+        DexKitUtil.initializeDexKitBridge(context)
         val packageName = context.packageName
         val adPackages = listOf(
             "com.applovin",
@@ -28,9 +29,7 @@ object SDKAdsKit {
             "com.vungle.warren"
         )
 
-        DexKitUtil.initializeDexKitBridge(context)
         val cachedMethods = DexKitUtil.getCachedMethods(packageName)
-
         if (cachedMethods == null) {
             executor.execute {
                 val foundMethods = DexKitUtil.getBridge().findMethod {
@@ -42,11 +41,10 @@ object SDKAdsKit {
                 }?.filter { methodData ->
                     isValidAdMethod(methodData)
                 }?.toList()
-                foundMethods?.let { 
+                foundMethods?.let {
                     DexKitUtil.cacheMethods(packageName, it)
                     hookMethods(it, context.classLoader)
                 }
-                DexKitUtil.releaseBridge()
             }
         } else {
             hookMethods(cachedMethods, context.classLoader)
@@ -63,6 +61,7 @@ object SDKAdsKit {
             try {
                 val method = methodData.getMethodInstance(classLoader)
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
+    //            XposedBridge.log("hook $methodData")
             } catch (e: NoClassDefFoundError) {
             }
         }
