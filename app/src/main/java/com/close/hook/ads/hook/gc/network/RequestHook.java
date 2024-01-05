@@ -197,13 +197,6 @@ public class RequestHook {
             XposedBridge.log(LOG_PREFIX + "Response Code: " + details.getResponseCode());
             XposedBridge.log(LOG_PREFIX + "Response Message: " + details.getResponseMessage());
             XposedBridge.log(LOG_PREFIX + "Response Headers: " + details.getResponseHeaders().toString());
-            Log.d("czzzzzzzzzzzzzzzzzzz", "method: "+details.getMethod());
-            Log.d("czzzzzzzzzzzzzzzzzzz", "urlString: "+details.getUrlString());
-            Log.d("czzzzzzzzzzzzzzzzzzz", "requestHeaders: "+details.getRequestHeaders().toString());
-            Log.d("czzzzzzzzzzzzzzzzzzz", "responseCode: "+details.getResponseCode());
-            Log.d("czzzzzzzzzzzzzzzzzzz", "responseMessage: "+details.getResponseMessage());
-            Log.d("czzzzzzzzzzzzzzzzzzz", "responseHeaders: "+details.getResponseHeaders().toString());
-
             method = details.getMethod();
             urlString = details.getUrlString();
             if (details.getRequestHeaders() != null) {
