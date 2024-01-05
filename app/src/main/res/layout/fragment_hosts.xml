@@ -26,7 +26,6 @@
                 android:layout_height="48dp"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="8dp"
-                android:layout_marginEnd="16dp"
                 android:layout_marginBottom="8dp"
                 app:cardBackgroundColor="@color/searchBar"
                 app:cardCornerRadius="24dp"
@@ -43,12 +42,12 @@
 
                     <ImageView
                         android:id="@+id/search_icon"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:layout_marginStart="10dp"
-                        android:layout_marginEnd="10dp"
-                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:paddingLeft="16dp"
+                        android:paddingRight="16dp"
                         android:src="@drawable/ic_search" />
 
                     <EditText

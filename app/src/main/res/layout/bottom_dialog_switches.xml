@@ -94,8 +94,8 @@
         android:layout_height="wrap_content"
         android:text="@string/description_two"
         android:textSize="10sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/switch_two" />
+        app:layout_constraintBottom_toBottomOf="@id/switch_two"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_three"
@@ -143,8 +143,8 @@
         android:layout_height="wrap_content"
         android:text="@string/description_seven"
         android:textSize="10sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/switch_six" />
+        app:layout_constraintBottom_toBottomOf="@id/switch_six"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/button_update"

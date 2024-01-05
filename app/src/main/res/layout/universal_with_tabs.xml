@@ -15,22 +15,22 @@
         android:fitsSystemWindows="false"
         app:fitsSystemWindowsInsets="@integer/internal_fragment_top_insets">
 
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/toolbar_search"
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="8dp"
-            app:cardBackgroundColor="@color/searchBar"
-            app:cardCornerRadius="24dp"
-            app:strokeWidth="0dp">
+            android:layout_height="wrap_content">
 
-            <com.google.android.material.appbar.MaterialToolbar
-                android:id="@+id/toolbar"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/toolbar_search"
                 android:layout_width="match_parent"
-                android:layout_height="48dp">
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="8dp"
+                app:cardBackgroundColor="@color/searchBar"
+                app:cardCornerRadius="24dp"
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:id="@+id/search_container"
@@ -43,12 +43,12 @@
 
                     <ImageView
                         android:id="@+id/search_icon"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:layout_marginStart="-12dp"
-                        android:layout_marginEnd="20dp"
-                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:paddingLeft="16dp"
+                        android:paddingRight="16dp"
                         android:src="@drawable/ic_search" />
 
                     <EditText
@@ -90,14 +90,21 @@
                         android:src="@drawable/ic_filter" />
 
                 </LinearLayout>
-            </com.google.android.material.appbar.MaterialToolbar>
-        </com.google.android.material.card.MaterialCardView>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </com.google.android.material.appbar.MaterialToolbar>
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tab_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@android:color/transparent" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1px"
+            android:background="?attr/colorSurfaceVariant" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
