@@ -65,24 +65,6 @@ class BlockedRequestsAdapter(
                 .show()
             true
         }
-        viewHolder.itemView.setOnClickListener {
-            if (viewHolder.urlString.toString().contains(viewHolder.request.text))
-                MaterialAlertDialogBuilder(parent.context).apply {
-                    setTitle("请求参数")
-                    setMessage(
-                        """
-method: ${viewHolder.method}
-urlString: ${viewHolder.urlString}
-requestHeaders: ${viewHolder.requestHeaders}
-responseCode: ${viewHolder.responseCode}
-responseMessage: ${viewHolder.responseMessage}
-responseHeaders: ${viewHolder.responseHeaders}
-                """.trimIndent()
-                    )
-                    setPositiveButton("关闭", null)
-                    show()
-                }
-        }
         return viewHolder
     }
 
@@ -109,12 +91,6 @@ responseHeaders: ${viewHolder.responseHeaders}
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         holder.timestamp.text = sdf.format(Date(request.timestamp))
         holder.icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
-        holder.method = request.method
-        holder.urlString = request.urlString
-        holder.requestHeaders = request.requestHeaders
-        holder.responseCode = request.responseCode
-        holder.responseMessage = request.responseMessage
-        holder.responseHeaders = request.responseHeaders
     }
 
     override fun getItemCount(): Int {
@@ -126,12 +102,6 @@ responseHeaders: ${viewHolder.responseHeaders}
         var request: TextView
         var timestamp: TextView
         var icon: ImageView
-        var method: String? = null
-        var urlString: String? = null
-        var requestHeaders: String? = null
-        var responseCode = -1
-        var responseMessage: String? = null
-        var responseHeaders: String? = null
 
         init {
             appName = view.findViewById(R.id.app_name)

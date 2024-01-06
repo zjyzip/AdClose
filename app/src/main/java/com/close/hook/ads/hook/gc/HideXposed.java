@@ -18,8 +18,6 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-import com.close.hook.ads.hook.util.FilterXpInputStream;
-
 public class HideXposed {
 	private static final String XPOSED = "xposed";
 	private static final String SD_CARD_PATH = Environment.getExternalStorageDirectory().getPath();
@@ -30,10 +28,7 @@ public class HideXposed {
 		hookFileConstructor();
 		hookStackTraceElements();
 		hookPackageManagerMethods(lpparam);
-//		hookModifierIsNative();
-		hookSystemGetProperty();
 		hookFileList();
-		hookRuntimeExec();
 		hookSystemGetenv();
 	}
 
@@ -105,30 +100,6 @@ public class HideXposed {
 				"getInstalledApplications", int.class, packageManagerHook);
 	}
 
-/*
-	private static void hookModifierIsNative() {
-		XC_MethodHook modifierHook = new XC_MethodHook() {
-			@Override
-			protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-				param.setResult(false);
-			}
-		};
-		XposedHelpers.findAndHookMethod(Modifier.class, "isNative", int.class, modifierHook);
-	}
-*/
-
-	private static void hookSystemGetProperty() {
-		XC_MethodHook systemPropertyHook = new XC_MethodHook() {
-			@Override
-			protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-				if ("vxp".equals(param.args[0])) {
-					param.setResult(null);
-				}
-			}
-		};
-		XposedHelpers.findAndHookMethod(System.class, "getProperty", String.class, systemPropertyHook);
-	}
-
 	private static void hookFileList() {
 		XC_MethodHook fileListHook = new XC_MethodHook() {
 			@Override
@@ -146,23 +117,6 @@ public class HideXposed {
 			}
 		};
 		XposedHelpers.findAndHookMethod(File.class, "list", fileListHook);
-	}
-
-	private static void hookRuntimeExec() {
-		XC_MethodHook execHook = new XC_MethodHook() {
-			@Override
-			protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-				InputStream originalInputStream = (InputStream) param.getResult();
-				FilterXpInputStream filteredInputStream = new FilterXpInputStream(originalInputStream);
-				param.setResult(filteredInputStream);
-			}
-		};
-
-		try {
-			XposedHelpers.findAndHookMethod(Process.class, "getInputStream", execHook);
-		} catch (Exception e) {
-	//	    XposedBridge.log("Hook Process.getInputStream failed: " + e.getMessage());
-		}
 	}
 
 	private static void hookSystemGetenv() {

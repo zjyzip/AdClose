@@ -51,10 +51,15 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = calculateVersionCode()
-        versionName = "1.0.0"
+        versionName = "1.5.0"
 
         vectorDrawables {
             useSupportLibrary = true
+        }
+
+        ndk {
+            abiFilters.add("armeabi-v7a")
+            abiFilters.add("arm64-v8a")
         }
     }
 
@@ -106,6 +111,8 @@ dependencies {
     implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
 
     implementation("androidx.lifecycle:lifecycle-reactivestreams:2.6.2")
+
+    implementation("com.google.guava:guava:33.0.0-jre")
 
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")

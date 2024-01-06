@@ -17,12 +17,12 @@ import com.close.hook.ads.hook.util.HookUtil;
 
 public class HideVPNStatus {
 
-    private static final String VPN = "VPN";
-    private static final String WIFI = "WIFI";
-    private static final String HTTP_PROXY_HOST = "http.proxyHost";
-    private static final String HTTP_PROXY_PORT = "http.proxyPort";
-    private static final String EMPTY_STRING = "";
-    private static final String DEFAULT_PROXY_PORT = "-1";
+	private static final String VPN = "VPN";
+	private static final String WIFI = "WIFI";
+	private static final String HTTP_PROXY_HOST = "http.proxyHost";
+	private static final String HTTP_PROXY_PORT = "http.proxyPort";
+	private static final String EMPTY_STRING = "";
+	private static final String DEFAULT_PROXY_PORT = "-1";
 
 	private static void replaceResultIfEquals(XC_MethodHook.MethodHookParam param, Object compareTo, Object newValue) {
 		if (Objects.equals(Optional.ofNullable(param.getResult()).orElse(-1), compareTo)) {
@@ -57,68 +57,73 @@ public class HideVPNStatus {
 		return result.toString();
 	}
 
-    private static void bypassSystemProxyCheck() {
-        HookUtil.hookMethod(System.class, "getProperty", param -> {
-            String propertyName = (String) param.args[0];
-            if (HTTP_PROXY_HOST.equals(propertyName)) {
-                param.setResult(EMPTY_STRING);
-            } else if (HTTP_PROXY_PORT.equals(propertyName)) {
-                param.setResult(DEFAULT_PROXY_PORT);
-            }
-        });
+	private static void bypassSystemProxyCheck() {
+		HookUtil.hookMethod(System.class, "getProperty", param -> {
+			String propertyName = (String) param.args[0];
+			if (HTTP_PROXY_HOST.equals(propertyName)) {
+				param.setResult(EMPTY_STRING);
+			} else if (HTTP_PROXY_PORT.equals(propertyName)) {
+				param.setResult(DEFAULT_PROXY_PORT);
+			}
+		});
 
-        HookUtil.hookMethod(System.class, "setProperty", param -> {
-            String propertyName = (String) param.args[0];
-            if (HTTP_PROXY_HOST.equals(propertyName)) {
-                param.args[1] = EMPTY_STRING;
-            } else if (HTTP_PROXY_PORT.equals(propertyName)) {
-                param.args[1] = DEFAULT_PROXY_PORT;
-            }
-        });
-    }
+		HookUtil.hookMethod(System.class, "setProperty", param -> {
+			String propertyName = (String) param.args[0];
+			if (HTTP_PROXY_HOST.equals(propertyName)) {
+				param.args[1] = EMPTY_STRING;
+			} else if (HTTP_PROXY_PORT.equals(propertyName)) {
+				param.args[1] = DEFAULT_PROXY_PORT;
+			}
+		});
+	}
 
-    public static void proxy() {
-        bypassSystemProxyCheck();
-        modifyNetworkInfo();
-        modifyNetworkCapabilities();
-    }
+	public static void proxy() {
+		bypassSystemProxyCheck();
+		modifyNetworkInfo();
+		modifyNetworkCapabilities();
+	}
 
-    private static void modifyNetworkInfo() {
-        HookUtil.hookMethod(NetworkInfo.class, "getType",
-                param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
-        HookUtil.hookMethod(NetworkInfo.class, "getSubtype",
-                param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
-        HookUtil.hookMethod(NetworkInfo.class, "getTypeName", param -> replaceResultIfEqualsIgnoreCase(param, VPN, WIFI));
-        HookUtil.hookMethod(NetworkInfo.class, "getSubtypeName", param -> replaceResultIfEqualsIgnoreCase(param, VPN, WIFI));
-        HookUtil.hookMethod(ConnectivityManager.class, "getNetworkInfo", param -> {
-            if (Objects.equals(Optional.ofNullable(param.args[0]).orElse(-1), ConnectivityManager.TYPE_VPN)) {
-                param.setResult(null);
-            }
-        });
-    }
+	private static void modifyNetworkInfo() {
+		HookUtil.hookMethod(NetworkInfo.class, "getType",
+				param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
+		HookUtil.hookMethod(NetworkInfo.class, "getSubtype",
+				param -> replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI));
+		HookUtil.hookMethod(NetworkInfo.class, "getTypeName",
+				param -> replaceResultIfEqualsIgnoreCase(param, VPN, WIFI));
+		HookUtil.hookMethod(NetworkInfo.class, "getSubtypeName",
+				param -> replaceResultIfEqualsIgnoreCase(param, VPN, WIFI));
+		HookUtil.hookMethod(ConnectivityManager.class, "getNetworkInfo", param -> {
+			if (Objects.equals(Optional.ofNullable(param.args[0]).orElse(-1), ConnectivityManager.TYPE_VPN)) {
+				param.setResult(null);
+			}
+		});
+	}
 
-    private static void modifyNetworkCapabilities() {
-        HookUtil.hookMethod(NetworkCapabilities.class, "hasTransport", param -> {
-            if (Objects.equals(param.args[0], NetworkCapabilities.TRANSPORT_VPN)) {
-                param.setResult(false);
-            }
-        });
-        HookUtil.hookMethod(NetworkCapabilities.class, "hasCapability", param -> {
-            if (Objects.equals(param.args[0], NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
-                param.setResult(true);
-            }
-        });
-        HookUtil.hookMethod(NetworkCapabilities.class, "getCapabilities", param -> {
-            Optional.ofNullable(param.getResult()).ifPresent(resultObj -> {
-                int[] result = (int[]) resultObj;
-                if (result.length > 0
-                        && Arrays.stream(result).noneMatch(c -> c == NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
-                    int[] newResult = Arrays.copyOf(result, result.length + 1);
-                    newResult[result.length] = NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
-                    param.setResult(newResult);
-                }
-            });
-        });
-    }
+	private static void modifyNetworkCapabilities() {
+		HookUtil.hookMethod(NetworkCapabilities.class, "hasTransport", param -> {
+			if (Objects.equals(param.args[0], NetworkCapabilities.TRANSPORT_VPN)) {
+				param.setResult(false);
+			}
+		});
+		HookUtil.hookMethod(NetworkCapabilities.class, "hasCapability", param -> {
+			if (Objects.equals(param.args[0], NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+				param.setResult(true);
+			}
+		});
+		HookUtil.hookMethod(NetworkCapabilities.class, "getCapabilities", param -> {
+			Optional.ofNullable(param.getResult()).ifPresent(resultObj -> {
+				int[] result = (int[]) resultObj;
+				if (result.length > 0
+						&& Arrays.stream(result).noneMatch(c -> c == NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+					int[] newResult = Arrays.copyOf(result, result.length + 1);
+					newResult[result.length] = NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+					param.setResult(newResult);
+				}
+			});
+		});
+		HookUtil.hookMethod(NetworkInterface.class, "isVirtual", param -> param.setResult(false));
+		HookUtil.hookMethod(NetworkInterface.class, "getName",
+				param -> replaceResultIfStartsWith(param, "tun", "ppp", "pptp"));
+	}
 
 }
