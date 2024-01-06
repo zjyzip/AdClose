@@ -16,9 +16,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.databinding.FragmentHostsListBinding
+import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.IOnTabClickContainer
+import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
@@ -28,7 +31,8 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.util.Optional
 
 
-class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener {
+class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
+    IOnTabClickListener {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var adapter: BlockedRequestsAdapter
@@ -148,7 +152,13 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         super.onResume()
 
         (requireParentFragment() as OnCLearCLickContainer).controller = this
+        (requireParentFragment() as IOnTabClickContainer).tabController = this
 
+    }
+
+    override fun onReturnTop() {
+        binding.recyclerView.scrollToPosition(0)
+        (activity as MainActivity).showNavigation()
     }
 
 }

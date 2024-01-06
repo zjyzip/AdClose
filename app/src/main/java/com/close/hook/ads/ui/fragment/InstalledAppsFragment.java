@@ -23,6 +23,8 @@ import com.close.hook.ads.data.model.FilterBean;
 import com.close.hook.ads.ui.activity.MainActivity;
 import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
 import com.close.hook.ads.util.AppUtils;
+import com.close.hook.ads.util.IOnTabClickContainer;
+import com.close.hook.ads.util.IOnTabClickListener;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
 import com.close.hook.ads.util.OnCLearCLickContainer;
@@ -47,7 +49,7 @@ import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class InstalledAppsFragment extends Fragment implements OnBackPressListener, OnCLearCLickContainer,
-        OnSetHintListener {
+        OnSetHintListener, IOnTabClickContainer {
 
     private ViewPager2 viewPager;
     private TabLayout tabLayout;
@@ -62,6 +64,7 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
     private List<String> filterList;
     private FilterBean filterBean;
     private OnClearClickListener onClearClickListener;
+    private IOnTabClickListener iOnTabClickListener;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -224,9 +227,25 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
         viewPager.setAdapter(adapter);
 
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-			List<Integer> tabList = List.of(R.string.tab_user_apps, R.string.tab_configured_apps, R.string.tab_system_apps);
+            List<Integer> tabList = List.of(R.string.tab_user_apps, R.string.tab_configured_apps, R.string.tab_system_apps);
             tab.setText(getString(tabList.get(position)));
         }).attach();
+
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                iOnTabClickListener.onReturnTop();
+            }
+        });
+
     }
 
     private void setupSearchEditText() {
@@ -314,4 +333,16 @@ public class InstalledAppsFragment extends Fragment implements OnBackPressListen
             searchEditText.setHint("搜索");
         }
     }
+
+    @Nullable
+    @Override
+    public IOnTabClickListener getTabController() {
+        return this.iOnTabClickListener;
+    }
+
+    @Override
+    public void setTabController(@Nullable IOnTabClickListener iOnTabClickListener) {
+        this.iOnTabClickListener = iOnTabClickListener;
+    }
+
 }

@@ -22,6 +22,8 @@ import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.IOnTabClickContainer
+import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
@@ -37,7 +39,7 @@ import java.util.Locale
 import java.util.Optional
 import java.util.stream.Collectors
 
-class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener {
+class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, IOnTabClickListener {
 
     private val disposables = CompositeDisposable()
     private val appsViewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
@@ -424,9 +426,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener {
         super.onResume()
 
         (requireParentFragment() as OnCLearCLickContainer).controller = this
-
+        (requireParentFragment() as IOnTabClickContainer).tabController = this
         (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
 
+    }
+
+    override fun onReturnTop() {
+        binding.recyclerViewApps.scrollToPosition(0)
+        (activity as MainActivity).showNavigation()
     }
 
 }
