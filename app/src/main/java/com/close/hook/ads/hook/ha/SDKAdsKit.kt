@@ -52,6 +52,7 @@ object SDKAdsKit {
             try {
                 val method = methodData.getMethodInstance(classLoader)
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
+    //          XposedBridge.log("hook $methodData")
             } catch (e: NoClassDefFoundError) {
             }
         }
