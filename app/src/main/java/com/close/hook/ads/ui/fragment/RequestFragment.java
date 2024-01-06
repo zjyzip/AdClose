@@ -23,6 +23,8 @@ import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
 import com.close.hook.ads.util.OnCLearCLickContainer;
 import com.close.hook.ads.util.OnClearClickListener;
+import com.close.hook.ads.util.IOnTabClickContainer;
+import com.close.hook.ads.util.IOnTabClickListener;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
@@ -36,12 +38,14 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
-public class RequestFragment extends Fragment implements OnCLearCLickContainer, OnBackPressListener {
+public class RequestFragment extends Fragment implements OnCLearCLickContainer, OnBackPressListener,
+        IOnTabClickContainer {
 
     private ViewPager2 viewPager;
     private TabLayout tabLayout;
     private MaterialToolbar materialToolbar;
     private OnClearClickListener onClearClickListener;
+    private IOnTabClickListener iOnTabClickListener;
     private EditText searchEditText;
     private ImageView searchIcon;
     private Disposable searchDisposable;
@@ -112,7 +116,7 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
 
             @Override
             public void onTabReselected(TabLayout.Tab tab) {
-
+                iOnTabClickListener.onReturnTop();
             }
         });
 
@@ -226,5 +230,16 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
         super.onResume();
         OnBackPressContainer onBackPressContainer = (OnBackPressContainer) requireContext();
         onBackPressContainer.setController(this);
+    }
+
+    @Nullable
+    @Override
+    public IOnTabClickListener getTabController() {
+        return this.iOnTabClickListener;
+    }
+
+    @Override
+    public void setTabController(@Nullable IOnTabClickListener iOnTabClickListener) {
+        this.iOnTabClickListener = iOnTabClickListener;
     }
 }
