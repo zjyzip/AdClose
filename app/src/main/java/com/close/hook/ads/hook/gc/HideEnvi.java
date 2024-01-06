@@ -1,7 +1,10 @@
 package com.close.hook.ads.hook.gc;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.util.Arrays;
+import android.system.Os;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -25,7 +28,6 @@ public class HideEnvi {
 				}
 
 				private boolean isXposedOrMagiskPath(String path) {
-					// Magisk & Xposed paths
 					String[] paths = { "/sbin/.magisk", "/system/bin/magisk", "/data/data/com.topjohnwu.magisk",
 							"/system/lib/libriruloader.so", "/system/bin/su", "/system/xbin/su", "/system/sbin/su",
 							"/sbin/su", "/vendor/bin/su", "xposed.installer", "app_process_xposed", "libriru_",
@@ -37,6 +39,63 @@ public class HideEnvi {
 					return "/system/lib/libriruloader.so".equals(path);
 				}
 			});
+
+	    /*
+			XposedBridge.hookAllMethods(Runtime.class, "exec", new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					if (detectXposedOrMagiskInMemory() || isRiruActive()) {
+						param.setResult(null);
+					}
+				}
+
+				private boolean detectXposedOrMagiskInMemory() {
+					try {
+						String[] magiskFeatures64 = { "MAGISK_INJ_" };
+						String[] xposedFeatures = { "libriru_", "/data/misc/edxp_", "libxposed_art.so",
+								"libriruloader.so", "app_process_zposed" };
+
+						BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"));
+						String line;
+						while ((line = reader.readLine()) != null) {
+							for (String feature : magiskFeatures64) {
+									if (line.contains(feature)) {
+										reader.close();
+										return true;
+									}
+								}
+							for (String feature : xposedFeatures) {
+								if (line.contains(feature)) {
+									reader.close();
+									return true;
+								}
+							}
+						}
+						reader.close();
+					} catch (Exception e) {
+						XposedBridge.log("HideEnvi Error: " + e.getMessage());
+					}
+					return false;
+				}
+
+				private String getSystemProperty(String key, String defaultValue) {
+					try {
+						Class<?> systemProperties = Class.forName("android.os.SystemProperties");
+						return (String) systemProperties.getMethod("get", String.class, String.class)
+								.invoke(systemProperties, key, defaultValue);
+					} catch (Exception e) {
+						return defaultValue;
+					}
+				}
+
+				private boolean isRiruActive() {
+					String riruBridge = getSystemProperty("ro.dalvik.vm.native.bridge", "");
+					return !riruBridge.isEmpty() && new File(riruBridge).exists();
+				}
+			});
+
+        */
+
 		} catch (NoSuchMethodException e) {
 			throw new RuntimeException(e);
 		}

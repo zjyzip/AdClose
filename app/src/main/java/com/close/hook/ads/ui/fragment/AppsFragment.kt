@@ -341,7 +341,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener {
     private fun getAppInfoFilter(
         title: String, keyWord: String
     ): java.util.function.Predicate<AppInfo> {
-        val time = 7 * 24 * 3600L
+        val time = 3 * 24 * 3600L
         return when (title) {
             "已配置" -> java.util.function.Predicate<AppInfo> { appInfo: AppInfo ->
                 (appInfo.appName.lowercase(
