@@ -2,40 +2,33 @@ package com.close.hook.ads.hook.ha
 
 import android.content.Context
 import java.lang.reflect.Modifier
-import java.util.concurrent.Executors
 import de.robv.android.xposed.XposedBridge
+import de.robv.android.xposed.XC_MethodReplacement
 import com.close.hook.ads.hook.util.DexKitUtil
 import org.luckypray.dexkit.result.MethodData
-import de.robv.android.xposed.XC_MethodReplacement
 
 object AppAdsKit {
-    private val executor = Executors.newSingleThreadExecutor()
 
     fun blockAds(context: Context) {
         DexKitUtil.initializeDexKitBridge(context)
+
         val packageName = context.packageName
         val zhihuPackage = "com.zhihu.android.app.util"
         val methodName = "isShowLaunchAd"
 
-        val cachedMethods = DexKitUtil.getCachedMethods(packageName)
-        if (cachedMethods == null) {
-            executor.execute {
-                val foundMethods = DexKitUtil.getBridge().findMethod {
-                    searchPackages(listOf(zhihuPackage))
-                    matcher {
-                        modifiers = Modifier.PUBLIC
-                        returnType(java.lang.Boolean.TYPE)
-                        name = methodName
-                    }
-                }?.toList()
-                foundMethods?.let {
-                    DexKitUtil.cacheMethods(packageName, it)
-                    hookZhihuMethods(it, context.classLoader)
+        val foundMethods = DexKitUtil.getCachedOrFindMethods(packageName) {
+            DexKitUtil.getBridge().findMethod {
+                searchPackages(listOf(zhihuPackage))
+                matcher {
+                    modifiers = Modifier.PUBLIC
+                    returnType(java.lang.Boolean.TYPE)
+                    name = methodName
                 }
-            }
-        } else {
-            hookZhihuMethods(cachedMethods, context.classLoader)
+            }?.toList()
         }
+
+        foundMethods?.let { hookZhihuMethods(it, context.classLoader) }
+        DexKitUtil.releaseBridge()
     }
 
     private fun hookZhihuMethods(methods: List<MethodData>, classLoader: ClassLoader) {
@@ -48,3 +41,4 @@ object AppAdsKit {
         }
     }
 }
+

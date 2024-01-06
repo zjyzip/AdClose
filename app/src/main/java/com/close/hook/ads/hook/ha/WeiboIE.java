@@ -9,56 +9,58 @@ import com.close.hook.ads.hook.util.HookUtil;
 
 public class WeiboIE {
 
-    public static void handle(ClassLoader classLoader) {
-        blockAds(classLoader);
-        modifySettings(classLoader);
-        blockQueryUveAdRequest(classLoader);
-    }
+	public static void handle(ClassLoader classLoader) {
+		blockAds(classLoader);
+		modifySettings(classLoader);
+		blockQueryUveAdRequest(classLoader);
+	}
 
-    private static void blockAds(ClassLoader classLoader) {
-        HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinExtendKt", "isWeiboUVEAd", false);
-        HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinUtilKt", "findUVEAd", null);
-        HookUtil.hookMethod(classLoader, "com.weico.international.activity.LogoActivity", "doWhatNext", "main");
-    }
+	private static void blockAds(ClassLoader classLoader) {
+		HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinExtendKt", "isWeiboUVEAd", false);
+		HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinUtilKt", "findUVEAd", null);
+		HookUtil.hookMethod(classLoader, "com.weico.international.activity.LogoActivity", "doWhatNext", "main");
+	}
 
-    private static void modifySettings(ClassLoader classLoader) {
-        Consumer<XC_MethodHook.MethodHookParam> settingBlocker = param -> {
-            String key = (String) param.args[0];
-            switch (key) {
-                case "BOOL_UVE_FEED_AD_BLOCK":
-                    param.setResult(true);
-                    break;
-                case "ad_interval":
-                    param.setResult(Integer.MAX_VALUE);
-                    break;
-                case "display_ad":
-                    param.setResult(0);
-                    break;
-                case "video_ad":
-                    param.setResult("");
-                    break;
-                case "CYT_DAYS":
-                    param.setResult(new HashSet<String>());
-                    break;
-                default:
-                    if (key.startsWith("BOOL_AD_ACTIVITY_BLOCK_")) {
-                        param.setResult(true);
-                    }
-                    break;
-            }
-        };
+	private static void modifySettings(ClassLoader classLoader) {
+		Consumer<XC_MethodHook.MethodHookParam> settingBlocker = param -> {
+			String key = (String) param.args[0];
+			switch (key) {
+			case "BOOL_UVE_FEED_AD_BLOCK":
+				param.setResult(true);
+				break;
+			case "ad_interval":
+				param.setResult(Integer.MAX_VALUE);
+				break;
+			case "display_ad":
+				param.setResult(0);
+				break;
+			case "video_ad":
+				param.setResult("");
+				break;
+			case "CYT_DAYS":
+				param.setResult(new HashSet<String>());
+				break;
+			default:
+				if (key.startsWith("BOOL_AD_ACTIVITY_BLOCK_") || key.startsWith("BOOL_UVE_FEED_AD_BLOCK")) {
+					param.setResult(true);
+				}
+				break;
+			}
+		};
 
-        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadBoolean", settingBlocker);
-        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadInt", settingBlocker);
-        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadStringSet", settingBlocker);
-        HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadString", settingBlocker);
-    }
+		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadBoolean", settingBlocker);
+		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadInt", settingBlocker);
+		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadStringSet",
+				settingBlocker);
+		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadString", settingBlocker);
+	}
 
-    private static void blockQueryUveAdRequest(ClassLoader classLoader) {
-        HookUtil.hookMethod(XposedHelpers.findClass("com.weico.international.api.RxApiKt", classLoader), "queryUveAdRequest", param -> {
-            Map<String, Object> map = (Map<String, Object>) param.args[0];
-            map.remove("ip");
-            map.remove("uid");
-        });
-    }
+	private static void blockQueryUveAdRequest(ClassLoader classLoader) {
+		HookUtil.hookMethod(XposedHelpers.findClass("com.weico.international.api.RxApiKt", classLoader),
+				"queryUveAdRequest", param -> {
+					Map<String, Object> map = (Map<String, Object>) param.args[0];
+					map.remove("ip");
+					map.remove("uid");
+				});
+	}
 }

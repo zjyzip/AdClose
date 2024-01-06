@@ -93,14 +93,14 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("Application Name: " + appName);
 					}
 
-                   if (packageName.equals("com.zhihu.android")) { // 知乎
-            		    AppAdsKit.INSTANCE.blockAds(context);
-                    }
+					if (packageName.equals("com.zhihu.android")) { // 知乎
+						AppAdsKit.INSTANCE.blockAds(context);
+					}
 
 					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
-            		    SDKAdsKit.INSTANCE.blockAds(context);
+						SDKAdsKit.INSTANCE.blockAds(context);
 						SDKAds.hookAds(classLoader);
 					}
 				}
@@ -111,8 +111,7 @@ public class HookInit implements IXposedHookLoadPackage {
 	}
 
 	private boolean shouldIgnorePackage(XC_LoadPackage.LoadPackageParam lpparam) {
-		return lpparam.appInfo == null
-				|| !lpparam.isFirstApplication;
+		return lpparam.appInfo == null || !lpparam.isFirstApplication;
 	}
 
 	private CharSequence getAppName(Context context, String packageName) {
