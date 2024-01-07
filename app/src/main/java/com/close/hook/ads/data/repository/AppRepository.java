@@ -18,41 +18,58 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
 public class AppRepository {
-	private final PackageManager packageManager;
+    private final PackageManager packageManager;
+    private final Cache<Boolean, List<AppInfo>> appsCache;
 
-	public AppRepository(PackageManager packageManager) {
-		this.packageManager = packageManager;
-	}
+    public AppRepository(PackageManager packageManager) {
+        this.packageManager = packageManager;
+        this.appsCache = CacheBuilder.newBuilder()
+                        .maximumSize(2)
+                        .build();
+    }
 
-	public Observable<List<AppInfo>> getInstalledUserApps() {
-		return getInstalledApps(false);
-	}
+    public Observable<List<AppInfo>> getInstalledUserApps() {
+        return getInstalledApps(false);
+    }
 
-	public Observable<List<AppInfo>> getInstalledSystemApps() {
-		return getInstalledApps(true);
-	}
+    public Observable<List<AppInfo>> getInstalledSystemApps() {
+        return getInstalledApps(true);
+    }
 
-	private Observable<List<AppInfo>> getInstalledApps(boolean isSystem) {
-		return Observable.fromCallable(() -> {
-			List<PackageInfo> packages = packageManager.getInstalledPackages(0);
-			List<AppInfo> appList = new ArrayList<>();
-			for (PackageInfo packageInfo : packages) {
-				if (isSystemApp(packageInfo.applicationInfo) == isSystem) {
-					appList.add(createAppInfo(packageInfo));
-				}
-			}
-			appList.sort((app1, app2) -> app1.getAppName().compareToIgnoreCase(app2.getAppName()));
-			return appList;
-		})
-		.subscribeOn(Schedulers.io())
+    private Observable<List<AppInfo>> getInstalledApps(boolean isSystem) {
+        return Observable.fromCallable(() -> {
+            List<AppInfo> cachedApps = appsCache.getIfPresent(isSystem);
+            if (cachedApps != null) {
+                return cachedApps;
+            }
+            List<AppInfo> appList = fetchInstalledApps(isSystem);
+            appsCache.put(isSystem, appList);
+            return appList;
+        })
+        .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())
         .onErrorReturnItem(Collections.emptyList());
-	}
+    }
 
-	private boolean isSystemApp(ApplicationInfo applicationInfo) {
-		return (applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-	}
+    private List<AppInfo> fetchInstalledApps(boolean isSystem) {
+        List<PackageInfo> packages = packageManager.getInstalledPackages(0);
+        List<AppInfo> appList = new ArrayList<>();
+        for (PackageInfo packageInfo : packages) {
+            if (isSystemApp(packageInfo.applicationInfo) == isSystem) {
+                appList.add(createAppInfo(packageInfo));
+            }
+        }
+        appList.sort((app1, app2) -> app1.getAppName().compareToIgnoreCase(app2.getAppName()));
+        return appList;
+    }
+
+    private boolean isSystemApp(ApplicationInfo applicationInfo) {
+        return (applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+    }
 
 	private AppInfo createAppInfo(PackageInfo packageInfo) {
 		String appName = getAppName(packageInfo.applicationInfo);

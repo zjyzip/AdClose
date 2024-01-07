@@ -44,16 +44,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     private val disposables = CompositeDisposable()
     private val appsViewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var appsAdapter: AppsAdapter
-    private lateinit var type: String
+    private var type: String? = null
     private lateinit var bottomSheetDialog: BottomSheetDialog
     private lateinit var selectAll: MaterialCheckBox
     private var totalCheck = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        arguments?.let {
-            type = requireArguments().getString("type")!!
-        }
+        type = arguments?.getString("type")
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
