@@ -14,6 +14,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -29,6 +30,7 @@ public class AppRepository {
         this.packageManager = packageManager;
         this.appsCache = CacheBuilder.newBuilder()
                         .maximumSize(2)
+                        .expireAfterAccess(1, TimeUnit.HOURS)
                         .build();
     }
 
