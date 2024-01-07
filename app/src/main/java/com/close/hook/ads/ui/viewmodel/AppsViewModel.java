@@ -37,16 +37,18 @@ public class AppsViewModel extends AndroidViewModel {
         PackageManager packageManager = application.getPackageManager();
         appRepository = new AppRepository(packageManager);
 
-        userAppsLiveData = LiveDataReactiveStreams
-            .fromPublisher(appRepository.getInstalledUserApps()
-            .toFlowable(BackpressureStrategy.LATEST)
+        userAppsLiveData = LiveDataReactiveStreams.fromPublisher(
+            appRepository.getInstalledUserApps()
+            .toFlowable(BackpressureStrategy.BUFFER)
             .subscribeOn(Schedulers.io())
+            .distinctUntilChanged()
             .onErrorReturnItem(Collections.emptyList()));
 
-        systemAppsLiveData = LiveDataReactiveStreams
-            .fromPublisher(appRepository.getInstalledSystemApps()
-            .toFlowable(BackpressureStrategy.LATEST)
+        systemAppsLiveData = LiveDataReactiveStreams.fromPublisher(
+            appRepository.getInstalledSystemApps()
+            .toFlowable(BackpressureStrategy.BUFFER)
             .subscribeOn(Schedulers.io())
+            .distinctUntilChanged()
             .onErrorReturnItem(Collections.emptyList()));
     }
 

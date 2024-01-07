@@ -38,7 +38,8 @@ public class RequestHook {
 	private static final String LOG_PREFIX = "[RequestHook] ";
 	private static final Set<String> BLOCKED_LISTS = ConcurrentHashMap.newKeySet(); // 包含策略
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
-	private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder().maximumSize(10000) // 设置缓存的最大容量
+	private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
+	        .maximumSize(10000) // 设置缓存的最大容量
 			.expireAfterWrite(10, TimeUnit.MINUTES) // 设置缓存在写入10分钟后失效
 			.build();
 
