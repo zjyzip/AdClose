@@ -58,6 +58,7 @@ class AboutActivity : AbsAboutActivity() {
         items.add(License("AndroidFastScroll", "zhanghai", License.APACHE_2, "https://github.com/zhanghai/AndroidFastScroll"))
         items.add(License("RikkaX", "RikkaApps", License.MIT, "https://github.com/RikkaApps/RikkaX"))
         items.add(License("material-components-android", "Google", License.APACHE_2, "https://github.com/material-components/material-components-android"))
+        items.add(License("Guava", "Google", License.APACHE_2, "https://github.com/google/guava"))
         items.add(License("glide", "bumptech", License.APACHE_2, "https://github.com/bumptech/glide"))
         items.add(License("RxJava", "ReactiveX", License.APACHE_2, "https://github.com/ReactiveX/RxJava"))
         items.add(License("RxJava", "RxAndroid", License.APACHE_2, "https://github.com/ReactiveX/RxAndroid"))

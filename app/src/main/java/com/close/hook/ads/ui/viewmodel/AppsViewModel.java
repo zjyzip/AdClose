@@ -27,44 +27,36 @@ public class AppsViewModel extends AndroidViewModel {
 	public List<AppInfo> appInfoList = new ArrayList<>();
 
 	private final AppRepository appRepository;
-	private final MediatorLiveData<List<AppInfo>> userAppsLiveData = new MediatorLiveData<>();
-	private final MediatorLiveData<List<AppInfo>> systemAppsLiveData = new MediatorLiveData<>();
+    private final LiveData<List<AppInfo>> userAppsLiveData;
+    private final LiveData<List<AppInfo>> systemAppsLiveData;
 	private final MutableLiveData<LoadState> loadState = new MutableLiveData<>();
 	private String currentSearchKeyword = "";
 
-	public AppsViewModel(Application application) {
-		super(application);
-		PackageManager packageManager = application.getPackageManager();
-		appRepository = new AppRepository(packageManager);
-		loadUserApps();
-		loadSystemApps();
-	}
+    public AppsViewModel(Application application) {
+        super(application);
+        PackageManager packageManager = application.getPackageManager();
+        appRepository = new AppRepository(packageManager);
 
-	private void loadUserApps() {
-		LiveData<List<AppInfo>> source = LiveDataReactiveStreams
-				.fromPublisher(appRepository.getInstalledUserApps().toFlowable(BackpressureStrategy.LATEST)
-						.subscribeOn(Schedulers.io()).doOnNext(appInfos -> loadState.postValue(LoadState.COMPLETE))
-						.doOnError(throwable -> loadState.postValue(LoadState.ERROR))
-						.onErrorReturnItem(Collections.emptyList()));
-		userAppsLiveData.addSource(source, userAppsLiveData::setValue);
-	}
+        userAppsLiveData = LiveDataReactiveStreams
+            .fromPublisher(appRepository.getInstalledUserApps()
+            .toFlowable(BackpressureStrategy.LATEST)
+            .subscribeOn(Schedulers.io())
+            .onErrorReturnItem(Collections.emptyList()));
 
-	private void loadSystemApps() {
-		LiveData<List<AppInfo>> source = LiveDataReactiveStreams
-				.fromPublisher(appRepository.getInstalledSystemApps().toFlowable(BackpressureStrategy.LATEST)
-						.doOnSubscribe(disposable -> loadState.postValue(LoadState.LOADING))
-						.subscribeOn(Schedulers.io()).doOnError(throwable -> loadState.postValue(LoadState.ERROR))
-						.onErrorReturnItem(Collections.emptyList()));
-		systemAppsLiveData.addSource(source, systemAppsLiveData::setValue);
-	}
+        systemAppsLiveData = LiveDataReactiveStreams
+            .fromPublisher(appRepository.getInstalledSystemApps()
+            .toFlowable(BackpressureStrategy.LATEST)
+            .subscribeOn(Schedulers.io())
+            .onErrorReturnItem(Collections.emptyList()));
+    }
 
-	public LiveData<List<AppInfo>> getUserAppsLiveData() {
-		return userAppsLiveData;
-	}
+    public LiveData<List<AppInfo>> getUserAppsLiveData() {
+        return userAppsLiveData;
+    }
 
-	public LiveData<List<AppInfo>> getSystemAppsLiveData() {
-		return systemAppsLiveData;
-	}
+    public LiveData<List<AppInfo>> getSystemAppsLiveData() {
+        return systemAppsLiveData;
+    }
 
 	public LiveData<LoadState> getLoadState() {
 		return loadState;

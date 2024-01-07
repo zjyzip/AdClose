@@ -51,6 +51,7 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
     private Disposable searchDisposable;
     private ImageButton searchClear;
     private InputMethodManager imm;
+    private String lastSearchQuery = "";
 
     @Nullable
     @Override
@@ -135,53 +136,51 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
 
     private void initEditText() {
         searchEditText.setOnFocusChangeListener(
-                (view, hasFocus) -> setIcon(hasFocus ? R.drawable.ic_back : R.drawable.ic_search));
+                (view, hasFocus) -> setIcon(hasFocus ? R.drawable.ic_back : R.drawable.ic_search, hasFocus));
 
-        searchClear.setOnClickListener(view -> {
-            searchEditText.setText("");
-        });
-
-        searchIcon.setOnClickListener(view -> {
-            if (searchEditText.isFocused()) {
-                searchEditText.setText("");
-                setIconAndFocus(R.drawable.ic_search, false);
-            } else {
-                setIconAndFocus(R.drawable.ic_back, true);
-            }
-        });
+        searchClear.setOnClickListener(view -> resetSearch());
 
         searchEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
-
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (searchDisposable != null && !searchDisposable.isDisposed()) {
                     searchDisposable.dispose();
                 }
-                searchDisposable = Observable.just(s.toString()).debounce(300, TimeUnit.MILLISECONDS)
-                        .subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(this::performSearch);
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                if (s.toString().equals("")) {
-                    searchClear.setVisibility(View.GONE);
-                } else {
-                    searchClear.setVisibility(View.VISIBLE);
+                lastSearchQuery = s.toString();
+                if (s.length() > 0) {
+                    searchDisposable = Observable.just(s.toString())
+                            .debounce(300, TimeUnit.MILLISECONDS)
+                            .subscribeOn(Schedulers.io())
+                            .observeOn(AndroidSchedulers.mainThread())
+                            .subscribe(query -> performSearch(query, lastSearchQuery));
                 }
             }
 
-            private void performSearch(String query) {
-                if (onClearClickListener != null)
-                    onClearClickListener.search(query);
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                searchClear.setVisibility(s.toString().isEmpty() ? View.GONE : View.VISIBLE);
             }
         });
     }
 
-    private void setIconAndFocus(int drawableId, boolean focus) {
+    private void performSearch(String query, String lastQuery) {
+        if (onClearClickListener != null && query.equals(lastQuery)) {
+            onClearClickListener.search(query);
+        }
+    }
+
+    private void resetSearch() {
+        searchEditText.setText("");
+        searchClear.setVisibility(View.GONE);
+        if (searchDisposable != null && !searchDisposable.isDisposed()) {
+            searchDisposable.dispose();
+        }
+    }
+
+    private void setIcon(int drawableId, boolean focus) {
         imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
         searchIcon.setImageDrawable(requireContext().getDrawable(drawableId));
         if (focus) {
@@ -191,10 +190,6 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
             searchEditText.clearFocus();
             imm.hideSoftInputFromWindow(searchEditText.getWindowToken(), 0);
         }
-    }
-
-    private void setIcon(int drawableId) {
-        searchIcon.setImageDrawable(requireContext().getDrawable(drawableId));
     }
 
     @Override
@@ -219,7 +214,7 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
     public Boolean onBackPressed() {
         if (searchEditText.isFocused()) {
             searchEditText.setText("");
-            setIconAndFocus(R.drawable.ic_search, false);
+            setIcon(R.drawable.ic_search, false);
             return true;
         }
         return false;

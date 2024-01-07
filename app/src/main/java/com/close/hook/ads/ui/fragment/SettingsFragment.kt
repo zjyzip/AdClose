@@ -33,7 +33,7 @@ class SettingsFragment : BaseFragment<FragmentSettingBinding>() {
                         startActivity(
                             Intent(
                                 Intent.ACTION_VIEW,
-                                Uri.parse("https://t.me/AdClose")
+                                Uri.parse("https://t.me/AdClose_Chat")
                             )
                         )
                     } catch (e: ActivityNotFoundException) {
