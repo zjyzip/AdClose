@@ -36,7 +36,7 @@ public class HookUtil {
 		try {
 			clazz = Class.forName(className, false, classLoader);
 		} catch (ClassNotFoundException e) {
-			//		XposedBridge.log("Class not found: " + className + ", " + e);
+	//		XposedBridge.log("Class not found: " + className + ", " + e);
 			return;
 		}
 

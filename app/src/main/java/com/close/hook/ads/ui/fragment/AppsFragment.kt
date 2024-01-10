@@ -37,6 +37,7 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.util.Locale
 import java.util.Optional
+import java.util.HashMap
 import java.util.stream.Collectors
 
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, IOnTabClickListener {
@@ -48,6 +49,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     private lateinit var bottomSheetDialog: BottomSheetDialog
     private lateinit var selectAll: MaterialCheckBox
     private var totalCheck = 0
+    private val checkHashMap = HashMap<String, Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,44 +93,33 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     }
 
     private fun setupLiveDataObservation() {
-        appsViewModel.appInfoList.clear()
         when (type) {
             "configured" -> {
                 val userAppsLiveData: LiveData<List<AppInfo>> = appsViewModel.userAppsLiveData
-                userAppsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
-                    for (element in appInfo)
-                        if (element.isEnable == 1)
-                            appsViewModel.appInfoList.add(element)
-                    val systemAppsLiveData: LiveData<List<AppInfo>> =
-                        appsViewModel.systemAppsLiveData
-                    systemAppsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
+                userAppsLiveData.observe(viewLifecycleOwner) { appInfoList ->
+                    val filteredList = appInfoList.filter { it.isEnable == 1 }
+                    val systemAppsLiveData: LiveData<List<AppInfo>> = appsViewModel.systemAppsLiveData
+                    systemAppsLiveData.observe(viewLifecycleOwner) { systemAppInfoList ->
                         binding.progressBar.visibility = View.GONE
-                        for (element in appInfo)
-                            if (element.isEnable == 1)
-                                appsViewModel.appInfoList.add(element)
-                        appsAdapter.submitList(appsViewModel.appInfoList)
-                        (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
+                        val combinedList = filteredList + systemAppInfoList.filter { it.isEnable == 1 }
+                        appsViewModel.updateAppInfoList(combinedList)
+                        appsAdapter.submitList(combinedList)
+                        (requireParentFragment() as OnSetHintListener).setHint(combinedList.size)
                         binding.progressBar.visibility = View.GONE
                     }
                 }
-
             }
-
             else -> {
-                val appsLiveData: LiveData<List<AppInfo>> =
-                    if (type == "user") appsViewModel.userAppsLiveData
-                    else appsViewModel.systemAppsLiveData
-                appsLiveData.observe(viewLifecycleOwner) { appInfo: List<AppInfo> ->
+                val appsLiveData: LiveData<List<AppInfo>> = if (type == "user") appsViewModel.userAppsLiveData
+                                                      else appsViewModel.systemAppsLiveData
+                appsLiveData.observe(viewLifecycleOwner) { appInfoList ->
                     binding.progressBar.visibility = View.GONE
-                    appsViewModel.appInfoList = appInfo
-                    (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
-                    appsAdapter.submitList(appInfo)
+                    appsViewModel.updateAppInfoList(appInfoList)
+                    (requireParentFragment() as OnSetHintListener).setHint(appInfoList.size)
+                    appsAdapter.submitList(appInfoList)
                 }
             }
-
         }
-
-
     }
 
     private fun setupAdapterItemClick() {
@@ -171,21 +162,19 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
 
     private fun updateCheckNum(packageName: String, isChecked: Boolean?) {
         isChecked?.let {
-            appsViewModel.checkHashMap[packageName] =
-                if (isChecked) appsViewModel.checkHashMap[packageName]!! + 1
-                else appsViewModel.checkHashMap[packageName]!! - 1
+            val currentCount = checkHashMap[packageName] ?: 0
+            val newCount = if (isChecked) currentCount + 1 else currentCount - 1
+            checkHashMap[packageName] = newCount
         }
-        when (appsViewModel.checkHashMap[packageName]) {
+        when (checkHashMap[packageName]) {
             0 -> {
                 selectAll.isChecked = false
                 selectAll.checkedState = MaterialCheckBox.STATE_UNCHECKED
             }
-
             totalCheck -> {
                 selectAll.isChecked = true
                 selectAll.checkedState = MaterialCheckBox.STATE_CHECKED
             }
-
             else -> {
                 selectAll.checkedState = MaterialCheckBox.STATE_INDETERMINATE
             }
@@ -215,14 +204,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
 
         selectAll = dialogView.findViewById(R.id.select_all)
         totalCheck = checkBoxIds.size
-        appsViewModel.checkHashMap[appInfo.packageName] = checkBoxIds.size
+        checkHashMap[appInfo.packageName] = checkBoxIds.size
         for (i in checkBoxIds.indices) {
             val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
             val key = prefKeys[i] + appInfo.packageName
             checkBoxView.isChecked = prefsHelper.getBoolean(key, false)
             if (!checkBoxView.isChecked) {
-                appsViewModel.checkHashMap[appInfo.packageName] =
-                    appsViewModel.checkHashMap[appInfo.packageName]!! - 1
+                checkHashMap[appInfo.packageName] =
+                    checkHashMap[appInfo.packageName]!! - 1
             }
             if (i == checkBoxIds.size - 1) {
                 updateCheckNum(appInfo.packageName, null)

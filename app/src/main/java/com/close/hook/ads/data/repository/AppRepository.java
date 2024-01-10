@@ -81,21 +81,15 @@ public class AppRepository {
 		long size = new File(packageInfo.applicationInfo.sourceDir).length();
 		int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
         int isAppEnable = getIsAppEnable(packageInfo.packageName);
-		int isEnable;
-		if (MainActivity.isModuleActivated()) {
-			isEnable = isAppEnabled(packageInfo.packageName);
-		} else {
-			isEnable = 0;
-		}
+		int isEnable = (MainActivity.isModuleActivated()) ? isAppEnabled(packageInfo.packageName) : 0;
+
         return new AppInfo(appName, packageInfo.packageName, appIcon, versionName, versionCode,
                 packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, isAppEnable,
 				isEnable);
     }
 
     private int getIsAppEnable(String packageName) {
-        if (packageManager.getApplicationEnabledSetting(packageName) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
-            return 0;
-        return 1;
+        return packageManager.getApplicationEnabledSetting(packageName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED ? 1 : 0;
     }
 
 	private String getAppName(ApplicationInfo appInfo) {
