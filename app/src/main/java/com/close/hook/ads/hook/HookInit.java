@@ -10,7 +10,6 @@ import android.content.pm.PackageManager;
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
 import com.close.hook.ads.hook.gc.HideEnvi;
-import com.close.hook.ads.hook.gc.HideXposed;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
 import com.close.hook.ads.hook.ha.AppAds;
@@ -71,7 +70,6 @@ public class HookInit implements IXposedHookLoadPackage {
 
 		if (settingsManager.isHideEnivEnabled()) {
 			HideEnvi.handle();
-			HideXposed.handle(lpparam);
 		}
 
 		if (settingsManager.isDisableShakeAdEnabled()) {

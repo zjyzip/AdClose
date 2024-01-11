@@ -1,6 +1,5 @@
 package com.close.hook.ads.ui.adapter;
 
-import android.annotation.SuppressLint;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -62,6 +61,7 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
     public void onBindViewHolder(@NonNull AppViewHolder holder, int position) {
         AppInfo appInfo = differ.getCurrentList().get(position);
         holder.bind(appInfo);
+
         holder.binding.getRoot().setOnClickListener(v -> onClickSubject.onNext(appInfo));
         holder.binding.getRoot().setOnLongClickListener(v -> {
             onLongClickSubject.onNext(appInfo);
@@ -82,11 +82,10 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
             this.binding = binding;
         }
 
-        @SuppressLint("SetTextI18n")
         void bind(AppInfo appInfo) {
             binding.appName.setText(appInfo.getAppName());
             binding.packageName.setText(appInfo.getPackageName());
-            binding.appVersion.setText(appInfo.getVersionName() + "(" + appInfo.getVersionCode() + ")");
+            binding.appVersion.setText(appInfo.getVersionName() + " (" + appInfo.getVersionCode() + ")");
             Glide.with(binding.appIcon.getContext())
                     .load(appInfo.getAppIcon())
                     .apply(new RequestOptions()
@@ -94,5 +93,15 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
                             .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
                     .into(binding.appIcon);
         }
+
+        void unbind() {
+            Glide.with(binding.appIcon.getContext()).clear(binding.appIcon);
+        }
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull AppViewHolder holder) {
+        holder.unbind();
+        super.onViewRecycled(holder);
     }
 }
