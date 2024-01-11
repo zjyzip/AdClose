@@ -42,4 +42,23 @@ object PrefManager {
             context.packageManager.setComponentEnabledSetting(component, status, PackageManager.DONT_KILL_APP)
         }
 
+    var order: String
+        get() = pref.getString("order", "应用名称")!!
+        set(value) = pref.edit().putString("order", value).apply()
+
+    var configured: Boolean
+        get() = pref.getBoolean("configured", false)
+        set(value) =pref.edit().putBoolean("configured", value).apply()
+
+    var updated: Boolean
+        get() = pref.getBoolean("updated", false)
+        set(value) =pref.edit().putBoolean("updated", value).apply()
+
+    var disabled: Boolean
+        get() = pref.getBoolean("disabled", false)
+        set(value) =pref.edit().putBoolean("disabled", value).apply()
+
+    var isReverse: Boolean
+        get() = pref.getBoolean("isReverse", false)
+        set(value) =pref.edit().putBoolean("isReverse", value).apply()
 }

@@ -28,6 +28,7 @@ import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.OnSetHintListener
+import com.close.hook.ads.util.PrefManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
@@ -37,13 +38,14 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.util.Locale
 import java.util.Optional
-import java.util.HashMap
+import java.util.function.Predicate
 import java.util.stream.Collectors
 
-class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, IOnTabClickListener {
+class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
+    IOnTabClickListener {
 
     private val disposables = CompositeDisposable()
-    private val appsViewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
+    private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var appsAdapter: AppsAdapter
     private var type: String? = null
     private lateinit var bottomSheetDialog: BottomSheetDialog
@@ -59,10 +61,32 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
-        if (appsViewModel.appInfoList.isEmpty())
+        if (viewModel.appInfoList.isEmpty() && viewModel.filterList.isEmpty()) {
+            viewModel.filterBean = FilterBean()
+            viewModel.sortList = ArrayList<String>()
+            if (PrefManager.configured) {
+                viewModel.sortList.add("已配置")
+            }
+            if (PrefManager.updated) {
+                viewModel.sortList.add("最近更新")
+            }
+            if (PrefManager.disabled) {
+                viewModel.sortList.add("已禁用")
+            }
+            viewModel.filterBean.title = PrefManager.order
+            viewModel.filterBean.filter = viewModel.sortList
             setupLiveDataObservation()
-        else {
-            appsAdapter.submitList(appsViewModel.appInfoList)
+        } else {
+
+            val newList = ArrayList<AppInfo>()
+
+            if (viewModel.isFilter) {
+                newList.addAll(viewModel.filterList)
+            }
+            else {
+                newList.addAll(viewModel.appInfoList)
+            }
+            appsAdapter.submitList(newList)
             binding.progressBar.visibility = View.GONE
         }
         setupAdapterItemClick()
@@ -95,28 +119,36 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     private fun setupLiveDataObservation() {
         when (type) {
             "configured" -> {
-                val userAppsLiveData: LiveData<List<AppInfo>> = appsViewModel.userAppsLiveData
+                val userAppsLiveData: LiveData<List<AppInfo>> = viewModel.userAppsLiveData
                 userAppsLiveData.observe(viewLifecycleOwner) { appInfoList ->
-                    val filteredList = appInfoList.filter { it.isEnable == 1 }
-                    val systemAppsLiveData: LiveData<List<AppInfo>> = appsViewModel.systemAppsLiveData
-                    systemAppsLiveData.observe(viewLifecycleOwner) { systemAppInfoList ->
-                        binding.progressBar.visibility = View.GONE
-                        val combinedList = filteredList + systemAppInfoList.filter { it.isEnable == 1 }
-                        appsViewModel.updateAppInfoList(combinedList)
-                        appsAdapter.submitList(combinedList)
-                        (requireParentFragment() as OnSetHintListener).setHint(combinedList.size)
-                        binding.progressBar.visibility = View.GONE
+                    if (viewModel.appInfoList.isEmpty()) {
+                        viewModel.appInfoList.addAll(appInfoList.filter { it.isEnable == 1 })
+                        val systemAppsLiveData: LiveData<List<AppInfo>> =
+                            viewModel.systemAppsLiveData
+                        systemAppsLiveData.observe(viewLifecycleOwner) { systemAppInfoList ->
+                            if (binding.progressBar.visibility == View.VISIBLE) {
+                                viewModel.appInfoList.addAll(systemAppInfoList.filter { it.isEnable == 1 })
+                                viewModel.isFilter = true
+                                viewModel.filterBean.filter.clear()
+                                updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
+                                binding.progressBar.visibility = View.GONE
+                            }
+                        }
                     }
                 }
             }
+
             else -> {
-                val appsLiveData: LiveData<List<AppInfo>> = if (type == "user") appsViewModel.userAppsLiveData
-                                                      else appsViewModel.systemAppsLiveData
+                val appsLiveData: LiveData<List<AppInfo>> =
+                    if (type == "user") viewModel.userAppsLiveData
+                    else viewModel.systemAppsLiveData
                 appsLiveData.observe(viewLifecycleOwner) { appInfoList ->
-                    binding.progressBar.visibility = View.GONE
-                    appsViewModel.updateAppInfoList(appInfoList)
-                    (requireParentFragment() as OnSetHintListener).setHint(appInfoList.size)
-                    appsAdapter.submitList(appInfoList)
+                    if (viewModel.appInfoList.isEmpty()) {
+                        binding.progressBar.visibility = View.GONE
+                        viewModel.appInfoList.addAll(appInfoList)
+                        viewModel.isFilter = true
+                        updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
+                    }
                 }
             }
         }
@@ -171,10 +203,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
                 selectAll.isChecked = false
                 selectAll.checkedState = MaterialCheckBox.STATE_UNCHECKED
             }
+
             totalCheck -> {
                 selectAll.isChecked = true
                 selectAll.checkedState = MaterialCheckBox.STATE_CHECKED
             }
+
             else -> {
                 selectAll.checkedState = MaterialCheckBox.STATE_INDETERMINATE
             }
@@ -234,9 +268,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
             val position = getAppPosition(appInfo.packageName)
             if (position != -1)
                 if (total == 0)
-                    appsViewModel.appInfoList[position].isEnable = 0
+                    viewModel.appInfoList[position].isEnable = 0
                 else
-                    appsViewModel.appInfoList[position].isEnable = 1
+                    viewModel.appInfoList[position].isEnable = 1
             AppUtils.showToast(requireContext(), "保存成功")
             bottomSheetDialog.dismiss()
         }
@@ -262,7 +296,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     }
 
     private fun getAppPosition(packageName: String): Int {
-        for ((index, element) in appsViewModel.appInfoList.withIndex()) {
+        for ((index, element) in viewModel.appInfoList.withIndex()) {
             if (element.packageName == packageName)
                 return index
         }
@@ -270,45 +304,44 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     }
 
     override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
-        var comparator: Comparator<AppInfo> = getAppInfoComparator(filterBean.title)
-        if (isReverse) {
-            comparator = comparator.reversed()
-        }
-        var safeAppInfoList: List<AppInfo> =
-            Optional.ofNullable<List<AppInfo>?>(appsViewModel.appInfoList).orElseGet { emptyList() }
-        if (filterBean.filter.isNotEmpty()) {
+
+        Log.d("fsdfsdfsdfdsfsdfsd", "filter: ${filterBean.filter}")
+        Log.d("fsdfsdfsdfdsfsdfsd", "title: ${filterBean.title}")
+
+        var safeAppInfoList =
+            Optional.ofNullable<List<AppInfo>?>(viewModel.appInfoList).orElseGet { emptyList() }
+
+        if (filterBean.filter.isNotEmpty())
             for (title in filterBean.filter) {
-                safeAppInfoList = safeAppInfoList.stream().filter(getAppInfoFilter(title, keyWord))
-                    .collect(Collectors.toList())
+                safeAppInfoList =
+                    safeAppInfoList.stream().filter(getAppInfoFilter(title, keyWord))
+                        .collect(Collectors.toList())
             }
-            disposables.add(
-                Observable.fromIterable(safeAppInfoList).sorted(comparator).toList()
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({ sortedList: List<AppInfo?>? ->
-                        appsAdapter.submitList(
-                            sortedList
-                        )
-                    }, { throwable: Throwable? ->
-                        Log.e(
-                            "AppsFragment", "Error in updateSortList", throwable
-                        )
-                    })
-            )
-        } else {
-            disposables.add(
-                Observable.fromIterable(safeAppInfoList).sorted(comparator).toList()
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({ sortedList: List<AppInfo?>? ->
-                        appsAdapter.submitList(
-                            sortedList
-                        )
-                    }, { throwable: Throwable? ->
-                        Log.e(
-                            "AppsFragment", "Error in updateSortList", throwable
-                        )
-                    })
-            )
-        }
+        else
+            safeAppInfoList =
+                safeAppInfoList.stream().filter(getAppInfoFilter(null, keyWord))
+                    .collect(Collectors.toList())
+
+        var comparator: Comparator<AppInfo> = getAppInfoComparator(filterBean.title)
+        if (isReverse)
+            comparator = comparator.reversed()
+        disposables.add(
+            Observable.fromIterable(safeAppInfoList).sorted(comparator).toList()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ sortedList: List<AppInfo?>? ->
+                    viewModel.filterList.clear()
+                    sortedList?.let {
+                        viewModel.filterList.addAll(it)
+                    }
+                    appsAdapter.submitList(sortedList)
+                    (requireParentFragment() as OnSetHintListener).setHint(
+                        if (sortedList.isNullOrEmpty()) 0
+                        else sortedList.size
+                    )
+                }, { throwable: Throwable? ->
+                    Log.e("AppsFragment", "Error in updateSortList", throwable)
+                })
+        )
     }
 
     private fun getAppInfoComparator(title: String): Comparator<AppInfo> {
@@ -327,34 +360,39 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
         }
     }
 
-    private fun getAppInfoFilter(
-        title: String, keyWord: String
-    ): java.util.function.Predicate<AppInfo> {
+
+    private fun getAppInfoFilter(title: String?, keyWord: String): Predicate<AppInfo> {
         val time = 3 * 24 * 3600L
         return when (title) {
-            "已配置" -> java.util.function.Predicate<AppInfo> { appInfo: AppInfo ->
-                (appInfo.appName.lowercase(
-                    Locale.getDefault()
-                ).contains(keyWord.lowercase(Locale.getDefault())) && appInfo.isEnable == 1)
+            "已配置" -> Predicate<AppInfo> { appInfo: AppInfo ->
+                ((appInfo.appName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault()))
+                        || appInfo.packageName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault())))
+                        && appInfo.isEnable == 1)
             }
 
-            "最近更新" -> java.util.function.Predicate<AppInfo> { appInfo: AppInfo ->
-                (appInfo.appName.lowercase(
-                    Locale.getDefault()
-                )
-                    .contains(keyWord.lowercase(Locale.getDefault())) && System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time)
+            "最近更新" -> Predicate<AppInfo> { appInfo: AppInfo ->
+                ((appInfo.appName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault()))
+                        || appInfo.packageName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault())))
+                        && System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time)
             }
 
-            "已禁用" -> java.util.function.Predicate<AppInfo> { appInfo: AppInfo ->
-                (appInfo.appName.lowercase(
-                    Locale.getDefault()
-                ).contains(keyWord.lowercase(Locale.getDefault())) && appInfo.isAppEnable == 0)
+            "已禁用" -> Predicate<AppInfo> { appInfo: AppInfo ->
+                ((appInfo.appName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault()))
+                        || appInfo.packageName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault())))
+                        && appInfo.isAppEnable == 0)
             }
 
-            else -> java.util.function.Predicate<AppInfo> { appInfo: AppInfo ->
-                appInfo.appName.lowercase(
-                    Locale.getDefault()
-                ).contains(keyWord.lowercase(Locale.getDefault()))
+            else -> Predicate<AppInfo> { appInfo: AppInfo ->
+                appInfo.appName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault()))
+                        || appInfo.packageName.lowercase(Locale.getDefault())
+                    .contains(keyWord.lowercase(Locale.getDefault()))
             }
         }
     }
@@ -379,42 +417,17 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener, 
     }
 
     override fun onClearAll() {}
-
-    override fun search(keyWord: String) {
-        appsViewModel.currentSearchKeyword = keyWord
-        val safeAppInfoList: List<AppInfo> =
-            Optional.ofNullable<List<AppInfo>?>(appsViewModel.appInfoList).orElseGet { emptyList() }
-        disposables.add(
-            Observable.fromIterable(safeAppInfoList).filter { appInfo: AppInfo ->
-                (appInfo.packageName.contains(keyWord) || appInfo.appName.lowercase(Locale.getDefault())
-                    .contains(
-                        keyWord.lowercase(
-                            Locale.getDefault()
-                        )
-                    ) || appInfo.packageName.lowercase(Locale.getDefault()).contains(
-                    keyWord.lowercase(
-                        Locale.getDefault()
-                    )
-                ))
-            }.toList().observeOn(AndroidSchedulers.mainThread())
-                .subscribe({ filteredList: List<AppInfo?>? ->
-                    appsAdapter.submitList(
-                        filteredList
-                    )
-                }, { throwable: Throwable? ->
-                    Log.e(
-                        "AppsFragment", "Error in searchKeyWorld", throwable
-                    )
-                })
-        )
-    }
+    override fun search(keyWord: String?) {}
 
     override fun onResume() {
         super.onResume()
 
         (requireParentFragment() as OnCLearCLickContainer).controller = this
         (requireParentFragment() as IOnTabClickContainer).tabController = this
-        (requireParentFragment() as OnSetHintListener).setHint(appsViewModel.appInfoList.size)
+        (requireParentFragment() as OnSetHintListener).setHint(
+            if (viewModel.isFilter) viewModel.filterList.size
+            else viewModel.appInfoList.size
+        )
 
     }
 
