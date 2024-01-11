@@ -48,6 +48,10 @@ class BlockedRequestsAdapter(
     private val differ: AsyncListDiffer<BlockedRequest> =
         AsyncListDiffer<BlockedRequest>(this, DIFF_CALLBACK)
 
+    companion object {
+        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+    }
+
     fun submitList(list: List<BlockedRequest?>?) {
         differ.submitList(list)
     }
@@ -55,42 +59,34 @@ class BlockedRequestsAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.blocked_request_item, parent, false)
-        val viewHolder = ViewHolder(view)
-        viewHolder.itemView.setOnLongClickListener {
-            val clipboardManager =
-                parent.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            ClipData.newPlainText("request", viewHolder.request.text.toString())
-                ?.let { clipboardManager.setPrimaryClip(it) }
-            Toast.makeText(parent.context, "已复制: ${viewHolder.request.text}", Toast.LENGTH_SHORT)
-                .show()
-            true
+        return ViewHolder(view).apply {
+            itemView.setOnLongClickListener {
+                val clipboardManager =
+                    parent.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                ClipData.newPlainText("request", request.text.toString())
+                    ?.let { clipboardManager.setPrimaryClip(it) }
+                Toast.makeText(parent.context, "已复制: ${request.text}", Toast.LENGTH_SHORT)
+                    .show()
+                true
+            }
         }
-        return viewHolder
     }
 
-    @SuppressLint("RestrictedApi", "SimpleDateFormat")
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val request = differ.currentList[position]
-        holder.appName.text = request.appName
-        holder.request.text = request.request
-        if (request.requestType == "all" && request.isBlocked == true) {
-            holder.request.setTextColor(
-                ThemeUtils.getThemeAttrColor(
-                    context,
-                    com.google.android.material.R.attr.colorError
-                )
-            )
-        } else {
-            holder.request.setTextColor(
-                ThemeUtils.getThemeAttrColor(
-                    context,
-                    com.google.android.material.R.attr.colorControlNormal
-                )
-            )
+        with(holder) {
+            appName.text = request.appName
+            this.request.text = request.request
+            timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
+            icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
+
+            val textColor = if (request.requestType == "all" && request.isBlocked == true) {
+                ThemeUtils.getThemeAttrColor(context, com.google.android.material.R.attr.colorError)
+            } else {
+                ThemeUtils.getThemeAttrColor(context, com.google.android.material.R.attr.colorControlNormal)
+            }
+            this.request.setTextColor(textColor)
         }
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-        holder.timestamp.text = sdf.format(Date(request.timestamp))
-        holder.icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
     }
 
     override fun getItemCount(): Int {
@@ -98,16 +94,9 @@ class BlockedRequestsAdapter(
     }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        var appName: TextView
-        var request: TextView
-        var timestamp: TextView
-        var icon: ImageView
-
-        init {
-            appName = view.findViewById(R.id.app_name)
-            request = view.findViewById(R.id.request)
-            timestamp = view.findViewById(R.id.timestamp)
-            icon = view.findViewById(R.id.icon)
-        }
+        val appName: TextView = view.findViewById(R.id.app_name)
+        val request: TextView = view.findViewById(R.id.request)
+        val timestamp: TextView = view.findViewById(R.id.timestamp)
+        val icon: ImageView = view.findViewById(R.id.icon)
     }
 }

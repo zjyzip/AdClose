@@ -163,6 +163,8 @@ public class RequestHook {
 		}
 
 		waitForDataLoading();
+		sendBlockedRequestBroadcast("all", " HTTP(S)", null, url.toString());
+
 		String fullUrlString = url.toString();
 
 		Boolean isBlocked = urlBlockCache.getIfPresent(fullUrlString);
