@@ -38,14 +38,17 @@ import com.google.android.material.tabs.TabLayout.OnTabSelectedListener
 import com.google.android.material.tabs.TabLayoutMediator
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.subjects.PublishSubject
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import java.util.concurrent.TimeUnit
+import android.graphics.drawable.Drawable
 
 class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressListener,
     OnCLearCLickContainer, OnSetHintListener, IOnTabClickContainer {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
+    private var searchSubject: PublishSubject<String> = PublishSubject.create()
     private var searchDisposable: Disposable? = null
     private var imm: InputMethodManager? = null
     override var tabController: IOnTabClickListener? = null
@@ -67,6 +70,7 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
     private fun initializeViews() {
         setupSearchIcon()
         setupSearchEditText()
+        setupSearchObservable()
         setupSearchClear()
         setupFilter()
         setupSearchFilter()
@@ -188,33 +192,6 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
         return chip
     }
 
-    private fun setupSearchClear() {
-        binding.searchClear.setOnClickListener { binding.searchEditText.setText("") }
-    }
-
-    @SuppressLint("UseCompatLoadingForDrawables")
-    private fun setupSearchIcon() {
-        binding.searchIcon.setOnClickListener {
-            if (binding.searchEditText.isFocused) {
-                binding.searchEditText.setText("")
-                setIconAndFocus(R.drawable.ic_search, false)
-            } else {
-                setIconAndFocus(R.drawable.ic_back, true)
-            }
-        }
-    }
-
-    private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
-        binding.searchIcon.setImageDrawable(requireContext().getDrawable(drawableId))
-        if (focus) {
-            binding.searchEditText.requestFocus()
-            imm!!.showSoftInput(binding.searchEditText, 0)
-        } else {
-            binding.searchEditText.clearFocus()
-            imm!!.hideSoftInputFromWindow(binding.searchEditText.windowToken, 0)
-        }
-    }
-
     private fun setupViewPagerAndTabs() {
         val adapter = UniversalPagerAdapter(
             this, listOf<Fragment>(
@@ -241,46 +218,71 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
         })
     }
 
-    private fun setupSearchEditText() {
-        binding.searchEditText.onFocusChangeListener =
-            OnFocusChangeListener { _: View?, hasFocus: Boolean ->
-                setIcon(if (hasFocus) R.drawable.ic_back else R.drawable.ic_search)
+    private fun setupSearchClear() {
+        binding.searchClear.setOnClickListener { binding.searchEditText.setText("") }
+    }
+
+    @SuppressLint("UseCompatLoadingForDrawables")
+    private fun setupSearchIcon() {
+        binding.searchIcon.setOnClickListener {
+            if (binding.searchEditText.isFocused) {
+                binding.searchEditText.setText("")
+                setIconAndFocus(R.drawable.ic_search, false)
+            } else {
+                setIconAndFocus(R.drawable.ic_back, true)
             }
+        }
+    }
+
+    private fun setupSearchEditText() {
+        binding.searchEditText.onFocusChangeListener = OnFocusChangeListener { _, hasFocus ->
+            setIconAndFocus(if (hasFocus) R.drawable.ic_back else R.drawable.ic_search, hasFocus)
+        }
         binding.searchEditText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-                if (searchDisposable != null && !searchDisposable!!.isDisposed) {
-                    searchDisposable!!.dispose()
-                }
-                if (binding.searchEditText.isFocused) {
-                    searchDisposable =
-                        Observable.just(s.toString()).debounce(300, TimeUnit.MILLISECONDS)
-                            .subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                            .subscribe { query: String -> performSearch(query) }
-                }
+                searchSubject.onNext(s.toString())
             }
-
             override fun afterTextChanged(s: Editable) {
-                binding.searchClear.visibility =
-                    if (s.toString().isEmpty()) View.GONE else View.VISIBLE
-            }
-
-            private fun performSearch(query: String) {
-                viewModel.isFilter = true
-                controller?.updateSortList(
-                    viewModel.filterBean, query, PrefManager.isReverse
-                )
+                binding.searchClear.visibility = if (s.toString().isEmpty()) View.GONE else View.VISIBLE
             }
         })
     }
 
-    private fun setIcon(drawableId: Int) {
-        binding.searchIcon.setImageDrawable(requireContext().getDrawable(drawableId))
+    private fun setupSearchObservable() {
+        searchDisposable = searchSubject
+            .debounce(300, TimeUnit.MILLISECONDS)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe { query -> performSearch(query) }
+    }
+
+    private fun performSearch(query: String) {
+        viewModel.isFilter = true
+        controller?.updateSortList(
+        viewModel.filterBean, query, PrefManager.isReverse
+        )
+    }
+
+    private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
+        binding.searchIcon.setImageDrawable(getDrawable(drawableId))
+        if (focus) {
+            binding.searchEditText.requestFocus()
+            imm?.showSoftInput(binding.searchEditText, 0)
+        } else {
+            binding.searchEditText.clearFocus()
+            imm?.hideSoftInputFromWindow(binding.searchEditText.windowToken, 0)
+        }
+    }
+
+    private fun getDrawable(drawableId: Int): Drawable? {
+        return requireContext().getDrawable(drawableId)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-            searchDisposable?.dispose()
+        searchDisposable?.dispose()
+        bottomSheetDialog.dismiss()
     }
 
     override fun onBackPressed(): Boolean {

@@ -25,8 +25,6 @@ public class CloseApplication extends Application {
                 Analytics.class, Crashes.class);
 
         AppCompatDelegate.setDefaultNightMode(PrefManager.INSTANCE.getDarkTheme());
-        //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
-        //DynamicColors.applyToActivitiesIfAvailable(this);
     }
 
 }

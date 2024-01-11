@@ -38,10 +38,11 @@ public class RequestHook {
 	private static final String LOG_PREFIX = "[RequestHook] ";
 	private static final Set<String> BLOCKED_LISTS = ConcurrentHashMap.newKeySet(); // 包含策略
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
-	private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
-	        .maximumSize(10000) // 设置缓存的最大容量
-			.expireAfterWrite(10, TimeUnit.MINUTES) // 设置缓存在写入10分钟后失效
-			.build();
+    private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
+            .maximumSize(20000)
+            .expireAfterWrite(6, TimeUnit.HOURS)
+            .softValues() // 软引用存储值
+            .build();
 
 	static {
 		loadBlockedListsAsync();
@@ -173,7 +174,7 @@ public class RequestHook {
 			urlBlockCache.put(fullUrlString, isBlocked);
 		}
 
-		sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", " HTTPS", isBlocked, fullUrlString);
+		sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", " HTTP(S)", isBlocked, fullUrlString);
 		return isBlocked;
 	}
 
