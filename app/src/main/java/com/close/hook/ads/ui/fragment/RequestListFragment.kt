@@ -145,8 +145,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         )
     }
 
-    override fun updateSortList(filterBean: FilterBean?, keyWord: String?, isReverse: Boolean?) {}
-
+    override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {}
 
     override fun onResume() {
         super.onResume()
