@@ -20,7 +20,6 @@ class AboutActivity : AbsAboutActivity() {
         items.add(Category("About"))
         items.add(Card("""
     |这是一个Xposed模块，请在拥有LSPosed框架环境下使用。
-    |(建议关闭LSPosed管理器中的Xposed API调用保护功能，否则导致部分功能失效)
     |
     |
     |主要用于阻止常见平台广告与部分SDK的初始化加载和屏蔽应用的广告请求。
