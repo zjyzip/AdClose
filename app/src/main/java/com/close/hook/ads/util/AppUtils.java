@@ -24,6 +24,8 @@ import java.util.Objects;
 
 public class AppUtils {
 
+    private static final String[] KEYS = {"switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_", "switch_six_" };
+
     public static Drawable getAppIcon(String packageName) {
         try {
             PackageManager pm = context.getPackageManager();
@@ -38,9 +40,7 @@ public class AppUtils {
 
     public static int isAppEnabled(String packageName) {
         PreferencesHelper prefsHelper = new PreferencesHelper(context, "com.close.hook.ads_preferences");
-        String[] prefKeys = { "switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_",
-                "switch_six_" };
-        for (String prefKey : prefKeys) {
+        for (String prefKey : KEYS) {
             if (prefsHelper.getBoolean(prefKey + packageName, false)) {
                 return 1;
             }
