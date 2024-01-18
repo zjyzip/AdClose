@@ -11,8 +11,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.ThemeUtils
-import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.BlockedRequest
@@ -21,39 +21,30 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.text.SimpleDateFormat
 import java.util.Date
 
-
 class BlockedRequestsAdapter(
-    private val context: Context,
-) : RecyclerView.Adapter<BlockedRequestsAdapter.ViewHolder?>() {
-
-
-    private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> =
-        object : DiffUtil.ItemCallback<BlockedRequest>() {
-            override fun areItemsTheSame(
-                oldItem: BlockedRequest,
-                newItem: BlockedRequest
-            ): Boolean {
-                return oldItem.hashCode() == newItem.hashCode()
-            }
-
-            @SuppressLint("DiffUtilEquals")
-            override fun areContentsTheSame(
-                oldItem: BlockedRequest,
-                newItem: BlockedRequest
-            ): Boolean {
-                return oldItem.hashCode() == newItem.hashCode()
-            }
-        }
-
-    private val differ: AsyncListDiffer<BlockedRequest> =
-        AsyncListDiffer<BlockedRequest>(this, DIFF_CALLBACK)
+    private val context: Context
+) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     companion object {
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-    }
 
-    fun submitList(list: List<BlockedRequest?>?) {
-        differ.submitList(list)
+        private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> =
+            object : DiffUtil.ItemCallback<BlockedRequest>() {
+                override fun areItemsTheSame(
+                    oldItem: BlockedRequest,
+                    newItem: BlockedRequest
+                ): Boolean {
+                    return oldItem.hashCode() == newItem.hashCode()
+                }
+
+                @SuppressLint("DiffUtilEquals")
+                override fun areContentsTheSame(
+                    oldItem: BlockedRequest,
+                    newItem: BlockedRequest
+                ): Boolean {
+                    return oldItem.hashCode() == newItem.hashCode()
+                }
+            }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -73,7 +64,7 @@ class BlockedRequestsAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val request = differ.currentList[position]
+        val request = getItem(position)
         with(holder) {
             appName.text = request.appName
             this.request.text = request.request
@@ -87,10 +78,6 @@ class BlockedRequestsAdapter(
             }
             this.request.setTextColor(textColor)
         }
-    }
-
-    override fun getItemCount(): Int {
-        return differ.currentList.size
     }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {

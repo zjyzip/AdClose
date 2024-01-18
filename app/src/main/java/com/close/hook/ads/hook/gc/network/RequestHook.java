@@ -39,7 +39,7 @@ public class RequestHook {
 	private static final Set<String> BLOCKED_LISTS = ConcurrentHashMap.newKeySet(); // 包含策略
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
     private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
-            .maximumSize(20000)
+            .maximumSize(15000)
             .expireAfterWrite(6, TimeUnit.HOURS)
             .softValues() // 软引用存储值
             .build();
@@ -89,31 +89,17 @@ public class RequestHook {
 
 	private static void setupHttpConnectionHook() {
 		try {
-			ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
-			Class<?> httpURLConnectionImplClass = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl",
-					true, systemClassLoader);
-
-			XC_MethodHook httpConnectionHook = new XC_MethodHook() {
+			XposedHelpers.findAndHookMethod(URL.class, "openConnection", new XC_MethodHook() {
 				@Override
 				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
-					URL url = httpURLConnection.getURL();
+					URL url = (URL) param.thisObject;
 					if (shouldBlockHttpsRequest(url)) {
-						BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
-						if ("getInputStream".equals(param.method.getName())) {
-							param.setResult(blockedConnection.getInputStream());
-						} else if ("getOutputStream".equals(param.method.getName())) {
-							param.setResult(blockedConnection.getOutputStream());
-						}
+						param.setResult(new BlockedURLConnection(url));
 					}
 				}
-			};
-
-			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getInputStream", httpConnectionHook);
-			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getOutputStream", httpConnectionHook);
-
+			});
 		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
+			XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
 		}
 	}
 

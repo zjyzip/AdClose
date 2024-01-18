@@ -2,27 +2,21 @@ package com.close.hook.ads.ui.adapter;
 
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
-
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.AsyncListDiffer;
 import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestOptions;
 import com.close.hook.ads.R;
 import com.close.hook.ads.data.model.AppInfo;
 import com.close.hook.ads.databinding.InstallsItemAppBinding;
-
-import java.util.List;
-
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.PublishSubject;
 
-public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder> {
+public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder> {
 
-    private final AsyncListDiffer<AppInfo> differ = new AsyncListDiffer<>(this, DIFF_CALLBACK);
     private final PublishSubject<AppInfo> onClickSubject = PublishSubject.create();
     private final PublishSubject<AppInfo> onLongClickSubject = PublishSubject.create();
 
@@ -38,8 +32,8 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
         }
     };
 
-    public void submitList(List<AppInfo> list) {
-        differ.submitList(list);
+    public AppsAdapter() {
+        super(DIFF_CALLBACK);
     }
 
     public Observable<AppInfo> getOnClickObservable() {
@@ -59,7 +53,7 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
 
     @Override
     public void onBindViewHolder(@NonNull AppViewHolder holder, int position) {
-        AppInfo appInfo = differ.getCurrentList().get(position);
+        AppInfo appInfo = getItem(position); // 使用 getItem 获取当前位置的元素
         holder.bind(appInfo);
 
         holder.binding.getRoot().setOnClickListener(v -> onClickSubject.onNext(appInfo));
@@ -67,11 +61,6 @@ public class AppsAdapter extends RecyclerView.Adapter<AppsAdapter.AppViewHolder>
             onLongClickSubject.onNext(appInfo);
             return true;
         });
-    }
-
-    @Override
-    public int getItemCount() {
-        return differ.getCurrentList().size();
     }
 
     static class AppViewHolder extends RecyclerView.ViewHolder {
