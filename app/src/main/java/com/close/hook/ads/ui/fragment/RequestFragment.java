@@ -15,22 +15,20 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
-import com.close.hook.ads.ui.adapter.UniversalPagerAdapter;
+import com.close.hook.ads.util.IOnTabClickContainer;
+import com.close.hook.ads.util.IOnTabClickListener;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
 import com.close.hook.ads.util.OnCLearCLickContainer;
 import com.close.hook.ads.util.OnClearClickListener;
-import com.close.hook.ads.util.IOnTabClickContainer;
-import com.close.hook.ads.util.IOnTabClickListener;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -79,15 +77,26 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
             return true;
         });
 
-        List<Fragment> fragments = new ArrayList<>();
+        FragmentStateAdapter adapter = new FragmentStateAdapter(this) {
+            @Override
+            public int getItemCount() {
+                return 3;
+            }
 
-        fragments.add(RequestListFragment.newInstance("all"));
-        fragments.add(RequestListFragment.newInstance("block"));
-        fragments.add(RequestListFragment.newInstance("pass"));
-
-        UniversalPagerAdapter adapter = new UniversalPagerAdapter(this, fragments);
+            @NonNull
+            @Override
+            public Fragment createFragment(int position) {
+                if (position == 0) {
+                    return RequestListFragment.newInstance("all");
+                } else if (position == 1) {
+                    return RequestListFragment.newInstance("block");
+                } else {
+                    return RequestListFragment.newInstance("pass");
+                }
+            }
+        };
         viewPager.setAdapter(adapter);
-        viewPager.setOffscreenPageLimit(fragments.size());
+        viewPager.setOffscreenPageLimit(3);
 
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             switch (position) {
@@ -157,7 +166,8 @@ public class RequestFragment extends Fragment implements OnCLearCLickContainer, 
             }
 
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
 
             @Override
             public void afterTextChanged(Editable s) {
