@@ -62,7 +62,7 @@ AdClose能够处理应用内包含以下在内的多种广告SDK：
 - FaceBook Ads
 
 
-## 安装指南
+## 使用指南
 
 在安装AdClose之前，请确保您的设备已经安装LSPosed框架。
 
@@ -86,4 +86,4 @@ AdClose能够处理应用内包含以下在内的多种广告SDK：
 
 获取更多更新和帮助，请关注我们的Telegram频道：
 
-🌟 **频道入口**: @RikkaTi
+🌟 **频道入口**: @AdClose
