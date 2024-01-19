@@ -2,6 +2,7 @@ package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -14,11 +15,11 @@ import android.widget.CheckBox
 import android.widget.CompoundButton
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.databinding.UniversalWithTabsBinding
 import com.close.hook.ads.ui.activity.MainActivity
-import com.close.hook.ads.ui.adapter.UniversalPagerAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.IOnTabClickContainer
@@ -37,12 +38,10 @@ import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayout.OnTabSelectedListener
 import com.google.android.material.tabs.TabLayoutMediator
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Observable
-import io.reactivex.rxjava3.subjects.PublishSubject
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
+import io.reactivex.rxjava3.subjects.PublishSubject
 import java.util.concurrent.TimeUnit
-import android.graphics.drawable.Drawable
 
 class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressListener,
     OnCLearCLickContainer, OnSetHintListener, IOnTabClickContainer {
@@ -193,14 +192,19 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
     }
 
     private fun setupViewPagerAndTabs() {
-        val adapter = UniversalPagerAdapter(
-            this, listOf<Fragment>(
-                AppsFragment.newInstance("user"),
-                AppsFragment.newInstance("configured"),
-                AppsFragment.newInstance("system")
-            )
-        )
-        binding.viewPager.adapter = adapter
+        binding.viewPager.adapter = object : FragmentStateAdapter(this) {
+            override fun createFragment(position: Int): Fragment {
+                return when (position) {
+                    0 -> AppsFragment.newInstance("user")
+                    1 -> AppsFragment.newInstance("configured")
+                    2 -> AppsFragment.newInstance("system")
+                    else -> throw IllegalArgumentException()
+                }
+            }
+
+            override fun getItemCount() = 3
+
+        }
         TabLayoutMediator(
             binding.tabLayout, binding.viewPager
         ) { tab: TabLayout.Tab, position: Int ->
@@ -243,8 +247,10 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
             override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
                 searchSubject.onNext(s.toString())
             }
+
             override fun afterTextChanged(s: Editable) {
-                binding.searchClear.visibility = if (s.toString().isEmpty()) View.GONE else View.VISIBLE
+                binding.searchClear.visibility =
+                    if (s.toString().isEmpty()) View.GONE else View.VISIBLE
             }
         })
     }
@@ -260,7 +266,7 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
     private fun performSearch(query: String) {
         viewModel.isFilter = true
         controller?.updateSortList(
-        viewModel.filterBean, query, PrefManager.isReverse
+            viewModel.filterBean, query, PrefManager.isReverse
         )
     }
 
