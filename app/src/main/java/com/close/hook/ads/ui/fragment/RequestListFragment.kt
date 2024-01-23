@@ -21,6 +21,7 @@ import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
+import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
@@ -144,6 +145,12 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     override fun onReturnTop() {
         binding.recyclerView.scrollToPosition(0)
         (activity as? INavContainer)?.showNavigation()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        (requireParentFragment() as? OnCLearCLickContainer)?.controller = null
+        (requireParentFragment() as? IOnTabClickContainer)?.tabController = null
     }
 
     override fun onResume() {
