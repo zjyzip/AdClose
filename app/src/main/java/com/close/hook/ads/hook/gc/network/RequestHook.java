@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -38,11 +39,10 @@ public class RequestHook {
 	private static final String LOG_PREFIX = "[RequestHook] ";
 	private static final Set<String> BLOCKED_LISTS = ConcurrentHashMap.newKeySet(); // 包含策略
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
-    private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
-            .maximumSize(15000)
-            .expireAfterWrite(6, TimeUnit.HOURS)
-            .softValues() // 软引用存储值
-            .build();
+	private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
+	        .maximumSize(15000)
+			.expireAfterAccess(1, TimeUnit.HOURS) // 更改为最后一次访问后1小时过期
+			.build();
 
 	static {
 		loadBlockedListsAsync();
@@ -66,9 +66,29 @@ public class RequestHook {
 		}
 	}
 
+	private static boolean shouldBlockRequest(String key) {
+		try {
+			return urlBlockCache.get(key, () -> {
+				boolean isBlocked = BLOCKED_LISTS.stream().anyMatch(key::contains);
+				sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", key.contains(":") ? " HTTP(S)" : " DNS",
+						isBlocked, key);
+				return isBlocked;
+			});
+		} catch (ExecutionException e) {
+			XposedBridge.log(LOG_PREFIX + "Error accessing the cache: " + e.getMessage());
+			throw new RuntimeException("Error accessing the cache", e);
+		}
+	}
+
 	private static void setupDNSRequestHook() {
 		XposedHelpers.findAndHookMethod(InetAddress.class, "getByName", String.class, InetAddressHook);
 		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddressHook);
+	}
+
+	private static boolean shouldBlockDnsRequest(String host) {
+		waitForDataLoading();
+		sendBlockedRequestBroadcast("all", " DNS", null, host);
+		return shouldBlockRequest(host);
 	}
 
 	private static final XC_MethodHook InetAddressHook = new XC_MethodHook() {
@@ -89,18 +109,42 @@ public class RequestHook {
 
 	private static void setupHttpConnectionHook() {
 		try {
-			XposedHelpers.findAndHookMethod(URL.class, "openConnection", new XC_MethodHook() {
+			ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
+			Class<?> httpURLConnectionImplClass = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl",
+					true, systemClassLoader);
+
+			XC_MethodHook httpConnectionHook = new XC_MethodHook() {
 				@Override
 				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					URL url = (URL) param.thisObject;
+					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
+					URL url = httpURLConnection.getURL();
 					if (shouldBlockHttpsRequest(url)) {
-						param.setResult(new BlockedURLConnection(url));
+						BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
+						if ("getInputStream".equals(param.method.getName())) {
+							param.setResult(blockedConnection.getInputStream());
+						} else if ("getOutputStream".equals(param.method.getName())) {
+							param.setResult(blockedConnection.getOutputStream());
+						}
 					}
 				}
-			});
+			};
+
+			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getInputStream", httpConnectionHook);
+			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getOutputStream", httpConnectionHook);
+
 		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up URL proxy: " + e.getMessage());
+			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
 		}
+	}
+
+	private static boolean shouldBlockHttpsRequest(URL url) {
+		if (url == null) {
+			return false;
+		}
+		waitForDataLoading();
+		String fullUrlString = url.toString();
+		sendBlockedRequestBroadcast("all", " HTTP(S)", null, fullUrlString);
+		return shouldBlockRequest(fullUrlString);
 	}
 
 	private static void loadBlockedListsAsync() {
@@ -118,50 +162,21 @@ public class RequestHook {
 				}
 				String line;
 				while ((line = reader.readLine()) != null) {
-					BLOCKED_LISTS.add(line.trim());
-					emitter.onNext(line);
+					String trimmedLine = line.trim();
+					BLOCKED_LISTS.add(trimmedLine);
+					urlBlockCache.put(trimmedLine, true); // 添加到缓存
+					emitter.onNext(trimmedLine);
 				}
 				emitter.onComplete();
 			} catch (IOException e) {
 				emitter.onError(e);
 			}
-		}, BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io()).observeOn(Schedulers.computation())
-				.doFinally(loadDataLatch::countDown).subscribe(item -> {
-				}, error -> XposedBridge.log(LOG_PREFIX + errorMessage + ": " + error));
-	}
-
-	private static boolean shouldBlockDnsRequest(String host) {
-		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", " DNS", null, host);
-
-		Boolean isBlocked = urlBlockCache.getIfPresent(host);
-		if (isBlocked == null) {
-			isBlocked = BLOCKED_LISTS.stream().anyMatch(host::contains);
-			urlBlockCache.put(host, isBlocked);
-		}
-
-		sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", " DNS", isBlocked, host);
-		return isBlocked;
-	}
-
-	private static boolean shouldBlockHttpsRequest(URL url) {
-		if (url == null) {
-			return false;
-		}
-
-		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", " HTTP(S)", null, url.toString());
-
-		String fullUrlString = url.toString();
-
-		Boolean isBlocked = urlBlockCache.getIfPresent(fullUrlString);
-		if (isBlocked == null) {
-			isBlocked = BLOCKED_LISTS.stream().anyMatch(fullUrlString::contains);
-			urlBlockCache.put(fullUrlString, isBlocked);
-		}
-
-		sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", " HTTP(S)", isBlocked, fullUrlString);
-		return isBlocked;
+		}, BackpressureStrategy.BUFFER)
+		.subscribeOn(Schedulers.io())
+		.observeOn(Schedulers.computation())
+    	.doFinally(loadDataLatch::countDown)
+    	.subscribe(item -> {}, 
+				   error -> XposedBridge.log(LOG_PREFIX + errorMessage + ": " + error));
 	}
 
 	private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,
