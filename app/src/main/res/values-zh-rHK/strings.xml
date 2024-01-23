@@ -78,4 +78,9 @@
     <string name="cache_clean">缓存清理</string>
     <string name="select_all">全选</string>
     <string name="hide_icon">隐藏桌面图标</string>
+
+    <string name="filter_enabled">已默认启用过滤器</string>
+    <string name="filter_disabled">已取消启用过滤器</string>
+    <string name="sort_by_default">默认排序方式已切换为</string>
+
 </resources>

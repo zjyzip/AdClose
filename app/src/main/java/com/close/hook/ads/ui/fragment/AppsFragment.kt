@@ -305,9 +305,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
     override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
 
-        Log.d("fsdfsdfsdfdsfsdfsd", "filter: ${filterBean.filter}")
-        Log.d("fsdfsdfsdfdsfsdfsd", "title: ${filterBean.title}")
-
         var safeAppInfoList =
             Optional.ofNullable<List<AppInfo>?>(viewModel.appInfoList).orElseGet { emptyList() }
 
@@ -418,6 +415,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
     override fun onClearAll() {}
     override fun search(keyWord: String?) {}
+
+    override fun onStop() {
+        super.onStop()
+        (requireParentFragment() as OnCLearCLickContainer).controller = null
+        (requireParentFragment() as IOnTabClickContainer).tabController = null
+    }
 
     override fun onResume() {
         super.onResume()

@@ -13,6 +13,7 @@ import android.view.View.OnFocusChangeListener
 import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.CompoundButton
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.viewpager2.adapter.FragmentStateAdapter
@@ -170,17 +171,34 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
                 return@setOnClickListener
             }
             if (title == "最近更新" || title == "已禁用" || title == "已配置") {
-                if (chip.isChecked) viewModel.sortList.add(title) else viewModel.sortList.remove(
-                    title
-                )
+                if (chip.isChecked) viewModel.sortList.add(title)
+                else viewModel.sortList.remove(title)
                 when (title) {
                     "已配置" -> PrefManager.configured = chip.isChecked
                     "最近更新" -> PrefManager.updated = chip.isChecked
                     "已禁用" -> PrefManager.disabled = chip.isChecked
                 }
+                if (viewModel.sortList.isEmpty()) {
+                    Toast.makeText(
+                        requireContext(),
+                        requireContext().getString(R.string.filter_disabled),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        requireContext(),
+                        requireContext().getString(R.string.filter_enabled),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             } else {
                 PrefManager.order = title
                 viewModel.filterBean.title = title
+                Toast.makeText(
+                    requireContext(),
+                    "${requireContext().getString(R.string.sort_by_default)}: $title",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             viewModel.filterBean.filter = viewModel.sortList
             viewModel.isFilter = true
@@ -300,10 +318,14 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
         return false
     }
 
+    override fun onStop() {
+        super.onStop()
+        (requireContext() as OnBackPressContainer).controller = null
+    }
+
     override fun onResume() {
         super.onResume()
-        val onBackPressContainer = requireContext() as OnBackPressContainer
-        onBackPressContainer.controller = this
+        (requireContext() as OnBackPressContainer).controller = this
     }
 
     override fun setHint(totalApp: Int) {
