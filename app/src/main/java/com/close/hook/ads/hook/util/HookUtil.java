@@ -30,31 +30,30 @@ public class HookUtil {
 		hookMethods(classLoader, className, new String[] { methodName }, returnValue);
 	}
 
-	public static void hookMethods(ClassLoader classLoader, String className, String[] methodNames,
-			Object returnValue) {
-		Class<?> clazz;
-		try {
-			clazz = Class.forName(className, false, classLoader);
-		} catch (ClassNotFoundException e) {
-	//		XposedBridge.log("Class not found: " + className + ", " + e);
-			return;
-		}
+    public static void hookMethods(ClassLoader classLoader, String className, String[] methodNames, Object returnValue) {
+        Class<?> clazz;
+        try {
+            clazz = Class.forName(className, false, classLoader);
+        } catch (ClassNotFoundException e) {
+    //      XposedBridge.log("Class not found: " + className + ", " + e);
+            return;
+        }
 
-		for (Method method : clazz.getDeclaredMethods()) {
-			String methodName = method.getName();
-			for (String targetMethodName : methodNames) {
-				if (methodName.equals(targetMethodName)) {
-					XposedBridge.hookMethod(method, new XC_MethodReplacement() {
-						@Override
-						protected Object replaceHookedMethod(MethodHookParam param) {
-							return returnValue;
-						}
-					});
-					break;
-				}
-			}
-		}
-	}
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (isTargetMethod(method, methodNames)) {
+                hookMethodWithReplacement(method, returnValue);
+            }
+        }
+    }
+
+    private static boolean isTargetMethod(Method method, String[] targetMethodNames) {
+        for (String targetMethodName : targetMethodNames) {
+            if (method.getName().equals(targetMethodName)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 	private static void hookMethodWithReplacement(Method method, Object returnValue) {
 		XposedBridge.hookMethod(method, new XC_MethodReplacement() {

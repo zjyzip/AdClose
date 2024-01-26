@@ -7,8 +7,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.ByteArrayInputStream;
 import java.util.Map;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.ArrayList;
 
 public class BlockedURLConnection extends HttpURLConnection {
@@ -20,47 +20,45 @@ public class BlockedURLConnection extends HttpURLConnection {
 
     @Override
     public void connect() throws IOException {
-        // 模拟连接过程，但不执行实际的网络连接
-        connected = true;
+        if (!connected) {
+            connected = true;
+        }
     }
 
     @Override
     public void disconnect() {
-        // 断开连接的模拟
-        connected = false;
+        if (connected) {
+            connected = false;
+        }
     }
 
     @Override
     public boolean usingProxy() {
-        // 明确指出不使用代理
         return false;
     }
 
     @Override
-    public InputStream getInputStream() throws IOException {
-        // 模拟空响应体
+    public InputStream getInputStream() {
         return new ByteArrayInputStream(new byte[0]);
     }
 
     @Override
-    public OutputStream getOutputStream() throws IOException {
-        // 模拟输出流，实际不发送数据
+    public OutputStream getOutputStream() {
         return new OutputStream() {
             @Override
-            public void write(int b) throws IOException {
-                // 不执行操作
+            public void write(int b) {
+                // No operation
             }
         };
     }
 
     @Override
-    public String getResponseMessage() throws IOException {
+    public String getResponseMessage() {
         return "Forbidden";
     }
 
     @Override
-    public int getResponseCode() throws IOException {
-        // 返回403 Forbidden来表示被阻止的连接
+    public int getResponseCode() {
         return HttpURLConnection.HTTP_FORBIDDEN;
     }
 
@@ -82,7 +80,6 @@ public class BlockedURLConnection extends HttpURLConnection {
 
     @Override
     public Map<String, List<String>> getRequestProperties() {
-        return headers;
+        return new HashMap<>(headers);
     }
-
 }
