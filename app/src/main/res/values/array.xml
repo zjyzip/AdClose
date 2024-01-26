@@ -3,6 +3,8 @@
     <string-array name="scope">
         <item>com.tencent.qqlive</item>
 
+        <item>com.tencent.mobileqq</item>
+
         <item>cn.kuwo.player</item>
 
         <item>com.weico.international</item>
