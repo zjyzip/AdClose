@@ -12,9 +12,9 @@ import com.close.hook.ads.hook.gc.DisableShakeAd;
 import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
-//import com.close.hook.ads.hook.ha.AppAds;
+import com.close.hook.ads.hook.ha.AppAds;
 import com.close.hook.ads.hook.ha.AppAdsKit;
-//import com.close.hook.ads.hook.ha.SDKAds;
+import com.close.hook.ads.hook.ha.SDKAds;
 import com.close.hook.ads.hook.ha.SDKAdsKit;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.ui.activity.MainActivity;
@@ -95,11 +95,11 @@ public class HookInit implements IXposedHookLoadPackage {
 						AppAdsKit.INSTANCE.blockAds(context);
 					}
 
-				//	AppAds.progress(classLoader, packageName);
+					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
 						SDKAdsKit.INSTANCE.blockAds(context);
-					//	SDKAds.hookAds(classLoader);
+						SDKAds.hookAds(classLoader);
 					}
 				}
 			});
