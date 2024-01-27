@@ -1,17 +1,12 @@
 package com.close.hook.ads.hook.gc.network;
 
 import android.annotation.SuppressLint;
+import androidx.annotation.Nullable;
 import android.app.AndroidAppHelper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.util.Log;
-
-import androidx.annotation.Nullable;
-
-import com.close.hook.ads.data.model.BlockedRequest;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -23,21 +18,32 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+
+import com.close.hook.ads.data.model.BlockedRequest;
+import com.close.hook.ads.data.model.RequestDetails;
+
+import java.util.concurrent.TimeUnit;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.BackpressureStrategy;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-import io.reactivex.rxjava3.core.BackpressureStrategy;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.schedulers.Schedulers;
+
 
 public class RequestHook {
 	private static final String LOG_PREFIX = "[RequestHook] ";
 	private static final Set<String> BLOCKED_LISTS = ConcurrentHashMap.newKeySet(); // 包含策略
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
 	private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
 	        .maximumSize(15000)
@@ -51,7 +57,7 @@ public class RequestHook {
 	public static void init() {
 		try {
 			setupDNSRequestHook();
-			setupHttpConnectionHook();
+			setupHttpRequestHook();
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
 		}
@@ -85,12 +91,6 @@ public class RequestHook {
 		XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddressHook);
 	}
 
-	private static boolean shouldBlockDnsRequest(String host) {
-		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", " DNS", null, host);
-		return shouldBlockRequest(host);
-	}
-
 	private static final XC_MethodHook InetAddressHook = new XC_MethodHook() {
 		@Override
 		protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -107,30 +107,39 @@ public class RequestHook {
 		}
 	};
 
+	private static boolean shouldBlockDnsRequest(String host) {
+		waitForDataLoading();
+		sendBlockedRequestBroadcast("all", " DNS", null, host);
+		return shouldBlockRequest(host);
+	}
+
 	private static void setupHttpConnectionHook() {
 		try {
-			ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
-			Class<?> httpURLConnectionImplClass = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl",
-					true, systemClassLoader);
+			Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
 
-			XC_MethodHook httpConnectionHook = new XC_MethodHook() {
+			XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getInputStream", new XC_MethodHook() {
 				@Override
 				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
 					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
 					URL url = httpURLConnection.getURL();
 					if (shouldBlockHttpsRequest(url)) {
 						BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
-						if ("getInputStream".equals(param.method.getName())) {
-							param.setResult(blockedConnection.getInputStream());
-						} else if ("getOutputStream".equals(param.method.getName())) {
-							param.setResult(blockedConnection.getOutputStream());
-						}
+						param.setResult(blockedConnection.getInputStream());
 					}
 				}
-			};
+			});
 
-			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getInputStream", httpConnectionHook);
-			XposedHelpers.findAndHookMethod(httpURLConnectionImplClass, "getOutputStream", httpConnectionHook);
+			XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getOutputStream", new XC_MethodHook() {
+				@Override
+				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
+					URL url = httpURLConnection.getURL();
+					if (shouldBlockHttpsRequest(url)) {
+						BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
+						param.setResult(blockedConnection.getOutputStream());
+					}
+				}
+			});
 
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
@@ -145,6 +154,76 @@ public class RequestHook {
 		String fullUrlString = url.toString();
 		sendBlockedRequestBroadcast("all", " HTTP(S)", null, fullUrlString);
 		return shouldBlockRequest(fullUrlString);
+	}
+
+    private static void setupHttpRequestHook() {
+        try {
+            Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
+            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "execute", boolean.class, new XC_MethodHook() {
+
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    setupHttpConnectionHook();
+                }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    processRequestAsync(param);
+                }
+            });
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
+        }
+    }
+
+    private static void processRequestAsync(final XC_MethodHook.MethodHookParam param) {
+        executorService.submit(() -> {
+            try {
+                RequestDetails details = processRequest(param);
+                if (details != null) {
+                    logRequestDetails(details);
+                }
+            } catch (Exception e) {
+                XposedBridge.log(LOG_PREFIX + "Error processing request: " + e.getMessage());
+            }
+        });
+    }
+
+	private static RequestDetails processRequest(XC_MethodHook.MethodHookParam param) {
+		try {
+			Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+			Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
+			Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
+
+			String method = (String) XposedHelpers.callMethod(request, "method");
+			String urlString = (String) XposedHelpers.callMethod(request, "urlString");
+			Object requestHeaders = XposedHelpers.callMethod(request, "headers");
+
+			int code = response != null ? (int) XposedHelpers.callMethod(response, "code") : -1;
+			String message = response != null ? (String) XposedHelpers.callMethod(response, "message") : "No response";
+			Object responseHeaders = response != null ? XposedHelpers.callMethod(response, "headers")
+					: "No response headers";
+
+			return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
+		} catch (Exception e) {
+			XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
+			return null;
+		}
+	}
+
+	private static void logRequestDetails(RequestDetails details) {
+		if (details != null) {
+			StringBuilder logBuilder = new StringBuilder();
+			logBuilder.append(LOG_PREFIX).append("Request Details:\n");
+			logBuilder.append("Method: ").append(details.getMethod()).append("\n");
+			logBuilder.append("URL: ").append(details.getUrlString()).append("\n");
+			logBuilder.append("Request Headers: ").append(details.getRequestHeaders().toString()).append("\n");
+			logBuilder.append("Response Code: ").append(details.getResponseCode()).append("\n");
+			logBuilder.append("Response Message: ").append(details.getResponseMessage()).append("\n");
+			logBuilder.append("Response Headers: ").append(details.getResponseHeaders().toString());
+
+			XposedBridge.log(logBuilder.toString());
+		}
 	}
 
 	private static void loadBlockedListsAsync() {
@@ -164,7 +243,6 @@ public class RequestHook {
 				while ((line = reader.readLine()) != null) {
 					String trimmedLine = line.trim();
 					BLOCKED_LISTS.add(trimmedLine);
-					urlBlockCache.put(trimmedLine, true); // 添加到缓存
 					emitter.onNext(trimmedLine);
 				}
 				emitter.onComplete();
