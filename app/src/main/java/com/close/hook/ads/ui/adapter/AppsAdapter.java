@@ -53,7 +53,7 @@ public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder>
 
     @Override
     public void onBindViewHolder(@NonNull AppViewHolder holder, int position) {
-        AppInfo appInfo = getItem(position); // 使用 getItem 获取当前位置的元素
+        AppInfo appInfo = getItem(position);
         holder.bind(appInfo);
 
         holder.binding.getRoot().setOnClickListener(v -> onClickSubject.onNext(appInfo));
@@ -82,15 +82,11 @@ public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder>
                             .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
                     .into(binding.appIcon);
         }
-
-        void unbind() {
-            Glide.with(binding.appIcon.getContext()).clear(binding.appIcon);
-        }
     }
 
     @Override
     public void onViewRecycled(@NonNull AppViewHolder holder) {
-        holder.unbind();
         super.onViewRecycled(holder);
+        Glide.with(holder.binding.appIcon.getContext()).clear(holder.binding.appIcon);
     }
 }
