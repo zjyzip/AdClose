@@ -63,6 +63,7 @@ class BlockedRequestsAdapter(
         }
     }
 
+    @SuppressLint("RestrictedApi")
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val request = getItem(position)
         with(holder) {
