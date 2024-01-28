@@ -60,6 +60,25 @@ class BlockedRequestsAdapter(
                     .show()
                 true
             }
+
+            itemView.setOnClickListener {
+                if (!urlString.isNullOrEmpty())
+                    MaterialAlertDialogBuilder(parent.context).apply {
+                        setTitle("请求参数")
+                        setMessage(
+                            """
+method: $method
+urlString: $urlString
+requestHeaders: $requestHeaders
+responseCode: $responseCode
+responseMessage: $responseMessage
+responseHeaders: $responseHeaders
+                """.trimIndent()
+                        )
+                        setPositiveButton("关闭", null)
+                        show()
+                    }
+            }
         }
     }
 
@@ -67,7 +86,8 @@ class BlockedRequestsAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val request = getItem(position)
         with(holder) {
-            appName.text = request.appName
+            appName.text = if (request.urlString.isNullOrEmpty()) request.appName
+            else "${request.appName} LOG"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
             icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
@@ -75,9 +95,18 @@ class BlockedRequestsAdapter(
             val textColor = if (request.requestType == "all" && request.isBlocked == true) {
                 ThemeUtils.getThemeAttrColor(context, com.google.android.material.R.attr.colorError)
             } else {
-                ThemeUtils.getThemeAttrColor(context, com.google.android.material.R.attr.colorControlNormal)
+                ThemeUtils.getThemeAttrColor(
+                    context,
+                    com.google.android.material.R.attr.colorControlNormal
+                )
             }
             this.request.setTextColor(textColor)
+            method = request.method
+            urlString = request.urlString
+            requestHeaders = request.requestHeaders
+            responseCode = request.responseCode
+            responseMessage = request.responseMessage
+            responseHeaders = request.responseHeaders
         }
     }
 
@@ -86,5 +115,11 @@ class BlockedRequestsAdapter(
         val request: TextView = view.findViewById(R.id.request)
         val timestamp: TextView = view.findViewById(R.id.timestamp)
         val icon: ImageView = view.findViewById(R.id.icon)
+        var method: String? = null
+        var urlString: String? = null
+        var requestHeaders: String? = null
+        var responseCode = -1
+        var responseMessage: String? = null
+        var responseHeaders: String? = null
     }
 }
