@@ -31,6 +31,14 @@
             android:layout_height="wrap_content"
             android:textSize="14sp" />
 
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/design_about_info"
+            android:layout_marginTop="24dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="?android:textColorSecondary" />
+
     </LinearLayout>
 
 </LinearLayout>
