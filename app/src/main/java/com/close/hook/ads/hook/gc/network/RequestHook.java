@@ -109,8 +109,9 @@ public class RequestHook {
 
 	private static boolean shouldBlockDnsRequest(String host) {
 		waitForDataLoading();
-		sendBlockedRequestBroadcast("all", " DNS", null, host);
-		return shouldBlockRequest(host);
+		Boolean shouldBlock = shouldBlockRequest(host);
+		sendBlockedRequestBroadcast("all", " DNS", shouldBlock, host);
+		return shouldBlock;
 	}
 
 	private static void setupHttpConnectionHook() {
@@ -152,8 +153,9 @@ public class RequestHook {
 		}
 		waitForDataLoading();
 		String fullUrlString = url.toString();
-		sendBlockedRequestBroadcast("all", " HTTP(S)", null, fullUrlString);
-		return shouldBlockRequest(fullUrlString);
+		Boolean shouldBlock = shouldBlockRequest(fullUrlString);
+		sendBlockedRequestBroadcast("all", " HTTP(S)", shouldBlock, fullUrlString);
+		return shouldBlock;
 	}
 
     private static void setupHttpRequestHook() {
@@ -253,7 +255,7 @@ public class RequestHook {
 		.subscribeOn(Schedulers.io())
 		.observeOn(Schedulers.computation())
     	.doFinally(loadDataLatch::countDown)
-    	.subscribe(item -> {}, 
+    	.subscribe(item -> {},
 				   error -> XposedBridge.log(LOG_PREFIX + errorMessage + ": " + error));
 	}
 
