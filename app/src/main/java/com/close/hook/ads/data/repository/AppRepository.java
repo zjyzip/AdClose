@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.util.Log;
 
 import com.close.hook.ads.data.model.AppInfo;
@@ -13,7 +14,6 @@ import com.close.hook.ads.ui.activity.MainActivity;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import io.reactivex.rxjava3.core.Observable;
@@ -37,7 +37,7 @@ public class AppRepository {
     }
 
     private Observable<List<AppInfo>> getInstalledApps(boolean isSystem) {
-        return Observable.defer(() -> Observable.just(fetchInstalledApps(isSystem)))
+        return Observable.fromCallable(() -> fetchInstalledApps(isSystem))
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnError(e -> Log.e(TAG, "Error fetching apps: ", e))
@@ -46,7 +46,7 @@ public class AppRepository {
 
     private List<AppInfo> fetchInstalledApps(boolean isSystem) {
         List<PackageInfo> allPackages = packageManager.getInstalledPackages(0);
-        List<AppInfo> appList = new LinkedList<>();
+        List<AppInfo> appList = new ArrayList<>();
         for (PackageInfo packageInfo : allPackages) {
             if (isSystemApp(packageInfo.applicationInfo) == isSystem) {
                 appList.add(createAppInfo(packageInfo));
@@ -61,32 +61,27 @@ public class AppRepository {
     }
 
     private AppInfo createAppInfo(PackageInfo packageInfo) {
-        String appName = getAppName(packageInfo.applicationInfo);
-        String versionName = getAppVersion(packageInfo);
-        int versionCode = packageInfo.versionCode;
-        Drawable appIcon = getAppIcon(packageInfo.applicationInfo);
+        String appName = packageManager.getApplicationLabel(packageInfo.applicationInfo).toString();
+        Drawable appIcon = packageManager.getApplicationIcon(packageInfo.applicationInfo);
         long size = new File(packageInfo.applicationInfo.sourceDir).length();
-        int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
-        int isAppEnable = getIsAppEnable(packageInfo.packageName);
-        int isEnable = MainActivity.isModuleActivated() ? isAppEnabled(packageInfo.packageName) : 0;
+        int versionCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? (int) packageInfo.getLongVersionCode() : packageInfo.versionCode;
 
-        return new AppInfo(appName, packageInfo.packageName, appIcon, versionName, versionCode,
-                           packageInfo.firstInstallTime, packageInfo.lastUpdateTime, size, targetSdk, isAppEnable, isEnable);
+        return new AppInfo(
+            appName,
+            packageInfo.packageName,
+            appIcon,
+            packageInfo.versionName,
+            versionCode,
+            packageInfo.firstInstallTime,
+            packageInfo.lastUpdateTime,
+            size,
+            packageInfo.applicationInfo.targetSdkVersion,
+            getIsAppEnable(packageInfo.packageName),
+            MainActivity.isModuleActivated() ? isAppEnabled(packageInfo.packageName) : 0
+        );
     }
 
     private int getIsAppEnable(String packageName) {
         return packageManager.getApplicationEnabledSetting(packageName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED ? 1 : 0;
-    }
-
-    private String getAppName(ApplicationInfo appInfo) {
-        return (String) packageManager.getApplicationLabel(appInfo);
-    }
-
-    private Drawable getAppIcon(ApplicationInfo appInfo) {
-        return packageManager.getApplicationIcon(appInfo);
-    }
-
-    private String getAppVersion(PackageInfo packageInfo) {
-        return packageInfo.versionName;
     }
 }

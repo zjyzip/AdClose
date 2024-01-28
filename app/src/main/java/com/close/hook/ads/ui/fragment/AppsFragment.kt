@@ -156,18 +156,22 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
     private fun setupAdapterItemClick() {
         disposables.add(appsAdapter.onClickObservable.observeOn(AndroidSchedulers.mainThread())
-            .subscribe { appInfo: AppInfo ->
-                if (MainActivity.isModuleActivated()) {
-                    showBottomSheetDialog(appInfo)
-                } else {
-                    AppUtils.showToast(requireContext(), "模块尚未被激活")
+            .subscribe { packageName: String ->
+                val appInfo = viewModel.appInfoList.find { it.packageName == packageName }
+                if (appInfo != null) {
+                    if (MainActivity.isModuleActivated()) {
+                        showBottomSheetDialog(appInfo)
+                    } else {
+                        AppUtils.showToast(requireContext(), "模块尚未被激活")
+                    }
                 }
             })
+
         disposables.add(appsAdapter.onLongClickObservable.observeOn(AndroidSchedulers.mainThread())
-            .subscribe { appInfo: AppInfo ->
+            .subscribe { packageName: String ->
                 val intent = Intent()
-                intent.setAction("android.settings.APPLICATION_DETAILS_SETTINGS")
-                intent.setData(Uri.fromParts("package", appInfo.packageName, null))
+                intent.action = "android.settings.APPLICATION_DETAILS_SETTINGS"
+                intent.data = Uri.fromParts("package", packageName, null)
                 try {
                     requireContext().startActivity(intent)
                 } catch (e: ActivityNotFoundException) {
@@ -304,94 +308,53 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     }
 
     override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
+        val safeAppInfoList = viewModel.appInfoList ?: emptyList()
 
-        var safeAppInfoList =
-            Optional.ofNullable<List<AppInfo>?>(viewModel.appInfoList).orElseGet { emptyList() }
-
-        if (filterBean.filter.isNotEmpty())
-            for (title in filterBean.filter) {
-                safeAppInfoList =
-                    safeAppInfoList.stream().filter(getAppInfoFilter(title, keyWord))
-                        .collect(Collectors.toList())
+        val filteredList = if (filterBean.filter.isNotEmpty()) {
+            filterBean.filter.fold(safeAppInfoList) { list, title ->
+                list.filter { appInfo ->
+                    getAppInfoFilter(title, keyWord)(appInfo)
+                }
             }
-        else
-            safeAppInfoList =
-                safeAppInfoList.stream().filter(getAppInfoFilter(null, keyWord))
-                    .collect(Collectors.toList())
+        } else {
+            safeAppInfoList.filter { getAppInfoFilter(null, keyWord)(it) }
+        }
 
-        var comparator: Comparator<AppInfo> = getAppInfoComparator(filterBean.title)
-        if (isReverse)
-            comparator = comparator.reversed()
-        disposables.add(
-            Observable.fromIterable(safeAppInfoList).sorted(comparator).toList()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({ sortedList: List<AppInfo?>? ->
-                    viewModel.filterList.clear()
-                    sortedList?.let {
-                        viewModel.filterList.addAll(it)
-                    }
-                    appsAdapter.submitList(sortedList)
-                    (requireParentFragment() as OnSetHintListener).setHint(
-                        if (sortedList.isNullOrEmpty()) 0
-                        else sortedList.size
-                    )
-                }, { throwable: Throwable? ->
-                    Log.e("AppsFragment", "Error in updateSortList", throwable)
-                })
-        )
+        val comparator = getAppInfoComparator(filterBean.title).let { if (isReverse) it.reversed() else it }
+        val sortedList = filteredList.sortedWith(comparator)
+
+        viewModel.filterList.clear()
+        viewModel.filterList.addAll(sortedList)
+        appsAdapter.submitList(sortedList)
+        (requireParentFragment() as OnSetHintListener).setHint(sortedList.size)
     }
 
     private fun getAppInfoComparator(title: String): Comparator<AppInfo> {
-        return when (title) {
-            "应用大小" -> Comparator.comparingLong { obj: AppInfo -> obj.size }
-
-            "最近更新时间" -> Comparator.comparing { obj: AppInfo -> obj.lastUpdateTime }
-
-            "安装日期" -> Comparator.comparing { obj: AppInfo -> obj.firstInstallTime }
-
-            "Target 版本" -> Comparator.comparingInt { obj: AppInfo -> obj.targetSdk }
-
-            else -> Comparator.comparing(
-                { obj: AppInfo -> obj.appName }, java.lang.String.CASE_INSENSITIVE_ORDER
-            )
+    return when (title) {
+            "应用大小" -> compareBy { it.size }
+            "最近更新时间" -> compareBy { it.lastUpdateTime }
+            "安装日期" -> compareBy { it.firstInstallTime }
+            "Target 版本" -> compareBy { it.targetSdk }
+            else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
     }
 
-
-    private fun getAppInfoFilter(title: String?, keyWord: String): Predicate<AppInfo> {
+    private fun getAppInfoFilter(title: String?, keyWord: String): (AppInfo) -> Boolean {
         val time = 3 * 24 * 3600L
-        return when (title) {
-            "已配置" -> Predicate<AppInfo> { appInfo: AppInfo ->
-                ((appInfo.appName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault()))
-                        || appInfo.packageName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault())))
-                        && appInfo.isEnable == 1)
-            }
-
-            "最近更新" -> Predicate<AppInfo> { appInfo: AppInfo ->
-                ((appInfo.appName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault()))
-                        || appInfo.packageName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault())))
-                        && System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time)
-            }
-
-            "已禁用" -> Predicate<AppInfo> { appInfo: AppInfo ->
-                ((appInfo.appName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault()))
-                        || appInfo.packageName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault())))
-                        && appInfo.isAppEnable == 0)
-            }
-
-            else -> Predicate<AppInfo> { appInfo: AppInfo ->
-                appInfo.appName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault()))
-                        || appInfo.packageName.lowercase(Locale.getDefault())
-                    .contains(keyWord.lowercase(Locale.getDefault()))
+        return { appInfo: AppInfo ->
+            when (title) {
+                "已配置" -> appInfo.isEnable == 1 && appInfo.matchesKeyword(keyWord)
+                "最近更新" -> System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time && appInfo.matchesKeyword(keyWord)
+                "已禁用" -> appInfo.isAppEnable == 0 && appInfo.matchesKeyword(keyWord)
+                else -> appInfo.matchesKeyword(keyWord)
             }
         }
+    }
+
+    private fun AppInfo.matchesKeyword(keyWord: String): Boolean {
+        val lowerCaseKeyword = keyWord.lowercase(Locale.getDefault())
+        return this.appName.lowercase(Locale.getDefault()).contains(lowerCaseKeyword) ||
+               this.packageName.lowercase(Locale.getDefault()).contains(lowerCaseKeyword)
     }
 
     override fun onDestroyView() {
