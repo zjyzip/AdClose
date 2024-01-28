@@ -30,37 +30,6 @@ AdClose支持众多流行的Android应用，包括但不限于：
 
 ## 广告SDK处理(此部分内容并不开放)
 
-AdClose能够处理应用内包含以下在内的多种广告SDK：
-
-- Kwai Ads
-- Tanx Ads
-- Baidu Ads
-- Xiaomi Ads
-- Tencent Ads
-- Huawei Ads
-- Umeng SDK
-- MeiShu Ads
-- Vungle Sdk
-- Qumeng Ads
-- Sigmob Ads
-- Applovin Sdk
-- Unity3d Ads
-- Google Ads
-- Pinduoduo Ads
-- Appic Ads
-- AdScope
-- BJXingu Ads
-- Ali BaiChuan Ads
-- Tencent SDK
-- Mbridge Ads
-- Mintegral Ads
-- ADSuyiSdk Ads
-- XinwuPaijin Ads
-- XiaoChuang Ads-ZuiYou
-- ByteDance (Pangolin) Ads
-- ByteDance (Pangolin) GroMore
-- FaceBook Ads
-
 
 ## 使用指南
 
