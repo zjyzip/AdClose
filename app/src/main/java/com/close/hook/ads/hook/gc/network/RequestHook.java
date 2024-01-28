@@ -234,9 +234,9 @@ public class RequestHook {
 			logBuilder.append("Response Code: ").append(details.getResponseCode()).append("\n");
 			logBuilder.append("Response Message: ").append(details.getResponseMessage()).append("\n");
 			logBuilder.append("Response Headers: ").append(details.getResponseHeaders().toString());
-*/
-			XposedBridge.log(logBuilder.toString());
 
+			XposedBridge.log(logBuilder.toString());
+*/
 			method = details.getMethod();
 			urlString = details.getUrlString();
 			if (details.getRequestHeaders() != null) {
