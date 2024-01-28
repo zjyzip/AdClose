@@ -49,6 +49,17 @@ public class RequestHook {
 	        .maximumSize(15000)
 			.expireAfterAccess(1, TimeUnit.HOURS) // 更改为最后一次访问后1小时过期
 			.build();
+	@Nullable
+	private static String method;
+	@Nullable
+	private static String urlString;
+	@Nullable
+	private static String requestHeaders;
+	private static int responseCode = -1;
+	@Nullable
+	private static String responseMessage;
+	@Nullable
+	private static String responseHeaders;
 
 	static {
 		loadBlockedListsAsync();
@@ -225,6 +236,22 @@ public class RequestHook {
 			logBuilder.append("Response Headers: ").append(details.getResponseHeaders().toString());
 
 			XposedBridge.log(logBuilder.toString());
+
+			method = details.getMethod();
+			urlString = details.getUrlString();
+			if (details.getRequestHeaders() != null) {
+				requestHeaders = details.getRequestHeaders().toString();
+			} else {
+				requestHeaders = "";
+			}
+			responseCode = details.getResponseCode();
+			responseMessage = details.getResponseMessage();
+			if (details.getResponseHeaders() != null) {
+				responseHeaders = details.getResponseHeaders().toString();
+			} else {
+				responseHeaders = "";
+			}
+
 		}
 	}
 
@@ -286,7 +313,9 @@ public class RequestHook {
 			appName += requestType;
 			String packageName = currentContext.getPackageName();
 			BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
-					System.currentTimeMillis(), type, isBlocked);
+					System.currentTimeMillis(), type, isBlocked, method, urlString, requestHeaders,
+					responseCode, responseMessage, responseHeaders);
+			urlString = null;
 
 			intent.putExtra("request", blockedRequest);
 			AndroidAppHelper.currentApplication().sendBroadcast(intent);

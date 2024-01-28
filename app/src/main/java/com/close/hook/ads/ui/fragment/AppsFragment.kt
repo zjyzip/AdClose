@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -117,40 +118,39 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     }
 
     private fun setupLiveDataObservation() {
-        when (type) {
-            "configured" -> {
-                val userAppsLiveData: LiveData<List<AppInfo>> = viewModel.userAppsLiveData
-                userAppsLiveData.observe(viewLifecycleOwner) { appInfoList ->
-                    if (viewModel.appInfoList.isEmpty()) {
-                        viewModel.appInfoList.addAll(appInfoList.filter { it.isEnable == 1 })
-                        val systemAppsLiveData: LiveData<List<AppInfo>> =
-                            viewModel.systemAppsLiveData
-                        systemAppsLiveData.observe(viewLifecycleOwner) { systemAppInfoList ->
-                            if (binding.progressBar.visibility == View.VISIBLE) {
-                                viewModel.appInfoList.addAll(systemAppInfoList.filter { it.isEnable == 1 })
-                                viewModel.isFilter = true
-                                viewModel.filterBean.filter.clear()
-                                updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
-                                binding.progressBar.visibility = View.GONE
-                            }
-                        }
-                    }
-                }
-            }
+        val appInfoMediatorLiveData = MediatorLiveData<List<AppInfo>>()
 
-            else -> {
-                val appsLiveData: LiveData<List<AppInfo>> =
-                    if (type == "user") viewModel.userAppsLiveData
-                    else viewModel.systemAppsLiveData
-                appsLiveData.observe(viewLifecycleOwner) { appInfoList ->
-                    if (viewModel.appInfoList.isEmpty()) {
-                        binding.progressBar.visibility = View.GONE
-                        viewModel.appInfoList.addAll(appInfoList)
-                        viewModel.isFilter = true
-                        updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
-                    }
-                }
+        if (type == "configured" || type == "user") {
+            appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { userApps ->
+                appInfoMediatorLiveData.value = processAppInfoList(userApps, "user")
             }
+        }
+        if (type == "configured" || type == "system") {
+            appInfoMediatorLiveData.addSource(viewModel.systemAppsLiveData) { systemApps ->
+                appInfoMediatorLiveData.value = processAppInfoList(systemApps, "system")
+            }
+        }
+
+        appInfoMediatorLiveData.observe(viewLifecycleOwner) { combinedAppInfoList ->
+            handleCombinedAppInfoList(combinedAppInfoList)
+        }
+    }
+
+    private fun processAppInfoList(appInfoList: List<AppInfo>, appType: String): List<AppInfo> {
+        return appInfoList.filter { appInfo ->
+            when (type) {
+                "configured" -> appInfo.isEnable == 1
+                else -> true
+            }
+        }
+    }
+
+    private fun handleCombinedAppInfoList(combinedAppInfoList: List<AppInfo>) {
+        if (viewModel.appInfoList.isEmpty()) {
+            viewModel.appInfoList.addAll(combinedAppInfoList)
+            viewModel.isFilter = true
+            updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
+            binding.progressBar.visibility = View.GONE
         }
     }
 
