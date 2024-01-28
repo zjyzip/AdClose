@@ -17,8 +17,8 @@ import io.reactivex.rxjava3.subjects.PublishSubject;
 
 public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder> {
 
-    private final PublishSubject<AppInfo> onClickSubject = PublishSubject.create();
-    private final PublishSubject<AppInfo> onLongClickSubject = PublishSubject.create();
+    private final PublishSubject<String> onClickSubject = PublishSubject.create();
+    private final PublishSubject<String> onLongClickSubject = PublishSubject.create();
 
     private static final DiffUtil.ItemCallback<AppInfo> DIFF_CALLBACK = new DiffUtil.ItemCallback<AppInfo>() {
         @Override
@@ -28,7 +28,9 @@ public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder>
 
         @Override
         public boolean areContentsTheSame(@NonNull AppInfo oldItem, @NonNull AppInfo newItem) {
-            return oldItem.equals(newItem);
+            return oldItem.getAppName().equals(newItem.getAppName()) &&
+                   oldItem.getVersionName().equals(newItem.getVersionName()) &&
+                   oldItem.getVersionCode() == newItem.getVersionCode();
         }
     };
 
@@ -36,11 +38,11 @@ public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder>
         super(DIFF_CALLBACK);
     }
 
-    public Observable<AppInfo> getOnClickObservable() {
+    public Observable<String> getOnClickObservable() {
         return onClickSubject;
     }
 
-    public Observable<AppInfo> getOnLongClickObservable() {
+    public Observable<String> getOnLongClickObservable() {
         return onLongClickSubject;
     }
 
@@ -56,9 +58,9 @@ public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder>
         AppInfo appInfo = getItem(position);
         holder.bind(appInfo);
 
-        holder.binding.getRoot().setOnClickListener(v -> onClickSubject.onNext(appInfo));
+        holder.binding.getRoot().setOnClickListener(v -> onClickSubject.onNext(appInfo.getPackageName()));
         holder.binding.getRoot().setOnLongClickListener(v -> {
-            onLongClickSubject.onNext(appInfo);
+            onLongClickSubject.onNext(appInfo.getPackageName());
             return true;
         });
     }
