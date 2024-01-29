@@ -14,9 +14,9 @@ public class DisableFlagSecure {
     }
 
     private static void hookMethods() {
-        HookUtil.hookMethod(Window.class, "setFlags", param -> handleFlagSecure(param));
-        HookUtil.hookMethod(Window.class, "addFlags", param -> handleFlagSecure(param));
-        HookUtil.hookMethod(Dialog.class, "setFlags", param -> handleFlagSecure(param));
+        HookUtil.hookAllMethods(Window.class, "setFlags", param -> handleFlagSecure(param));
+        HookUtil.hookAllMethods(Window.class, "addFlags", param -> handleFlagSecure(param));
+        HookUtil.hookAllMethods(Dialog.class, "setFlags", param -> handleFlagSecure(param));
         HookUtil.hookAllConstructors(WindowManager.LayoutParams.class, param -> handleFlagSecure(param));
     }
 

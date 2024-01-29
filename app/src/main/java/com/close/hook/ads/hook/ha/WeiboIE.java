@@ -56,7 +56,7 @@ public class WeiboIE {
 	}
 
 	private static void blockQueryUveAdRequest(ClassLoader classLoader) {
-		HookUtil.hookMethod(XposedHelpers.findClass("com.weico.international.api.RxApiKt", classLoader),
+		HookUtil.hookAllMethods(XposedHelpers.findClass("com.weico.international.api.RxApiKt", classLoader),
 				"queryUveAdRequest", param -> {
 					Map<String, Object> map = (Map<String, Object>) param.args[0];
 					map.remove("ip");

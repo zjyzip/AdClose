@@ -1,5 +1,7 @@
 package com.close.hook.ads.hook.gc;
 
+import com.close.hook.ads.hook.util.HookUtil;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -7,9 +9,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 /*
  * 2023.12.8-10:14
@@ -45,28 +45,25 @@ public class HideEnvi {
     private static final String[] MAGISK_FEATURES = {"/.magisk", "MAGISK_INJ_"};
 
     public static void handle() {
-        try {
-            XposedHelpers.findAndHookMethod(File.class, "exists", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    File file = (File) param.thisObject;
-                    if (XPOSED_MAGISK_PATHS.contains(file.getAbsolutePath())) {
-                        param.setResult(false);
-                    }
-                }
-            });
+        hideXposedMagiskPaths();
+        hideXposedMagiskInExec();
+    }
 
-            XposedBridge.hookAllMethods(Runtime.class, "exec", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if (detectXposedOrMagiskInMemory()) {
-                        param.setResult(null);
-                    }
-                }
-            });
-        } catch (Exception e) {
-            XposedBridge.log("HideEnvi Error: " + e.getMessage());
-        }
+    private static void hideXposedMagiskPaths() {
+        HookUtil.hookAllMethods(File.class, "exists", param -> {
+            File file = (File) param.thisObject;
+            if (XPOSED_MAGISK_PATHS.contains(file.getAbsolutePath())) {
+                param.setResult(false);
+            }
+        });
+    }
+
+    private static void hideXposedMagiskInExec() {
+        HookUtil.hookAllMethods(Runtime.class, "exec", param -> {
+            if (detectXposedOrMagiskInMemory()) {
+                param.setResult(null);
+            }
+        });
     }
 
     private static boolean detectXposedOrMagiskInMemory() {
