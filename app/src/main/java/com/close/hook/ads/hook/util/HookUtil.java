@@ -64,7 +64,7 @@ public class HookUtil {
 		});
 	}
 
-	public static void hookMethod(Class<?> clazz, String methodName, Consumer<XC_MethodHook.MethodHookParam> action) {
+	public static void hookAllMethods(Class<?> clazz, String methodName, Consumer<XC_MethodHook.MethodHookParam> action) {
 		try {
 			XposedBridge.hookAllMethods(clazz, methodName, new XC_MethodHook() {
 				@Override

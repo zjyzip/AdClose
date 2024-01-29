@@ -7,13 +7,13 @@ public class SDKAds {
 
 	private static final HookInfo[] HOOK_INFOS = {
 
-			new HookInfo("com.ap.android.trunk.sdk.core.APSDK", "init", null),
+		new HookInfo("com.ap.android.trunk.sdk.core.APSDK", "init", null),
 
-			new HookInfo("cn.xiaochuankeji.hermes.core.workflow.init.InitUtil", "init", false),
+		new HookInfo("cn.xiaochuankeji.hermes.core.workflow.init.InitUtil", "init", false),
 
-			new HookInfo("com.qq.e.comm.managers.status.SDKStatus", "getPluginVersion", 0),
+		new HookInfo("com.qq.e.comm.managers.status.SDKStatus", "getPluginVersion", 0),
 
-			new HookInfo("com.bytedance.sdk.openadsdk.TTAdSdk", new String[] { "init", "start" }, null)
+		new HookInfo("com.bytedance.sdk.openadsdk.TTAdSdk", new String[] { "init", "start" }, null)
 
 	};
 
