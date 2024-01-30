@@ -36,7 +36,7 @@
 
     <string name="remove_flag_secure">移除截图录屏限制</string>
     <string name="remove_vpn_state">去除VPN与系统代理检测</string>
-    <string name="remove_sensor_monitor">移除传感器监听</string>
+    <string name="remove_sensor_monitor">移除加速度传感器注册</string>
     <string name="remove_envi_detection">去除环境检测</string>
 
     <string name="settings_theme">主题</string>

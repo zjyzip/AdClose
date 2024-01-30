@@ -10,7 +10,7 @@ object DexKitUtil {
     @Volatile private var bridge: DexKitBridge? = null
     private val methodCache = CacheBuilder.newBuilder()
         .maximumSize(100)
-        .expireAfterAccess(30, TimeUnit.MINUTES)
+		.expireAfterAccess(1, TimeUnit.HOURS)
         .build<String, List<MethodData>>()
 
     @Synchronized
