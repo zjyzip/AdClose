@@ -46,9 +46,10 @@ public class RequestHook {
     private static final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 	private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
 	private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
-	        .maximumSize(15000)
-			.expireAfterAccess(1, TimeUnit.HOURS) // 更改为最后一次访问后1小时过期
-			.build();
+        .maximumSize(15000)
+		.expireAfterAccess(1, TimeUnit.HOURS) // 更改为最后一次访问后1小时过期
+		.build();
+
 	@Nullable
 	private static String method;
 	@Nullable
@@ -125,39 +126,34 @@ public class RequestHook {
 		return shouldBlock;
 	}
 
-	private static void setupHttpConnectionHook() {
-		try {
-			Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
+    private static void setupHttpConnectionHook() {
+        try {
+            Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
 
-			XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getInputStream", new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
-					URL url = httpURLConnection.getURL();
-					if (shouldBlockHttpsRequest(url)) {
-						BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
-						param.setResult(blockedConnection.getInputStream());
-					}
-				}
-			});
+            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getInputStream", httpConnectionHook);
+            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getOutputStream", httpConnectionHook);
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
+        }
+    }
 
-			XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getOutputStream", new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
-					URL url = httpURLConnection.getURL();
-					if (shouldBlockHttpsRequest(url)) {
-						BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
-						param.setResult(blockedConnection.getOutputStream());
-					}
-				}
-			});
-
-		} catch (Exception e) {
-			XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
-		}
-	}
-
+	private static final XC_MethodHook httpConnectionHook = new XC_MethodHook() {
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
+            URL url = httpURLConnection.getURL();
+            if (shouldBlockHttpsRequest(url)) {
+                BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
+                String methodName = param.method.getName();
+                if ("getInputStream".equals(methodName)) {
+                    param.setResult(blockedConnection.getInputStream());
+                } else if ("getOutputStream".equals(methodName)) {
+                    param.setResult(blockedConnection.getOutputStream());
+                }
+            }
+        }
+    };
+    
 	private static boolean shouldBlockHttpsRequest(URL url) {
 		if (url == null) {
 			return false;
