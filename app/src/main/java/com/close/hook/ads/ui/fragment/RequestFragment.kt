@@ -1,25 +1,34 @@
 package com.close.hook.ads.ui.fragment
 
 import android.content.Context
+import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.MenuItem
 import android.view.View
 import android.view.View.OnFocusChangeListener
 import android.view.inputmethod.InputMethodManager
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHostsBinding
 import com.close.hook.ads.ui.fragment.RequestListFragment.Companion.newInstance
+import com.close.hook.ads.util.DensityTool
+import com.close.hook.ads.util.IOnFabClickContainer
+import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
+import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayout.OnTabSelectedListener
 import com.google.android.material.tabs.TabLayoutMediator
@@ -31,14 +40,15 @@ import java.util.concurrent.TimeUnit
 
 
 class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContainer,
-    OnBackPressListener,
-    IOnTabClickContainer {
+    OnBackPressListener, IOnTabClickContainer, IOnFabClickContainer {
 
     private var imm: InputMethodManager? = null
     private var lastSearchQuery = ""
     override var controller: OnClearClickListener? = null
     override var tabController: IOnTabClickListener? = null
+    override var fabController: IOnFabClickListener? = null
     private var searchDisposable: Disposable? = null
+    private val fabViewBehavior by lazy { HideBottomViewOnScrollBehavior<FloatingActionButton>() }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -86,6 +96,8 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
             override fun onTabUnselected(tab: TabLayout.Tab) {}
             override fun onTabReselected(tab: TabLayout.Tab) {
                 tabController!!.onReturnTop()
+                if (fabViewBehavior.isScrolledDown)
+                    fabViewBehavior.slideUp(binding.fab)
             }
         })
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
@@ -96,6 +108,31 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
             }
         })
         initEditText()
+        initFab()
+    }
+
+    private fun initFab() {
+        val lp = CoordinatorLayout.LayoutParams(
+            CoordinatorLayout.LayoutParams.WRAP_CONTENT,
+            CoordinatorLayout.LayoutParams.WRAP_CONTENT
+        )
+        lp.setMargins(
+            0,
+            0,
+            25.dp,
+            if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT)
+                DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
+            else 25.dp
+        )
+        lp.gravity = Gravity.BOTTOM or Gravity.END
+        binding.fab.apply {
+            layoutParams = lp
+            (layoutParams as CoordinatorLayout.LayoutParams).behavior = fabViewBehavior
+            visibility = View.VISIBLE
+            setOnClickListener {
+                fabController?.onExport()
+            }
+        }
     }
 
     private fun initEditText() {
@@ -181,4 +218,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
         super.onResume()
         (requireContext() as OnBackPressContainer).controller = this
     }
+
+    val Number.dp: Int get() = (toInt() * Resources.getSystem().displayMetrics.density).toInt()
+
 }

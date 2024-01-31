@@ -10,6 +10,8 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -19,19 +21,24 @@ import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.IOnFabClickContainer
+import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
-import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
+import com.google.gson.Gson
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.Optional
-import java.util.concurrent.TimeUnit
 
-class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener, IOnTabClickListener {
+class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
+    IOnTabClickListener, IOnFabClickListener {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var adapter: BlockedRequestsAdapter
@@ -151,11 +158,60 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         super.onStop()
         (requireParentFragment() as? OnCLearCLickContainer)?.controller = null
         (requireParentFragment() as? IOnTabClickContainer)?.tabController = null
+        (requireParentFragment() as? IOnFabClickContainer)?.fabController = null
     }
 
     override fun onResume() {
         super.onResume()
         (requireParentFragment() as? OnCLearCLickContainer)?.controller = this
         (requireParentFragment() as? IOnTabClickContainer)?.tabController = this
+        (requireParentFragment() as? IOnFabClickContainer)?.fabController = this
     }
+
+    private fun saveFile(content: String): Boolean {
+        return try {
+            val dir = File(requireContext().cacheDir.toString())
+            if (!dir.exists())
+                dir.mkdir()
+            val file = File("${requireContext().cacheDir}/request_list.json")
+            if (!file.exists())
+                file.createNewFile()
+            else {
+                file.delete()
+                file.createNewFile()
+            }
+            val fileOutputStream = FileOutputStream(file)
+            fileOutputStream.write(content.toByteArray())
+            fileOutputStream.flush()
+            fileOutputStream.close()
+            true
+        } catch (e: IOException) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    override fun onExport() {
+        if (saveFile(Gson().toJson(viewModel.requestList)))
+            backupSAFLauncher.launch("${type}_request_list.json")
+        else
+            Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+    }
+
+    private val backupSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
+            if (uri == null) return@backup
+            try {
+                File("${requireContext().cacheDir}/request_list.json").inputStream().use { input ->
+                    requireContext().contentResolver.openOutputStream(uri).use { output ->
+                        if (output == null)
+                            Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+                        else input.copyTo(output)
+                    }
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+
 }
