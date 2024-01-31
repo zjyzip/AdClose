@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("dev.rikka.tools.materialthemebuilder")
+    id("kotlin-kapt")
 }
 
 materialThemeBuilder {
@@ -130,5 +131,8 @@ dependencies {
     implementation("com.microsoft.appcenter:appcenter-crashes:5.0.4")
 
     implementation("com.google.code.gson:gson:2.10.1")
+
+    implementation("androidx.room:room-runtime:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
 }
