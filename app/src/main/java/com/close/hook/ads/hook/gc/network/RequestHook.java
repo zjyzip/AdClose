@@ -70,6 +70,7 @@ public class RequestHook {
 		try {
 			setupDNSRequestHook();
 			setupHttpRequestHook();
+            setupOkHttpRequestHook();
 		} catch (Exception e) {
 			XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
 		}
@@ -88,7 +89,7 @@ public class RequestHook {
 		try {
 			return urlBlockCache.get(key, () -> {
 				boolean isBlocked = BLOCKED_LISTS.stream().anyMatch(key::contains);
-				sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", key.contains(":") ? " HTTP(S)" : " DNS",
+				sendBlockedRequestBroadcast(isBlocked ? "block" : "pass", key.contains(":") ? " HTTP" : " DNS",
 						isBlocked, key);
 				return isBlocked;
 			});
@@ -120,6 +121,9 @@ public class RequestHook {
 	};
 
 	private static boolean shouldBlockDnsRequest(String host) {
+		if (host == null) {
+			return false;
+		}
 		waitForDataLoading();
 		Boolean shouldBlock = shouldBlockRequest(host);
 		sendBlockedRequestBroadcast("all", " DNS", shouldBlock, host);
@@ -161,9 +165,66 @@ public class RequestHook {
 		waitForDataLoading();
 		String fullUrlString = url.toString();
 		Boolean shouldBlock = shouldBlockRequest(fullUrlString);
-		sendBlockedRequestBroadcast("all", " HTTP(S)", shouldBlock, fullUrlString);
+		sendBlockedRequestBroadcast("all", " HTTP", shouldBlock, fullUrlString);
 		return shouldBlock;
 	}
+
+    private static void setupOkHttpConnectionHook() {
+        try {
+            Class<?> okHttpInterceptorClass = Class.forName("okhttp3.internal.http.CallServerInterceptor");
+            XposedHelpers.findAndHookMethod(okHttpInterceptorClass, "intercept", "okhttp3.Interceptor.Chain", okhttpConnectionHook);
+        } catch (ClassNotFoundException e) {
+            XposedBridge.log(LOG_PREFIX + "OkHttp interceptor not found: " + e.getMessage());
+        }
+    }
+
+    private static final XC_MethodHook okhttpConnectionHook = new XC_MethodHook() {
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            Object chain = param.args[0]; // OkHttp 的 Chain 对象作为参数传入
+    
+            if (shouldBlockOkHttpsRequest(chain)) {
+                Object response = createEmptyResponseForOkHttp(chain);
+                param.setResult(response);
+            }
+        }
+    };
+
+    private static Object createEmptyResponseForOkHttp(Object chain) throws Exception {
+        Object request = XposedHelpers.callMethod(chain, "request");
+        Class<?> responseClass = Class.forName("okhttp3.Response");
+        Class<?> protocolClass = Class.forName("okhttp3.Protocol");
+        Object builder = responseClass.getDeclaredConstructor().newInstance();
+    
+        // 设置 Response 的各种属性
+        XposedHelpers.callMethod(builder, "request", request);
+        XposedHelpers.callMethod(builder, "protocol", Enum.valueOf((Class<Enum>) protocolClass, "HTTP_1_1"));
+        XposedHelpers.callMethod(builder, "code", 204); // 204 No Content
+        XposedHelpers.callMethod(builder, "message", "No Content");
+    
+        return XposedHelpers.callMethod(builder, "build");
+    }
+
+    private static boolean shouldBlockOkHttpsRequest(Object chain) {
+        try {
+    		if (chain == null) {
+    			return false;
+    		}
+            waitForDataLoading();
+    
+            Object request = XposedHelpers.callMethod(chain, "request");
+            Object httpUrl = XposedHelpers.callMethod(request, "url");
+
+            String urlStr = httpUrl.toString();
+    
+    		Boolean shouldBlock = shouldBlockRequest(urlStr);
+    		sendBlockedRequestBroadcast("all", " HTTP", shouldBlock, urlStr);
+    		return shouldBlock;
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request: " + e.getMessage());
+            return false;
+        }
+    }
 
     private static void setupHttpRequestHook() {
         try {
@@ -177,7 +238,7 @@ public class RequestHook {
 
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    processRequestAsync(param);
+                    processHttpRequestAsync(param);
                 }
             });
         } catch (Exception e) {
@@ -185,10 +246,30 @@ public class RequestHook {
         }
     }
 
-    private static void processRequestAsync(final XC_MethodHook.MethodHookParam param) {
+    private static void setupOkHttpRequestHook() {
+        try {
+            Class<?> okHttpInterceptorClass = Class.forName("okhttp3.internal.http.CallServerInterceptor");
+            XposedHelpers.findAndHookMethod(okHttpInterceptorClass, "intercept", "okhttp3.Interceptor.Chain", new XC_MethodHook() {
+
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    setupOkHttpConnectionHook();
+                }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    processOkHttpRequestAsync(param);
+                }
+            });
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "OkHttp interceptor not found: " + e.getMessage());
+        }
+    }
+
+    private static void processHttpRequestAsync(final XC_MethodHook.MethodHookParam param) {
         executorService.submit(() -> {
             try {
-                RequestDetails details = processRequest(param);
+                RequestDetails details = processHttpRequest(param);
                 if (details != null) {
                     logRequestDetails(details);
                 }
@@ -198,7 +279,20 @@ public class RequestHook {
         });
     }
 
-	private static RequestDetails processRequest(XC_MethodHook.MethodHookParam param) {
+    private static void processOkHttpRequestAsync(final XC_MethodHook.MethodHookParam param) {
+        executorService.submit(() -> {
+            try {
+                RequestDetails details = processOkHttpRequest(param);
+                if (details != null) {
+                    logRequestDetails(details);
+                }
+            } catch (Exception e) {
+                XposedBridge.log(LOG_PREFIX + "Error processing request: " + e.getMessage());
+            }
+        });
+    }
+
+	private static RequestDetails processHttpRequest(XC_MethodHook.MethodHookParam param) {
 		try {
 			Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
 			Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
@@ -219,6 +313,31 @@ public class RequestHook {
 			return null;
 		}
 	}
+
+	private static RequestDetails processOkHttpRequest(XC_MethodHook.MethodHookParam param) {
+		try {
+            // 获取请求对象
+            Object chain = param.args[0];
+            Object request = XposedHelpers.callMethod(chain, "request");
+
+            // 获取请求信息
+            String method = (String) XposedHelpers.callMethod(request, "method");
+            String urlString = XposedHelpers.callMethod(request, "url").toString();
+            Object requestHeaders = XposedHelpers.callMethod(request, "headers");
+
+            // 获取响应对象
+            Object response = param.getResult();
+            int code = (int) XposedHelpers.callMethod(response, "code");
+            String message = (String) XposedHelpers.callMethod(response, "message");
+            Object responseHeaders = XposedHelpers.callMethod(response, "headers");
+
+			return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
+		} catch (Exception e) {
+			XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
+			return null;
+		}
+	}
+
 
 	private static void logRequestDetails(RequestDetails details) {
 		if (details != null) {
