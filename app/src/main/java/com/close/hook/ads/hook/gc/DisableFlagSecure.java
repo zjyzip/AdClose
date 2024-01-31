@@ -10,10 +10,6 @@ import de.robv.android.xposed.XC_MethodHook;
 public class DisableFlagSecure {
 
     public static void process() {
-        hookMethods();
-    }
-
-    private static void hookMethods() {
         HookUtil.hookAllMethods(Window.class, "setFlags", param -> handleFlagSecure(param));
         HookUtil.hookAllMethods(Window.class, "addFlags", param -> handleFlagSecure(param));
         HookUtil.hookAllMethods(Dialog.class, "setFlags", param -> handleFlagSecure(param));

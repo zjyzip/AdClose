@@ -74,7 +74,7 @@ public class HookInit implements IXposedHookLoadPackage {
 		}
 
 		if (settingsManager.isDisableShakeAdEnabled()) {
-			DisableShakeAd.handle(lpparam);
+			DisableShakeAd.handle();
 		}
 
 		try {
