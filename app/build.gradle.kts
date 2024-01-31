@@ -128,4 +128,7 @@ dependencies {
 
     implementation("com.microsoft.appcenter:appcenter-analytics:5.0.4")
     implementation("com.microsoft.appcenter:appcenter-crashes:5.0.4")
+
+    implementation("com.google.code.gson:gson:2.10.1")
+
 }
