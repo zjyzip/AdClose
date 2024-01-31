@@ -82,5 +82,6 @@
     <string name="filter_disabled">Filter disabled</string>
     <string name="sort_by_default">The default sorting method has been switched to</string>
     <string name="about_view_source_code"><![CDATA[View source code at %1$s]]></string>
+    <string name="block">block</string>
 
 </resources>

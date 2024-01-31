@@ -18,6 +18,7 @@ public class BlockedRequest implements Parcelable {
     public String method;
     @Nullable
     public String urlString;
+
     @Nullable
     public String requestHeaders;
     public int responseCode;

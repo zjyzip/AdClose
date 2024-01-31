@@ -6,6 +6,14 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
+    <permission
+        android:name="com.close.hook.ads.provider.READ_WRITE"
+        android:protectionLevel="normal" />
+
+    <permission
+        android:name="com.close.hook.ads.provider.WRITE_DATABASE"
+        android:protectionLevel="normal" />
+
     <application
         android:name=".CloseApplication"
         android:allowBackup="true"
@@ -13,6 +21,12 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
+        <provider
+            android:name=".provider.UrlContentProvider"
+            android:authorities="com.close.hook.ads.provider"
+            android:enabled="true"
+            android:exported="true"/>
 
         <activity
             android:name=".ui.activity.AboutActivity"
