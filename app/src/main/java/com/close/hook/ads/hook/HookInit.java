@@ -12,6 +12,7 @@ import com.close.hook.ads.hook.gc.DisableShakeAd;
 import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
+import com.close.hook.ads.hook.gc.network.OkHttpInterceptorHook;
 import com.close.hook.ads.hook.ha.AppAds;
 import com.close.hook.ads.hook.ha.AppAdsKit;
 import com.close.hook.ads.hook.ha.SDKAds;
@@ -35,7 +36,7 @@ public class HookInit implements IXposedHookLoadPackage {
 		if (shouldIgnorePackage(lpparam)) {
 			return;
 		}
-
+	//	OkHttpInterceptorHook.handle(lpparam);
 		performHooking(lpparam);
 	}
 
