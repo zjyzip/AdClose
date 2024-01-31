@@ -28,9 +28,11 @@ public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder>
 
         @Override
         public boolean areContentsTheSame(@NonNull AppInfo oldItem, @NonNull AppInfo newItem) {
-            return oldItem.getAppName().equals(newItem.getAppName()) &&
-                   oldItem.getVersionName().equals(newItem.getVersionName()) &&
-                   oldItem.getVersionCode() == newItem.getVersionCode();
+            boolean appNameSame = oldItem.getAppName() != null ? oldItem.getAppName().equals(newItem.getAppName()) : newItem.getAppName() == null;
+            boolean versionNameSame = oldItem.getVersionName() != null ? oldItem.getVersionName().equals(newItem.getVersionName()) : newItem.getVersionName() == null;
+            boolean versionCodeSame = oldItem.getVersionCode() == newItem.getVersionCode();
+
+            return appNameSame && versionNameSame && versionCodeSame;
         }
     };
 
@@ -77,12 +79,16 @@ public class AppsAdapter extends ListAdapter<AppInfo, AppsAdapter.AppViewHolder>
             binding.appName.setText(appInfo.getAppName());
             binding.packageName.setText(appInfo.getPackageName());
             binding.appVersion.setText(appInfo.getVersionName() + " (" + appInfo.getVersionCode() + ")");
-            Glide.with(binding.appIcon.getContext())
-                    .load(appInfo.getAppIcon())
-                    .apply(new RequestOptions()
-                            .override(binding.appIcon.getContext().getResources().getDimensionPixelSize(R.dimen.app_icon_size))
-                            .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
-                    .into(binding.appIcon);
+            if (appInfo.getAppIcon() != null) {
+                Glide.with(binding.appIcon.getContext())
+                        .load(appInfo.getAppIcon())
+                        .apply(new RequestOptions()
+                                .override(binding.appIcon.getContext().getResources().getDimensionPixelSize(R.dimen.app_icon_size))
+                                .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
+                        .into(binding.appIcon);
+            } else {
+                binding.appIcon.setImageDrawable(null);
+            }
         }
     }
 
