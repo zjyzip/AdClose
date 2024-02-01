@@ -36,7 +36,6 @@ class BlockedRequestsAdapter(
     private var url: String? = null
     private var host: String? = null
     private var isExist: Boolean? = null
-    private lateinit var block: MenuItem
     private val urlDao by lazy {
         UrlDatabase.getDatabase(context).urlDao
     }
@@ -96,8 +95,7 @@ responseHeaders: $responseHeaders
                 val popup = PopupMenu(parent.context, it)
                 val inflater = popup.menuInflater
                 inflater.inflate(R.menu.menu_request, popup.menu)
-                block = popup.menu.findItem(R.id.block)
-                block.title =
+                popup.menu.findItem(R.id.block).title =
                     if (urlDao.isExist(host.toString())) {
                         isExist = true
                         "移除黑名单"
@@ -122,14 +120,19 @@ responseHeaders: $responseHeaders
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
             icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
 
-            val textColor = if (request.requestType == "all" && request.isBlocked == true) {
-                ThemeUtils.getThemeAttrColor(context, com.google.android.material.R.attr.colorError)
-            } else {
-                ThemeUtils.getThemeAttrColor(
-                    context,
-                    com.google.android.material.R.attr.colorControlNormal
-                )
-            }
+            val textColor =
+                if (request.requestType == "block"
+                    || (request.requestType == "all" && request.isBlocked == true)) {
+                    ThemeUtils.getThemeAttrColor(
+                        context,
+                        com.google.android.material.R.attr.colorError
+                    )
+                } else {
+                    ThemeUtils.getThemeAttrColor(
+                        context,
+                        com.google.android.material.R.attr.colorControlNormal
+                    )
+                }
             this.request.setTextColor(textColor)
             method = request.method
             urlString = request.urlString
