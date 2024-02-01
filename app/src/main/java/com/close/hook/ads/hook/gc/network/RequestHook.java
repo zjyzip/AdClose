@@ -12,23 +12,26 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.close.hook.ads.data.model.BlockedRequest;
-import com.close.hook.ads.data.model.RequestDetails;
 import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.provider.UrlContentProvider;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import com.close.hook.ads.data.model.BlockedRequest;
+import com.close.hook.ads.data.model.RequestDetails;
+
 import java.io.InputStream;
+import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.InetAddress;
+import java.io.IOException;
+import java.io.FileNotFoundException;
+
 import java.net.URL;
-import java.util.Objects;
+import java.net.InetAddress;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+
 import java.util.Set;
+import java.util.Objects;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -36,13 +39,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
+import io.reactivex.rxjava3.core.BackpressureStrategy;
+
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-import io.reactivex.rxjava3.core.BackpressureStrategy;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.schedulers.Schedulers;
-
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
@@ -70,14 +77,18 @@ public class RequestHook {
         loadBlockedListsAsync();
     }
 
-    public static void init() {
+    public static void init(XC_LoadPackage.LoadPackageParam lpparam) {
         try {
             setupDNSRequestHook();
             setupHttpRequestHook();
-            setupOkHttpRequestHook();
+            setupOkHttpRequestHook(lpparam);
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
+    }
+
+    private static void loadBlockedListsAsync() {
+        loadListAsync("/assets/blocked_lists.txt", "Error loading blocked lists");
     }
 
     private static void waitForDataLoading() {
@@ -86,15 +97,6 @@ public class RequestHook {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
-        }
-    }
-
-    private static boolean shouldBlockRequest(String host) {
-        try {
-            return urlBlockCache.get(host, () -> BLOCKED_LISTS.stream().anyMatch(host::contains));
-        } catch (ExecutionException e) {
-            XposedBridge.log(LOG_PREFIX + "Error accessing the cache: " + e.getMessage());
-            throw new RuntimeException("Error accessing the cache", e);
         }
     }
 
@@ -124,25 +126,9 @@ public class RequestHook {
             return false;
         }
         waitForDataLoading();
-        boolean shouldBlock = shouldBlockRequest(host);
+        boolean shouldBlock = shouldBlockHost(host);
 
-        if (!shouldBlock) {
-            Context context = AndroidAppHelper.currentApplication();
-            if (context != null) {
-                ContentResolver contentResolver = context.getContentResolver();
-                Cursor cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
-                if (cursor.moveToFirst()) {
-                    do {
-                        @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-                        if (Objects.equals(urlAddress, host)) {
-                            shouldBlock = true;
-                            break;
-                        }
-                    } while (cursor.moveToNext());
-                    cursor.close();
-                }
-            }
-        }
+        shouldBlock = shouldBlock || queryHostContentProvider(host);
 
         sendBroadcast(" DNS", shouldBlock, host);
         return shouldBlock;
@@ -181,44 +167,23 @@ public class RequestHook {
             return false;
         }
         waitForDataLoading();
-        String fullUrlString = url.toString();
-        boolean shouldBlock = shouldBlockRequest(url.getHost());
-
-        if (!shouldBlock) {
-            Context context = AndroidAppHelper.currentApplication();
-            if (context != null) {
-                ContentResolver contentResolver = context.getContentResolver();
-                Cursor cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
-                if (cursor.moveToFirst()) {
-                    do {
-                        @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-                        if (Objects.equals(urlAddress, url.getHost())) {
-                            shouldBlock = true;
-                            break;
-                        }
-                    } while (cursor.moveToNext());
-                    cursor.close();
-                }
-            }
-        }
-
-        sendBroadcast(" HTTP", shouldBlock, fullUrlString);
+        String formattedUrl = formatUrlWithoutQuery(url);
+        boolean shouldBlock = shouldBlockURL(formattedUrl);
+    
+        shouldBlock = shouldBlock || queryURLContentProvider(formattedUrl);
+    
+        sendBroadcast(" HTTP", shouldBlock, formattedUrl);
         return shouldBlock;
     }
 
-    private static void setupOkHttpConnectionHook() {
-        try {
-            Class<?> okHttpInterceptorClass = Class.forName("okhttp3.internal.http.CallServerInterceptor");
-            XposedHelpers.findAndHookMethod(okHttpInterceptorClass, "intercept", "okhttp3.Interceptor.Chain", okhttpConnectionHook);
-        } catch (ClassNotFoundException e) {
-            XposedBridge.log(LOG_PREFIX + "OkHttp interceptor not found: " + e.getMessage());
-        }
+    private static void setupOkHttpConnectionHook(XC_LoadPackage.LoadPackageParam lpparam) {
+        XposedHelpers.findAndHookMethod("okhttp3.internal.http.CallServerInterceptor", lpparam.classLoader, "intercept", "okhttp3.Interceptor.Chain", okhttpConnectionHook);
     }
 
     private static final XC_MethodHook okhttpConnectionHook = new XC_MethodHook() {
         @Override
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-            Object chain = param.args[0]; // OkHttp 的 Chain 对象作为参数传入
+            Object chain = param.args[0];
 
             if (shouldBlockOkHttpsRequest(chain)) {
                 Object response = createEmptyResponseForOkHttp(chain);
@@ -233,10 +198,9 @@ public class RequestHook {
         Class<?> protocolClass = Class.forName("okhttp3.Protocol");
         Object builder = responseClass.getDeclaredConstructor().newInstance();
 
-        // 设置 Response 的各种属性
         XposedHelpers.callMethod(builder, "request", request);
         XposedHelpers.callMethod(builder, "protocol", Enum.valueOf((Class<Enum>) protocolClass, "HTTP_1_1"));
-        XposedHelpers.callMethod(builder, "code", 204); // 204 No Content
+        XposedHelpers.callMethod(builder, "code", 204);
         XposedHelpers.callMethod(builder, "message", "No Content");
 
         return XposedHelpers.callMethod(builder, "build");
@@ -248,36 +212,16 @@ public class RequestHook {
                 return false;
             }
             waitForDataLoading();
-
+    
             Object request = XposedHelpers.callMethod(chain, "request");
             Object httpUrl = XposedHelpers.callMethod(request, "url");
-
-            String urlStr = httpUrl.toString();
-            String host = urlStr.replace("https://", "").replace("http://", "");
-            if (host.contains("/")) {
-                host = host.substring(0, host.indexOf('/'));
-            }
-            boolean shouldBlock = shouldBlockRequest(host);
-
-            if (!shouldBlock) {
-                Context context = AndroidAppHelper.currentApplication();
-                if (context != null) {
-                    ContentResolver contentResolver = context.getContentResolver();
-                    Cursor cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
-                    if (cursor.moveToFirst()) {
-                        do {
-                            @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-                            if (Objects.equals(urlAddress, host)) {
-                                shouldBlock = true;
-                                break;
-                            }
-                        } while (cursor.moveToNext());
-                        cursor.close();
-                    }
-                }
-            }
-
-            sendBroadcast(" HTTP", shouldBlock, urlStr);
+            URL url = new URL(httpUrl.toString());
+            String formattedUrl = formatUrlWithoutQuery(url);
+            boolean shouldBlock = shouldBlockURL(formattedUrl);
+    
+            shouldBlock = shouldBlock || queryURLContentProvider(formattedUrl);
+    
+            sendBroadcast(" OKHTTP", shouldBlock, formattedUrl);
             return shouldBlock;
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request: " + e.getMessage());
@@ -285,12 +229,79 @@ public class RequestHook {
         }
     }
 
-    private static void sendBroadcast(String requestType, boolean shouldBlock, String url) {
-        sendBlockedRequestBroadcast("all", requestType, shouldBlock, url);
-        if (shouldBlock) {
-            sendBlockedRequestBroadcast("block", requestType, true, url);
-        } else {
-            sendBlockedRequestBroadcast("pass", requestType, false, url);
+    private static boolean shouldBlockHost(String host) {
+        try {
+            return urlBlockCache.get(host, () -> BLOCKED_LISTS.stream().anyMatch(host::contains));
+        } catch (ExecutionException e) {
+            XposedBridge.log(LOG_PREFIX + "Error accessing the cache: " + e.getMessage());
+            throw new RuntimeException("Error accessing the cache", e);
+        }
+    }
+
+    private static boolean shouldBlockURL(String urlPart) {
+        try {
+            return urlBlockCache.get(urlPart, () -> BLOCKED_LISTS.stream().anyMatch(urlPart::contains));
+        } catch (ExecutionException e) {
+            XposedBridge.log(LOG_PREFIX + "Error accessing the cache: " + e.getMessage());
+            throw new RuntimeException("Error accessing the cache", e);
+        }
+    }
+
+    private static boolean queryHostContentProvider(String host) {
+        Context context = AndroidAppHelper.currentApplication();
+        if (context != null) {
+            ContentResolver contentResolver = context.getContentResolver();
+            Cursor cursor = null;
+            try {
+                cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
+                if (cursor != null && cursor.moveToFirst()) {
+                    do {
+                        @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
+                        if (Objects.equals(urlAddress, host)) {
+                            return true;
+                        }
+                    } while (cursor.moveToNext());
+                }
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+        }
+        return false;
+    }
+    
+    private static boolean queryURLContentProvider(String formattedUrl) {
+        Context context = AndroidAppHelper.currentApplication();
+        if (context != null) {
+            ContentResolver contentResolver = context.getContentResolver();
+            Cursor cursor = null;
+            try {
+                cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
+                if (cursor != null && cursor.moveToFirst()) {
+                    do {
+                        @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
+                        if (Objects.equals(urlAddress, formattedUrl)) {
+                            return true;
+                        }
+                    } while (cursor.moveToNext());
+                }
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String formatUrlWithoutQuery(URL url) {
+        try {
+            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath());
+            return formattedUrl.toExternalForm();
+        } catch (MalformedURLException e) {
+			XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
+            return null;
         }
     }
 
@@ -314,14 +325,12 @@ public class RequestHook {
         }
     }
 
-    private static void setupOkHttpRequestHook() {
+    private static void setupOkHttpRequestHook(XC_LoadPackage.LoadPackageParam lpparam) {
         try {
-            Class<?> okHttpInterceptorClass = Class.forName("okhttp3.internal.http.CallServerInterceptor");
-            XposedHelpers.findAndHookMethod(okHttpInterceptorClass, "intercept", "okhttp3.Interceptor.Chain", new XC_MethodHook() {
-
+            XposedHelpers.findAndHookMethod("okhttp3.internal.http.CallServerInterceptor", lpparam.classLoader, "intercept", "okhttp3.Interceptor.Chain", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    setupOkHttpConnectionHook();
+                    setupOkHttpConnectionHook(lpparam);
                 }
 
                 @Override
@@ -438,10 +447,6 @@ public class RequestHook {
         }
     }
 
-    private static void loadBlockedListsAsync() {
-        loadListAsync("/assets/blocked_lists.txt", "Error loading blocked lists");
-    }
-
     @SuppressLint("CheckResult")
     private static void loadListAsync(String resourcePath, String errorMessage) {
         Flowable.create(emitter -> {
@@ -468,6 +473,15 @@ public class RequestHook {
                 .subscribe(item -> {
                         },
                         error -> XposedBridge.log(LOG_PREFIX + errorMessage + ": " + error));
+    }
+
+    private static void sendBroadcast(String requestType, boolean shouldBlock, String url) {
+        sendBlockedRequestBroadcast("all", requestType, shouldBlock, url);
+        if (shouldBlock) {
+            sendBlockedRequestBroadcast("block", requestType, true, url);
+        } else {
+            sendBlockedRequestBroadcast("pass", requestType, false, url);
+        }
     }
 
     private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,
