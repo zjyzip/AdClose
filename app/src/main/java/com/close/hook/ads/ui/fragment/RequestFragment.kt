@@ -72,11 +72,6 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
         binding.searchEditText.removeTextChangedListener(textWatcher)
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        binding.searchEditText.removeTextChangedListener(textWatcher)
-    }
-
     private fun setupToolbar() {
         binding.toolbar.apply {
             setTitle(R.string.bottom_item_2)
@@ -190,6 +185,11 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     override fun onDestroy() {
         super.onDestroy()
         searchDisposable?.dispose()
+    }
+
+    override fun onDestroyView() {
+        binding.searchEditText.removeTextChangedListener(textWatcher)
+        super.onDestroyView()
     }
 
     override fun onBackPressed() = with(binding.searchEditText) {

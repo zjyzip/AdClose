@@ -58,7 +58,7 @@ public class HookInit implements IXposedHookLoadPackage {
 
 	private void applySettings(SettingsManager settingsManager, XC_LoadPackage.LoadPackageParam lpparam) {
 		if (settingsManager.isRequestHookEnabled()) {
-			RequestHook.init();
+			RequestHook.init(lpparam);
 		}
 
 		if (settingsManager.isHideVPNStatusEnabled()) {
