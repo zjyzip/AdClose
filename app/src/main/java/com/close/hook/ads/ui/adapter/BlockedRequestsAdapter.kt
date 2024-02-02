@@ -34,7 +34,6 @@ class BlockedRequestsAdapter(
     PopupMenu.OnMenuItemClickListener {
 
     private var url: String? = null
-    private var host: String? = null
     private var isExist: Boolean? = null
     private val urlDao by lazy {
         UrlDatabase.getDatabase(context).urlDao
@@ -86,17 +85,11 @@ responseHeaders: $responseHeaders
             }
             itemView.setOnLongClickListener {
                 url = request.text.toString()
-                host = url.toString()
-                    .replace("https://", "")
-                    .replace("http://", "")
-                if (host.toString().contains('/')) {
-                    host = host.toString().substring(0, host.toString().indexOf('/'))
-                }
                 val popup = PopupMenu(parent.context, it)
                 val inflater = popup.menuInflater
                 inflater.inflate(R.menu.menu_request, popup.menu)
                 popup.menu.findItem(R.id.block).title =
-                    if (urlDao.isExist(host.toString())) {
+                    if (urlDao.isExist(url.toString())) {
                         isExist = true
                         "移除黑名单"
                     } else {
@@ -122,7 +115,8 @@ responseHeaders: $responseHeaders
 
             val textColor =
                 if (request.requestType == "block"
-                    || (request.requestType == "all" && request.isBlocked == true)) {
+                    || (request.requestType == "all" && request.isBlocked == true)
+                ) {
                     ThemeUtils.getThemeAttrColor(
                         context,
                         com.google.android.material.R.attr.colorError
@@ -170,20 +164,15 @@ responseHeaders: $responseHeaders
 
             R.id.block -> {
                 CoroutineScope(Dispatchers.IO).launch {
-                    if (isExist == true) {
-                        urlDao.delete(host.toString())
-                    } else {
-                        urlDao.insert(
-                            Url(
-                                System.currentTimeMillis(),
-                                host.toString()
-                            )
-                        )
-                    }
+                    if (isExist == true)
+                        urlDao.delete(url.toString())
+                    else
+                        urlDao.insert(Url(System.currentTimeMillis(), url.toString()))
                 }
             }
 
         }
         return true
     }
+
 }
