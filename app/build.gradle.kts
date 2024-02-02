@@ -4,7 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("dev.rikka.tools.materialthemebuilder")
-    id("kotlin-kapt")
+    id("com.google.devtools.ksp")
 }
 
 materialThemeBuilder {
@@ -76,7 +76,10 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         getByName("debug") {
             isDebuggable = true
@@ -111,7 +114,7 @@ dependencies {
     implementation("io.reactivex.rxjava3:rxjava:3.1.8")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
 
-    implementation("androidx.lifecycle:lifecycle-reactivestreams:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-reactivestreams:2.7.0")
 
     implementation("com.google.guava:guava:33.0.0-jre")
 
@@ -133,6 +136,6 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 
     implementation("androidx.room:room-runtime:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
 
 }
