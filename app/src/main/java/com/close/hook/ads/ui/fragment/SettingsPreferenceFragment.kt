@@ -1,9 +1,7 @@
 package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
-import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -15,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.ui.activity.AboutActivity
+import com.close.hook.ads.ui.activity.BlockListActivity
 import com.close.hook.ads.util.CacheDataManager
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.PrefManager
@@ -139,6 +138,11 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 }
                 true
             }
+        }
+
+        findPreference<Preference>("blockList")?.setOnPreferenceClickListener {
+            startActivity(Intent(requireContext(), BlockListActivity::class.java))
+            true
         }
 
     }

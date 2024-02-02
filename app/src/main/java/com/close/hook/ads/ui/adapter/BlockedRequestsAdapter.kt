@@ -88,6 +88,7 @@ responseHeaders: $responseHeaders
                 val popup = PopupMenu(parent.context, it)
                 val inflater = popup.menuInflater
                 inflater.inflate(R.menu.menu_request, popup.menu)
+                popup.menu.findItem(R.id.edit).isVisible = false
                 popup.menu.findItem(R.id.block).title =
                     if (urlDao.isExist(url.toString())) {
                         isExist = true

@@ -83,5 +83,7 @@
     <string name="sort_by_default">默认排序方式已切换为</string>
     <string name="about_view_source_code"><![CDATA[在 %1$s 查看源码]]></string>
     <string name="block">加入黑名单</string>
-
+    <string name="clearAll">全部清除</string>
+    <string name="block_list">黑名单</string>
+    <string name="edit">编辑</string>
 </resources>

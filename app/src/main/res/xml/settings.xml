@@ -35,6 +35,10 @@
 
     <PreferenceCategory android:title="@string/others">
         <Preference
+            android:icon="@drawable/ic_block"
+            android:key="blockList"
+            android:title="@string/block_list" />
+        <Preference
             android:icon="@drawable/ic_about"
             android:key="about"
             android:title="@string/about" />
