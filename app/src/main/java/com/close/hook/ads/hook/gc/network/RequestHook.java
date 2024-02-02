@@ -12,26 +12,24 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.close.hook.ads.data.model.Url;
-import com.close.hook.ads.provider.UrlContentProvider;
-
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
+import com.close.hook.ads.data.model.Url;
+import com.close.hook.ads.provider.UrlContentProvider;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
-import java.io.InputStream;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.IOException;
 import java.io.FileNotFoundException;
-
-import java.net.URL;
-import java.net.InetAddress;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
-
-import java.util.Set;
+import java.net.URL;
 import java.util.Objects;
-
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -39,17 +37,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.schedulers.Schedulers;
-import io.reactivex.rxjava3.core.BackpressureStrategy;
-
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
+import io.reactivex.rxjava3.core.BackpressureStrategy;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
@@ -169,9 +163,9 @@ public class RequestHook {
         waitForDataLoading();
         String formattedUrl = formatUrlWithoutQuery(url);
         boolean shouldBlock = shouldBlockURL(formattedUrl);
-    
+
         shouldBlock = shouldBlock || queryURLContentProvider(formattedUrl);
-    
+
         sendBroadcast(" HTTP", shouldBlock, formattedUrl);
         return shouldBlock;
     }
@@ -212,15 +206,15 @@ public class RequestHook {
                 return false;
             }
             waitForDataLoading();
-    
+
             Object request = XposedHelpers.callMethod(chain, "request");
             Object httpUrl = XposedHelpers.callMethod(request, "url");
             URL url = new URL(httpUrl.toString());
             String formattedUrl = formatUrlWithoutQuery(url);
             boolean shouldBlock = shouldBlockURL(formattedUrl);
-    
+
             shouldBlock = shouldBlock || queryURLContentProvider(formattedUrl);
-    
+
             sendBroadcast(" OKHTTP", shouldBlock, formattedUrl);
             return shouldBlock;
         } catch (Exception e) {
@@ -257,7 +251,7 @@ public class RequestHook {
                 if (cursor != null && cursor.moveToFirst()) {
                     do {
                         @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-                        if (Objects.equals(urlAddress, host)) {
+                        if (urlAddress.contains(host)) {
                             return true;
                         }
                     } while (cursor.moveToNext());
@@ -270,7 +264,7 @@ public class RequestHook {
         }
         return false;
     }
-    
+
     private static boolean queryURLContentProvider(String formattedUrl) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
@@ -281,7 +275,7 @@ public class RequestHook {
                 if (cursor != null && cursor.moveToFirst()) {
                     do {
                         @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-                        if (Objects.equals(urlAddress, formattedUrl)) {
+                        if (formattedUrl.contains(urlAddress)) {
                             return true;
                         }
                     } while (cursor.moveToNext());
@@ -300,7 +294,7 @@ public class RequestHook {
             URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath());
             return formattedUrl.toExternalForm();
         } catch (MalformedURLException e) {
-			XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
             return null;
         }
     }
