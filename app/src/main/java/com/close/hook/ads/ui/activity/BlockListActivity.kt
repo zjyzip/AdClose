@@ -42,9 +42,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
         if (viewModel.blockList.isEmpty()) {
             viewModel.getBlackList(this)
         } else {
-            val newList = ArrayList<Item>()
-            newList.addAll(viewModel.blockList)
-            mAdapter.submitList(newList)
+            submitList()
         }
 
         initToolBar()
@@ -61,9 +59,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                     binding.clearAll.visibility = View.GONE
                 else
                     binding.clearAll.visibility = View.VISIBLE
-                val newList = ArrayList<Item>()
-                newList.addAll(viewModel.blockList)
-                mAdapter.submitList(newList)
+                submitList()
             }
 
         }
@@ -73,9 +69,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     private fun initButton() {
         binding.clear.setOnClickListener {
             binding.editText.text = null
-            val newList = ArrayList<Item>()
-            newList.addAll(viewModel.blockList)
-            mAdapter.submitList(newList)
+            submitList()
         }
         binding.add.setOnClickListener {
             val dialogView =
@@ -105,9 +99,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                                 urlDao.insert(Url(System.currentTimeMillis(), this))
                                 withContext(Dispatchers.Main) {
                                     viewModel.blockList.add(0, Item(this@with))
-                                    val newList = ArrayList<Item>()
-                                    newList.addAll(viewModel.blockList)
-                                    mAdapter.submitList(newList)
+                                    submitList()
                                 }
                             }
                         }
@@ -184,10 +176,15 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     }
 
     override fun onRemoveUrl(position: Int) {
+        val url = viewModel.blockList[position].url
         CoroutineScope(Dispatchers.IO).launch {
-            urlDao.delete(viewModel.blockList[position].url)
+            urlDao.delete(url)
         }
         viewModel.blockList.removeAt(position)
+        submitList()
+    }
+
+    private fun submitList() {
         val newList = ArrayList<Item>()
         newList.addAll(viewModel.blockList)
         mAdapter.submitList(newList)
@@ -223,10 +220,8 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                             urlDao.insert(Url(System.currentTimeMillis(), this))
                             withContext(Dispatchers.Main) {
                                 viewModel.blockList.removeAt(position)
-                                viewModel.blockList.add(0, Item(editText.text.toString()))
-                                val newList = ArrayList<Item>()
-                                newList.addAll(viewModel.blockList)
-                                mAdapter.submitList(newList)
+                                viewModel.blockList.add(0, Item(this@with))
+                                submitList()
                             }
                         }
                     }
