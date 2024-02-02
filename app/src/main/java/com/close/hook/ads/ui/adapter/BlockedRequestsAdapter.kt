@@ -40,6 +40,7 @@ class BlockedRequestsAdapter(
     }
 
     companion object {
+        @SuppressLint("SimpleDateFormat")
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
         private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> =
@@ -168,7 +169,7 @@ responseHeaders: $responseHeaders
                     if (isExist == true)
                         urlDao.delete(url.toString())
                     else
-                        urlDao.insert(Url(System.currentTimeMillis(), url.toString()))
+                        urlDao.insert(Url(url.toString()))
                 }
             }
 
