@@ -34,5 +34,4 @@ interface UrlDao {
     @Query("DELETE FROM url_info")
     fun deleteAll()
 
-
 }

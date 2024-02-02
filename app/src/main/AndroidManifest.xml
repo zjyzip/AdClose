@@ -9,7 +9,6 @@
     <permission
         android:name="com.close.hook.ads.provider.READ_WRITE"
         android:protectionLevel="normal" />
-
     <permission
         android:name="com.close.hook.ads.provider.WRITE_DATABASE"
         android:protectionLevel="normal" />
@@ -21,24 +20,27 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <activity
+            android:name=".ui.activity.BlockListActivity"
+            android:exported="false" />
 
         <provider
             android:name=".provider.UrlContentProvider"
             android:authorities="com.close.hook.ads.provider"
             android:enabled="true"
-            android:exported="true"/>
+            android:exported="true" />
 
         <activity
             android:name=".ui.activity.AboutActivity"
             android:exported="false"
             android:theme="@style/AppTheme.About" />
-
         <activity
-            android:name="com.close.hook.ads.ui.activity.MainActivity"
+            android:name=".ui.activity.MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
         </activity>
@@ -47,9 +49,10 @@
             android:name=".MainActivityLauncher"
             android:exported="true"
             android:label="@string/app_name"
-            android:targetActivity="com.close.hook.ads.ui.activity.MainActivity">
+            android:targetActivity=".ui.activity.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
@@ -67,22 +70,18 @@
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
-
         <meta-data
             android:name="xposeddescription"
-            android:value="本模块用于阻止常见广告与部分sdk的初始化加载和请求，仅供学习交流，请勿用于违法违规用途，且模块完全免费使用。\n                            By TG-@AdClose"/>
-
+            android:value="本模块用于阻止常见广告与部分sdk的初始化加载和请求，仅供学习交流，请勿用于违法违规用途，且模块完全免费使用。\n                            By TG-@AdClose" />
         <meta-data
             android:name="xposedminversion"
             android:value="93" />
-
         <meta-data
             android:name="xposedsharedprefs"
             android:value="true" />
-
         <meta-data
             android:name="xposedscope"
             android:resource="@array/scope" />
-
     </application>
+
 </manifest>

@@ -105,6 +105,8 @@ configurations.configureEach {
 }
 
 dependencies {
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     compileOnly("de.robv.android.xposed:api:82")
 
     implementation("org.luckypray:dexkit:2.0.0")
