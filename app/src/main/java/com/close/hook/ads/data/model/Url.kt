@@ -7,15 +7,15 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "url_info")
 data class Url(
 
-    @PrimaryKey(autoGenerate = false)
-    var id: Long,
-
     @ColumnInfo(name = "url")
-    var url: String,
+    var url: String
 
-    ) {
+) {
+
+    @PrimaryKey(autoGenerate = true)
+    var id: Long = 0
+
     companion object {
-        var URL_ID = "id"
         var URL_ADDRESS = "url"
     }
 }

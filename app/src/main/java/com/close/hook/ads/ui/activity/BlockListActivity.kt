@@ -1,5 +1,6 @@
 package com.close.hook.ads.ui.activity
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -8,6 +9,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.close.hook.ads.R
@@ -18,10 +20,14 @@ import com.close.hook.ads.databinding.ActivityBlockListBinding
 import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
 
@@ -55,10 +61,6 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                 it.forEach { url ->
                     viewModel.blockList.add(Item(url))
                 }
-                if (viewModel.blockList.isEmpty())
-                    binding.clearAll.visibility = View.GONE
-                else
-                    binding.clearAll.visibility = View.VISIBLE
                 submitList()
             }
 
@@ -66,7 +68,21 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
 
     }
 
+    @SuppressLint("InflateParams")
     private fun initButton() {
+        binding.export.setOnClickListener {
+            val newList = ArrayList<String>()
+            viewModel.blockList.forEach {
+                newList.add(it.url)
+            }
+            if (saveFile(Gson().toJson(newList)))
+                backupSAFLauncher.launch("block_list.json")
+            else
+                Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT).show()
+        }
+        binding.restore.setOnClickListener {
+            restoreSAFLauncher.launch("application/json")
+        }
         binding.clear.setOnClickListener {
             binding.editText.text = null
             submitList()
@@ -96,7 +112,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                                         .show()
                                 }
                             } else {
-                                urlDao.insert(Url(System.currentTimeMillis(), this))
+                                urlDao.insert(Url(this))
                                 withContext(Dispatchers.Main) {
                                     viewModel.blockList.add(0, Item(this@with))
                                     submitList()
@@ -109,6 +125,29 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                 window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
                 editText.requestFocus()
             }.show()
+        }
+    }
+
+    private fun saveFile(content: String): Boolean {
+        return try {
+            val dir = File(this.cacheDir.toString())
+            if (!dir.exists())
+                dir.mkdir()
+            val file = File("${this.cacheDir}/block_list.json")
+            if (!file.exists())
+                file.createNewFile()
+            else {
+                file.delete()
+                file.createNewFile()
+            }
+            val fileOutputStream = FileOutputStream(file)
+            fileOutputStream.write(content.toByteArray())
+            fileOutputStream.flush()
+            fileOutputStream.close()
+            true
+        } catch (e: IOException) {
+            e.printStackTrace()
+            false
         }
     }
 
@@ -148,6 +187,8 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
 
     private fun initClearHistory() {
         binding.clearAll.setOnClickListener {
+            if (viewModel.blockList.isEmpty())
+                return@setOnClickListener
             MaterialAlertDialogBuilder(this).apply {
                 setTitle("确定清除全部黑名单？")
                 setNegativeButton(android.R.string.cancel, null)
@@ -156,7 +197,6 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                         urlDao.deleteAll()
                     }
                     viewModel.blockList.clear()
-                    binding.clearAll.visibility = View.GONE
                     val newList = ArrayList<Item>()
                     mAdapter.submitList(newList)
                 }
@@ -190,6 +230,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
         mAdapter.submitList(newList)
     }
 
+    @SuppressLint("InflateParams")
     override fun onEditUrl(position: Int) {
         val dialogView =
             LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
@@ -217,7 +258,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                             }
                         } else {
                             urlDao.delete(viewModel.blockList[position].url)
-                            urlDao.insert(Url(System.currentTimeMillis(), this))
+                            urlDao.insert(Url(this))
                             withContext(Dispatchers.Main) {
                                 viewModel.blockList.removeAt(position)
                                 viewModel.blockList.add(0, Item(this@with))
@@ -232,5 +273,55 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
             editText.requestFocus()
         }.show()
     }
+
+    private val restoreSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) restore@{ uri ->
+            if (uri == null) return@restore
+            runCatching {
+                val string = this.contentResolver
+                    .openInputStream(uri)?.reader().use { it?.readText() }
+                    ?: throw IOException("Backup file was damaged")
+                val json: Array<String> = Gson().fromJson(
+                    string,
+                    Array<String>::class.java
+                )
+                json.forEach {
+                    if (viewModel.blockList.indexOf(Item(it)) == -1) {
+                        urlDao.insert(Url(it))
+                        viewModel.blockList.add(0, Item(it))
+                        submitList()
+                    }
+                }
+            }.onFailure {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("导入失败")
+                    .setMessage(it.message)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setNegativeButton("Crash Log") { _, _ ->
+                        MaterialAlertDialogBuilder(this)
+                            .setTitle("Crash Log")
+                            .setMessage(it.stackTraceToString())
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show()
+                    }
+                    .show()
+            }
+        }
+
+    private val backupSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
+            if (uri == null) return@backup
+            try {
+                File("${this.cacheDir}/block_list.json").inputStream().use { input ->
+                    this.contentResolver.openOutputStream(uri).use { output ->
+                        if (output == null) Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT)
+                            .show()
+                        else input.copyTo(output)
+                    }
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
 
 }
