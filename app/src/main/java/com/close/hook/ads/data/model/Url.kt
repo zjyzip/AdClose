@@ -7,6 +7,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "url_info")
 data class Url(
 
+    @ColumnInfo(name = "type") // host url keyword
+    var type: String,
+
     @ColumnInfo(name = "url")
     var url: String
 
@@ -16,6 +19,7 @@ data class Url(
     var id: Long = 0
 
     companion object {
+        var URL_TYPE = "type"
         var URL_ADDRESS = "url"
     }
 }

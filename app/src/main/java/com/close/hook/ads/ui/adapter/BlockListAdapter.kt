@@ -50,6 +50,7 @@ class BlockListAdapter(private val context: Context) :
 
         fun bind(item: Item) {
             binding.url.text = item.url
+            binding.type.text = item.type
         }
 
         companion object {

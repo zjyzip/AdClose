@@ -56,7 +56,12 @@ class UrlContentProvider : ContentProvider() {
             ID_URL_DATA -> {
                 if (context != null && values != null) {
                     urlDao?.let {
-                        val id = it.insert(Url(values.getAsString(Url.URL_ADDRESS)))
+                        val id = it.insert(
+                            Url(
+                                values.getAsString(Url.URL_TYPE),
+                                values.getAsString(Url.URL_ADDRESS)
+                            )
+                        )
                         if (id != 0L) {
                             context!!.contentResolver
                                 .notifyChange(uri, null)
@@ -108,7 +113,12 @@ class UrlContentProvider : ContentProvider() {
             ID_URL_DATA -> {
                 if (context != null && values != null) {
                     urlDao?.let {
-                        val count = it.update(Url(values.getAsString(Url.URL_ADDRESS)))
+                        val count = it.update(
+                            Url(
+                                values.getAsString(Url.URL_TYPE),
+                                values.getAsString(Url.URL_ADDRESS)
+                            )
+                        )
                         if (count != 0) {
                             context!!.contentResolver
                                 .notifyChange(uri, null)

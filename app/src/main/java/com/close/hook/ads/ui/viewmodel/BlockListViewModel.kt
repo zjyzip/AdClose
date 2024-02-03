@@ -14,13 +14,13 @@ class BlockListViewModel : ViewModel() {
 
     val blockList = ArrayList<Item>()
 
-    val blackListLiveData: MutableLiveData<ArrayList<String>> = MutableLiveData()
+    val blackListLiveData: MutableLiveData<ArrayList<Item>> = MutableLiveData()
     fun getBlackList(context: Context) {
         val urlDao = UrlDatabase.getDatabase(context).urlDao
-        val newList = ArrayList<String>()
+        val newList = ArrayList<Item>()
         viewModelScope.launch(Dispatchers.IO) {
             urlDao.loadAllList().forEach {
-                newList.add(it.url)
+                newList.add(Item(it.type, it.url))
             }
             withContext(Dispatchers.Main) {
                 blackListLiveData.value = newList

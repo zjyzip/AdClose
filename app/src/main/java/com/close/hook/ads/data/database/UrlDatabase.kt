@@ -10,7 +10,7 @@ import com.close.hook.ads.data.dao.UrlDao
 import com.close.hook.ads.data.model.Url
 import kotlin.math.abs
 
-@Database(entities = [Url::class], version = 2, exportSchema = false)
+@Database(entities = [Url::class], version = 3, exportSchema = false)
 abstract class UrlDatabase : RoomDatabase() {
     abstract val urlDao: UrlDao
 
@@ -26,6 +26,12 @@ abstract class UrlDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE url_info ADD COLUMN type TEXT NOT NULL DEFAULT url")
+            }
+        }
+
         @Synchronized
         fun getDatabase(context: Context): UrlDatabase {
             instance?.let {
@@ -36,6 +42,7 @@ abstract class UrlDatabase : RoomDatabase() {
                 UrlDatabase::class.java, "url_database"
             )
                 .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_2_3)
                 .allowMainThreadQueries()
                 .build().apply {
                     instance = this

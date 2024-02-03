@@ -7,6 +7,7 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +21,8 @@ import com.close.hook.ads.databinding.ActivityBlockListBinding
 import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
+import com.google.android.material.textfield.TextInputEditText
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,9 +61,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
 
         viewModel.blackListLiveData.observe(this) {
             if (viewModel.blockList.isEmpty()) {
-                it.forEach { url ->
-                    viewModel.blockList.add(Item(url))
-                }
+                viewModel.blockList.addAll(it)
                 submitList()
             }
 
@@ -90,7 +91,15 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
         binding.add.setOnClickListener {
             val dialogView =
                 LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
-            val editText: EditText = dialogView.findViewById(R.id.editText)
+            val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
+            val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
+            type.setAdapter(
+                ArrayAdapter(
+                    this,
+                    android.R.layout.simple_spinner_dropdown_item,
+                    arrayOf("host", "url", "keyword")
+                )
+            )
             MaterialAlertDialogBuilder(this).apply {
                 setTitle("Add Rule")
                 setView(dialogView)
@@ -102,7 +111,11 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                                 .replace(" ", "")
                                 .replace("\n", "")
                         ) {
-                            if (urlDao.isExist(this)) {
+                            if (this.isEmpty()) return@launch
+                            else if (viewModel.blockList.indexOf(
+                                    Item(type.text.toString(), this)
+                                ) != -1
+                            ) {
                                 withContext(Dispatchers.Main) {
                                     Toast.makeText(
                                         this@BlockListActivity,
@@ -112,9 +125,12 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                                         .show()
                                 }
                             } else {
-                                urlDao.insert(Url(this))
+                                urlDao.insert(Url(type.text.toString(), this))
                                 withContext(Dispatchers.Main) {
-                                    viewModel.blockList.add(0, Item(this@with))
+                                    viewModel.blockList.add(
+                                        0,
+                                        Item(type.text.toString(), this@with)
+                                    )
                                     submitList()
                                 }
                             }
@@ -155,7 +171,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
         val newList = ArrayList<Item>()
         viewModel.blockList.forEach {
             if (it.url.contains(binding.editText.text.toString()))
-                newList.add(Item(it.url))
+                newList.add(it)
         }
         mAdapter.submitList(newList)
     }
@@ -236,6 +252,15 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
             LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
         val editText: EditText = dialogView.findViewById(R.id.editText)
         editText.setText(viewModel.blockList[position].url)
+        val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
+        type.setText(viewModel.blockList[position].type)
+        type.setAdapter(
+            ArrayAdapter(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                arrayOf("host", "url", "keyword")
+            )
+        )
         MaterialAlertDialogBuilder(this).apply {
             setTitle("Edit Rule")
             setView(dialogView)
@@ -247,7 +272,11 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                             .replace(" ", "")
                             .replace("\n", "")
                     ) {
-                        if (urlDao.isExist(this)) {
+                        if (this.isEmpty()) return@launch
+                        else if (viewModel.blockList.indexOf(
+                                Item(type.text.toString(), this)
+                            ) != -1
+                        ) {
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(
                                     this@BlockListActivity,
@@ -258,10 +287,10 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                             }
                         } else {
                             urlDao.delete(viewModel.blockList[position].url)
-                            urlDao.insert(Url(this))
+                            urlDao.insert(Url(type.text.toString(), this))
                             withContext(Dispatchers.Main) {
                                 viewModel.blockList.removeAt(position)
-                                viewModel.blockList.add(0, Item(this@with))
+                                viewModel.blockList.add(0, Item(type.text.toString(), this@with))
                                 submitList()
                             }
                         }
@@ -281,14 +310,14 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                 val string = this.contentResolver
                     .openInputStream(uri)?.reader().use { it?.readText() }
                     ?: throw IOException("Backup file was damaged")
-                val json: Array<String> = Gson().fromJson(
+                val json: Array<Item> = Gson().fromJson(
                     string,
-                    Array<String>::class.java
+                    Array<Item>::class.java
                 )
                 json.forEach {
-                    if (viewModel.blockList.indexOf(Item(it)) == -1) {
-                        urlDao.insert(Url(it))
-                        viewModel.blockList.add(0, Item(it))
+                    if (viewModel.blockList.indexOf(Item(it.type, it.url)) == -1) {
+                        urlDao.insert(Url(it.type, it.url))
+                        viewModel.blockList.add(0, Item(it.type, it.url))
                         submitList()
                     }
                 }

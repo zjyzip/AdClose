@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.util.Log;
+import android.util.Pair;
 
 import androidx.annotation.Nullable;
 
@@ -121,10 +122,17 @@ public class RequestHook {
         }
         waitForDataLoading();
         boolean shouldBlock = shouldBlockHost(host);
-
-        shouldBlock = shouldBlock || queryHostContentProvider(host);
-
-        sendBroadcast(" DNS", shouldBlock, host);
+        String blockType = null;
+        if (!shouldBlock) {
+            Pair<Boolean, String> pair = queryHostContentProvider(host);
+            if (pair.first) {
+                shouldBlock = true;
+                blockType = pair.second;
+            }
+        } else {
+            blockType = "txt";
+        }
+        sendBroadcast(" DNS", shouldBlock, blockType, host);
         return shouldBlock;
     }
 
@@ -163,10 +171,17 @@ public class RequestHook {
         waitForDataLoading();
         String formattedUrl = formatUrlWithoutQuery(url);
         boolean shouldBlock = shouldBlockURL(formattedUrl);
-
-        shouldBlock = shouldBlock || queryURLContentProvider(formattedUrl);
-
-        sendBroadcast(" HTTP", shouldBlock, formattedUrl);
+        String blockType = null;
+        if (!shouldBlock) {
+            Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
+            if (pair.first) {
+                shouldBlock = true;
+                blockType = pair.second;
+            }
+        } else {
+            blockType = "txt";
+        }
+        sendBroadcast(" HTTP", shouldBlock, blockType, formattedUrl);
         return shouldBlock;
     }
 
@@ -212,10 +227,17 @@ public class RequestHook {
             URL url = new URL(httpUrl.toString());
             String formattedUrl = formatUrlWithoutQuery(url);
             boolean shouldBlock = shouldBlockURL(formattedUrl);
-
-            shouldBlock = shouldBlock || queryURLContentProvider(formattedUrl);
-
-            sendBroadcast(" OKHTTP", shouldBlock, formattedUrl);
+            String blockType = null;
+            if (!shouldBlock) {
+                Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
+                if (pair.first) {
+                    shouldBlock = true;
+                    blockType = pair.second;
+                }
+            } else {
+                blockType = "txt";
+            }
+            sendBroadcast(" OKHTTP", shouldBlock, blockType, formattedUrl);
             return shouldBlock;
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request: " + e.getMessage());
@@ -241,7 +263,7 @@ public class RequestHook {
         }
     }
 
-    private static boolean queryHostContentProvider(String host) {
+    private static Pair<Boolean, String> queryHostContentProvider(String host) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
             ContentResolver contentResolver = context.getContentResolver();
@@ -250,9 +272,28 @@ public class RequestHook {
                 cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
                 if (cursor != null && cursor.moveToFirst()) {
                     do {
-                        @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-                        if (urlAddress.contains(host)) {
-                            return true;
+                        @SuppressLint("Range") String urlType = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_TYPE()));
+                        @SuppressLint("Range") String urlValue = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
+
+                        switch (urlType) {
+                            case "host" -> {
+                                if (Objects.equals(urlValue, host)) {
+                                    return new Pair<>(true, "host");
+                                }
+                            }
+                            case "url" -> {
+                                if (host.contains(urlValue)) {
+                                    return new Pair<>(true, "url");
+                                }
+                            }
+                            case "keyword" -> {
+                                if (host.contains(urlValue)) {
+                                    return new Pair<>(true, "keyword");
+                                }
+                            }
+                            default -> {
+                                return new Pair<>(false, null);
+                            }
                         }
                     } while (cursor.moveToNext());
                 }
@@ -262,10 +303,10 @@ public class RequestHook {
                 }
             }
         }
-        return false;
+        return new Pair<>(false, null);
     }
 
-    private static boolean queryURLContentProvider(String formattedUrl) {
+    private static Pair<Boolean, String> queryURLContentProvider(String formattedUrl) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
             ContentResolver contentResolver = context.getContentResolver();
@@ -274,9 +315,32 @@ public class RequestHook {
                 cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
                 if (cursor != null && cursor.moveToFirst()) {
                     do {
-                        @SuppressLint("Range") String urlAddress = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-                        if (formattedUrl.contains(urlAddress)) {
-                            return true;
+                        @SuppressLint("Range") String urlType = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_TYPE()));
+                        @SuppressLint("Range") String urlValue = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
+
+                        switch (urlType) {
+                            case "host" -> {
+                                String host = formattedUrl.replace("https://", "").replace("http://", "");
+                                if (host.contains("/")) {
+                                    host = host.substring(0, host.indexOf('/'));
+                                }
+                                if (Objects.equals(urlValue, host)) {
+                                    return new Pair<>(true, "host");
+                                }
+                            }
+                            case "url" -> {
+                                if (formattedUrl.contains(urlValue)) {
+                                    return new Pair<>(true, "url");
+                                }
+                            }
+                            case "keyword" -> {
+                                if (formattedUrl.contains(urlValue)) {
+                                    return new Pair<>(true, "keyword");
+                                }
+                            }
+                            default -> {
+                                return new Pair<>(false, null);
+                            }
                         }
                     } while (cursor.moveToNext());
                 }
@@ -286,7 +350,7 @@ public class RequestHook {
                 }
             }
         }
-        return false;
+        return new Pair<>(false, null);
     }
 
     private static String formatUrlWithoutQuery(URL url) {
@@ -469,17 +533,17 @@ public class RequestHook {
                         error -> XposedBridge.log(LOG_PREFIX + errorMessage + ": " + error));
     }
 
-    private static void sendBroadcast(String requestType, boolean shouldBlock, String url) {
-        sendBlockedRequestBroadcast("all", requestType, shouldBlock, url);
+    private static void sendBroadcast(String requestType, boolean shouldBlock, String blockType, String url) {
+        sendBlockedRequestBroadcast("all", requestType, shouldBlock, blockType, url);
         if (shouldBlock) {
-            sendBlockedRequestBroadcast("block", requestType, true, url);
+            sendBlockedRequestBroadcast("block", requestType, true, blockType, url);
         } else {
-            sendBlockedRequestBroadcast("pass", requestType, false, url);
+            sendBlockedRequestBroadcast("pass", requestType, false, blockType, url);
         }
     }
 
     private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,
-                                                    @Nullable Boolean isBlocked, String request) {
+                                                    @Nullable Boolean isBlocked, @Nullable String blockType, String request) {
         Intent intent;
         if (Objects.equals(type, "all")) {
             intent = new Intent("com.rikkati.ALL_REQUEST");
@@ -505,7 +569,7 @@ public class RequestHook {
             appName += requestType;
             String packageName = currentContext.getPackageName();
             BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
-                    System.currentTimeMillis(), type, isBlocked, method, urlString, requestHeaders,
+                    System.currentTimeMillis(), type, isBlocked, blockType, method, urlString, requestHeaders,
                     responseCode, responseMessage, responseHeaders);
             urlString = null;
 
