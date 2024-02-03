@@ -18,7 +18,8 @@ public class BlockedRequest implements Parcelable {
     public String method;
     @Nullable
     public String urlString;
-
+    @Nullable
+    public String blockType;
     @Nullable
     public String requestHeaders;
     public int responseCode;
@@ -28,7 +29,7 @@ public class BlockedRequest implements Parcelable {
     public String responseHeaders;
 
     public BlockedRequest(String appName, String packageName, String request, long timestamp,
-                          @Nullable String requestType, @Nullable Boolean isBlocked,
+                          @Nullable String requestType, @Nullable Boolean isBlocked,@Nullable String blockType,
                           @Nullable String method, @Nullable String urlString, @Nullable String requestHeaders,
                           int responseCode, @Nullable String responseMessage,
                           @Nullable String responseHeaders) {
@@ -38,6 +39,7 @@ public class BlockedRequest implements Parcelable {
         this.timestamp = timestamp;
         this.requestType = requestType;
         this.isBlocked = isBlocked;
+        this.blockType = blockType;
         this.method = method;
         this.urlString = urlString;
         this.requestHeaders = requestHeaders;
@@ -55,6 +57,7 @@ public class BlockedRequest implements Parcelable {
         byte tmpIsBlocked = in.readByte();
         isBlocked = tmpIsBlocked == 0 ? null : tmpIsBlocked == 1;
         method = in.readString();
+        blockType = in.readString();
         urlString = in.readString();
         requestHeaders = in.readString();
         responseCode = in.readInt();
@@ -71,6 +74,7 @@ public class BlockedRequest implements Parcelable {
         dest.writeString(requestType);
         dest.writeByte((byte) (isBlocked == null ? 0 : isBlocked ? 1 : 2));
         dest.writeString(method);
+        dest.writeString(blockType);
         dest.writeString(urlString);
         dest.writeString(requestHeaders);
         dest.writeInt(responseCode);

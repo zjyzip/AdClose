@@ -114,6 +114,12 @@ responseHeaders: $responseHeaders
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
             icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
+            if (request.blockType.isNullOrEmpty())
+                blockType.visibility = View.GONE
+            else {
+                blockType.visibility = View.VISIBLE
+                blockType.text = request.blockType
+            }
 
             val textColor =
                 if (request.requestType == "block"
@@ -144,6 +150,7 @@ responseHeaders: $responseHeaders
         val request: TextView = view.findViewById(R.id.request)
         val timestamp: TextView = view.findViewById(R.id.timestamp)
         val icon: ImageView = view.findViewById(R.id.icon)
+        val blockType: TextView = view.findViewById(R.id.blockType)
         var method: String? = null
         var urlString: String? = null
         var requestHeaders: String? = null
@@ -169,7 +176,7 @@ responseHeaders: $responseHeaders
                     if (isExist == true)
                         urlDao.delete(url.toString())
                     else
-                        urlDao.insert(Url(url.toString()))
+                        urlDao.insert(Url("url", url.toString()))
                 }
             }
 
