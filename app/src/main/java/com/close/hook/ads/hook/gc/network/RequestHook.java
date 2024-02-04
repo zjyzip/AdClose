@@ -195,33 +195,6 @@ public class RequestHook {
         return shouldBlock;
     }
 
-    public static void setupOkHttpConnectionHook() {
-        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(" had non-zero Content-Length: ");
-
-        if (foundMethods != null) {
-            for (MethodData methodData : foundMethods) {
-                try {
-                    Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    XposedBridge.hookMethod(method, okhttpConnectionHook);
-                //  XposedBridge.log("hook " + methodData);
-                } catch (Exception e) {
-                }
-            }
-        }
-    }
-
-    private static final XC_MethodHook okhttpConnectionHook = new XC_MethodHook() {
-        @Override
-        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-            Object chain = param.args[0];
-
-            if (shouldBlockOkHttpsRequest(chain)) {
-                Object response = createEmptyResponseForOkHttp(chain);
-                param.setResult(response);
-            }
-        }
-    };
-
     private static Object createEmptyResponseForOkHttp(Object chain) throws Exception {
         if (chain instanceof okhttp3.Interceptor.Chain) {
             okhttp3.Interceptor.Chain okhttpChain = (okhttp3.Interceptor.Chain) chain;
@@ -387,10 +360,16 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
+                //  XposedBridge.log("hook " + methodData);
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            setupOkHttpConnectionHook();
+                            Object chain = param.args[0];
+                
+                            if (shouldBlockOkHttpsRequest(chain)) {
+                                Object response = createEmptyResponseForOkHttp(chain);
+                                param.setResult(response);
+                            }
                         }
         
                         @Override
