@@ -1,6 +1,5 @@
 package com.close.hook.ads.hook.ha
 
-import android.content.Context
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XC_MethodReplacement
@@ -9,10 +8,10 @@ import org.luckypray.dexkit.result.MethodData
 
 object AppAdsKit {
 
-    fun blockAds(context: Context) {
-        DexKitUtil.initializeDexKitBridge(context)
+    fun blockAds() {
+        DexKitUtil.initializeDexKitBridge()
 
-        val packageName = context.packageName
+        val packageName = DexKitUtil.context.packageName
         val zhihuPackage = "com.zhihu.android.app.util"
         val methodName = "isShowLaunchAd"
 
@@ -27,7 +26,7 @@ object AppAdsKit {
             }?.toList()
         }
 
-        foundMethods?.let { hookZhihuMethods(it, context.classLoader) }
+        foundMethods?.let { hookZhihuMethods(it, DexKitUtil.context.classLoader) }
         DexKitUtil.releaseBridge()
     }
 
@@ -41,4 +40,3 @@ object AppAdsKit {
         }
     }
 }
-
