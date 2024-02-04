@@ -19,17 +19,19 @@ class AboutActivity : AbsAboutActivity() {
     override fun onItemsCreated(items: MutableList<Any>) {
         items.add(Category("About"))
         items.add(Card("""
-    |这是一个Xposed模块，请在拥有LSPosed框架环境下使用。
+    |这是一个Xposed模块，请在LSPosed框架环境中使用。
     |
+    |此模块旨在优化用户体验，减少不必要的广告干扰和提高应用效率。
+    |仅供学习交流，请勿用于违法违规用途，且模块完全免费使用。
     |
-    |主要用于阻止常见平台广告与部分SDK的初始化加载和屏蔽应用的广告请求。
+    |主要用于：
+    |阻止常见SDK广告与部分统计SDK的初始化加载。
+    |拦截屏蔽应用的网络广告请求。
     |
     |同时提供了一些其他Hook功能和特定应用去广告适配。
     |
-    |
     |请不要请将此模块发送分享于QQ群，酷安，葫芦侠等社区，谢谢配合。
-    |为此，我已经将AdClose上架到了LSPosed模块仓库。
-    |做这个模块的初衷是为了能够给大家获得更好的应用体验，所以请不要做出以上的行为，我们真的花了很多心思，非常不希望看到这些事情发生。
+    |为此，AdClose已上架LSPosed模块仓库。
     """.trimMargin()))
 
         items.add(Category("Developer"))
@@ -38,7 +40,7 @@ class AboutActivity : AbsAboutActivity() {
         items.add(Contributor(R.drawable.cont_bggrgjqaubcoe, "bggRGjQaUbCoE", "Developer & Collaborator", "https://github.com/bggRGjQaUbCoE"))
 
         items.add(Category("Thanks-AdRules"))
-        items.add(Card("Twilight(AWAvenue-Ads-Rule)\nhttps://github.com/TG-Twilight/AWAvenue-Ads-Rule"))
+        items.add(Card("Twilight(秋风广告规则)\nhttps://github.com/TG-Twilight/AWAvenue-Ads-Rule"))
         items.add(Card("大萌主(轻量广告拦截规则)\nhttps://github.com/damengzhu/banad"))
         items.add(Card("8680(GOODBYEADS)\nhttps://github.com/8680/GOODBYEADS"))
         items.add(Card("sve1r(Rules-For-Quantumult-X)\nhttps://github.com/sve1r/Rules-For-Quantumult-X"))

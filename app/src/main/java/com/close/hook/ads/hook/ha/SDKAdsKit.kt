@@ -1,6 +1,5 @@
 package com.close.hook.ads.hook.ha
 
-import android.content.Context
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XposedBridge
 import com.close.hook.ads.hook.util.DexKitUtil
@@ -9,8 +8,10 @@ import de.robv.android.xposed.XC_MethodReplacement
 
 object SDKAdsKit {
 
-    fun blockAds(context: Context) {
-        val packageName = context.packageName
+    fun blockAds() {
+        DexKitUtil.initializeDexKitBridge()
+
+        val packageName = DexKitUtil.context.packageName
         val adPackages = listOf(
             "com.applovin",
             "com.facebook.ads",
@@ -27,8 +28,6 @@ object SDKAdsKit {
             "com.vungle.warren"
         )
 
-        DexKitUtil.initializeDexKitBridge(context)
-
         val foundMethods = DexKitUtil.getCachedOrFindMethods(packageName) {
             DexKitUtil.getBridge().findMethod {
                 searchPackages(adPackages)
@@ -39,7 +38,7 @@ object SDKAdsKit {
             }?.filter { isValidAdMethod(it) }?.toList()
         }
 
-        foundMethods?.let { hookMethods(it, context.classLoader) }
+        foundMethods?.let { hookMethods(it, DexKitUtil.context.classLoader) }
         DexKitUtil.releaseBridge()
     }
 

@@ -68,11 +68,6 @@ public class AppsViewModel extends AndroidViewModel {
                 .doOnNext(list -> loadState.setValue(LoadState.COMPLETE)));
     }
 
-    /*public void updateAppInfoList(List<AppInfo> newAppInfoList) {
-        this.appInfoList.clear();
-        this.appInfoList.addAll(newAppInfoList);
-    }*/
-
     public LiveData<List<AppInfo>> getUserAppsLiveData() {
         return userAppsLiveData;
     }

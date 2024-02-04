@@ -31,12 +31,22 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
+import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import okhttp3.Protocol;
+import okhttp3.Request;
+import okhttp3.Response;
+
+import org.luckypray.dexkit.result.MethodData;
+import com.close.hook.ads.hook.util.DexKitUtil;
+import com.close.hook.ads.hook.util.StringFinderKit;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -72,11 +82,11 @@ public class RequestHook {
         loadBlockedListsAsync();
     }
 
-    public static void init(XC_LoadPackage.LoadPackageParam lpparam) {
+    public static void init() {
         try {
             setupDNSRequestHook();
             setupHttpRequestHook();
-            setupOkHttpRequestHook(lpparam);
+            setupOkHttpRequestHook();
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
@@ -185,8 +195,19 @@ public class RequestHook {
         return shouldBlock;
     }
 
-    private static void setupOkHttpConnectionHook(XC_LoadPackage.LoadPackageParam lpparam) {
-        XposedHelpers.findAndHookMethod("okhttp3.internal.http.CallServerInterceptor", lpparam.classLoader, "intercept", "okhttp3.Interceptor.Chain", okhttpConnectionHook);
+    public static void setupOkHttpConnectionHook() {
+        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(" had non-zero Content-Length: ");
+
+        if (foundMethods != null) {
+            for (MethodData methodData : foundMethods) {
+                try {
+                    Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
+                    XposedBridge.hookMethod(method, okhttpConnectionHook);
+                //  XposedBridge.log("hook " + methodData);
+                } catch (Exception e) {
+                }
+            }
+        }
     }
 
     private static final XC_MethodHook okhttpConnectionHook = new XC_MethodHook() {
@@ -202,17 +223,18 @@ public class RequestHook {
     };
 
     private static Object createEmptyResponseForOkHttp(Object chain) throws Exception {
-        Object request = XposedHelpers.callMethod(chain, "request");
-        Class<?> responseClass = Class.forName("okhttp3.Response");
-        Class<?> protocolClass = Class.forName("okhttp3.Protocol");
-        Object builder = responseClass.getDeclaredConstructor().newInstance();
-
-        XposedHelpers.callMethod(builder, "request", request);
-        XposedHelpers.callMethod(builder, "protocol", Enum.valueOf((Class<Enum>) protocolClass, "HTTP_1_1"));
-        XposedHelpers.callMethod(builder, "code", 204);
-        XposedHelpers.callMethod(builder, "message", "No Content");
-
-        return XposedHelpers.callMethod(builder, "build");
+        if (chain instanceof okhttp3.Interceptor.Chain) {
+            okhttp3.Interceptor.Chain okhttpChain = (okhttp3.Interceptor.Chain) chain;
+            Request request = okhttpChain.request();
+    
+            return new Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(204)
+                    .message("No Content")
+                    .build();
+        }
+        return null;
     }
 
     private static boolean shouldBlockOkHttpsRequest(Object chain) {
@@ -267,39 +289,23 @@ public class RequestHook {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
             ContentResolver contentResolver = context.getContentResolver();
-            Cursor cursor = null;
-            try {
-                cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
-                if (cursor != null && cursor.moveToFirst()) {
-                    do {
-                        @SuppressLint("Range") String urlType = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_TYPE()));
-                        @SuppressLint("Range") String urlValue = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-
-                        switch (urlType) {
-                            case "host" -> {
-                                if (Objects.equals(urlValue, host)) {
-                                    return new Pair<>(true, "host");
-                                }
-                            }
-                            case "url" -> {
-                                if (host.contains(urlValue)) {
-                                    return new Pair<>(true, "url");
-                                }
-                            }
-                            case "keyword" -> {
-                                if (host.contains(urlValue)) {
-                                    return new Pair<>(true, "keyword");
-                                }
-                            }
-                            default -> {
-                                return new Pair<>(false, null);
-                            }
-                        }
-                    } while (cursor.moveToNext());
-                }
-            } finally {
+            Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
+    
+            try (Cursor cursor = contentResolver.query(uri, null, null, null, null)) {
                 if (cursor != null) {
-                    cursor.close();
+                    int urlTypeIndex = cursor.getColumnIndex(Url.Companion.getURL_TYPE());
+                    int urlValueIndex = cursor.getColumnIndex(Url.Companion.getURL_ADDRESS());
+    
+                    while (cursor.moveToNext()) {
+                        String urlType = cursor.getString(urlTypeIndex);
+                        String urlValue = cursor.getString(urlValueIndex);
+    
+                        if (urlType.equals("host") && Objects.equals(urlValue, host)) {
+                            return new Pair<>(true, "host");
+                        } else if ((urlType.equals("url") || urlType.equals("keyword")) && host.contains(urlValue)) {
+                            return new Pair<>(true, urlType);
+                        }
+                    }
                 }
             }
         }
@@ -310,47 +316,38 @@ public class RequestHook {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
             ContentResolver contentResolver = context.getContentResolver();
-            Cursor cursor = null;
-            try {
-                cursor = contentResolver.query(Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME), null, null, null, null);
-                if (cursor != null && cursor.moveToFirst()) {
-                    do {
-                        @SuppressLint("Range") String urlType = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_TYPE()));
-                        @SuppressLint("Range") String urlValue = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-
-                        switch (urlType) {
-                            case "host" -> {
-                                String host = formattedUrl.replace("https://", "").replace("http://", "");
-                                if (host.contains("/")) {
-                                    host = host.substring(0, host.indexOf('/'));
-                                }
-                                if (Objects.equals(urlValue, host)) {
-                                    return new Pair<>(true, "host");
-                                }
-                            }
-                            case "url" -> {
-                                if (formattedUrl.contains(urlValue)) {
-                                    return new Pair<>(true, "url");
-                                }
-                            }
-                            case "keyword" -> {
-                                if (formattedUrl.contains(urlValue)) {
-                                    return new Pair<>(true, "keyword");
-                                }
-                            }
-                            default -> {
-                                return new Pair<>(false, null);
-                            }
-                        }
-                    } while (cursor.moveToNext());
-                }
-            } finally {
+            Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
+    
+            try (Cursor cursor = contentResolver.query(uri, null, null, null, null)) {
                 if (cursor != null) {
-                    cursor.close();
+                    int urlTypeIndex = cursor.getColumnIndex(Url.Companion.getURL_TYPE());
+                    int urlValueIndex = cursor.getColumnIndex(Url.Companion.getURL_ADDRESS());
+    
+                    while (cursor.moveToNext()) {
+                        String urlType = cursor.getString(urlTypeIndex);
+                        String urlValue = cursor.getString(urlValueIndex);
+    
+                        String host = extractHost(formattedUrl);
+    
+                        if ("host".equals(urlType) && Objects.equals(urlValue, host)) {
+                            return new Pair<>(true, "host");
+                        } else if (("url".equals(urlType) || "keyword".equals(urlType)) && formattedUrl.contains(urlValue)) {
+                            return new Pair<>(true, urlType);
+                        }
+                    }
                 }
             }
         }
         return new Pair<>(false, null);
+    }
+    
+    private static String extractHost(String url) {
+        String host = url.replace("https://", "").replace("http://", "");
+        int indexOfSlash = host.indexOf('/');
+        if (indexOfSlash != -1) {
+            host = host.substring(0, indexOfSlash);
+        }
+        return host;
     }
 
     private static String formatUrlWithoutQuery(URL url) {
@@ -383,21 +380,27 @@ public class RequestHook {
         }
     }
 
-    private static void setupOkHttpRequestHook(XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            XposedHelpers.findAndHookMethod("okhttp3.internal.http.CallServerInterceptor", lpparam.classLoader, "intercept", "okhttp3.Interceptor.Chain", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    setupOkHttpConnectionHook(lpparam);
-                }
+    public static void setupOkHttpRequestHook() {
+        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(" had non-zero Content-Length: ");
 
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    processOkHttpRequestAsync(param);
+        if (foundMethods != null) {
+            for (MethodData methodData : foundMethods) {
+                try {
+                    Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
+                    XposedBridge.hookMethod(method, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            setupOkHttpConnectionHook();
+                        }
+        
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            processOkHttpRequestAsync(param);
+                        }
+                    });
+                } catch (Exception e) {
                 }
-            });
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "OkHttp interceptor not found: " + e.getMessage());
+            }
         }
     }
 

@@ -12,7 +12,6 @@ import com.close.hook.ads.hook.gc.DisableShakeAd;
 import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
-import com.close.hook.ads.hook.gc.network.OkHttpInterceptorHook;
 import com.close.hook.ads.hook.ha.AppAds;
 import com.close.hook.ads.hook.ha.AppAdsKit;
 import com.close.hook.ads.hook.ha.SDKAds;
@@ -29,6 +28,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookInit implements IXposedHookLoadPackage {
 	private static final String TAG = "com.close.hook.ads";
+    public static Context globalContext;
 
 	@SuppressLint("SuspiciousIndentation")
 	@Override
@@ -36,7 +36,7 @@ public class HookInit implements IXposedHookLoadPackage {
 		if (shouldIgnorePackage(lpparam)) {
 			return;
 		}
-	//	OkHttpInterceptorHook.handle(lpparam);
+
 		performHooking(lpparam);
 	}
 
@@ -53,14 +53,10 @@ public class HookInit implements IXposedHookLoadPackage {
 		PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
 		SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
-		applySettings(settingsManager, lpparam);
+		applySettings(settingsManager);
 	}
 
-	private void applySettings(SettingsManager settingsManager, XC_LoadPackage.LoadPackageParam lpparam) {
-		if (settingsManager.isRequestHookEnabled()) {
-			RequestHook.init(lpparam);
-		}
-
+	private void applySettings(SettingsManager settingsManager) {
 		if (settingsManager.isHideVPNStatusEnabled()) {
 			HideVPNStatus.proxy();
 		}
@@ -81,25 +77,29 @@ public class HookInit implements IXposedHookLoadPackage {
 			XposedHelpers.findAndHookMethod(Application.class, "attach", Context.class, new XC_MethodHook() {
 				@Override
 				protected void afterHookedMethod(MethodHookParam param) {
-					Context context = (Context) param.args[0];
-					ClassLoader classLoader = context.getClassLoader();
+                    globalContext = (Context) param.args[0];
+                    ClassLoader classLoader = globalContext.getClassLoader();
 
-					String packageName = context.getPackageName();
-					CharSequence appName = getAppName(context, packageName);
+					String packageName = globalContext.getPackageName();
+					CharSequence appName = getAppName(globalContext, packageName);
 
 					if (!TAG.equals(packageName)) {
 						XposedBridge.log("found classload is => " + classLoader.toString());
 						XposedBridge.log("Application Name: " + appName);
 					}
 
-					if (packageName.equals("com.zhihu.android")) { // 知乎
-						AppAdsKit.INSTANCE.blockAds(context);
+            		if (settingsManager.isRequestHookEnabled()) {
+            			RequestHook.init();
+            		}
+
+					if (packageName.equals("com.zhihu.android")) {
+						AppAdsKit.INSTANCE.blockAds();
 					}
 
 					AppAds.progress(classLoader, packageName);
 
 					if (settingsManager.isHandlePlatformAdEnabled()) {
-						SDKAdsKit.INSTANCE.blockAds(context);
+						SDKAdsKit.INSTANCE.blockAds();
 						SDKAds.hookAds(classLoader);
 					}
 				}
