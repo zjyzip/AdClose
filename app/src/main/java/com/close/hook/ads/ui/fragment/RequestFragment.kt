@@ -176,10 +176,14 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     private fun setIcon(drawableId: Int, focus: Boolean) {
         with(binding.searchIcon) {
             setImageResource(drawableId)
-            if (focus) requestFocus() else clearFocus()
         }
-        if (focus) imm?.showSoftInput(binding.searchEditText, 0)
-        else imm?.hideSoftInputFromWindow(binding.searchEditText.windowToken, 0)
+        if (focus) {
+            binding.searchEditText.requestFocus()
+            imm?.showSoftInput(binding.searchEditText, 0)
+        } else {
+            binding.searchEditText.clearFocus()
+            imm?.hideSoftInputFromWindow(binding.searchEditText.windowToken, 0)
+        }
     }
 
     override fun onDestroy() {
