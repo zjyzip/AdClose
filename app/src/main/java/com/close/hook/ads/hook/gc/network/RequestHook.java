@@ -1,6 +1,5 @@
 package com.close.hook.ads.hook.gc.network;
 
-import android.annotation.SuppressLint;
 import android.app.AndroidAppHelper;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -34,7 +33,6 @@ import java.util.Set;
 import java.util.List;
 import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,15 +50,11 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
-import io.reactivex.rxjava3.core.BackpressureStrategy;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
     private static final Set<String> BLOCKED_LISTS = ConcurrentHashMap.newKeySet(); // 包含策略
-    private static final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-    private static final CountDownLatch loadDataLatch = new CountDownLatch(1);
+    private static final ExecutorService executorService = Executors.newCachedThreadPool();
     private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
             .maximumSize(15000)
             .expireAfterAccess(1, TimeUnit.HOURS) // 更改为最后一次访问后1小时过期
@@ -78,10 +72,6 @@ public class RequestHook {
     @Nullable
     private static String responseHeaders;
 
-    static {
-        loadBlockedListsAsync();
-    }
-
     public static void init() {
         try {
             setupDNSRequestHook();
@@ -89,19 +79,6 @@ public class RequestHook {
             setupOkHttpRequestHook();
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
-        }
-    }
-
-    private static void loadBlockedListsAsync() {
-        loadListAsync("/assets/blocked_lists.txt", "Error loading blocked lists");
-    }
-
-    private static void waitForDataLoading() {
-        try {
-            loadDataLatch.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            XposedBridge.log(LOG_PREFIX + "Interrupted while waiting for data loading");
         }
     }
 
@@ -115,10 +92,9 @@ public class RequestHook {
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
             String host = (String) param.args[0];
             if (host != null && shouldBlockDnsRequest(host)) {
-                String methodName = param.method.getName();
-                if ("getByName".equals(methodName)) {
+                if ("getByName".equals(param.method.getName())) {
                     param.setResult(null);
-                } else if ("getAllByName".equals(methodName)) {
+                } else if ("getAllByName".equals(param.method.getName())) {
                     param.setResult(new InetAddress[0]);
                 }
                 return;
@@ -130,8 +106,7 @@ public class RequestHook {
         if (host == null) {
             return false;
         }
-        //waitForDataLoading();
-        boolean shouldBlock = false;//shouldBlockHost(host);
+        boolean shouldBlock = false;
         String blockType = null;
         Pair<Boolean, String> pair = queryHostContentProvider(host);
         if (pair.first) {
@@ -174,9 +149,8 @@ public class RequestHook {
         if (url == null) {
             return false;
         }
-        //waitForDataLoading();
         String formattedUrl = formatUrlWithoutQuery(url);
-        boolean shouldBlock = false;//shouldBlockURL(formattedUrl);
+        boolean shouldBlock = false;
         String blockType = null;
         Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
         if (pair.first) {
@@ -207,13 +181,12 @@ public class RequestHook {
             if (chain == null) {
                 return false;
             }
-            //waitForDataLoading();
 
             Object request = XposedHelpers.callMethod(chain, "request");
             Object httpUrl = XposedHelpers.callMethod(request, "url");
             URL url = new URL(httpUrl.toString());
             String formattedUrl = formatUrlWithoutQuery(url);
-            boolean shouldBlock = false;//shouldBlockURL(formattedUrl);
+            boolean shouldBlock = false;
             String blockType = null;
             Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
             if (pair.first) {
@@ -225,24 +198,6 @@ public class RequestHook {
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request: " + e.getMessage());
             return false;
-        }
-    }
-
-    private static boolean shouldBlockHost(String host) {
-        try {
-            return urlBlockCache.get(host, () -> BLOCKED_LISTS.stream().anyMatch(host::contains));
-        } catch (ExecutionException e) {
-            XposedBridge.log(LOG_PREFIX + "Error accessing the cache: " + e.getMessage());
-            throw new RuntimeException("Error accessing the cache", e);
-        }
-    }
-
-    private static boolean shouldBlockURL(String urlPart) {
-        try {
-            return urlBlockCache.get(urlPart, () -> BLOCKED_LISTS.stream().anyMatch(urlPart::contains));
-        } catch (ExecutionException e) {
-            XposedBridge.log(LOG_PREFIX + "Error accessing the cache: " + e.getMessage());
-            throw new RuntimeException("Error accessing the cache", e);
         }
     }
 
@@ -348,7 +303,7 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    //  XposedBridge.log("hook " + methodData);
+        //          XposedBridge.log("hook " + methodData);
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -475,34 +430,6 @@ public class RequestHook {
         }
     }
 
-    @SuppressLint("CheckResult")
-    private static void loadListAsync(String resourcePath, String errorMessage) {
-        Flowable.create(emitter -> {
-                    try (InputStream inputStream = RequestHook.class.getResourceAsStream(resourcePath);
-                         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                        if (inputStream == null) {
-                            emitter.onError(new FileNotFoundException("Resource not found: " + resourcePath));
-                            return;
-                        }
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            String trimmedLine = line.trim();
-                            BLOCKED_LISTS.add(trimmedLine);
-                            emitter.onNext(trimmedLine);
-                        }
-                        emitter.onComplete();
-                    } catch (IOException e) {
-                        emitter.onError(e);
-                    }
-                }, BackpressureStrategy.BUFFER)
-                .subscribeOn(Schedulers.io())
-                .observeOn(Schedulers.computation())
-                .doFinally(loadDataLatch::countDown)
-                .subscribe(item -> {
-                        },
-                        error -> XposedBridge.log(LOG_PREFIX + errorMessage + ": " + error));
-    }
-
     private static void sendBroadcast(String requestType, boolean shouldBlock, String blockType, String url) {
         sendBlockedRequestBroadcast("all", requestType, shouldBlock, blockType, url);
         if (shouldBlock) {
@@ -515,40 +442,42 @@ public class RequestHook {
     private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,
                                                     @Nullable Boolean isBlocked, @Nullable String blockType, String request) {
         Intent intent;
-        if (Objects.equals(type, "all")) {
-            intent = new Intent("com.rikkati.ALL_REQUEST");
-        } else if (Objects.equals(type, "block")) {
-            intent = new Intent("com.rikkati.BLOCKED_REQUEST");
-        } else {
-            intent = new Intent("com.rikkati.PASS_REQUEST");
+        switch (type) {
+            case "all":
+                intent = new Intent("com.rikkati.ALL_REQUEST");
+                break;
+            case "block":
+                intent = new Intent("com.rikkati.BLOCKED_REQUEST");
+                break;
+            default:
+                intent = new Intent("com.rikkati.PASS_REQUEST");
+                break;
         }
-
+    
         Context currentContext = AndroidAppHelper.currentApplication();
         if (currentContext != null) {
             PackageManager pm = currentContext.getPackageManager();
             String appName;
             try {
-                appName = pm
-                        .getApplicationLabel(
-                                pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
+                appName = pm.getApplicationLabel(
+                        pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
                         .toString();
             } catch (PackageManager.NameNotFoundException e) {
                 appName = currentContext.getPackageName();
-
             }
             appName += requestType;
             String packageName = currentContext.getPackageName();
+            
             BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
                     System.currentTimeMillis(), type, isBlocked, blockType, method, urlString, requestHeaders,
                     responseCode, responseMessage, responseHeaders);
             urlString = null;
-
+    
             intent.putExtra("request", blockedRequest);
-            AndroidAppHelper.currentApplication().sendBroadcast(intent);
+            currentContext.sendBroadcast(intent);
         } else {
             Log.w("RequestHook", "sendBlockedRequestBroadcast: currentContext is null");
         }
-
     }
 
 }
