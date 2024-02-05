@@ -130,17 +130,13 @@ public class RequestHook {
         if (host == null) {
             return false;
         }
-        waitForDataLoading();
-        boolean shouldBlock = shouldBlockHost(host);
+        //waitForDataLoading();
+        boolean shouldBlock = false;//shouldBlockHost(host);
         String blockType = null;
-        if (!shouldBlock) {
-            Pair<Boolean, String> pair = queryHostContentProvider(host);
-            if (pair.first) {
-                shouldBlock = true;
-                blockType = pair.second;
-            }
-        } else {
-            blockType = "txt";
+        Pair<Boolean, String> pair = queryHostContentProvider(host);
+        if (pair.first) {
+            shouldBlock = true;
+            blockType = pair.second;
         }
         sendBroadcast(" DNS", shouldBlock, blockType, host);
         return shouldBlock;
@@ -178,18 +174,14 @@ public class RequestHook {
         if (url == null) {
             return false;
         }
-        waitForDataLoading();
+        //waitForDataLoading();
         String formattedUrl = formatUrlWithoutQuery(url);
-        boolean shouldBlock = shouldBlockURL(formattedUrl);
+        boolean shouldBlock = false;//shouldBlockURL(formattedUrl);
         String blockType = null;
-        if (!shouldBlock) {
-            Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
-            if (pair.first) {
-                shouldBlock = true;
-                blockType = pair.second;
-            }
-        } else {
-            blockType = "txt";
+        Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
+        if (pair.first) {
+            shouldBlock = true;
+            blockType = pair.second;
         }
         sendBroadcast(" HTTP", shouldBlock, blockType, formattedUrl);
         return shouldBlock;
@@ -199,7 +191,7 @@ public class RequestHook {
         if (chain instanceof okhttp3.Interceptor.Chain) {
             okhttp3.Interceptor.Chain okhttpChain = (okhttp3.Interceptor.Chain) chain;
             Request request = okhttpChain.request();
-    
+
             return new Response.Builder()
                     .request(request)
                     .protocol(Protocol.HTTP_1_1)
@@ -215,22 +207,18 @@ public class RequestHook {
             if (chain == null) {
                 return false;
             }
-            waitForDataLoading();
+            //waitForDataLoading();
 
             Object request = XposedHelpers.callMethod(chain, "request");
             Object httpUrl = XposedHelpers.callMethod(request, "url");
             URL url = new URL(httpUrl.toString());
             String formattedUrl = formatUrlWithoutQuery(url);
-            boolean shouldBlock = shouldBlockURL(formattedUrl);
+            boolean shouldBlock = false;//shouldBlockURL(formattedUrl);
             String blockType = null;
-            if (!shouldBlock) {
-                Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
-                if (pair.first) {
-                    shouldBlock = true;
-                    blockType = pair.second;
-                }
-            } else {
-                blockType = "txt";
+            Pair<Boolean, String> pair = queryURLContentProvider(formattedUrl);
+            if (pair.first) {
+                shouldBlock = true;
+                blockType = pair.second;
             }
             sendBroadcast(" OKHTTP", shouldBlock, blockType, formattedUrl);
             return shouldBlock;
@@ -263,16 +251,16 @@ public class RequestHook {
         if (context != null) {
             ContentResolver contentResolver = context.getContentResolver();
             Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
-    
+
             try (Cursor cursor = contentResolver.query(uri, null, null, null, null)) {
                 if (cursor != null) {
                     int urlTypeIndex = cursor.getColumnIndex(Url.Companion.getURL_TYPE());
                     int urlValueIndex = cursor.getColumnIndex(Url.Companion.getURL_ADDRESS());
-    
+
                     while (cursor.moveToNext()) {
                         String urlType = cursor.getString(urlTypeIndex);
                         String urlValue = cursor.getString(urlValueIndex);
-    
+
                         if (urlType.equals("host") && Objects.equals(urlValue, host)) {
                             return new Pair<>(true, "host");
                         } else if ((urlType.equals("url") || urlType.equals("keyword")) && host.contains(urlValue)) {
@@ -290,18 +278,18 @@ public class RequestHook {
         if (context != null) {
             ContentResolver contentResolver = context.getContentResolver();
             Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
-    
+
             try (Cursor cursor = contentResolver.query(uri, null, null, null, null)) {
                 if (cursor != null) {
                     int urlTypeIndex = cursor.getColumnIndex(Url.Companion.getURL_TYPE());
                     int urlValueIndex = cursor.getColumnIndex(Url.Companion.getURL_ADDRESS());
-    
+
                     while (cursor.moveToNext()) {
                         String urlType = cursor.getString(urlTypeIndex);
                         String urlValue = cursor.getString(urlValueIndex);
-    
+
                         String host = extractHost(formattedUrl);
-    
+
                         if ("host".equals(urlType) && Objects.equals(urlValue, host)) {
                             return new Pair<>(true, "host");
                         } else if (("url".equals(urlType) || "keyword".equals(urlType)) && formattedUrl.contains(urlValue)) {
@@ -313,7 +301,7 @@ public class RequestHook {
         }
         return new Pair<>(false, null);
     }
-    
+
     private static String extractHost(String url) {
         String host = url.replace("https://", "").replace("http://", "");
         int indexOfSlash = host.indexOf('/');
@@ -360,18 +348,18 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                //  XposedBridge.log("hook " + methodData);
+                    //  XposedBridge.log("hook " + methodData);
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                             Object chain = param.args[0];
-                
+
                             if (shouldBlockOkHttpsRequest(chain)) {
                                 Object response = createEmptyResponseForOkHttp(chain);
                                 param.setResult(response);
                             }
                         }
-        
+
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                             processOkHttpRequestAsync(param);

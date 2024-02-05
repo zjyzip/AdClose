@@ -8,7 +8,6 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.close.hook.ads.data.dao.UrlDao
 import com.close.hook.ads.data.model.Url
-import kotlin.math.abs
 
 @Database(entities = [Url::class], version = 3, exportSchema = false)
 abstract class UrlDatabase : RoomDatabase() {
@@ -31,6 +30,7 @@ abstract class UrlDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE url_info ADD COLUMN type TEXT NOT NULL DEFAULT url")
             }
         }
+
 
         @Synchronized
         fun getDatabase(context: Context): UrlDatabase {

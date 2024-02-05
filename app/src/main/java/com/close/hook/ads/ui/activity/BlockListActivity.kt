@@ -28,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -69,7 +70,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
 
     }
 
-    @SuppressLint("InflateParams")
+    @SuppressLint("InflateParams", "SetTextI18n")
     private fun initButton() {
         binding.export.setOnClickListener {
             val newList = ArrayList<String>()
@@ -93,6 +94,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                 LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
             val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
             val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
+            type.setText("url")
             type.setAdapter(
                 ArrayAdapter(
                     this,
@@ -225,6 +227,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
         mLayoutManager = LinearLayoutManager(this)
         mAdapter = BlockListAdapter(this)
         mAdapter.setCallBack(this)
+        FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
         binding.recyclerView.apply {
             adapter = mAdapter
             layoutManager = mLayoutManager

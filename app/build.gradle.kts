@@ -127,7 +127,7 @@ dependencies {
     implementation("io.reactivex.rxjava3:rxjava:3.1.8")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
 
-    implementation("com.squareup.okhttp3:okhttp:4.9.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation("com.google.guava:guava:33.0.0-jre")
 
