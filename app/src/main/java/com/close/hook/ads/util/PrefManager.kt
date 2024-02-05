@@ -61,4 +61,9 @@ object PrefManager {
     var isReverse: Boolean
         get() = pref.getBoolean("isReverse", false)
         set(value) =pref.edit().putBoolean("isReverse", value).apply()
+
+    var setData: Boolean
+        get() = pref.getBoolean("setData", true)
+        set(value) =pref.edit().putBoolean("setData", value).apply()
+
 }

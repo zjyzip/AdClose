@@ -68,4 +68,8 @@
     <color name="b">#c1e8ff</color>
     <color name="f">#374955</color>
 
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="wb">@color/white</color>
+
 </resources>

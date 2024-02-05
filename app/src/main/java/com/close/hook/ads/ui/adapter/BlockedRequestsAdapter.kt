@@ -64,7 +64,7 @@ class BlockedRequestsAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.blocked_request_item, parent, false)
+            .inflate(R.layout.item_blocked_request, parent, false)
         return ViewHolder(view).apply {
             itemView.setOnClickListener {
                 if (!urlString.isNullOrEmpty())

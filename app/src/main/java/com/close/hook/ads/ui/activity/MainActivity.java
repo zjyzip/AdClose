@@ -10,12 +10,15 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
-import com.close.hook.ads.ui.fragment.RequestFragment;
+import com.close.hook.ads.data.database.UrlDatabase;
 import com.close.hook.ads.ui.fragment.InstalledAppsFragment;
+import com.close.hook.ads.ui.fragment.RequestFragment;
 import com.close.hook.ads.ui.fragment.SettingsFragment;
+import com.close.hook.ads.util.DataUtil;
 import com.close.hook.ads.util.INavContainer;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
+import com.close.hook.ads.util.PrefManager;
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -34,6 +37,14 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         setupViewPagerAndBottomNavigation();
+        setData();
+    }
+
+    private void setData() {
+        if (PrefManager.INSTANCE.getSetData()) {
+            PrefManager.INSTANCE.setSetData(false);
+            DataUtil.INSTANCE.setData(UrlDatabase.Companion.getDatabase(this).getUrlDao());
+        }
     }
 
     public static boolean isModuleActivated() {

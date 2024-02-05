@@ -4,4 +4,5 @@
     <color name="f">#c1e8ff</color>
     <color name="searchBar">#3f434e</color>
     <color name="textSecondary">#b2ffffff</color>
+    <color name="wb">@color/black</color>
 </resources>
