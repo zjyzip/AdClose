@@ -50,7 +50,8 @@ class BlockListAdapter(private val context: Context) :
 
         fun bind(item: Item) {
             binding.url.text = item.url
-            binding.type.text = item.type
+            binding.type.text = item.type.replace("host", "Host").replace("url", "URL")
+                .replace("keyword", "KeyWord")
         }
 
         companion object {

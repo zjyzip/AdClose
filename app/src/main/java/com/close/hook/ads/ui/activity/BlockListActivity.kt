@@ -73,11 +73,7 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     @SuppressLint("InflateParams", "SetTextI18n")
     private fun initButton() {
         binding.export.setOnClickListener {
-            val newList = ArrayList<String>()
-            viewModel.blockList.forEach {
-                newList.add(it.url)
-            }
-            if (saveFile(Gson().toJson(newList)))
+            if (saveFile(Gson().toJson(viewModel.blockList)))
                 backupSAFLauncher.launch("block_list.json")
             else
                 Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT).show()
@@ -94,12 +90,12 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                 LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
             val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
             val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
-            type.setText("url")
+            type.setText("URL")
             type.setAdapter(
                 ArrayAdapter(
                     this,
                     android.R.layout.simple_spinner_dropdown_item,
-                    arrayOf("host", "url", "keyword")
+                    arrayOf("Host", "URL", "KeyWord")
                 )
             )
             MaterialAlertDialogBuilder(this).apply {
@@ -256,12 +252,15 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
         val editText: EditText = dialogView.findViewById(R.id.editText)
         editText.setText(viewModel.blockList[position].url)
         val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
-        type.setText(viewModel.blockList[position].type)
+        type.setText(
+            viewModel.blockList[position].type.replace("host", "Host").replace("url", "URL")
+                .replace("keyword", "KeyWord")
+        )
         type.setAdapter(
             ArrayAdapter(
                 this,
                 android.R.layout.simple_spinner_dropdown_item,
-                arrayOf("host", "url", "keyword")
+                arrayOf("Host", "URL", "KeyWord")
             )
         )
         MaterialAlertDialogBuilder(this).apply {

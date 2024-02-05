@@ -216,10 +216,10 @@ public class RequestHook {
                         String urlType = cursor.getString(urlTypeIndex);
                         String urlValue = cursor.getString(urlValueIndex);
 
-                        if (urlType.equals("host") && Objects.equals(urlValue, host)) {
-                            return new Pair<>(true, "host");
-                        } else if ((urlType.equals("url") || urlType.equals("keyword")) && host.contains(urlValue)) {
-                            return new Pair<>(true, urlType);
+                        if (urlType.equalsIgnoreCase("host") && Objects.equals(urlValue, host)) {
+                            return new Pair<>(true, "Host");
+                        } else if ((urlType.equalsIgnoreCase("url") || urlType.equalsIgnoreCase("keyword")) && host.contains(urlValue)) {
+                            return new Pair<>(true, urlType.replace("url", "URL").replace("keyword", "KeyWord"));
                         }
                     }
                 }
@@ -245,10 +245,10 @@ public class RequestHook {
 
                         String host = extractHost(formattedUrl);
 
-                        if ("host".equals(urlType) && Objects.equals(urlValue, host)) {
-                            return new Pair<>(true, "host");
-                        } else if (("url".equals(urlType) || "keyword".equals(urlType)) && formattedUrl.contains(urlValue)) {
-                            return new Pair<>(true, urlType);
+                        if ("host".equalsIgnoreCase(urlType) && Objects.equals(urlValue, host)) {
+                            return new Pair<>(true, "Host");
+                        } else if (("url".equalsIgnoreCase(urlType) || "keyword".equalsIgnoreCase(urlType)) && formattedUrl.contains(urlValue)) {
+                            return new Pair<>(true, urlType.replace("url", "URL").replace("keyword", "KeyWord"));
                         }
                     }
                 }
@@ -303,7 +303,7 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-        //          XposedBridge.log("hook " + methodData);
+                    //          XposedBridge.log("hook " + methodData);
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -453,26 +453,26 @@ public class RequestHook {
                 intent = new Intent("com.rikkati.PASS_REQUEST");
                 break;
         }
-    
+
         Context currentContext = AndroidAppHelper.currentApplication();
         if (currentContext != null) {
             PackageManager pm = currentContext.getPackageManager();
             String appName;
             try {
                 appName = pm.getApplicationLabel(
-                        pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
+                                pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
                         .toString();
             } catch (PackageManager.NameNotFoundException e) {
                 appName = currentContext.getPackageName();
             }
             appName += requestType;
             String packageName = currentContext.getPackageName();
-            
+
             BlockedRequest blockedRequest = new BlockedRequest(appName, packageName, request,
                     System.currentTimeMillis(), type, isBlocked, blockType, method, urlString, requestHeaders,
                     responseCode, responseMessage, responseHeaders);
             urlString = null;
-    
+
             intent.putExtra("request", blockedRequest);
             currentContext.sendBroadcast(intent);
         } else {
