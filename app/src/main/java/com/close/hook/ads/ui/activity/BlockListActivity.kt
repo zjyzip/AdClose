@@ -288,34 +288,41 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { uri ->
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val newItems = contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
-                            lines.mapNotNull { line ->
-                                val parts = line.split(",\\s*".toRegex())
-                                if (parts.size == 2) Item(parts[0].trim(), parts[1].trim()) else null
+                val fileName = uri.path
+                if (fileName != null && fileName.endsWith(".rule")) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val newItems = contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
+                                lines.mapNotNull { line ->
+                                    val parts = line.split(",\\s*".toRegex()).map { it.trim() }
+                                    if (parts.size == 2) Item(parts[0], parts[1]) else null
+                                }
+                                .distinct()
+                                .sortedBy { it.url }
+                                .toList()
+                            } ?: listOf()
+    
+                            newItems.forEach { item ->
+                                if (viewModel.blockList.indexOf(Item(item.type, item.url)) == -1) {
+                                    urlDao.insert(Url(item.type, item.url))
+                                    viewModel.blockList.add(0, Item(item.type, item.url))
+                                }
                             }
-                            .distinct()
-                            .sortedBy { it.url }
-                            .toList()
-                        } ?: listOf()
-
-                        newItems.forEach { item ->
-                            if (viewModel.blockList.indexOf(Item(item.type, item.url)) == -1) {
-                                urlDao.insert(Url(item.type, item.url))
-                                viewModel.blockList.add(0, Item(item.type, item.url))
+    
+                            withContext(Dispatchers.Main) {
+                                submitList()
+                                Toast.makeText(this@BlockListActivity, "导入成功", Toast.LENGTH_SHORT).show()
                             }
+                        } catch (e: IOException) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@BlockListActivity, "导入失败", Toast.LENGTH_SHORT).show()
+                            }
+                            e.printStackTrace()
                         }
-
-                        withContext(Dispatchers.Main) {
-                            submitList()
-                            Toast.makeText(this@BlockListActivity, "导入成功", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: IOException) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BlockListActivity, "导入失败", Toast.LENGTH_SHORT).show()
-                        }
-                        e.printStackTrace()
+                    }
+                } else {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        Toast.makeText(this@BlockListActivity, "请选择正确格式后缀的规则文件 (.rule)", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -324,16 +331,22 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     private val backupSAFLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri: Uri? ->
             uri?.let {
-                try {
-                    contentResolver.openOutputStream(it)?.bufferedWriter().use { writer ->
-                        prepareDataForExport().forEach { line ->
-                            writer?.write("$line\n")
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
+                            prepareDataForExport().forEach { line ->
+                                writer?.write("$line\n")
+                            }
                         }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@BlockListActivity, "导出成功", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: IOException) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@BlockListActivity, "导出失败", Toast.LENGTH_SHORT).show()
+                        }
+                        e.printStackTrace()
                     }
-                    Toast.makeText(this, "导出成功", Toast.LENGTH_SHORT).show()
-                } catch (e: IOException) {
-                    Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT).show()
-                    e.printStackTrace()
                 }
             }
         }

@@ -26,6 +26,8 @@
     <string name="tab_host_list">Block List</string>
     <string name="tab_host_whitelist">Pass List</string>
 
+    <string name="export">Export</string>
+    <string name="restore">Import</string>
 
     <string name="update_checkbox_status">Save</string>
     <string name="description_two">•automatically blocks ad requests, does not affect normal network</string>

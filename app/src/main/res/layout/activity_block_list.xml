@@ -47,21 +47,45 @@
                     android:visibility="gone"
                     app:srcCompat="@drawable/ic_clear_black_24" />
 
-                <ImageButton
-                    android:id="@+id/export"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="?attr/actionBarItemBackground"
-                    android:padding="10dp"
-                    app:srcCompat="@drawable/ic_backup" />
+                    android:orientation="vertical"
+                    android:gravity="center">
 
-                <ImageButton
-                    android:id="@+id/restore"
+                    <ImageButton
+                        android:id="@+id/export"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/actionBarItemBackground"
+                        android:padding="10dp"
+                        app:srcCompat="@drawable/ic_database_export" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/export" />
+                </LinearLayout>
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="?attr/actionBarItemBackground"
-                    android:padding="10dp"
-                    app:srcCompat="@drawable/ic_restore" />
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <ImageButton
+                        android:id="@+id/restore"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/actionBarItemBackground"
+                        android:padding="10dp"
+                        app:srcCompat="@drawable/ic_database_import" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/restore" />
+                </LinearLayout>
 
             </LinearLayout>
 
