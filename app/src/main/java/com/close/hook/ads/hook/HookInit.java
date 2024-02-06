@@ -53,10 +53,14 @@ public class HookInit implements IXposedHookLoadPackage {
 		PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
 		SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
-		applySettings(settingsManager);
+		applySettings(settingsManager, lpparam);
 	}
 
-	private void applySettings(SettingsManager settingsManager) {
+	private void applySettings(SettingsManager settingsManager, XC_LoadPackage.LoadPackageParam lpparam) {
+		if (settingsManager.isRequestHookEnabled()) {
+			RequestHook.init(lpparam);
+		}
+
 		if (settingsManager.isHideVPNStatusEnabled()) {
 			HideVPNStatus.proxy();
 		}
@@ -87,10 +91,6 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("found classload is => " + classLoader.toString());
 						XposedBridge.log("Application Name: " + appName);
 					}
-
-            		if (settingsManager.isRequestHookEnabled()) {
-            			RequestHook.init();
-            		}
 
 					if (packageName.equals("com.zhihu.android")) {
 						AppAdsKit.INSTANCE.blockAds();
