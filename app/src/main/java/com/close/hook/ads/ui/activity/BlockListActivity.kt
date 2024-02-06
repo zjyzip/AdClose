@@ -29,8 +29,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
-import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 
 class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
@@ -73,10 +71,10 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     @SuppressLint("InflateParams", "SetTextI18n")
     private fun initButton() {
         binding.export.setOnClickListener {
-            backupSAFLauncher.launch("block_list.rule");
+            backupSAFLauncher.launch("block_list.rule")
         }
         binding.restore.setOnClickListener {
-            restoreSAFLauncher.launch("*/*");
+            restoreSAFLauncher.launch("*/*")
         }
         binding.clear.setOnClickListener {
             binding.editText.text = null
@@ -301,15 +299,16 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                             .sortedBy { it.url }
                             .toList()
                         } ?: listOf()
-    
+
                         newItems.forEach { item ->
-                            val newItem = Url(item.type, item.url)
-                            urlDao.insert(newItem)
+                            if (viewModel.blockList.indexOf(Item(item.type, item.url)) == -1) {
+                                urlDao.insert(Url(item.type, item.url))
+                                viewModel.blockList.add(0, Item(item.type, item.url))
+                            }
                         }
-                        viewModel.blockList.addAll(0, newItems)
-    
+
                         withContext(Dispatchers.Main) {
-                            mAdapter.notifyDataSetChanged()
+                            submitList()
                             Toast.makeText(this@BlockListActivity, "导入成功", Toast.LENGTH_SHORT).show()
                         }
                     } catch (e: IOException) {
