@@ -26,6 +26,8 @@
     <string name="tab_host_list">拦截列表</string>
     <string name="tab_host_whitelist">放行列表</string>
 
+    <string name="export">导出</string>
+    <string name="restore">导入</string>
 
     <string name="update_checkbox_status">保存开关配置</string>
     <string name="description_two">•自动屏蔽广告请求，不影响正常网络</string>

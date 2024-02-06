@@ -13,7 +13,6 @@ import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
 import com.close.hook.ads.hook.ha.AppAds;
-import com.close.hook.ads.hook.ha.AppAdsKit;
 import com.close.hook.ads.hook.ha.SDKAds;
 import com.close.hook.ads.hook.ha.SDKAdsKit;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
@@ -53,14 +52,10 @@ public class HookInit implements IXposedHookLoadPackage {
 		PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
 		SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
-		applySettings(settingsManager, lpparam);
+		applySettings(settingsManager);
 	}
 
-	private void applySettings(SettingsManager settingsManager, XC_LoadPackage.LoadPackageParam lpparam) {
-		if (settingsManager.isRequestHookEnabled()) {
-			RequestHook.init(lpparam);
-		}
-
+	private void applySettings(SettingsManager settingsManager) {
 		if (settingsManager.isHideVPNStatusEnabled()) {
 			HideVPNStatus.proxy();
 		}
@@ -92,9 +87,9 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("Application Name: " + appName);
 					}
 
-					if (packageName.equals("com.zhihu.android")) {
-						AppAdsKit.INSTANCE.blockAds();
-					}
+            		if (settingsManager.isRequestHookEnabled()) {
+            			RequestHook.init();
+            		}
 
 					AppAds.progress(classLoader, packageName);
 
