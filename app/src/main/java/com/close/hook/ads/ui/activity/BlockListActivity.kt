@@ -23,7 +23,7 @@ import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
-import com.google.gson.Gson
+import android.net.Uri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -73,13 +73,10 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     @SuppressLint("InflateParams", "SetTextI18n")
     private fun initButton() {
         binding.export.setOnClickListener {
-            if (saveFile(Gson().toJson(viewModel.blockList)))
-                backupSAFLauncher.launch("block_list.json")
-            else
-                Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT).show()
+            backupSAFLauncher.launch("block_list.rule");
         }
         binding.restore.setOnClickListener {
-            restoreSAFLauncher.launch("application/json")
+            restoreSAFLauncher.launch("*/*");
         }
         binding.clear.setOnClickListener {
             binding.editText.text = null
@@ -139,29 +136,6 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
                 window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
                 editText.requestFocus()
             }.show()
-        }
-    }
-
-    private fun saveFile(content: String): Boolean {
-        return try {
-            val dir = File(this.cacheDir.toString())
-            if (!dir.exists())
-                dir.mkdir()
-            val file = File("${this.cacheDir}/block_list.json")
-            if (!file.exists())
-                file.createNewFile()
-            else {
-                file.delete()
-                file.createNewFile()
-            }
-            val fileOutputStream = FileOutputStream(file)
-            fileOutputStream.write(content.toByteArray())
-            fileOutputStream.flush()
-            fileOutputStream.close()
-            true
-        } catch (e: IOException) {
-            e.printStackTrace()
-            false
         }
     }
 
@@ -305,53 +279,63 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
         }.show()
     }
 
+    private fun prepareDataForExport(): List<String> {
+        return viewModel.blockList
+            .map { "${it.type}, ${it.url}" } // 转换为 "Type, Url" 格式
+            .distinct() // 去重
+            .filter { it.contains(",") } // 确保每项至少包含一个逗号
+            .sorted() // 字母排序
+    }
+
     private val restoreSAFLauncher =
-        registerForActivityResult(ActivityResultContracts.GetContent()) restore@{ uri ->
-            if (uri == null) return@restore
-            runCatching {
-                val string = this.contentResolver
-                    .openInputStream(uri)?.reader().use { it?.readText() }
-                    ?: throw IOException("Backup file was damaged")
-                val json: Array<Item> = Gson().fromJson(
-                    string,
-                    Array<Item>::class.java
-                )
-                json.forEach {
-                    if (viewModel.blockList.indexOf(Item(it.type, it.url)) == -1) {
-                        urlDao.insert(Url(it.type, it.url))
-                        viewModel.blockList.add(0, Item(it.type, it.url))
-                        submitList()
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let { uri ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val newItems = contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
+                            lines.mapNotNull { line ->
+                                val parts = line.split(",\\s*".toRegex())
+                                if (parts.size == 2) Item(parts[0].trim(), parts[1].trim()) else null
+                            }
+                            .distinct()
+                            .sortedBy { it.url }
+                            .toList()
+                        } ?: listOf()
+    
+                        newItems.forEach { item ->
+                            val newItem = Url(item.type, item.url)
+                            urlDao.insert(newItem)
+                        }
+                        viewModel.blockList.addAll(0, newItems)
+    
+                        withContext(Dispatchers.Main) {
+                            mAdapter.notifyDataSetChanged()
+                            Toast.makeText(this@BlockListActivity, "导入成功", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: IOException) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@BlockListActivity, "导入失败", Toast.LENGTH_SHORT).show()
+                        }
+                        e.printStackTrace()
                     }
                 }
-            }.onFailure {
-                MaterialAlertDialogBuilder(this)
-                    .setTitle("导入失败")
-                    .setMessage(it.message)
-                    .setPositiveButton(android.R.string.ok, null)
-                    .setNegativeButton("Crash Log") { _, _ ->
-                        MaterialAlertDialogBuilder(this)
-                            .setTitle("Crash Log")
-                            .setMessage(it.stackTraceToString())
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show()
-                    }
-                    .show()
             }
         }
 
     private val backupSAFLauncher =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
-            if (uri == null) return@backup
-            try {
-                File("${this.cacheDir}/block_list.json").inputStream().use { input ->
-                    this.contentResolver.openOutputStream(uri).use { output ->
-                        if (output == null) Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT)
-                            .show()
-                        else input.copyTo(output)
+        registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri: Uri? ->
+            uri?.let {
+                try {
+                    contentResolver.openOutputStream(it)?.bufferedWriter().use { writer ->
+                        prepareDataForExport().forEach { line ->
+                            writer?.write("$line\n")
+                        }
                     }
+                    Toast.makeText(this, "导出成功", Toast.LENGTH_SHORT).show()
+                } catch (e: IOException) {
+                    Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT).show()
+                    e.printStackTrace()
                 }
-            } catch (e: IOException) {
-                e.printStackTrace()
             }
         }
 
