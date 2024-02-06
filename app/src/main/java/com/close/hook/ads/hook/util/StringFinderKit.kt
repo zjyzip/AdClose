@@ -10,7 +10,7 @@ object StringFinderKit {
         val packageName = DexKitUtil.context.packageName
         val foundMethods = DexKitUtil.getCachedOrFindMethods(packageName) {
             DexKitUtil.getBridge().findMethod {
-                searchPackages(listOf("okhttp3"))
+      //        searchPackages(listOf("okhttp3"))
                 matcher {
                     usingStrings = listOf(searchString)
                 }

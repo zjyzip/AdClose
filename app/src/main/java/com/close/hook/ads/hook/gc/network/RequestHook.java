@@ -42,10 +42,6 @@ import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
 
-import org.luckypray.dexkit.result.MethodData;
-import com.close.hook.ads.hook.util.DexKitUtil;
-import com.close.hook.ads.hook.util.StringFinderKit;
-
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
@@ -72,11 +68,11 @@ public class RequestHook {
     @Nullable
     private static String responseHeaders;
 
-    public static void init() {
+    public static void init(XC_LoadPackage.LoadPackageParam lpparam) {
         try {
             setupDNSRequestHook();
             setupHttpRequestHook();
-            setupOkHttpRequestHook();
+            setupOkHttpRequestHook(lpparam);
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
@@ -296,33 +292,26 @@ public class RequestHook {
         }
     }
 
-    public static void setupOkHttpRequestHook() {
-        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(" had non-zero Content-Length: ");
-
-        if (foundMethods != null) {
-            for (MethodData methodData : foundMethods) {
-                try {
-                    Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    XposedBridge.log("hook " + methodData);
-                    XposedBridge.hookMethod(method, new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            Object chain = param.args[0];
-
-                            if (shouldBlockOkHttpsRequest(chain)) {
-                                Object response = createEmptyResponseForOkHttp(chain);
-                                param.setResult(response);
-                            }
-                        }
-
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                            processOkHttpRequestAsync(param);
-                        }
-                    });
-                } catch (Exception e) {
+    private static void setupOkHttpRequestHook(XC_LoadPackage.LoadPackageParam lpparam) {
+        try {
+            XposedHelpers.findAndHookMethod("okhttp3.internal.http.CallServerInterceptor", lpparam.classLoader, "intercept", "okhttp3.Interceptor.Chain", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    Object chain = param.args[0];
+    
+                    if (shouldBlockOkHttpsRequest(chain)) {
+                        Object response = createEmptyResponseForOkHttp(chain);
+                        param.setResult(response);
+                    }
                 }
-            }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    processOkHttpRequestAsync(param);
+                }
+            });
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "OkHttp interceptor not found: " + e.getMessage());
         }
     }
 
