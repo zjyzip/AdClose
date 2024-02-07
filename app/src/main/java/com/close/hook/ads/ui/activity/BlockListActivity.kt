@@ -1,6 +1,7 @@
 package com.close.hook.ads.ui.activity
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -24,6 +25,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import android.net.Uri
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -160,6 +163,19 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
 
             override fun afterTextChanged(s: Editable) {}
         })
+        binding.editText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                binding.editText.setFocusableInTouchMode(false)
+                binding.editText.isFocusable = false
+                binding.editText.setFocusableInTouchMode(true)
+                binding.editText.isFocusable = true
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+                true
+            } else {
+                false
+            }
+        }
     }
 
     private fun initToolBar() {
