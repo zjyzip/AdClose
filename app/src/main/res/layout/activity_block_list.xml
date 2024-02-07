@@ -47,61 +47,36 @@
                     android:visibility="gone"
                     app:srcCompat="@drawable/ic_clear_black_24" />
 
-                <LinearLayout
+                <ImageButton
+                    android:id="@+id/export"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center">
+                    android:background="?attr/actionBarItemBackground"
+                    android:padding="10dp"
+                    android:tooltipText="@string/export"
+                    app:srcCompat="@drawable/outline_file_upload_24" />
 
-                    <ImageButton
-                        android:id="@+id/export"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/actionBarItemBackground"
-                        android:padding="10dp"
-                        app:srcCompat="@drawable/ic_database_export" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/export" />
-                </LinearLayout>
-
-                <LinearLayout
+                <ImageButton
+                    android:id="@+id/restore"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center">
-
-                    <ImageButton
-                        android:id="@+id/restore"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/actionBarItemBackground"
-                        android:padding="10dp"
-                        app:srcCompat="@drawable/ic_database_import" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/restore" />
-                </LinearLayout>
+                    android:background="?attr/actionBarItemBackground"
+                    android:padding="10dp"
+                    android:tooltipText="@string/restore"
+                    app:srcCompat="@drawable/outline_file_download_24" />
 
             </LinearLayout>
 
         </com.google.android.material.appbar.MaterialToolbar>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1px"
-            android:background="?attr/colorSurfaceVariant" />
 
         <LinearLayout
             android:id="@+id/historyLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="10dp">
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="10dp">
 
             <TextView
                 android:layout_width="0dp"
@@ -123,6 +98,11 @@
                 app:tint="?attr/colorPrimary" />
 
         </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1px"
+            android:background="?attr/colorSurfaceVariant" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
