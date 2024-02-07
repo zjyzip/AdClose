@@ -88,4 +88,6 @@
     <string name="clearAll">全部清除</string>
     <string name="block_list">黑名单</string>
     <string name="edit">编辑</string>
+    <string name="settings_language">语言</string>
+
 </resources>

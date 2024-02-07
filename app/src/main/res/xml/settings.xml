@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <PreferenceCategory android:title="@string/settings_language">
+        <rikka.preference.SimpleMenuPreference
+            android:defaultValue="SYSTEM"
+            android:icon="@drawable/outline_language_24"
+            android:key="language"
+            android:summary="%s"
+            android:title="@string/settings_language" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/settings_theme">
         <rikka.material.preference.MaterialSwitchPreference
             android:defaultValue="true"
