@@ -36,7 +36,8 @@ object DexKitUtil {
         bridge = null
     }
 
-    fun getCachedOrFindMethods(packageName: String, findMethodLogic: () -> List<MethodData>?): List<MethodData>? {
-        return methodCache.get(packageName, findMethodLogic)
+    fun getCachedOrFindMethods(key: String, findMethodLogic: () -> List<MethodData>?): List<MethodData>? {
+        return methodCache.get(key, findMethodLogic)
     }
+
 }

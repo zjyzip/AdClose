@@ -296,8 +296,9 @@ public class RequestHook {
     }
 
     public static void setupOkHttpRequestHook() {
-        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(" had non-zero Content-Length: ");
-
+        String cacheKey = DexKitUtil.INSTANCE.getContext().getPackageName() + ":setupOkHttpRequestHook";
+        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, " had non-zero Content-Length: ");
+    
         if (foundMethods != null) {
             for (MethodData methodData : foundMethods) {
                 try {
@@ -307,19 +308,29 @@ public class RequestHook {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                             Object chain = param.args[0];
-
+    
                             if (shouldBlockOkHttpsRequest(chain)) {
                                 Object response = createEmptyResponseForOkHttp(chain);
-                                param.setResult(response);
+                                if (response != null) {
+                                    param.setResult(response);
+                                } else {
+                                    XposedBridge.log("Response is null in method: " + method.getName());
+                                }
                             }
                         }
-
+    
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                            processOkHttpRequestAsync(param);
+                            if (param.getResult() != null) {
+                                processOkHttpRequestAsync(param);
+                            } else {
+                                XposedBridge.log("Result is null after method execution: " + method.getName());
+                            }
                         }
                     });
                 } catch (Exception e) {
+                    XposedBridge.log("Error hooking method: " + methodData);
+                    e.printStackTrace();
                 }
             }
         }

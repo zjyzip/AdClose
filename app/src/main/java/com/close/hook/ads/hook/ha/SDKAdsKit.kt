@@ -28,7 +28,8 @@ object SDKAdsKit {
             "com.vungle.warren"
         )
 
-        val foundMethods = DexKitUtil.getCachedOrFindMethods(packageName) {
+        val cacheKey = "$packageName:blockAds"
+        val foundMethods = DexKitUtil.getCachedOrFindMethods(cacheKey) {
             DexKitUtil.getBridge().findMethod {
                 searchPackages(adPackages)
                 matcher {
@@ -37,7 +38,7 @@ object SDKAdsKit {
                 }
             }?.filter { isValidAdMethod(it) }?.toList()
         }
-
+        
         foundMethods?.let { hookMethods(it, DexKitUtil.context.classLoader) }
         DexKitUtil.releaseBridge()
     }
