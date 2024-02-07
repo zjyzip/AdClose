@@ -1,6 +1,6 @@
 package com.close.hook.ads.util;
 
-import static com.close.hook.ads.CloseApplication.context;
+import static com.close.hook.ads.CloseApplicationKt.closeApp;
 
 import android.app.Activity;
 import android.content.Context;
@@ -28,7 +28,7 @@ public class AppUtils {
 
     public static Drawable getAppIcon(String packageName) {
         try {
-            PackageManager pm = context.getPackageManager();
+            PackageManager pm = closeApp.getPackageManager();
             ApplicationInfo info = pm.getApplicationInfo(packageName, 0);
             return info.loadIcon(pm);
         } catch (Exception e) {
@@ -39,7 +39,7 @@ public class AppUtils {
     }
 
     public static int isAppEnabled(String packageName) {
-        PreferencesHelper prefsHelper = new PreferencesHelper(context, "com.close.hook.ads_preferences");
+        PreferencesHelper prefsHelper = new PreferencesHelper(closeApp, "com.close.hook.ads_preferences");
         for (String prefKey : KEYS) {
             if (prefsHelper.getBoolean(prefKey + packageName, false)) {
                 return 1;

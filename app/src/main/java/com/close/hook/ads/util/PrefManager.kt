@@ -4,7 +4,7 @@ import android.content.ComponentName
 import android.content.Context.MODE_PRIVATE
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatDelegate
-import com.close.hook.ads.CloseApplication.context
+import com.close.hook.ads.closeApp
 
 object PrefManager {
 
@@ -13,7 +13,7 @@ object PrefManager {
     private const val PREF_FOLLOW_SYSTEM_ACCENT = "follow_system_accent"
     private const val PREF_THEME_COLOR = "theme_color"
 
-    private val pref = context.getSharedPreferences("settings", MODE_PRIVATE)
+    private val pref = closeApp.getSharedPreferences("settings", MODE_PRIVATE)
 
     var darkTheme: Int
         get() = pref.getInt(PREF_DARK_THEME, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
@@ -35,11 +35,11 @@ object PrefManager {
         get() = pref.getBoolean("hideIcon", false)
         set(value) {
             pref.edit().putBoolean("hideIcon", value).apply()
-            val component = ComponentName(context, "com.close.hook.ads.MainActivityLauncher")
+            val component = ComponentName(closeApp, "com.close.hook.ads.MainActivityLauncher")
             val status =
                 if (value) PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                 else PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            context.packageManager.setComponentEnabledSetting(component, status, PackageManager.DONT_KILL_APP)
+            closeApp.packageManager.setComponentEnabledSetting(component, status, PackageManager.DONT_KILL_APP)
         }
 
     var order: String
@@ -65,5 +65,9 @@ object PrefManager {
     var setData: Boolean
         get() = pref.getBoolean("setData", true)
         set(value) =pref.edit().putBoolean("setData", value).apply()
+
+    var language: String
+        get() = pref.getString("language", "SYSTEM")!!
+        set(value) = pref.edit().putString("language", value).apply()
 
 }
