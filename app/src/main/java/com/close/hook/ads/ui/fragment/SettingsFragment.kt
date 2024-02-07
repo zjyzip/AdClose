@@ -30,30 +30,26 @@ class SettingsFragment : BaseFragment<FragmentSettingBinding>() {
     }
 
     private fun initMenu() {
-        binding.toolBar.apply {
-            title = getString(R.string.bottom_item_3)
-            subtitle = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
-            inflateMenu(R.menu.settings_menu)
-            setOnMenuItemClickListener {
-                when (it.itemId) {
-                    R.id.feedback -> {
-                        try {
-                            startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse("https://t.me/AdClose_Chat")
-                                )
+        binding.toolBar.inflateMenu(R.menu.settings_menu)
+        binding.toolBar.setOnMenuItemClickListener {
+            when (it.itemId) {
+                R.id.feedback -> {
+                    try {
+                        startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://t.me/AdClose_Chat")
                             )
-                        } catch (e: ActivityNotFoundException) {
-                            Toast.makeText(requireContext(), "打开失败", Toast.LENGTH_SHORT).show()
-                        }
+                        )
+                    } catch (e: ActivityNotFoundException) {
+                        Toast.makeText(requireContext(), "打开失败", Toast.LENGTH_SHORT).show()
                     }
-
-                    R.id.about -> AboutDialog().show(childFragmentManager, "about")
-
                 }
-                return@setOnMenuItemClickListener true
+
+                R.id.about -> AboutDialog().show(childFragmentManager, "about")
+
             }
+            return@setOnMenuItemClickListener true
         }
     }
 
