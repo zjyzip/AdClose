@@ -163,11 +163,8 @@ class BlockListActivity : BaseActivity(), BlockListAdapter.CallBack {
     }
 
     private fun initToolBar() {
-        binding.toolBar.apply {
-            setNavigationIcon(R.drawable.ic_back)
-            setNavigationOnClickListener {
-                finish()
-            }
+        binding.backbtn.setOnClickListener {
+            finish()
         }
     }
 
