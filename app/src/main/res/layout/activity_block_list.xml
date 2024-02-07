@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
@@ -14,11 +15,10 @@
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolBar"
-            style="@style/Widget.Material3.SearchView.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?actionBarSize"
             android:clipChildren="false"
-            app:navigationIcon="@drawable/ic_back">
+            app:contentInsetStart="0dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -26,17 +26,52 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <EditText
-                    android:id="@+id/editText"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/backbtn"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:insetBottom="0dp"
+                    android:insetRight="0dp"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:layout_marginStart="4dp"
+                    app:backgroundTint="@android:color/transparent"
+                    app:icon="@drawable/ic_back"
+                    app:iconTint="?colorOnSurface"
+                    app:iconSize="24dp"
+                    app:iconPadding="0dp"
+                    app:iconGravity="textStart"
+                    app:rippleColor="?colorOnSurface"/>
+
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1.0"
-                    android:background="@null"
-                    android:hint="@string/search_hint"
-                    android:imeOptions="actionSearch|flagNoExtractUi"
-                    android:importantForAutofill="no"
-                    android:inputType="textNoSuggestions"
-                    android:textDirection="firstStrong" />
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.0">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="6dp"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/ic_search" />
+
+                    <EditText
+                        android:id="@+id/editText"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null"
+                        android:hint="@string/search_hint"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="6dp"
+                        android:layout_marginStart="34dp"
+                        android:layout_marginEnd="12dp"
+                        android:imeOptions="actionSearch|flagNoExtractUi"
+                        android:importantForAutofill="no"
+                        android:inputType="textNoSuggestions"
+                        android:textDirection="firstStrong" />
+
+                </com.google.android.material.card.MaterialCardView>
 
                 <ImageButton
                     android:id="@+id/clear"
@@ -62,6 +97,7 @@
                     android:layout_height="wrap_content"
                     android:background="?attr/actionBarItemBackground"
                     android:padding="10dp"
+                    android:layout_marginEnd="6dp"
                     android:tooltipText="@string/restore"
                     app:srcCompat="@drawable/ic_database_import" />
 
@@ -74,18 +110,22 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:paddingBottom="10dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="14dp"
+            android:paddingTop="14dp">
 
             <TextView
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center_vertical"
                 android:text="@string/block_list"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:textSize="26sp"
+                android:fontFamily="sans-serif"
+                android:textFontWeight="700"
+                android:textColor="?colorOnSurface"
+                tools:targetApi="p" />
 
             <ImageButton
                 android:id="@+id/clearAll"
@@ -98,11 +138,6 @@
                 app:tint="?attr/colorPrimary" />
 
         </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1px"
-            android:background="?attr/colorSurfaceVariant" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
