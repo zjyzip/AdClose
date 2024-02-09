@@ -27,7 +27,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookInit implements IXposedHookLoadPackage {
 	private static final String TAG = "com.close.hook.ads";
-    public static Context globalContext;
+	public static Context globalContext;
 
 	@SuppressLint("SuspiciousIndentation")
 	@Override
@@ -76,8 +76,8 @@ public class HookInit implements IXposedHookLoadPackage {
 			XposedHelpers.findAndHookMethod(Application.class, "attach", Context.class, new XC_MethodHook() {
 				@Override
 				protected void afterHookedMethod(MethodHookParam param) {
-                    globalContext = (Context) param.args[0];
-                    ClassLoader classLoader = globalContext.getClassLoader();
+					globalContext = (Context) param.args[0];
+					ClassLoader classLoader = globalContext.getClassLoader();
 
 					String packageName = globalContext.getPackageName();
 					CharSequence appName = getAppName(globalContext, packageName);
@@ -87,9 +87,9 @@ public class HookInit implements IXposedHookLoadPackage {
 						XposedBridge.log("Application Name: " + appName);
 					}
 
-            		if (settingsManager.isRequestHookEnabled()) {
-            			RequestHook.init();
-            		}
+					if (settingsManager.isRequestHookEnabled()) {
+						RequestHook.init();
+					}
 
 					AppAds.progress(classLoader, packageName);
 
