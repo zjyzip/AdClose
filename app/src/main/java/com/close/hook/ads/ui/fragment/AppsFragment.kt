@@ -149,18 +149,20 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
     private fun setupLiveDataObservation() {
         val appInfoMediatorLiveData = MediatorLiveData<List<AppInfo>>()
-
-        if (type == "configured" || type == "user") {
-            appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { userApps ->
-                appInfoMediatorLiveData.value = processAppInfoList(userApps, "user")
+    
+        fun addSourceAndProcess(liveData: LiveData<List<AppInfo>>, type: String) {
+            appInfoMediatorLiveData.addSource(liveData) { apps ->
+                appInfoMediatorLiveData.value = processAppInfoList(apps, type)
             }
+        }
+    
+        if (type == "configured" || type == "user") {
+            addSourceAndProcess(viewModel.userAppsLiveData, "user")
         }
         if (type == "configured" || type == "system") {
-            appInfoMediatorLiveData.addSource(viewModel.systemAppsLiveData) { systemApps ->
-                appInfoMediatorLiveData.value = processAppInfoList(systemApps, "system")
-            }
+            addSourceAndProcess(viewModel.systemAppsLiveData, "system")
         }
-
+    
         appInfoMediatorLiveData.observe(viewLifecycleOwner) { combinedAppInfoList ->
             handleCombinedAppInfoList(combinedAppInfoList)
         }
@@ -184,11 +186,15 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         }
     }
 
-    @SuppressLint("InflateParams")
     private fun showBottomSheetDialog(appInfo: AppInfo) {
         bottomSheetDialog = BottomSheetDialog(requireContext())
         val binding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
         bottomSheetDialog.setContentView(binding.root)
+        setupBottomSheetDialogBinding(binding, appInfo)
+        bottomSheetDialog.show()
+    }
+
+    private fun setupBottomSheetDialogBinding(binding: BottomDialogSwitchesBinding, appInfo: AppInfo) {
         binding.apply {
             sheetAppName.text = appInfo.appName
             buttonClose.setOnClickListener { bottomSheetDialog.dismiss() }
@@ -196,7 +202,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
         }
         setupListeners(binding.root, appInfo)
-        bottomSheetDialog.show()
     }
 
     private fun updateCheckNum(packageName: String, isChecked: Boolean?) {
