@@ -89,7 +89,7 @@
                     android:background="?attr/actionBarItemBackground"
                     android:padding="10dp"
                     android:tooltipText="@string/export"
-                    app:srcCompat="@drawable/ic_database_export" />
+                    app:srcCompat="@drawable/ic_export" />
 
                 <ImageButton
                     android:id="@+id/restore"
@@ -99,7 +99,7 @@
                     android:padding="10dp"
                     android:layout_marginEnd="6dp"
                     android:tooltipText="@string/restore"
-                    app:srcCompat="@drawable/ic_database_import" />
+                    app:srcCompat="@drawable/ic_import" />
 
             </LinearLayout>
 
