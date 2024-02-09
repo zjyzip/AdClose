@@ -2,6 +2,7 @@ package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
+import android.provider.Settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -90,11 +91,19 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             appsAdapter.submitList(newList)
             binding.progressBar.visibility = View.GONE
         }
-        setupAdapterItemClick()
     }
 
     private fun setupRecyclerView() {
-        appsAdapter = AppsAdapter()
+        appsAdapter = AppsAdapter(requireContext(), object : AppsAdapter.OnItemClickListener {
+            override fun onItemClick(packageName: String) {
+                handleItemClick(packageName)
+            }
+
+            override fun onItemLongClick(packageName: String) {
+                handleItemLongClick(packageName)
+            }
+        })
+
         FastScrollerBuilder(binding.recyclerViewApps).useMd2Style().build()
         val space = resources.getDimensionPixelSize(ITEM_DECORATION_SPACE)
         binding.recyclerViewApps.apply {
@@ -105,15 +114,36 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
-
+    
                     if (dy > 0) {
-                        (activity as INavContainer).hideNavigation()
+                        (activity as? INavContainer)?.hideNavigation()
                     } else if (dy < 0) {
-                        (activity as INavContainer).showNavigation()
+                        (activity as? INavContainer)?.showNavigation()
                     }
-
                 }
             })
+        }
+    }
+
+    private fun handleItemClick(packageName: String) {
+        val appInfo = viewModel.appInfoList.find { it.packageName == packageName }
+        if (appInfo != null) {
+            if (MainActivity.isModuleActivated()) {
+                showBottomSheetDialog(appInfo)
+            } else {
+                AppUtils.showToast(requireContext(), "模块尚未被激活")
+            }
+        }
+    }
+
+    private fun handleItemLongClick(packageName: String) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        intent.data = Uri.fromParts("package", packageName, null)
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            AppUtils.showToast(requireContext(), "无法打开应用设置")
+            e.printStackTrace()
         }
     }
 
@@ -152,33 +182,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
             binding.progressBar.visibility = View.GONE
         }
-    }
-
-    private fun setupAdapterItemClick() {
-        disposables.add(appsAdapter.onClickObservable.observeOn(AndroidSchedulers.mainThread())
-            .subscribe { packageName: String ->
-                val appInfo = viewModel.appInfoList.find { it.packageName == packageName }
-                if (appInfo != null) {
-                    if (MainActivity.isModuleActivated()) {
-                        showBottomSheetDialog(appInfo)
-                    } else {
-                        AppUtils.showToast(requireContext(), "模块尚未被激活")
-                    }
-                }
-            })
-
-        disposables.add(appsAdapter.onLongClickObservable.observeOn(AndroidSchedulers.mainThread())
-            .subscribe { packageName: String ->
-                val intent = Intent()
-                intent.action = "android.settings.APPLICATION_DETAILS_SETTINGS"
-                intent.data = Uri.fromParts("package", packageName, null)
-                try {
-                    requireContext().startActivity(intent)
-                } catch (e: ActivityNotFoundException) {
-                    AppUtils.showToast(requireContext(), "打开失败")
-                    e.printStackTrace()
-                }
-            })
     }
 
     @SuppressLint("InflateParams")

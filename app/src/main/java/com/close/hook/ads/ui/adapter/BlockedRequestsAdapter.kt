@@ -109,33 +109,20 @@ responseHeaders: $responseHeaders
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val request = getItem(position)
         with(holder) {
-            appName.text = if (request.urlString.isNullOrEmpty()) request.appName
-            else "${request.appName} LOG"
+            appName.text = request.appName + if (request.urlString.isNullOrEmpty()) "" else " LOG"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
             icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
-            if (request.blockType.isNullOrEmpty())
-                blockType.visibility = View.GONE
-            else {
-                blockType.visibility = View.VISIBLE
-                blockType.text = request.blockType
-            }
-
-            val textColor =
-                if (request.requestType == "block"
-                    || (request.requestType == "all" && request.isBlocked == true)
-                ) {
-                    ThemeUtils.getThemeAttrColor(
-                        context,
-                        com.google.android.material.R.attr.colorError
-                    )
-                } else {
-                    ThemeUtils.getThemeAttrColor(
-                        context,
-                        com.google.android.material.R.attr.colorControlNormal
-                    )
-                }
+            blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
+            blockType.text = request.blockType
+    
+            val textColor = ThemeUtils.getThemeAttrColor(context, if (request.requestType == "block" || request.isBlocked == true) {
+                com.google.android.material.R.attr.colorError
+            } else {
+                com.google.android.material.R.attr.colorControlNormal
+            })
             this.request.setTextColor(textColor)
+    
             method = request.method
             urlString = request.urlString
             requestHeaders = request.requestHeaders

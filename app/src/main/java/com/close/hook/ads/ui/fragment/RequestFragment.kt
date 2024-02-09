@@ -152,14 +152,17 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     private fun handleSearchTextChange(query: String) {
         searchDisposable?.dispose()
         lastSearchQuery = query
+    
         if (query.isNotEmpty()) {
             searchDisposable = Observable.just(query)
                 .debounce(300, TimeUnit.MILLISECONDS)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { query ->
-                    controller?.search(query)
+                .subscribe { actualQuery ->
+                    controller?.search(actualQuery)
                 }
+        } else {
+            controller?.search("")
         }
     }
 
