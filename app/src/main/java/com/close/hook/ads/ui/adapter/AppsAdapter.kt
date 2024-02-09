@@ -19,7 +19,7 @@ class AppsAdapter(
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
 
     private val requestOptions = RequestOptions()
-        .diskCacheStrategy(DiskCacheStrategy.ALL)
+        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
         .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
