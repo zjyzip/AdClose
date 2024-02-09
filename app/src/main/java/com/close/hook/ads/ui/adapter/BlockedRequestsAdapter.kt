@@ -42,32 +42,23 @@ class BlockedRequestsAdapter(
     companion object {
         @SuppressLint("SimpleDateFormat")
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-
-        private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> =
-            object : DiffUtil.ItemCallback<BlockedRequest>() {
-                override fun areItemsTheSame(
-                    oldItem: BlockedRequest,
-                    newItem: BlockedRequest
-                ): Boolean {
-                    return oldItem.hashCode() == newItem.hashCode()
-                }
-
-                @SuppressLint("DiffUtilEquals")
-                override fun areContentsTheSame(
-                    oldItem: BlockedRequest,
-                    newItem: BlockedRequest
-                ): Boolean {
-                    return oldItem.hashCode() == newItem.hashCode()
-                }
+    
+        private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> = object : DiffUtil.ItemCallback<BlockedRequest>() {
+            override fun areItemsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean {
+                return oldItem.timestamp == newItem.timestamp
             }
+    
+            override fun areContentsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean {
+                return oldItem == newItem
+            }
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_blocked_request, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_blocked_request, parent, false)
         return ViewHolder(view).apply {
             itemView.setOnClickListener {
-                if (!urlString.isNullOrEmpty())
+                urlString.takeUnless { it.isNullOrEmpty() }?.let {
                     MaterialAlertDialogBuilder(parent.context).apply {
                         setTitle("请求参数")
                         setMessage(
@@ -83,23 +74,23 @@ responseHeaders: $responseHeaders
                         setPositiveButton("关闭", null)
                         show()
                     }
+                }
             }
-            itemView.setOnLongClickListener {
+            itemView.setOnLongClickListener { view ->
                 url = request.text.toString()
-                val popup = PopupMenu(parent.context, it)
-                val inflater = popup.menuInflater
-                inflater.inflate(R.menu.menu_request, popup.menu)
-                popup.menu.findItem(R.id.edit).isVisible = false
-                popup.menu.findItem(R.id.block).title =
-                    if (urlDao.isExist(url.toString())) {
+                PopupMenu(parent.context, view).apply {
+                    menuInflater.inflate(R.menu.menu_request, menu)
+                    menu.findItem(R.id.edit).isVisible = false
+                    menu.findItem(R.id.block).title = if (urlDao.isExist(url.toString())) {
                         isExist = true
                         "移除黑名单"
                     } else {
                         isExist = false
                         "加入黑名单"
                     }
-                popup.setOnMenuItemClickListener(this@BlockedRequestsAdapter)
-                popup.show()
+                    setOnMenuItemClickListener(this@BlockedRequestsAdapter)
+                    show()
+                }
                 true
             }
         }
@@ -108,15 +99,15 @@ responseHeaders: $responseHeaders
     @SuppressLint("RestrictedApi")
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val request = getItem(position)
-        with(holder) {
-            appName.text = request.appName + if (request.urlString.isNullOrEmpty()) "" else " LOG"
+        holder.apply {
+            appName.text = "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
             icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
             blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
             blockType.text = request.blockType
     
-            val textColor = ThemeUtils.getThemeAttrColor(context, if (request.requestType == "block" || request.isBlocked == true) {
+            val textColor = ThemeUtils.getThemeAttrColor(itemView.context, if (request.requestType == "block" || request.isBlocked == true) {
                 com.google.android.material.R.attr.colorError
             } else {
                 com.google.android.material.R.attr.colorControlNormal
@@ -148,25 +139,21 @@ responseHeaders: $responseHeaders
 
     override fun onMenuItemClick(item: MenuItem?): Boolean {
         when (item?.itemId) {
-
             R.id.copy -> {
-                val clipboardManager =
-                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                ClipData.newPlainText("request", url)
-                    ?.let { clipboardManager.setPrimaryClip(it) }
-                Toast.makeText(context, "已复制: $url", Toast.LENGTH_SHORT)
-                    .show()
+                (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).apply {
+                    setPrimaryClip(ClipData.newPlainText("request", url))
+                }
+                Toast.makeText(context, "已复制: $url", Toast.LENGTH_SHORT).show()
             }
-
             R.id.block -> {
                 CoroutineScope(Dispatchers.IO).launch {
-                    if (isExist == true)
+                    if (isExist == true) {
                         urlDao.delete(url.toString())
-                    else
+                    } else {
                         urlDao.insert(Url("url", url.toString()))
+                    }
                 }
             }
-
         }
         return true
     }

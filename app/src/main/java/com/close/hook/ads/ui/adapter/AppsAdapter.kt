@@ -3,9 +3,9 @@ package com.close.hook.ads.ui.adapter
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -19,38 +19,49 @@ class AppsAdapter(
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
 
     private val requestOptions = RequestOptions()
-        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+        .diskCacheStrategy(DiskCacheStrategy.ALL)
         .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder =
-        AppViewHolder(
-            InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false),
-            onItemClickListener
-        )
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
+        val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return AppViewHolder(binding, onItemClickListener, requestOptions)
+    }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
-        holder.bind(getItem(position), requestOptions)
+        holder.bind(getItem(position))
+    }
+
+    override fun onViewRecycled(holder: AppViewHolder) {
+        super.onViewRecycled(holder)
+        holder.clearImage()
     }
 
     class AppViewHolder(
         private val binding: InstallsItemAppBinding,
-        private val onItemClickListener: OnItemClickListener
+        private val onItemClickListener: OnItemClickListener,
+        private val requestOptions: RequestOptions
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(appInfo: AppInfo, requestOptions: RequestOptions) {
+        fun bind(appInfo: AppInfo) {
             with(binding) {
                 appName.text = appInfo.appName
                 packageName.text = appInfo.packageName
                 appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
-                appIcon.let { imageView ->
-                    Glide.with(imageView.context).load(appInfo.appIcon).apply(requestOptions).into(imageView)
-                }
+                Glide.with(appIcon.context)
+                    .load(appInfo.appIcon)
+                    .apply(requestOptions)
+                    .into(appIcon)
+
                 root.setOnClickListener { onItemClickListener.onItemClick(appInfo.packageName) }
                 root.setOnLongClickListener {
                     onItemClickListener.onItemLongClick(appInfo.packageName)
                     true
                 }
             }
+        }
+
+        fun clearImage() {
+            Glide.with(binding.appIcon.context).clear(binding.appIcon)
         }
     }
 
