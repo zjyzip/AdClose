@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Context.RECEIVER_EXPORTED
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
@@ -192,10 +193,15 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     override fun onExport() {
-        if (saveFile(Gson().toJson(viewModel.requestList)))
-            backupSAFLauncher.launch("${type}_request_list.json")
-        else
+        if (saveFile(Gson().toJson(viewModel.requestList))) {
+            try {
+                backupSAFLauncher.launch("${type}_request_list.json")
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(requireContext(), "无法导出文件，未找到合适的应用来创建文件", Toast.LENGTH_SHORT).show()
+            }
+        } else {
             Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private val backupSAFLauncher =
