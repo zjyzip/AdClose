@@ -12,12 +12,14 @@ import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.FilterBean;
 import com.close.hook.ads.data.repository.AppRepository;
 
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.BackpressureStrategy;
+import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
@@ -41,31 +43,31 @@ public class AppsViewModel extends AndroidViewModel {
         PackageManager packageManager = application.getPackageManager();
         appRepository = new AppRepository(packageManager);
 
-        userAppsLiveData = LiveDataReactiveStreams.fromPublisher(
-                appRepository.getInstalledUserApps()
-                .toFlowable(BackpressureStrategy.BUFFER)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnSubscribe(disposable -> loadState.setValue(LoadState.LOADING))
-                .doOnError(error -> {
-                    loadState.setValue(LoadState.ERROR);
-                    errorLiveData.setValue(error.getMessage());
-                })
-                .onErrorReturnItem(Collections.emptyList())
-                .doOnNext(list -> loadState.setValue(LoadState.COMPLETE)));
+        userAppsLiveData = loadAppsLiveData(() -> appRepository.getInstalledUserApps());
 
-        systemAppsLiveData = LiveDataReactiveStreams.fromPublisher(
-                appRepository.getInstalledSystemApps()
+        systemAppsLiveData = loadAppsLiveData(() -> appRepository.getInstalledSystemApps());
+    }
+
+    private LiveData<List<AppInfo>> loadAppsLiveData(Callable<Observable<List<AppInfo>>> appsCallable) {
+        return LiveDataReactiveStreams.fromPublisher(
+                Observable.defer(() -> {
+                    try {
+                        return appsCallable.call();
+                    } catch (Exception e) {
+                        return Observable.error(e);
+                    }
+                })
                 .toFlowable(BackpressureStrategy.BUFFER)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .doOnSubscribe(disposable -> loadState.setValue(LoadState.LOADING))
+                .doOnSubscribe(disposable -> loadState.postValue(LoadState.LOADING))
                 .doOnError(error -> {
-                    loadState.setValue(LoadState.ERROR);
-                    errorLiveData.setValue(error.getMessage());
+                    loadState.postValue(LoadState.ERROR);
+                    errorLiveData.postValue(error.getMessage());
                 })
                 .onErrorReturnItem(Collections.emptyList())
-                .doOnNext(list -> loadState.setValue(LoadState.COMPLETE)));
+                .doOnNext(list -> loadState.postValue(LoadState.COMPLETE))
+        );
     }
 
     public LiveData<List<AppInfo>> getUserAppsLiveData() {

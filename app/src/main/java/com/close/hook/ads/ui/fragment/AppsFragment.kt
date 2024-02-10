@@ -34,9 +34,6 @@ import com.close.hook.ads.util.PrefManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Observable
-import io.reactivex.rxjava3.disposables.CompositeDisposable
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.util.Locale
 import java.util.Optional
@@ -46,7 +43,6 @@ import java.util.stream.Collectors
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     IOnTabClickListener {
 
-    private val disposables = CompositeDisposable()
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var appsAdapter: AppsAdapter
     private var type: String? = null
@@ -367,7 +363,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
     override fun onDestroyView() {
         super.onDestroyView()
-        disposables.clear()
     }
 
     companion object {
