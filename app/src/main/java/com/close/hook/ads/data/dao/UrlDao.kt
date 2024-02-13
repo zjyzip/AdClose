@@ -22,8 +22,17 @@ interface UrlDao {
     @Update
     fun update(url: Url): Int
 
+    @Insert
+    fun insertAll(urls: List<Url>)
+
     @Query("select * from url_info ORDER BY id DESC")
     fun loadAllList(): List<Url>
+
+    @Query("SELECT url FROM url_info")
+    fun getAllUrls(): List<String>
+
+    @Query("SELECT * FROM url_info WHERE url LIKE :searchText")
+    fun searchUrls(searchText: String): List<Url>
 
     @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")
     fun isExist(url: String): Boolean

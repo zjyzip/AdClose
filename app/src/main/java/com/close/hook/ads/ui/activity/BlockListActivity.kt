@@ -29,6 +29,8 @@ import com.google.android.material.textfield.TextInputEditText
 import android.net.Uri
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,6 +44,7 @@ class BlockListActivity : BaseActivity() {
     private val viewModel by lazy { ViewModelProvider(this)[BlockListViewModel::class.java] }
     private lateinit var mAdapter: BlockListAdapter
     private lateinit var mLayoutManager: RecyclerView.LayoutManager
+    private var searchJob: Job? = null
     private val urlDao by lazy {
         UrlDatabase.getDatabase(this).urlDao
     }
@@ -53,7 +56,7 @@ class BlockListActivity : BaseActivity() {
 
         initView()
         if (viewModel.blockList.isEmpty()) {
-            viewModel.getBlackList(this)
+            viewModel.getBlackList()
         } else {
             submitList()
         }
@@ -63,11 +66,10 @@ class BlockListActivity : BaseActivity() {
         initEditText()
         initButton()
 
-        viewModel.blackListLiveData.observe(this) {
-            if (viewModel.blockList.isEmpty()) {
-                viewModel.blockList.addAll(it)
-                submitList()
-            }
+        viewModel.blackListLiveData.observe(this) { newList ->
+            viewModel.blockList.clear()
+            viewModel.blockList.addAll(newList)
+            submitList()
         }
     }
 
@@ -166,10 +168,17 @@ class BlockListActivity : BaseActivity() {
                     val newType = type.text.toString()
                     val newUrl = editText.text.toString()
                     CoroutineScope(Dispatchers.IO).launch {
-                        urlDao.insert(Url(newType, newUrl))
-                        withContext(Dispatchers.Main) {
-                            viewModel.blockList.add(0, Item(newType, newUrl))
-                            submitList()
+                        val isExist = urlDao.isExist(newUrl)
+                        if (!isExist) {
+                            urlDao.insert(Url(newType, newUrl))
+                            withContext(Dispatchers.Main) {
+                                viewModel.blockList.add(0, Item(newType, newUrl))
+                                submitList()
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@BlockListActivity, "规则已存在", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 }
@@ -205,33 +214,42 @@ class BlockListActivity : BaseActivity() {
 
     private fun search() {
         val searchText = binding.editText.text.toString()
-        if (searchText.isNotEmpty()) {
-            val filteredList = viewModel.blockList.filter { it.url.contains(searchText, ignoreCase = true) }
+        searchJob?.cancel()
+        searchJob = CoroutineScope(Dispatchers.Main).launch {
+            val filteredList = withContext(Dispatchers.IO) {
+                urlDao.searchUrls("%$searchText%").map { Item(it.type, it.url) }
+            }
             mAdapter.submitList(filteredList)
-        } else {
-            mAdapter.submitList(viewModel.blockList)
         }
     }
 
     private fun initEditText() {
-        binding.editText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
+        binding.editText.apply {
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
     
-            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-                binding.clear.visibility = if (binding.editText.text.isNullOrEmpty()) View.GONE else View.VISIBLE
-                search()
-            }
+                override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+                    binding.clear.visibility = if (s.isEmpty()) View.GONE else View.VISIBLE
+                    searchJob?.cancel()
+                    searchJob = CoroutineScope(Dispatchers.Main).launch {
+                        delay(300)
+                        search()
+                    }
+                }
     
-            override fun afterTextChanged(s: Editable) {}
-        })
+                override fun afterTextChanged(s: Editable) {}
+            })
     
-        binding.editText.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
-                true
-            } else {
-                false
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                    searchJob?.cancel()
+                    search()
+                    (getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                        ?.hideSoftInputFromWindow(windowToken, 0)
+                    true
+                } else {
+                    false
+                }
             }
         }
     }
@@ -249,22 +267,21 @@ class BlockListActivity : BaseActivity() {
             uri?.let { uri ->
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        val newItems = contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
+                        val existingUrls = urlDao.getAllUrls().toSet() // 获取所有现有的URLs并转换为集合
+                        val inputStream = contentResolver.openInputStream(uri)
+                        val newItems = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
                                 val parts = line.split(",\\s*".toRegex()).map { it.trim() }
-                                if (parts.size == 2) Item(parts[0], parts[1]) else null
-                            }
-                            .distinct()
-                            .sortedBy { it.url }
-                            .toList()
+                                if (parts.size == 2 && parts[1] !in existingUrls) Url(parts[0], parts[1]) else null
+                            }.toList()
                         } ?: listOf()
     
-                        newItems.forEach { item ->
-                            if (viewModel.blockList.indexOf(Item(item.type, item.url)) == -1) {
-                                urlDao.insert(Url(item.type, item.url))
-                                viewModel.blockList.add(0, Item(item.type, item.url))
-                            }
+                        if (newItems.isNotEmpty()) {
+                            urlDao.insertAll(newItems)
                         }
+    
+                        val newBlockItems = newItems.map { Item(it.type, it.url) }
+                        viewModel.blockList.addAll(0, newBlockItems)
     
                         withContext(Dispatchers.Main) {
                             submitList()
