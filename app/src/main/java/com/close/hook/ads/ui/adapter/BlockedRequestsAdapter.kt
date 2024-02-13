@@ -25,6 +25,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -78,20 +79,27 @@ responseHeaders: $responseHeaders
             }
             itemView.setOnLongClickListener { view ->
                 url = request.text.toString()
-                PopupMenu(parent.context, view).apply {
+                checkUrlExistAndShowMenu(url, view, parent.context)
+                true
+            }
+        }
+    }
+
+    private fun checkUrlExistAndShowMenu(url: String?, view: View, context: Context) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val urlExists = url?.let { urlDao.isExist(it) } ?: false
+            withContext(Dispatchers.Main) {
+                PopupMenu(context, view).apply {
                     menuInflater.inflate(R.menu.menu_request, menu)
                     menu.findItem(R.id.edit).isVisible = false
-                    menu.findItem(R.id.block).title = if (urlDao.isExist(url.toString())) {
-                        isExist = true
+                    menu.findItem(R.id.block).title = if (urlExists) {
                         "移除黑名单"
                     } else {
-                        isExist = false
                         "加入黑名单"
                     }
                     setOnMenuItemClickListener(this@BlockedRequestsAdapter)
                     show()
                 }
-                true
             }
         }
     }
