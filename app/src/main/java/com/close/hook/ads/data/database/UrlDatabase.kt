@@ -41,9 +41,7 @@ abstract class UrlDatabase : RoomDatabase() {
                 context.applicationContext,
                 UrlDatabase::class.java, "url_database"
             )
-                .addMigrations(MIGRATION_1_2)
-                .addMigrations(MIGRATION_2_3)
-                .allowMainThreadQueries()
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().apply {
                     instance = this
                 }
