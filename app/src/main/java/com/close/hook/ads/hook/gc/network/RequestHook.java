@@ -116,17 +116,6 @@ public class RequestHook {
         return shouldBlock;
     }
 
-    private static void setupHttpConnectionHook() {
-        try {
-            Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
-
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getInputStream", httpConnectionHook);
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getOutputStream", httpConnectionHook);
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
-        }
-    }
-
     private static final XC_MethodHook httpConnectionHook = new XC_MethodHook() {
         @Override
         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -278,18 +267,16 @@ public class RequestHook {
     private static void setupHttpRequestHook() {
         try {
             Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
+
             XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "execute", boolean.class, new XC_MethodHook() {
-
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    setupHttpConnectionHook();
-                }
-
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     processHttpRequestAsync(param);
                 }
             });
+
+            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getInputStream", httpConnectionHook);
+            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getOutputStream", httpConnectionHook);
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
         }

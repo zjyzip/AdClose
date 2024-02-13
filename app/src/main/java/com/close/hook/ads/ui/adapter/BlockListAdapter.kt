@@ -70,9 +70,10 @@ class BlockListAdapter(private val context: Context,
 
         private fun copyToClipboard() {
             val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clipData = ClipData.newPlainText("request", binding.url.text)
+            val clipDataText = "${binding.type.text}, ${binding.url.text}"
+            val clipData = ClipData.newPlainText("request", clipDataText)
             clipboardManager.setPrimaryClip(clipData)
-            Toast.makeText(context, "已复制: ${binding.url.text}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "已复制: $clipDataText", Toast.LENGTH_SHORT).show()
         }
     }
 
