@@ -63,9 +63,14 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val request = intent.getParcelableExtra<BlockedRequest>("request")
-            request?.let {
-                viewModel.requestList.add(0, it)
-                adapter.submitList(viewModel.requestList.toList())
+            request?.let { item ->
+                val checkItem = viewModel.requestList.find {
+                    it.request == item.request
+                }
+                if (checkItem == null) {
+                    viewModel.requestList.add(0, item)
+                    adapter.submitList(viewModel.requestList.toList())
+                }
             }
         }
     }
