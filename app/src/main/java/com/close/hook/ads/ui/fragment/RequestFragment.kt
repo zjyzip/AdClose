@@ -47,6 +47,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     private var lastSearchQuery = ""
     private var searchDisposable: Disposable? = null
     private val fabViewBehavior by lazy { HideBottomViewOnScrollBehavior<FloatingActionButton>() }
+    private val blockViewBehavior by lazy { HideBottomViewOnScrollBehavior<FloatingActionButton>() }
 
     override var controller: OnClearClickListener? = null
     override var tabController: IOnTabClickListener? = null
@@ -142,7 +143,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
             ).apply {
                 setMargins(0, 0, 25.dp, fabMarginBottom + 81.dp)
                 gravity = Gravity.BOTTOM or Gravity.END
-                behavior = fabViewBehavior
+                behavior = blockViewBehavior
             }
             visibility = View.VISIBLE
             setOnClickListener { fabController?.onBlock() }
@@ -252,10 +253,12 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
         } else 25.dp
 
     override fun showBlock() {
-        fabViewBehavior.slideUp(binding.block)
+        if (blockViewBehavior.isScrolledDown)
+            blockViewBehavior.slideUp(binding.block)
     }
 
     override fun hideBlock() {
-        fabViewBehavior.slideDown(binding.block)
+        if (blockViewBehavior.isScrolledUp)
+            blockViewBehavior.slideDown(binding.block)
     }
 }

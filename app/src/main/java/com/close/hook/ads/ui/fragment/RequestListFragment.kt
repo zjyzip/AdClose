@@ -330,7 +330,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 return true
             }
         }
-        return false
+        return binding.recyclerView.closeMenus()
     }
 
 }

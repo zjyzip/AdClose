@@ -428,6 +428,8 @@ class BlockListActivity : BaseActivity() {
                 return
             }
         }
+        if (binding.recyclerView.closeMenus())
+            return
         super.onBackPressed()
     }
 
