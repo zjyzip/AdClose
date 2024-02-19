@@ -28,84 +28,83 @@
         android:text="@string/delete"
         android:textSize="16sp" />
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/container"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="12dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="12dp">
+        android:checkable="true"
+        android:clickable="true"
+        android:elevation="0dp"
+        android:focusable="true"
+        app:cardCornerRadius="0dp"
+        app:strokeWidth="0dp">
 
-        <TextView
-            android:id="@+id/url"
-            android:layout_width="0dp"
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/container"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:layout_marginEnd="10dp"
-            android:layout_weight="1"
-            android:fontFamily="sans-serif"
-            android:textColor="?colorOnSurface"
-            android:textFontWeight="600"
-            android:textSize="15sp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/check"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:targetApi="p"
-            tools:text="xiaomi.cn" />
-
-        <ImageView
-            android:id="@+id/check"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_marginEnd="10dp"
-            android:src="@drawable/outline_highlight_off_24"
-            android:tint="@android:color/holo_red_dark"
-            app:layout_constraintBottom_toBottomOf="@id/typeLayout"
-            app:layout_constraintDimensionRatio="1"
-            app:layout_constraintEnd_toStartOf="@id/typeLayout"
-            app:layout_constraintTop_toTopOf="@id/typeLayout" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/typeLayout"
-            style="?materialCardViewFilledStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            app:cardBackgroundColor="?colorSecondaryContainer"
-            app:cardCornerRadius="3dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="35dp"
+            android:paddingBottom="12dp">
 
             <TextView
-                android:id="@+id/type"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
+                android:id="@+id/url"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="10dp"
+                android:layout_weight="1"
                 android:fontFamily="sans-serif"
-                android:paddingStart="6dp"
-                android:paddingTop="3dp"
-                android:paddingEnd="6dp"
-                android:paddingBottom="3dp"
-                android:textAllCaps="true"
-                android:textColor="?colorOnSecondaryContainer"
+                android:textColor="?colorOnSurface"
                 android:textFontWeight="600"
-                android:textSize="10sp"
+                android:textSize="15sp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/typeLayout"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
                 tools:targetApi="p"
-                tools:text="Host" />
+                tools:text="xiaomi.cn" />
 
-        </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/typeLayout"
+                style="?materialCardViewFilledStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                app:cardBackgroundColor="?colorSecondaryContainer"
+                app:cardCornerRadius="3dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                <TextView
+                    android:id="@+id/type"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:fontFamily="sans-serif"
+                    android:paddingStart="6dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="3dp"
+                    android:textAllCaps="true"
+                    android:textColor="?colorOnSecondaryContainer"
+                    android:textFontWeight="600"
+                    android:textSize="10sp"
+                    tools:targetApi="p"
+                    tools:text="Host" />
 
-    <com.google.android.material.divider.MaterialDivider
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:alpha="0.4" />
+            </com.google.android.material.card.MaterialCardView>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <com.google.android.material.divider.MaterialDivider
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:alpha="0.4" />
+
+    </com.google.android.material.card.MaterialCardView>
 
 </com.aitsuki.swipe.SwipeLayout>

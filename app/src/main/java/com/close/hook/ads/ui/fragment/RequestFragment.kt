@@ -2,7 +2,6 @@ package com.close.hook.ads.ui.fragment
 
 import android.content.Context
 import android.content.res.Configuration
-import android.content.res.Resources
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -28,6 +27,7 @@ import com.close.hook.ads.util.OnBackPressFragmentListener
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
+import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.tabs.TabLayout
@@ -246,7 +246,6 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
         (requireContext() as? OnBackPressContainer)?.controller = this
     }
 
-    private val Number.dp get() = (toFloat() * Resources.getSystem().displayMetrics.density).toInt()
     private val fabMarginBottom
         get() = if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
             DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
