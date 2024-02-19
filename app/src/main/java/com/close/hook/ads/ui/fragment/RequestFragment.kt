@@ -23,6 +23,8 @@ import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnBackPressContainer
+import com.close.hook.ads.util.OnBackPressFragmentContainer
+import com.close.hook.ads.util.OnBackPressFragmentListener
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
@@ -38,7 +40,8 @@ import io.reactivex.rxjava3.schedulers.Schedulers
 import java.util.concurrent.TimeUnit
 
 class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContainer,
-    OnBackPressListener, IOnTabClickContainer, IOnFabClickContainer, IFabContainer {
+    OnBackPressListener, IOnTabClickContainer, IOnFabClickContainer, IFabContainer,
+    OnBackPressFragmentContainer {
 
     private val imm by lazy { requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager }
     private var lastSearchQuery = ""
@@ -48,6 +51,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     override var controller: OnClearClickListener? = null
     override var tabController: IOnTabClickListener? = null
     override var fabController: IOnFabClickListener? = null
+    override var backController: OnBackPressFragmentListener? = null
 
     private val textWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -140,7 +144,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
                 gravity = Gravity.BOTTOM or Gravity.END
                 behavior = fabViewBehavior
             }
-            visibility =View.VISIBLE
+            visibility = View.VISIBLE
             setOnClickListener { fabController?.onBlock() }
         }
     }
@@ -223,11 +227,13 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     }
 
     override fun onBackPressed() = with(binding.searchEditText) {
-        if (isFocused) {
-            setText("")
-            setIcon(R.drawable.ic_search, false)
-            true
-        } else false
+        if (backController?.onBackPressed() == false) {
+            if (isFocused) {
+                setText("")
+                setIcon(R.drawable.ic_search, false)
+                true
+            } else false
+        } else true
     }
 
     override fun onStop() {

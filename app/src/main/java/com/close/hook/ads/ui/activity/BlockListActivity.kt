@@ -421,4 +421,14 @@ class BlockListActivity : BaseActivity() {
             adapter.currentList.indexOfFirst { it.url == key }
     }
 
+    override fun onBackPressed() {
+        selectedItems?.let {
+            if (it.size() > 0) {
+                tracker?.clearSelection()
+                return
+            }
+        }
+        super.onBackPressed()
+    }
+
 }

@@ -36,6 +36,8 @@ import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
+import com.close.hook.ads.util.OnBackPressFragmentContainer
+import com.close.hook.ads.util.OnBackPressFragmentListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.google.gson.Gson
@@ -53,7 +55,7 @@ import java.io.IOException
 import java.util.Optional
 
 class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
-    IOnTabClickListener, IOnFabClickListener {
+    IOnTabClickListener, IOnFabClickListener, OnBackPressFragmentListener {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private lateinit var adapter: BlockedRequestsAdapter
@@ -216,6 +218,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         (requireParentFragment() as? OnCLearCLickContainer)?.controller = null
         (requireParentFragment() as? IOnTabClickContainer)?.tabController = null
         (requireParentFragment() as? IOnFabClickContainer)?.fabController = null
+        (requireParentFragment() as? OnBackPressFragmentContainer)?.backController = null
     }
 
     override fun onResume() {
@@ -223,6 +226,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         (requireParentFragment() as? OnCLearCLickContainer)?.controller = this
         (requireParentFragment() as? IOnTabClickContainer)?.tabController = this
         (requireParentFragment() as? IOnFabClickContainer)?.fabController = this
+        (requireParentFragment() as? OnBackPressFragmentContainer)?.backController = this
     }
 
     private fun saveFile(content: String): Boolean {
@@ -317,6 +321,16 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
         override fun getPosition(key: String): Int =
             adapter.currentList.indexOfFirst { it.request == key }
+    }
+
+    override fun onBackPressed(): Boolean {
+        selectedItems?.let {
+            if (it.size() > 0) {
+                tracker?.clearSelection()
+                return true
+            }
+        }
+        return false
     }
 
 }
