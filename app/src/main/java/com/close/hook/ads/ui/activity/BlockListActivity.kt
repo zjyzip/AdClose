@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
@@ -15,6 +16,12 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.selection.ItemDetailsLookup
+import androidx.recyclerview.selection.ItemKeyProvider
+import androidx.recyclerview.selection.Selection
+import androidx.recyclerview.selection.SelectionPredicates
+import androidx.recyclerview.selection.SelectionTracker
+import androidx.recyclerview.selection.StorageStrategy
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
@@ -46,6 +53,8 @@ class BlockListActivity : BaseActivity() {
     private val urlDao by lazy {
         UrlDatabase.getDatabase(this).urlDao
     }
+    private var tracker: SelectionTracker<String>? = null
+    private var selectedItems: Selection<String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,11 +73,57 @@ class BlockListActivity : BaseActivity() {
         initEditText()
         initButton()
 
+        setUpTracker()
+        addObserverToTracker()
+
         viewModel.blackListLiveData.observe(this) { newList ->
             viewModel.blockList.clear()
             viewModel.blockList.addAll(newList)
             submitList()
         }
+    }
+
+    private fun addObserverToTracker() {
+        tracker?.addObserver(
+            object : SelectionTracker.SelectionObserver<String>() {
+                override fun onSelectionChanged() {
+                    super.onSelectionChanged()
+                    selectedItems = tracker?.selection
+                }
+            }
+        )
+    }
+
+    private fun deleteSelectedItem() {
+        selectedItems?.let {
+            if (it.size() != 0) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    it.forEach { url ->
+                        val item = viewModel.blockList.find {
+                            it.url == url
+                        }
+                        viewModel.blockList.remove(item)
+                        urlDao.delete(url)
+                    }
+                    withContext(Dispatchers.Main) {
+                        submitList()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setUpTracker() {
+        tracker = SelectionTracker.Builder(
+            "selection_id",
+            binding.recyclerView,
+            CategoryItemKeyProvider(mAdapter),
+            CategoryItemDetailsLookup(binding.recyclerView),
+            StorageStrategy.createStringStorage()
+        ).withSelectionPredicate(
+            SelectionPredicates.createSelectAnything()
+        ).build()
+        mAdapter.tracker = tracker
     }
 
     private fun initView() {
@@ -205,19 +260,24 @@ class BlockListActivity : BaseActivity() {
     }
 
     private fun initClearHistory() {
-        binding.clearAll.setOnClickListener {
-            MaterialAlertDialogBuilder(this).setTitle("确定清除全部黑名单？")
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        urlDao.deleteAll()
-                        viewModel.blockList.clear()
-                        withContext(Dispatchers.Main) {
-                            submitList()
+        binding.delete.setOnClickListener {
+            val size = tracker?.selection?.size()
+            if (size != null && size > 0) {
+                deleteSelectedItem()
+            } else {
+                MaterialAlertDialogBuilder(this).setTitle("确定清除全部黑名单？")
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        CoroutineScope(Dispatchers.IO).launch {
+                            urlDao.deleteAll()
+                            viewModel.blockList.clear()
+                            withContext(Dispatchers.Main) {
+                                submitList()
+                            }
                         }
                     }
-                }
-                .show()
+                    .show()
+            }
         }
     }
 
@@ -341,5 +401,24 @@ class BlockListActivity : BaseActivity() {
                 }
             }
         }
+
+    class CategoryItemDetailsLookup(private val recyclerView: RecyclerView) :
+        ItemDetailsLookup<String>() {
+        override fun getItemDetails(e: MotionEvent): ItemDetails<String>? {
+            val view = recyclerView.findChildViewUnder(e.x, e.y)
+            if (view != null) {
+                return (recyclerView.getChildViewHolder(view) as BlockListAdapter.ViewHolder).getItemDetails()
+            }
+            return null
+        }
+    }
+
+    class CategoryItemKeyProvider(private val adapter: BlockListAdapter) :
+        ItemKeyProvider<String>(SCOPE_CACHED) {
+        override fun getKey(position: Int): String = adapter.currentList[position].url
+
+        override fun getPosition(key: String): Int =
+            adapter.currentList.indexOfFirst { it.url == key }
+    }
 
 }

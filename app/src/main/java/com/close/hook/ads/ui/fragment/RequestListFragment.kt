@@ -1,26 +1,36 @@
 package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Context.RECEIVER_EXPORTED
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.selection.ItemDetailsLookup
+import androidx.recyclerview.selection.ItemKeyProvider
+import androidx.recyclerview.selection.Selection
+import androidx.recyclerview.selection.SelectionPredicates
+import androidx.recyclerview.selection.SelectionTracker
+import androidx.recyclerview.selection.StorageStrategy
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.FilterBean
+import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
+import com.close.hook.ads.util.IFabContainer
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
@@ -32,6 +42,10 @@ import com.google.gson.Gson
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
 import java.io.FileOutputStream
@@ -54,6 +68,11 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 adapter.submitList(viewModel.requestList.toList())
             }
         }
+    }
+    private var tracker: SelectionTracker<String>? = null
+    private var selectedItems: Selection<String>? = null
+    private val urlDao by lazy {
+        UrlDatabase.getDatabase(requireContext()).urlDao
     }
 
     companion object {
@@ -89,6 +108,38 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         }
 
         setupBroadcastReceiver()
+        setUpTracker()
+        addObserverToTracker()
+    }
+
+    private fun addObserverToTracker() {
+        tracker?.addObserver(
+            object : SelectionTracker.SelectionObserver<String>() {
+                override fun onSelectionChanged() {
+                    super.onSelectionChanged()
+                    selectedItems = tracker?.selection
+                    val items = tracker?.selection?.size()
+                    if (items != null && items > 0) {
+                        (requireParentFragment() as? IFabContainer)?.showBlock()
+                    } else {
+                        (requireParentFragment() as? IFabContainer)?.hideBlock()
+                    }
+                }
+            }
+        )
+    }
+
+    private fun setUpTracker() {
+        tracker = SelectionTracker.Builder(
+            "selection_id",
+            binding.recyclerView,
+            CategoryItemKeyProvider(adapter),
+            CategoryItemDetailsLookup(binding.recyclerView),
+            StorageStrategy.createStringStorage()
+        ).withSelectionPredicate(
+            SelectionPredicates.createSelectAnything()
+        ).build()
+        adapter.tracker = tracker
     }
 
 
@@ -193,14 +244,38 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     override fun onExport() {
+        if (viewModel.requestList.isEmpty())
+            return
         if (saveFile(Gson().toJson(viewModel.requestList))) {
             try {
                 backupSAFLauncher.launch("${type}_request_list.json")
             } catch (e: ActivityNotFoundException) {
-                Toast.makeText(requireContext(), "无法导出文件，未找到合适的应用来创建文件", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    requireContext(),
+                    "无法导出文件，未找到合适的应用来创建文件",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } else {
             Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onBlock() {
+        selectedItems?.let {
+            if (it.size() != 0) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    it.forEach { url ->
+                        if (!url.isNullOrEmpty() && url != "null") {
+                            if (!urlDao.isExist(url))
+                                urlDao.insert(Url("URL", url))
+                        }
+                    }
+                    withContext(Dispatchers.Main) {
+                        tracker?.clearSelection()
+                    }
+                }
+            }
         }
     }
 
@@ -219,5 +294,24 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 e.printStackTrace()
             }
         }
+
+    class CategoryItemDetailsLookup(private val recyclerView: RecyclerView) :
+        ItemDetailsLookup<String>() {
+        override fun getItemDetails(e: MotionEvent): ItemDetails<String>? {
+            val view = recyclerView.findChildViewUnder(e.x, e.y)
+            if (view != null) {
+                return (recyclerView.getChildViewHolder(view) as BlockedRequestsAdapter.ViewHolder).getItemDetails()
+            }
+            return null
+        }
+    }
+
+    class CategoryItemKeyProvider(private val adapter: BlockedRequestsAdapter) :
+        ItemKeyProvider<String>(SCOPE_CACHED) {
+        override fun getKey(position: Int): String? = adapter.currentList[position].request
+
+        override fun getPosition(key: String): Int =
+            adapter.currentList.indexOfFirst { it.request == key }
+    }
 
 }
