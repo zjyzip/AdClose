@@ -9,7 +9,6 @@ import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.widget.PopupMenu
-import androidx.core.view.isVisible
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
@@ -18,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Item
 import com.close.hook.ads.databinding.ItemBlockListBinding
+import com.close.hook.ads.util.dp
 
 class BlockListAdapter(
     private val context: Context,
@@ -77,7 +77,11 @@ class BlockListAdapter(
                 url.text = item.url
                 type.text =
                     item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                check.isVisible = isSelected
+                cardView.isChecked = isSelected
+                if (isSelected)
+                    container.setPadding(16.dp, 12.dp, 35.dp, 12.dp)
+                else
+                    container.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
             }
         }
 

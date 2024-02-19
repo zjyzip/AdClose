@@ -11,7 +11,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.ThemeUtils
-import androidx.core.view.isVisible
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
@@ -22,6 +21,7 @@ import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.util.AppUtils
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -133,7 +133,7 @@ responseHeaders: $responseHeaders
             this.request.setTextColor(textColor)
 
             tracker?.let {
-                check.isVisible = it.isSelected(getItem(position).request)
+                cardView.isChecked = it.isSelected(getItem(position).request)
             }
 
             method = request.method
@@ -171,6 +171,7 @@ responseHeaders: $responseHeaders
         val check: ImageView = view.findViewById(R.id.check)
         val copy: TextView = view.findViewById(R.id.copy)
         val block: TextView = view.findViewById(R.id.block)
+        val cardView: MaterialCardView = view.findViewById(R.id.cardView)
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<String> =
             object : ItemDetailsLookup.ItemDetails<String>() {
