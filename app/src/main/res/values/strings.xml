@@ -90,5 +90,6 @@
     <string name="block_list">Block List</string>
     <string name="edit">edit</string>
     <string name="settings_language">Language</string>
+    <string name="delete">Delete</string>
 
 </resources>

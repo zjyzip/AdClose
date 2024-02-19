@@ -72,4 +72,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="wb">@color/white</color>
 
+    <color name="red500">#C83C31</color>
+    <color name="blue500">#176BAE</color>
+
 </resources>

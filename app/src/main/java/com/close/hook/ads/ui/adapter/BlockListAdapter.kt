@@ -15,13 +15,16 @@ import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Item
 import com.close.hook.ads.databinding.ItemBlockListBinding
 
-class BlockListAdapter(private val context: Context,
-                       private val onRemoveUrl: (Int) -> Unit,
-                       private val onEditUrl: (Int) -> Unit) :
+class BlockListAdapter(
+    private val context: Context,
+    private val onRemoveUrl: (Int) -> Unit,
+    private val onEditUrl: (Int) -> Unit
+) :
     ListAdapter<Item, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = ItemBlockListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding =
+            ItemBlockListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return ViewHolder(binding, context, onRemoveUrl, onEditUrl)
     }
 
@@ -37,9 +40,15 @@ class BlockListAdapter(private val context: Context,
     ) : RecyclerView.ViewHolder(binding.root), PopupMenu.OnMenuItemClickListener {
 
         init {
-            itemView.setOnLongClickListener {
+            binding.container.setOnLongClickListener {
                 showPopupMenu()
                 true
+            }
+            binding.edit.setOnClickListener {
+                onEditUrl(bindingAdapterPosition)
+            }
+            binding.delete.setOnClickListener {
+                onRemoveUrl(bindingAdapterPosition)
             }
         }
 
@@ -55,7 +64,8 @@ class BlockListAdapter(private val context: Context,
         fun bind(item: Item) {
             with(binding) {
                 url.text = item.url
-                type.text = item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                type.text =
+                    item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
             }
         }
 
@@ -69,7 +79,8 @@ class BlockListAdapter(private val context: Context,
         }
 
         private fun copyToClipboard() {
-            val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipboardManager =
+                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clipDataText = "${binding.type.text}, ${binding.url.text}"
             val clipData = ClipData.newPlainText("request", clipDataText)
             clipboardManager.setPrimaryClip(clipData)

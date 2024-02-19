@@ -1,39 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<com.aitsuki.swipe.SwipeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?selectableItemBackground">
+    app:autoClose="true"
+    app:designer="@string/classic_designer"
+    app:preview="none">
+
+    <TextView
+        android:id="@+id/edit"
+        android:layout_width="75dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@color/blue500"
+        android:gravity="center"
+        android:text="@string/edit"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/delete"
+        android:layout_width="75dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:background="@color/red500"
+        android:gravity="center"
+        android:text="@string/delete"
+        android:textSize="16sp" />
 
     <LinearLayout
+        android:id="@+id/container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp"
         android:paddingStart="16dp"
-        android:paddingEnd="16dp">
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp">
 
         <TextView
             android:id="@+id/url"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
-            android:layout_weight="1"
             android:layout_marginEnd="16dp"
-            android:textColor="?colorOnSurface"
-            android:textSize="15sp"
+            android:layout_weight="1"
             android:fontFamily="sans-serif"
+            android:textColor="?colorOnSurface"
             android:textFontWeight="600"
-            tools:text="xiaomi.cn"
-            tools:targetApi="p" />
+            android:textSize="15sp"
+            tools:targetApi="p"
+            tools:text="xiaomi.cn" />
 
         <com.google.android.material.card.MaterialCardView
+            style="?materialCardViewFilledStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
-            style="?materialCardViewFilledStyle"
             app:cardBackgroundColor="?colorSecondaryContainer"
             app:cardCornerRadius="3dp">
 
@@ -41,17 +63,17 @@
                 android:id="@+id/type"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
+                android:fontFamily="sans-serif"
                 android:paddingStart="6dp"
                 android:paddingTop="3dp"
                 android:paddingEnd="6dp"
                 android:paddingBottom="3dp"
                 android:textAllCaps="true"
                 android:textColor="?colorOnSecondaryContainer"
-                android:textSize="10sp"
-                android:fontFamily="sans-serif"
                 android:textFontWeight="600"
-                tools:text="Host"
-                tools:targetApi="p" />
+                android:textSize="10sp"
+                tools:targetApi="p"
+                tools:text="Host" />
 
         </com.google.android.material.card.MaterialCardView>
 
@@ -63,6 +85,6 @@
         android:layout_gravity="bottom"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        android:alpha="0.4"/>
+        android:alpha="0.4" />
 
-</FrameLayout>
+</com.aitsuki.swipe.SwipeLayout>
