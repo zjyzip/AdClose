@@ -2,20 +2,21 @@ package com.close.hook.ads.ui.activity
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
-import android.widget.EditText
 import android.widget.Toast
-import androidx.recyclerview.widget.RecyclerView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Item
@@ -26,13 +27,10 @@ import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
-import android.net.Uri
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -113,9 +111,15 @@ class BlockListActivity : BaseActivity() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null)
         val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
         editText.setText(item.url)
-        val type = dialogView.findViewById<EditText>(R.id.type)
+        val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
         type.setText(item.type)
-
+        type.setAdapter(
+            ArrayAdapter(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                arrayOf("Host", "URL", "KeyWord")
+            )
+        )
         MaterialAlertDialogBuilder(this).setTitle("Edit Rule")
             .setView(dialogView)
             .setNegativeButton(android.R.string.cancel, null)
@@ -150,7 +154,8 @@ class BlockListActivity : BaseActivity() {
             submitList()
         }
         binding.add.setOnClickListener {
-            val dialogView = LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
+            val dialogView =
+                LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
             val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
             val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
             type.setText("URL")
@@ -177,7 +182,11 @@ class BlockListActivity : BaseActivity() {
                             }
                         } else {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(this@BlockListActivity, "规则已存在", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    this@BlockListActivity,
+                                    "规则已存在",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     }
@@ -188,13 +197,13 @@ class BlockListActivity : BaseActivity() {
                 }.show()
         }
     }
-    
+
     private fun initToolBar() {
         binding.backbtn.setOnClickListener {
             finish()
         }
     }
-    
+
     private fun initClearHistory() {
         binding.clearAll.setOnClickListener {
             MaterialAlertDialogBuilder(this).setTitle("确定清除全部黑名单？")
@@ -226,8 +235,14 @@ class BlockListActivity : BaseActivity() {
     private fun initEditText() {
         binding.editText.apply {
             addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
-    
+                override fun beforeTextChanged(
+                    s: CharSequence,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
+                }
+
                 override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
                     binding.clear.visibility = if (s.isEmpty()) View.GONE else View.VISIBLE
                     searchJob?.cancel()
@@ -236,10 +251,10 @@ class BlockListActivity : BaseActivity() {
                         search()
                     }
                 }
-    
+
                 override fun afterTextChanged(s: Editable) {}
             })
-    
+
             setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                     searchJob?.cancel()
@@ -272,24 +287,29 @@ class BlockListActivity : BaseActivity() {
                         val newItems = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
                                 val parts = line.split(",\\s*".toRegex()).map { it.trim() }
-                                if (parts.size == 2 && parts[1] !in existingUrls) Url(parts[0], parts[1]) else null
+                                if (parts.size == 2 && parts[1] !in existingUrls) Url(
+                                    parts[0],
+                                    parts[1]
+                                ) else null
                             }.toList()
                         } ?: listOf()
-    
+
                         if (newItems.isNotEmpty()) {
                             urlDao.insertAll(newItems)
                         }
-    
+
                         val newBlockItems = newItems.map { Item(it.type, it.url) }
                         viewModel.blockList.addAll(0, newBlockItems)
-    
+
                         withContext(Dispatchers.Main) {
                             submitList()
-                            Toast.makeText(this@BlockListActivity, "导入成功", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@BlockListActivity, "导入成功", Toast.LENGTH_SHORT)
+                                .show()
                         }
                     } catch (e: IOException) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BlockListActivity, "导入失败", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@BlockListActivity, "导入失败", Toast.LENGTH_SHORT)
+                                .show()
                         }
                         e.printStackTrace()
                     }
@@ -308,11 +328,13 @@ class BlockListActivity : BaseActivity() {
                             }
                         }
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BlockListActivity, "导出成功", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@BlockListActivity, "导出成功", Toast.LENGTH_SHORT)
+                                .show()
                         }
                     } catch (e: IOException) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BlockListActivity, "导出失败", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@BlockListActivity, "导出失败", Toast.LENGTH_SHORT)
+                                .show()
                         }
                         e.printStackTrace()
                     }

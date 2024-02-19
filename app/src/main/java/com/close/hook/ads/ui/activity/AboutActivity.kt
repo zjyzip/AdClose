@@ -63,5 +63,7 @@ class AboutActivity : AbsAboutActivity() {
         items.add(License("glide", "bumptech", License.APACHE_2, "https://github.com/bumptech/glide"))
         items.add(License("RxJava", "ReactiveX", License.APACHE_2, "https://github.com/ReactiveX/RxJava"))
         items.add(License("RxJava", "RxAndroid", License.APACHE_2, "https://github.com/ReactiveX/RxAndroid"))
+        items.add(License("SwipeMenuRecyclerView", "aitsuki", License.MIT, "https://github.com/aitsuki/SwipeMenuRecyclerView"))
+
     }
 }

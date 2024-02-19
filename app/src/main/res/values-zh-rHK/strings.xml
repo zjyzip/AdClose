@@ -89,5 +89,6 @@
     <string name="block_list">黑名单</string>
     <string name="edit">编辑</string>
     <string name="settings_language">语言</string>
+    <string name="delete">删除</string>
 
 </resources>
