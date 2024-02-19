@@ -7,19 +7,17 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
-import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup;
 import android.view.View.OnFocusChangeListener
+import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHostsBinding
 import com.close.hook.ads.ui.fragment.RequestListFragment.Companion.newInstance
 import com.close.hook.ads.util.DensityTool
+import com.close.hook.ads.util.IFabContainer
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
@@ -40,7 +38,7 @@ import io.reactivex.rxjava3.schedulers.Schedulers
 import java.util.concurrent.TimeUnit
 
 class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContainer,
-    OnBackPressListener, IOnTabClickContainer, IOnFabClickContainer {
+    OnBackPressListener, IOnTabClickContainer, IOnFabClickContainer, IFabContainer {
 
     private val imm by lazy { requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager }
     private var lastSearchQuery = ""
@@ -96,14 +94,17 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
                 }
             }
             offscreenPageLimit = 3
+            isUserInputEnabled = false
         }
 
         TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
-            tab.setText(when (position) {
-                0 -> R.string.tab_domain_list
-                1 -> R.string.tab_host_list
-                else -> R.string.tab_host_whitelist
-            })
+            tab.setText(
+                when (position) {
+                    0 -> R.string.tab_domain_list
+                    1 -> R.string.tab_host_list
+                    else -> R.string.tab_host_whitelist
+                }
+            )
         }.attach()
 
         binding.tabLayout.addOnTabSelectedListener(object : OnTabSelectedListener {
@@ -119,7 +120,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     private fun initFab() {
         with(binding.fab) {
             layoutParams = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, 
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
                 setMargins(0, 0, 25.dp, fabMarginBottom)
@@ -129,6 +130,19 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
             visibility = View.VISIBLE
             setOnClickListener { fabController?.onExport() }
         }
+
+        with(binding.block) {
+            layoutParams = CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 25.dp, fabMarginBottom + 81.dp)
+                gravity = Gravity.BOTTOM or Gravity.END
+                behavior = fabViewBehavior
+            }
+            visibility =View.VISIBLE
+            setOnClickListener { fabController?.onBlock() }
+        }
     }
 
     private fun initEditText() {
@@ -137,10 +151,19 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
                 setIcon(if (hasFocus) R.drawable.ic_back else R.drawable.ic_search, hasFocus)
             }
             addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun afterTextChanged(s: Editable?) {
-                    binding.searchClear.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
                 }
+
+                override fun afterTextChanged(s: Editable?) {
+                    binding.searchClear.visibility =
+                        if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+                }
+
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     handleSearchTextChange(s.toString())
                 }
@@ -152,7 +175,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     private fun handleSearchTextChange(query: String) {
         searchDisposable?.dispose()
         lastSearchQuery = query
-    
+
         if (query.isNotEmpty()) {
             searchDisposable = Observable.just(query)
                 .debounce(300, TimeUnit.MILLISECONDS)
@@ -218,7 +241,16 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     }
 
     private val Number.dp get() = (toFloat() * Resources.getSystem().displayMetrics.density).toInt()
-    private val fabMarginBottom get() = if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
-        DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
-    } else 25.dp
+    private val fabMarginBottom
+        get() = if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
+            DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
+        } else 25.dp
+
+    override fun showBlock() {
+        fabViewBehavior.slideUp(binding.block)
+    }
+
+    override fun hideBlock() {
+        fabViewBehavior.slideDown(binding.block)
+    }
 }

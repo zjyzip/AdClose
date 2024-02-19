@@ -30,18 +30,18 @@
                     android:id="@+id/backbtn"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
-                    android:insetBottom="0dp"
-                    android:insetRight="0dp"
+                    android:layout_marginStart="4dp"
                     android:insetLeft="0dp"
                     android:insetTop="0dp"
-                    android:layout_marginStart="4dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
                     app:backgroundTint="@android:color/transparent"
                     app:icon="@drawable/ic_back"
-                    app:iconTint="?colorOnSurface"
-                    app:iconSize="24dp"
-                    app:iconPadding="0dp"
                     app:iconGravity="textStart"
-                    app:rippleColor="?colorOnSurface"/>
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp"
+                    app:iconTint="?colorOnSurface"
+                    app:rippleColor="?colorOnSurface" />
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"
@@ -51,21 +51,21 @@
                     <ImageView
                         android:layout_width="24dp"
                         android:layout_height="24dp"
+                        android:layout_marginStart="8dp"
                         android:layout_marginTop="6dp"
                         android:layout_marginBottom="6dp"
-                        android:layout_marginStart="8dp"
                         android:src="@drawable/ic_search" />
 
                     <EditText
                         android:id="@+id/editText"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
+                        android:layout_marginStart="34dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="12dp"
+                        android:layout_marginBottom="6dp"
                         android:background="@null"
                         android:hint="@string/search_hint"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginBottom="6dp"
-                        android:layout_marginStart="34dp"
-                        android:layout_marginEnd="12dp"
                         android:imeOptions="actionSearch|flagNoExtractUi"
                         android:importantForAutofill="no"
                         android:inputType="textNoSuggestions"
@@ -95,9 +95,9 @@
                     android:id="@+id/restore"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
                     android:background="?attr/actionBarItemBackground"
                     android:padding="10dp"
-                    android:layout_marginEnd="6dp"
                     android:tooltipText="@string/restore"
                     app:srcCompat="@drawable/ic_import" />
 
@@ -105,43 +105,15 @@
 
         </com.google.android.material.appbar.MaterialToolbar>
 
-        <LinearLayout
-            android:id="@+id/historyLayout"
+        <com.google.android.material.divider.MaterialDivider
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="14dp"
-            android:paddingTop="14dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center_vertical"
-                android:text="@string/block_list"
-                android:textSize="26sp"
-                android:fontFamily="sans-serif"
-                android:textFontWeight="700"
-                android:textColor="?colorOnSurface"
-                tools:targetApi="p" />
-
-            <ImageButton
-                android:id="@+id/clearAll"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:background="?attr/actionBarItemBackground"
-                android:src="@drawable/ic_clear_all"
-                android:tooltipText="@string/clearAll"
-                app:tint="?attr/colorPrimary" />
-
-        </LinearLayout>
+            android:layout_gravity="bottom"
+            android:alpha="0.4" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <com.aitsuki.swipe.SwipeMenuRecyclerView
+    <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -155,8 +127,19 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|bottom"
-        android:layout_margin="25dp"
+        android:layout_marginEnd="25dp"
+        android:layout_marginBottom="106dp"
         android:src="@drawable/ic_add"
+        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior" />
+
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/delete"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_margin="25dp"
+        android:src="@drawable/ic_clear_all"
         app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

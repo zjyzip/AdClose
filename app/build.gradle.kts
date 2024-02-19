@@ -143,5 +143,6 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("com.github.aitsuki:SwipeMenuRecyclerView:2.1.5")
+    implementation("androidx.recyclerview:recyclerview-selection:1.1.0")
 
 }

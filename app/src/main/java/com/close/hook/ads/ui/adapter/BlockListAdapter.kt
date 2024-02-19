@@ -1,5 +1,6 @@
 package com.close.hook.ads.ui.adapter
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -8,6 +9,9 @@ import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.view.isVisible
+import androidx.recyclerview.selection.ItemDetailsLookup
+import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -22,6 +26,8 @@ class BlockListAdapter(
 ) :
     ListAdapter<Item, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
+    var tracker: SelectionTracker<String>? = null
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding =
             ItemBlockListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -29,21 +35,26 @@ class BlockListAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        tracker?.let {
+            holder.bind(getItem(position), it.isSelected(getItem(position).url))
+        }
     }
 
-    class ViewHolder(
+    @SuppressLint("NotifyDataSetChanged")
+    inner class ViewHolder(
         private val binding: ItemBlockListBinding,
         private val context: Context,
         private val onRemoveUrl: (Int) -> Unit,
         private val onEditUrl: (Int) -> Unit
     ) : RecyclerView.ViewHolder(binding.root), PopupMenu.OnMenuItemClickListener {
 
-        init {
-            binding.container.setOnLongClickListener {
-                showPopupMenu()
-                true
+        fun getItemDetails(): ItemDetailsLookup.ItemDetails<String> =
+            object : ItemDetailsLookup.ItemDetails<String>() {
+                override fun getPosition(): Int = bindingAdapterPosition
+                override fun getSelectionKey(): String = getItem(bindingAdapterPosition).url
             }
+
+        init {
             binding.edit.setOnClickListener {
                 onEditUrl(bindingAdapterPosition)
             }
@@ -61,19 +72,20 @@ class BlockListAdapter(
             }
         }
 
-        fun bind(item: Item) {
+        fun bind(item: Item, isSelected: Boolean) {
             with(binding) {
                 url.text = item.url
                 type.text =
                     item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                check.isVisible = isSelected
             }
         }
 
         override fun onMenuItemClick(menuItem: MenuItem?): Boolean {
             when (menuItem?.itemId) {
                 R.id.copy -> copyToClipboard()
-                R.id.block -> onRemoveUrl(adapterPosition)
-                R.id.edit -> onEditUrl(adapterPosition)
+                R.id.block -> onRemoveUrl(bindingAdapterPosition)
+                R.id.edit -> onEditUrl(bindingAdapterPosition)
             }
             return true
         }
