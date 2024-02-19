@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     app:autoClose="true"
-    app:designer="@string/classic_designer"
+    app:designer="com.aitsuki.swipe.SwipeLayout$ClassicDesigner"
     app:preview="none">
 
     <TextView
