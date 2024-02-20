@@ -8,7 +8,6 @@ import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
@@ -46,7 +45,7 @@ class BlockListAdapter(
         private val context: Context,
         private val onRemoveUrl: (Int) -> Unit,
         private val onEditUrl: (Int) -> Unit
-    ) : RecyclerView.ViewHolder(binding.root), PopupMenu.OnMenuItemClickListener {
+    ) : RecyclerView.ViewHolder(binding.root) {
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<String> =
             object : ItemDetailsLookup.ItemDetails<String>() {
@@ -73,16 +72,11 @@ class BlockListAdapter(
                     container.setPadding(16.dp, 12.dp, 35.dp, 12.dp)
                 else
                     container.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
-            }
-        }
 
-        override fun onMenuItemClick(menuItem: MenuItem?): Boolean {
-            when (menuItem?.itemId) {
-                R.id.copy -> copyToClipboard()
-                R.id.block -> onRemoveUrl(bindingAdapterPosition)
-                R.id.edit -> onEditUrl(bindingAdapterPosition)
+                cardView.setOnClickListener {
+                    copyToClipboard()
+                }
             }
-            return true
         }
 
         private fun copyToClipboard() {
