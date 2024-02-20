@@ -42,6 +42,16 @@ class AppsAdapter(
         private val requestOptions: RequestOptions
     ) : RecyclerView.ViewHolder(binding.root) {
 
+        init {
+            with(binding.root) {
+                setOnClickListener { onItemClickListener.onItemClick(binding.packageName.text.toString()) }
+                setOnLongClickListener { 
+                    onItemClickListener.onItemLongClick(binding.packageName.text.toString())
+                    true
+                }
+            }
+        }
+
         fun bind(appInfo: AppInfo) {
             with(binding) {
                 appName.text = appInfo.appName
@@ -51,12 +61,6 @@ class AppsAdapter(
                     .load(appInfo.appIcon)
                     .apply(requestOptions)
                     .into(appIcon)
-
-                root.setOnClickListener { onItemClickListener.onItemClick(appInfo.packageName) }
-                root.setOnLongClickListener {
-                    onItemClickListener.onItemLongClick(appInfo.packageName)
-                    true
-                }
             }
         }
 
