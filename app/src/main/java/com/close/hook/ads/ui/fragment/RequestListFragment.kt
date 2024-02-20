@@ -258,8 +258,10 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     override fun onExport() {
-        if (viewModel.requestList.isEmpty())
+        if (viewModel.requestList.isEmpty()) {
+            Toast.makeText(requireContext(), "请求列表为空，无法导出", Toast.LENGTH_SHORT).show()
             return
+        }
         if (saveFile(Gson().toJson(viewModel.requestList))) {
             try {
                 backupSAFLauncher.launch("${type}_request_list.json")

@@ -17,6 +17,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Item
 import com.close.hook.ads.databinding.ItemBlockListBinding
 import com.close.hook.ads.util.dp
+import java.util.Locale
 
 class BlockListAdapter(
     private val context: Context,
@@ -60,33 +61,28 @@ class BlockListAdapter(
             binding.delete.setOnClickListener {
                 onRemoveUrl(bindingAdapterPosition)
             }
+            binding.cardView.setOnClickListener {
+                copyToClipboard(binding.type.text.toString(), binding.url.text.toString())
+            }
         }
 
         fun bind(item: Item, isSelected: Boolean) {
             with(binding) {
                 url.text = item.url
-                type.text =
-                    item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                type.text = item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                 cardView.isChecked = isSelected
-                if (isSelected)
-                    container.setPadding(16.dp, 12.dp, 35.dp, 12.dp)
-                else
-                    container.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
-
-                cardView.setOnClickListener {
-                    copyToClipboard()
-                }
+                container.setPadding(16.dp, 12.dp, if (isSelected) 35.dp else 16.dp, 12.dp)
             }
         }
 
-        private fun copyToClipboard() {
-            val clipboardManager =
-                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clipDataText = "${binding.type.text}, ${binding.url.text}"
+        private fun copyToClipboard(type: String, url: String) {
+            val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipDataText = "$type, $url"
             val clipData = ClipData.newPlainText("request", clipDataText)
             clipboardManager.setPrimaryClip(clipData)
             Toast.makeText(context, "已复制: $clipDataText", Toast.LENGTH_SHORT).show()
         }
+
     }
 
     companion object {
