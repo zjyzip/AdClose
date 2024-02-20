@@ -16,6 +16,7 @@
         android:background="@color/blue500"
         android:gravity="center"
         android:text="@string/copy"
+        android:textColor="@color/white"
         android:textSize="16sp" />
 
     <TextView
@@ -26,6 +27,7 @@
         android:background="@color/red500"
         android:gravity="center"
         android:text="@string/block"
+        android:textColor="@color/white"
         android:textSize="16sp" />
 
     <com.google.android.material.card.MaterialCardView
