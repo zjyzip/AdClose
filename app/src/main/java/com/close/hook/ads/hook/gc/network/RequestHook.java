@@ -207,7 +207,7 @@ public class RequestHook {
                         String urlValue = cursor.getString(urlValueIndex);
 
                         if ("host".equals(queryType) && Objects.equals(urlValue, queryValue)) {
-                            return new Pair<>(true, "Host");
+                            return new Pair<>(true, "Domain");
                         } else if (("url".equals(queryType) || "keyword".equals(queryType)) && queryValue.contains(urlValue)) {
                             return new Pair<>(true, formatUrlType(urlType));
                         }

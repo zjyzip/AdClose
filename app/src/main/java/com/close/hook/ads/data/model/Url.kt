@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "url_info")
 data class Url(
 
-    @ColumnInfo(name = "type") // host url keyword
+    @ColumnInfo(name = "type") // domain url keyword
     var type: String,
 
     @ColumnInfo(name = "url")
