@@ -63,15 +63,6 @@ class BlockListAdapter(
             }
         }
 
-        private fun showPopupMenu() {
-            PopupMenu(context, itemView).apply {
-                menuInflater.inflate(R.menu.menu_request, menu)
-                menu.findItem(R.id.block).title = "移除黑名单"
-                setOnMenuItemClickListener(this@ViewHolder)
-                show()
-            }
-        }
-
         fun bind(item: Item, isSelected: Boolean) {
             with(binding) {
                 url.text = item.url

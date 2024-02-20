@@ -209,8 +209,7 @@ class BlockListActivity : BaseActivity() {
             submitList()
         }
         binding.add.setOnClickListener {
-            val dialogView =
-                LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
+            val dialogView = LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
             val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
             val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
             type.setText("URL")
@@ -226,7 +225,13 @@ class BlockListActivity : BaseActivity() {
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
                     val newType = type.text.toString()
-                    val newUrl = editText.text.toString()
+                    val newUrl = editText.text.toString().trim()
+    
+                    if (newUrl.isEmpty()) {
+                        Toast.makeText(this@BlockListActivity, "Value不能为空", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+
                     CoroutineScope(Dispatchers.IO).launch {
                         val isExist = urlDao.isExist(newUrl)
                         if (!isExist) {
@@ -237,11 +242,7 @@ class BlockListActivity : BaseActivity() {
                             }
                         } else {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(
-                                    this@BlockListActivity,
-                                    "规则已存在",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(this@BlockListActivity, "规则已存在", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }

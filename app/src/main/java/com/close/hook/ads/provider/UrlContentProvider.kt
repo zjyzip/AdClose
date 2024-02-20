@@ -26,64 +26,52 @@ class UrlContentProvider : ContentProvider() {
             ID_URL_DATA -> urlDao.findAll().also { cursor ->
                 cursor.setNotificationUri(context!!.contentResolver, uri)
             }
-            else -> throw IllegalArgumentException("Unknown URI: $uri")
+            else -> null
         }
 
     override fun getType(uri: Uri): String? = null
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? =
         when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> {
-                val id = values?.let {
-                    urlDao.insert(
-                        Url(
-                            it.getAsString(Url.URL_TYPE),
-                            it.getAsString(Url.URL_ADDRESS)
-                        )
-                    )
-                } ?: throw IllegalArgumentException("Invalid URI: Insert failed $uri")
-                
-                if (id != 0L) {
-                    notifyChange(uri)
-                    ContentUris.withAppendedId(uri, id)
-                } else null
+            ID_URL_DATA -> values?.let {
+                val id = urlDao.insert(contentValuesToUrl(it))
+                notifyChange(uri)
+                ContentUris.withAppendedId(uri, id)
             }
-            else -> throw IllegalArgumentException("Unknown URI: $uri")
+            else -> null
         }
 
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int =
         when (uriMatcher.match(uri)) {
             ID_URL_DATA_ITEM -> {
-                val count = urlDao.delete(ContentUris.parseId(uri))
+                val id = ContentUris.parseId(uri)
+                val count = urlDao.delete(id)
                 notifyChange(uri)
                 count
             }
-            else -> throw IllegalArgumentException("Unknown URI: $uri")
+            else -> 0
         }
 
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int =
         when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> {
-                val count = values?.let {
-                    urlDao.update(
-                        Url(
-                            it.getAsString(Url.URL_TYPE),
-                            it.getAsString(Url.URL_ADDRESS)
-                        )
-                    )
-                } ?: throw IllegalArgumentException("Invalid URI: Update failed $uri")
-                
-                if (count > 0) {
-                    notifyChange(uri)
-                }
+            ID_URL_DATA_ITEM -> values?.let {
+                val url = contentValuesToUrl(it).apply { id = ContentUris.parseId(uri) }
+                val count = urlDao.update(url)
+                notifyChange(uri)
                 count
-            }
-            else -> throw IllegalArgumentException("Unknown URI: $uri")
+            } ?: 0
+            else -> 0
         }
 
     private fun notifyChange(uri: Uri) {
         context?.contentResolver?.notifyChange(uri, null)
     }
+
+    private fun contentValuesToUrl(values: ContentValues): Url =
+        Url(
+            type = values.getAsString(Url.URL_TYPE),
+            url = values.getAsString(Url.URL_ADDRESS)
+        )
 
     companion object {
         const val AUTHORITY = "com.close.hook.ads.provider"
@@ -93,7 +81,7 @@ class UrlContentProvider : ContentProvider() {
 
         val uriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
             addURI(AUTHORITY, URL_TABLE_NAME, ID_URL_DATA)
-            addURI(AUTHORITY, "$URL_TABLE_NAME/*", ID_URL_DATA_ITEM)
+            addURI(AUTHORITY, "$URL_TABLE_NAME/#", ID_URL_DATA_ITEM)
         }
     }
 }

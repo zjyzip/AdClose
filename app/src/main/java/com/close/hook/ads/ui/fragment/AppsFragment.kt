@@ -183,21 +183,20 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     }
 
     private fun showBottomSheetDialog(appInfo: AppInfo) {
-        bottomSheetDialog = BottomSheetDialog(requireContext())
-        val binding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
-        bottomSheetDialog.setContentView(binding.root)
-        setupBottomSheetDialogBinding(binding, appInfo)
-        bottomSheetDialog.show()
+        BottomSheetDialog(requireContext()).apply {
+            val bottomBinding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
+            setContentView(bottomBinding.root)
+            bottomBinding.setupBottomSheetDialogBinding(appInfo)
+            show()
+        }
     }
 
-    private fun setupBottomSheetDialogBinding(binding: BottomDialogSwitchesBinding, appInfo: AppInfo) {
-        binding.apply {
-            sheetAppName.text = appInfo.appName
-            buttonClose.setOnClickListener { bottomSheetDialog.dismiss() }
-            version.text = appInfo.versionName
-            icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
-        }
-        setupListeners(binding.root, appInfo)
+    private fun BottomDialogSwitchesBinding.setupBottomSheetDialogBinding(appInfo: AppInfo) {
+        sheetAppName.text = appInfo.appName
+        buttonClose.setOnClickListener { bottomSheetDialog.dismiss() }
+        version.text = appInfo.versionName
+        icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
+        setupListeners(root, appInfo)
     }
 
     private fun updateCheckNum(packageName: String, isChecked: Boolean?) {

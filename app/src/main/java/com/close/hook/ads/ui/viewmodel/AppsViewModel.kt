@@ -1,7 +1,6 @@
 package com.close.hook.ads.ui.viewmodel
 
 import android.app.Application
-import android.content.pm.PackageManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -37,7 +36,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadUserApps() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val apps = appRepository.getInstalledUserApps()
+                val apps = appRepository.getInstalledApps(false)
                 _userAppsLiveData.postValue(apps)
             } catch (e: Exception) {
                 _errorLiveData.postValue(e.message)
@@ -48,12 +47,11 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadSystemApps() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val apps = appRepository.getInstalledSystemApps()
+                val apps = appRepository.getInstalledApps(true)
                 _systemAppsLiveData.postValue(apps)
             } catch (e: Exception) {
                 _errorLiveData.postValue(e.message)
             }
         }
     }
-
 }
