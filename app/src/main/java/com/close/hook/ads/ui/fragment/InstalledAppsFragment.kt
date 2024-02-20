@@ -79,21 +79,16 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
     @SuppressLint("InflateParams")
     private fun setupFilter() {
         viewModel.filterBean = FilterBean()
-        viewModel.sortList = ArrayList<String>()
-        if (PrefManager.configured) {
-            viewModel.sortList.add("已配置")
-        }
-        if (PrefManager.updated) {
-            viewModel.sortList.add("最近更新")
-        }
-        if (PrefManager.disabled) {
-            viewModel.sortList.add("已禁用")
+        viewModel.sortList = ArrayList<String>().apply {
+            if (PrefManager.configured) add("已配置")
+            if (PrefManager.updated) add("最近更新")
+            if (PrefManager.disabled) add("已禁用")
         }
         viewModel.filterBean.title = PrefManager.order
         viewModel.filterBean.filter = viewModel.sortList
+
         bottomSheetDialog = BottomSheetDialog(requireContext())
-        val dialogView = LayoutInflater.from(requireContext())
-            .inflate(R.layout.bottom_dialog_search_filter, null)
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_search_filter, null)
         bottomSheetDialog.setContentView(dialogView)
         setupFilterListeners(dialogView)
     }
@@ -105,108 +100,106 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
     private fun setupFilterListeners(dialogView: View) {
         val toolbar = dialogView.findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.setNavigationOnClickListener { bottomSheetDialog.dismiss() }
+
         val sortBy = dialogView.findViewById<ChipGroup>(R.id.sort_by)
         val filter = dialogView.findViewById<ChipGroup>(R.id.filter)
-        toolbar.setOnMenuItemClickListener { item: MenuItem ->
+
+        toolbar.setOnMenuItemClickListener { item ->
             if (item.itemId == R.id.action_reset) {
-                sortBy.check(0)
-                filter.clearCheck()
-                PrefManager.isReverse = false
-                reverseSwitch.isChecked = false
-                PrefManager.order = "应用名称"
-                PrefManager.configured = false
-                PrefManager.updated = false
-                PrefManager.disabled = false
-                viewModel.filterBean.title = "应用名称"
-                viewModel.sortList.clear()
-                viewModel.isFilter = false
-                controller?.updateSortList(
-                    viewModel.filterBean, "", false
-                )
+                resetFilters(sortBy, filter)
             }
             false
         }
+
         reverseSwitch = dialogView.findViewById(R.id.reverse_switch)
         reverseSwitch.isChecked = PrefManager.isReverse
-        reverseSwitch.setOnCheckedChangeListener { _: CompoundButton?, isReverse: Boolean ->
+        reverseSwitch.setOnCheckedChangeListener { _, isReverse ->
             PrefManager.isReverse = isReverse
             viewModel.isFilter = true
-            controller?.updateSortList(
-                viewModel.filterBean, binding.searchEditText.text.toString(), isReverse
-            )
+            controller?.updateSortList(viewModel.filterBean, binding.searchEditText.text.toString(), isReverse)
         }
-        sortBy.isSingleSelection = true
-        val sortList = listOf("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本")
-        for (title in sortList) {
-            sortBy.addView(getChip(title))
-        }
-        filter.isSingleSelection = false
-        val filterList = listOf("已配置", "最近更新", "已禁用")
-        for (title in filterList) {
-            filter.addView(getChip(title))
+
+        setupChipGroup(sortBy, listOf("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本"), true)
+        setupChipGroup(filter, listOf("已配置", "最近更新", "已禁用"), false)
+    }
+
+    private fun setupChipGroup(chipGroup: ChipGroup, titles: List<String>, isSortBy: Boolean) {
+        chipGroup.isSingleSelection = isSortBy
+        titles.forEach { title ->
+            chipGroup.addView(getChip(title, isSortBy))
         }
     }
 
-    private fun getChip(title: String): View {
-        val chip = Chip(requireContext())
-        chip.text = title
-        chip.isCheckable = true
-        chip.isClickable = true
-        if (title == "应用名称") {
-            chip.id = 0
-        }
-        if (title == PrefManager.order) {
-            chip.isChecked = true
-        } else if (title == "已配置" && PrefManager.configured) {
-            chip.isChecked = true
-        } else if (title == "最近更新" && PrefManager.updated) {
-            chip.isChecked = true
-        } else if (title == "已禁用" && PrefManager.disabled) {
-            chip.isChecked = true
-        }
-        chip.setOnClickListener {
-            if (title == "已配置" && !MainActivity.isModuleActivated()) {
-                AppUtils.showToast(requireContext(), "模块尚未被激活")
-                chip.isChecked = false
-                return@setOnClickListener
+    private fun getChip(title: String, isSortBy: Boolean): Chip {
+        return Chip(requireContext()).apply {
+            text = title
+            isCheckable = true
+            isClickable = true
+            isChecked = when {
+                isSortBy && title == PrefManager.order -> true
+                title == "已配置" && PrefManager.configured -> true
+                title == "最近更新" && PrefManager.updated -> true
+                title == "已禁用" && PrefManager.disabled -> true
+                else -> false
             }
-            if (title == "最近更新" || title == "已禁用" || title == "已配置") {
-                if (chip.isChecked) viewModel.sortList.add(title)
-                else viewModel.sortList.remove(title)
-                when (title) {
-                    "已配置" -> PrefManager.configured = chip.isChecked
-                    "最近更新" -> PrefManager.updated = chip.isChecked
-                    "已禁用" -> PrefManager.disabled = chip.isChecked
-                }
-                if (viewModel.sortList.isEmpty()) {
-                    Toast.makeText(
-                        requireContext(),
-                        requireContext().getString(R.string.filter_disabled),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    Toast.makeText(
-                        requireContext(),
-                        requireContext().getString(R.string.filter_enabled),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            } else {
-                PrefManager.order = title
-                viewModel.filterBean.title = title
-                Toast.makeText(
-                    requireContext(),
-                    "${requireContext().getString(R.string.sort_by_default)}: $title",
-                    Toast.LENGTH_SHORT
-                ).show()
+            setOnClickListener {
+                chipClickAction(this, title, isSortBy)
             }
-            viewModel.filterBean.filter = viewModel.sortList
-            viewModel.isFilter = true
-            controller?.updateSortList(
-                viewModel.filterBean, binding.searchEditText.text.toString(), PrefManager.isReverse
-            )
         }
-        return chip
+    }
+
+    private fun chipClickAction(chip: Chip, title: String, isSortBy: Boolean) {
+        if (!isSortBy && title == "已配置" && !MainActivity.isModuleActivated()) {
+            AppUtils.showToast(requireContext(), "模块尚未被激活")
+            chip.isChecked = false
+            return
+        }
+
+        if (!isSortBy) {
+            val isChecked = chip.isChecked
+            if (isChecked) viewModel.sortList.add(title) else viewModel.sortList.remove(title)
+            when (title) {
+                "已配置" -> PrefManager.configured = isChecked
+                "最近更新" -> PrefManager.updated = isChecked
+                "已禁用" -> PrefManager.disabled = isChecked
+            }
+            showFilterToast(title, isChecked)
+        } else {
+            PrefManager.order = title
+            viewModel.filterBean.title = title
+            AppUtils.showToast(requireContext(), "${requireContext().getString(R.string.sort_by_default)}: $title")
+        }
+        viewModel.filterBean.filter = viewModel.sortList
+        viewModel.isFilter = true
+        controller?.updateSortList(viewModel.filterBean, binding.searchEditText.text.toString(), PrefManager.isReverse)
+    }
+
+    private fun showFilterToast(title: String, isEnabled: Boolean) {
+        val message = if (isEnabled) {
+            "${requireContext().getString(R.string.filter_enabled)}: $title"
+        } else {
+            "${requireContext().getString(R.string.filter_disabled)}: $title"
+        }
+        AppUtils.showToast(requireContext(), message)
+    }
+
+    private fun resetFilters(sortBy: ChipGroup, filter: ChipGroup) {
+        sortBy.check(0)
+        filter.clearCheck()
+        PrefManager.apply {
+            isReverse = false
+            order = "应用名称"
+            configured = false
+            updated = false
+            disabled = false
+        }
+        reverseSwitch.isChecked = false
+        viewModel.apply {
+            filterBean.title = "应用名称"
+            sortList.clear()
+            isFilter = false
+        }
+        controller?.updateSortList(viewModel.filterBean, "", false)
     }
 
     private fun setupViewPagerAndTabs() {

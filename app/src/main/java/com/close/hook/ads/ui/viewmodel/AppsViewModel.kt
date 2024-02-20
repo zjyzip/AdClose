@@ -23,7 +23,6 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     val systemAppsLiveData: LiveData<List<AppInfo>> = _systemAppsLiveData
     private val _errorLiveData = MutableLiveData<String>()
     val errorLiveData: LiveData<String> = _errorLiveData
-    var currentSearchKeyword = ""
     lateinit var sortList: ArrayList<String>
     lateinit var filterBean: FilterBean
     var isFilter = false

@@ -145,38 +145,35 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
     private fun setupLiveDataObservation() {
         val appInfoMediatorLiveData = MediatorLiveData<List<AppInfo>>()
-    
-        fun addSourceAndProcess(liveData: LiveData<List<AppInfo>>, type: String) {
-            appInfoMediatorLiveData.addSource(liveData) { apps ->
-                appInfoMediatorLiveData.value = processAppInfoList(apps, type)
+
+        when (type) {
+            "configured", "user" -> appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { apps ->
+                appInfoMediatorLiveData.value = processAppInfoList(apps)
+            }
+            "configured", "system" -> appInfoMediatorLiveData.addSource(viewModel.systemAppsLiveData) { apps ->
+                appInfoMediatorLiveData.value = processAppInfoList(apps)
             }
         }
-    
-        if (type == "configured" || type == "user") {
-            addSourceAndProcess(viewModel.userAppsLiveData, "user")
-        }
-        if (type == "configured" || type == "system") {
-            addSourceAndProcess(viewModel.systemAppsLiveData, "system")
-        }
-    
+
         appInfoMediatorLiveData.observe(viewLifecycleOwner) { combinedAppInfoList ->
-            handleCombinedAppInfoList(combinedAppInfoList)
+            if (combinedAppInfoList.isNotEmpty()) {
+                handleCombinedAppInfoList(combinedAppInfoList)
+            }
         }
     }
 
-    private fun processAppInfoList(appInfoList: List<AppInfo>, appType: String): List<AppInfo> {
-        return appInfoList.filter { appInfo ->
-            when (type) {
-                "configured" -> appInfo.isEnable == 1
-                else -> true
-            }
+    private fun processAppInfoList(appInfoList: List<AppInfo>): List<AppInfo> {
+        return if (type == "configured") {
+            appInfoList.filter { it.isEnable == 1 }
+        } else {
+            appInfoList
         }
     }
 
     private fun handleCombinedAppInfoList(combinedAppInfoList: List<AppInfo>) {
-        if (viewModel.appInfoList.isEmpty()) {
+        if (viewModel.appInfoList != combinedAppInfoList) {
+            viewModel.appInfoList.clear()
             viewModel.appInfoList.addAll(combinedAppInfoList)
-            viewModel.isFilter = true
             updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
             binding.progressBar.visibility = View.GONE
         }

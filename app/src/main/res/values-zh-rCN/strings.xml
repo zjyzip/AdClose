@@ -30,7 +30,7 @@
     <string name="restore">导入</string>
 
     <string name="update_checkbox_status">保存开关配置</string>
-    <string name="description_two">•自动屏蔽广告请求，不影响正常网络</string>
+    <string name="description_two">•开启后可在Request页面管理网络广告请求屏蔽</string>
     <string name="description_seven">•仅针对一般性的Root，Magisk和Xposed检测</string>
 
     <string name="handle_platform_ad">阻止SDK广告初始化</string>
