@@ -10,10 +10,12 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
@@ -40,6 +42,8 @@ import com.close.hook.ads.util.OnBackPressFragmentContainer
 import com.close.hook.ads.util.OnBackPressFragmentListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
+import com.close.hook.ads.util.dp
+import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
@@ -53,6 +57,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.Optional
+
 
 class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
     IOnTabClickListener, IOnFabClickListener, OnBackPressFragmentListener {
@@ -282,6 +287,19 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     }
                     withContext(Dispatchers.Main) {
                         tracker?.clearSelection()
+                        val snackBar = Snackbar.make(
+                            requireParentFragment().requireView(),
+                            "已批量加入黑名单",
+                            Snackbar.LENGTH_SHORT
+                        )
+                        val lp = CoordinatorLayout.LayoutParams(
+                            CoordinatorLayout.LayoutParams.MATCH_PARENT,
+                            CoordinatorLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        lp.gravity = Gravity.BOTTOM
+                        lp.setMargins(0, 0, 0, 80.dp)
+                        snackBar.view.layoutParams = lp
+                        snackBar.show()
                     }
                 }
             }

@@ -11,6 +11,7 @@ import android.view.View.OnFocusChangeListener
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.isVisible
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHostsBinding
@@ -135,19 +136,6 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
             visibility = View.VISIBLE
             setOnClickListener { fabController?.onExport() }
         }
-
-        with(binding.block) {
-            layoutParams = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 0, 25.dp, fabMarginBottom + 81.dp)
-                gravity = Gravity.BOTTOM or Gravity.END
-                behavior = blockViewBehavior
-            }
-            visibility = View.VISIBLE
-            setOnClickListener { fabController?.onBlock() }
-        }
     }
 
     private fun initEditText() {
@@ -253,8 +241,25 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
         } else 25.dp
 
     override fun showBlock() {
+        if (!binding.block.isVisible)
+            initBlock()
         if (blockViewBehavior.isScrolledDown)
             blockViewBehavior.slideUp(binding.block)
+    }
+
+    private fun initBlock() {
+        with(binding.block) {
+            layoutParams = CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 25.dp, fabMarginBottom + 81.dp)
+                gravity = Gravity.BOTTOM or Gravity.END
+                behavior = blockViewBehavior
+            }
+            visibility = View.VISIBLE
+            setOnClickListener { fabController?.onBlock() }
+        }
     }
 
     override fun hideBlock() {
