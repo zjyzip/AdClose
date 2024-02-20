@@ -172,7 +172,7 @@ class BlockListActivity : BaseActivity() {
             ArrayAdapter(
                 this,
                 android.R.layout.simple_spinner_dropdown_item,
-                arrayOf("Host", "URL", "KeyWord")
+                arrayOf("Domain", "URL", "KeyWord")
             )
         )
         MaterialAlertDialogBuilder(this).setTitle("Edit Rule")
@@ -217,7 +217,7 @@ class BlockListActivity : BaseActivity() {
                 ArrayAdapter(
                     this,
                     android.R.layout.simple_spinner_dropdown_item,
-                    arrayOf("Host", "URL", "KeyWord")
+                    arrayOf("Domain", "URL", "KeyWord")
                 )
             )
             MaterialAlertDialogBuilder(this).setTitle("Add Rule")
