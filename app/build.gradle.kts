@@ -47,6 +47,17 @@ android {
     namespace = "com.close.hook.ads"
     compileSdk = 34
 
+    signingConfigs {
+        create("keyStore") {
+            storeFile = file("AdClose.jks")
+            keyAlias = "AdClose"
+            keyPassword = "rikkati"
+            storePassword = "rikkati"
+            enableV2Signing = true
+            enableV3Signing = true
+        }
+    }
+
     defaultConfig {
         applicationId = "com.close.hook.ads"
         minSdk = 26
@@ -80,9 +91,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("keyStore")
         }
         getByName("debug") {
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("keyStore")
         }
     }
 
