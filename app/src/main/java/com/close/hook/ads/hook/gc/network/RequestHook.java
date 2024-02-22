@@ -114,27 +114,7 @@ public class RequestHook {
         return shouldBlock;
     }
 
-    private static final XC_MethodHook httpConnectionHook = new XC_MethodHook() {
-        @Override
-        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-            HttpURLConnection httpURLConnection = (HttpURLConnection) param.thisObject;
-            URL url = httpURLConnection.getURL();
-            if (shouldBlockHttpsRequest(url)) {
-                BlockedURLConnection blockedConnection = new BlockedURLConnection(url);
-                String methodName = param.method.getName();
-                if ("getInputStream".equals(methodName)) {
-                    param.setResult(blockedConnection.getInputStream());
-                } else if ("getOutputStream".equals(methodName)) {
-                    param.setResult(blockedConnection.getOutputStream());
-                }
-            }
-        }
-    };
-
     private static boolean shouldBlockHttpsRequest(URL url) {
-        if (url == null) {
-            return false;
-        }
         String formattedUrl = formatUrlWithoutQuery(url);
 
         Pair<Boolean, String> pair = queryContentProvider("url", formattedUrl);
@@ -160,27 +140,15 @@ public class RequestHook {
         return null;
     }
 
-    private static boolean shouldBlockOkHttpsRequest(Object call) {
-        try {
-            if (call == null) {
-                return false;
-            }
+    private static boolean shouldBlockOkHttpsRequest(URL url) {
+        String formattedUrl = formatUrlWithoutQuery(url);
 
-            Object request = XposedHelpers.callMethod(call, "request");
-            Object httpUrl = XposedHelpers.callMethod(request, "url");
-            URL url = new URL(httpUrl.toString());
-            String formattedUrl = formatUrlWithoutQuery(url);
-    
-            Pair<Boolean, String> pair = queryContentProvider("url", formattedUrl);
-            boolean shouldBlock = pair.first;
-            String blockType = pair.second;
+        Pair<Boolean, String> pair = queryContentProvider("url", formattedUrl);
+        boolean shouldBlock = pair.first;
+        String blockType = pair.second;
 
-            sendBroadcast(" OKHTTP", shouldBlock, blockType, formattedUrl);
-            return shouldBlock;
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request: " + e.getMessage());
-            return false;
-        }
+        sendBroadcast(" OKHTTP", shouldBlock, blockType, formattedUrl);
+        return shouldBlock;
     }
 
     private static Pair<Boolean, String> queryContentProvider(String queryType, String queryValue) {
@@ -232,15 +200,6 @@ public class RequestHook {
         }
     }
 
-    private static String extractHost(String url) {
-        String host = url.replace("https://", "").replace("http://", "");
-        int indexOfSlash = host.indexOf('/');
-        if (indexOfSlash != -1) {
-            host = host.substring(0, indexOfSlash);
-        }
-        return host;
-    }
-
     private static void setupHttpRequestHook() {
         try {
             Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
@@ -248,12 +207,20 @@ public class RequestHook {
             XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "execute", boolean.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    processHttpRequestAsync(param);
+                    Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+                    Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
+                    Object httpUrl = XposedHelpers.callMethod(request, "urlString");
+                    URL url = new URL(httpUrl.toString());
+
+                    if (shouldBlockHttpsRequest(url)) {
+                        param.setResult(new BlockedURLConnection(url));
+                    } else {
+                        processHttpRequestAsync(httpEngine, request, url);
+                    }
+
                 }
             });
 
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getInputStream", httpConnectionHook);
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getOutputStream", httpConnectionHook);
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
         }
@@ -271,18 +238,19 @@ public class RequestHook {
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                             Object call = param.thisObject;
-                        
-                            if (shouldBlockOkHttpsRequest(call)) {
+                            Object request = XposedHelpers.callMethod(call, "request");
+                            Object okhttpUrl = XposedHelpers.callMethod(request, "url");
+                            URL url = new URL(okhttpUrl.toString());
+
+                            if (shouldBlockOkHttpsRequest(url)) {
                                 Object response = createEmptyResponseForOkHttp(call);
                                 param.setResult(response);
+                            } else {
+                                Object response = param.getResult();
+                                processOkHttpRequestAsync(call, request, url, response);
                             }
-                        }
-
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                            processOkHttpRequestAsync(param);
                         }
                     });
                 } catch (Exception e) {
@@ -293,73 +261,63 @@ public class RequestHook {
         }
     }
 
-    private static void processHttpRequestAsync(final XC_MethodHook.MethodHookParam param) {
+    private static void processHttpRequestAsync(final Object httpEngine, final Object request, final URL url) {
         executorService.submit(() -> {
             try {
-                RequestDetails details = processHttpRequest(param);
+                RequestDetails details = processHttpRequest(httpEngine, request, url);
                 if (details != null) {
                     logRequestDetails(details);
                 }
             } catch (Exception e) {
-                XposedBridge.log(LOG_PREFIX + "Error processing request: " + e.getMessage());
+                XposedBridge.log(LOG_PREFIX + "Error processing HTTP request async: " + e.getMessage());
             }
         });
     }
 
-    private static void processOkHttpRequestAsync(final XC_MethodHook.MethodHookParam param) {
+    private static void processOkHttpRequestAsync(final Object call, final Object request, final URL url, final Object response) {
         executorService.submit(() -> {
             try {
-                RequestDetails details = processOkHttpRequest(param);
+                RequestDetails details = processOkHttpRequest(call, request, url, response);
                 if (details != null) {
                     logRequestDetails(details);
                 }
             } catch (Exception e) {
-                XposedBridge.log(LOG_PREFIX + "Error processing request: " + e.getMessage());
+                XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request async: " + e.getMessage());
             }
         });
     }
 
-    private static RequestDetails processHttpRequest(XC_MethodHook.MethodHookParam param) {
+    private static RequestDetails processHttpRequest(Object httpEngine, Object request, URL url) {
         try {
-            Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
-            Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
-            Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
-
             String method = (String) XposedHelpers.callMethod(request, "method");
-            String urlString = (String) XposedHelpers.callMethod(request, "urlString");
+            String urlString = url.toString();
             Object requestHeaders = XposedHelpers.callMethod(request, "headers");
 
-            int code = response != null ? (int) XposedHelpers.callMethod(response, "code") : -1;
-            String message = response != null ? (String) XposedHelpers.callMethod(response, "message") : "No response";
-            Object responseHeaders = response != null ? XposedHelpers.callMethod(response, "headers")
-                    : "No response headers";
+            Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
+            int code = (int) XposedHelpers.callMethod(response, "code");
+            String message = (String) XposedHelpers.callMethod(response, "message");
+            Object responseHeaders = XposedHelpers.callMethod(response, "headers");
 
             return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Exception in processing Http request: " + e.getMessage());
             return null;
         }
     }
 
-    private static RequestDetails processOkHttpRequest(XC_MethodHook.MethodHookParam param) {
+    private static RequestDetails processOkHttpRequest(Object call, Object request, URL url, Object response) {
         try {
-            // 获取请求对象
-            Object request = XposedHelpers.callMethod(param.thisObject, "request");
-
-            // 获取并打印请求信息
             String method = (String) XposedHelpers.callMethod(request, "method");
-            String urlString = XposedHelpers.callMethod(request, "url").toString();
+            String urlString = url.toString();
             Object requestHeaders = XposedHelpers.callMethod(request, "headers");
-
-            // 获取并打印响应对象
-            Object response = param.getResult();
+    
             int code = (int) XposedHelpers.callMethod(response, "code");
             String message = (String) XposedHelpers.callMethod(response, "message");
             Object responseHeaders = XposedHelpers.callMethod(response, "headers");
-    
+
             return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Exception in processing OkHttp request: " + e.getMessage());
             return null;
         }
     }
@@ -379,12 +337,20 @@ public class RequestHook {
 			XposedBridge.log(logBuilder.toString());
 */
 
-            String method = details.getMethod();
-            String urlString = details.getUrlString();
-            String requestHeaders = details.getRequestHeaders() != null ? details.getRequestHeaders().toString() : "";
-            int responseCode = details.getResponseCode();
-            String responseMessage = details.getResponseMessage();
-            String responseHeaders = details.getResponseHeaders() != null ? details.getResponseHeaders().toString() : "";
+            method = details.getMethod();
+            urlString = details.getUrlString();
+            if (details.getRequestHeaders() != null) {
+                requestHeaders = details.getRequestHeaders().toString();
+            } else {
+                requestHeaders = "";
+            }
+            responseCode = details.getResponseCode();
+            responseMessage = details.getResponseMessage();
+            if (details.getResponseHeaders() != null) {
+                responseHeaders = details.getResponseHeaders().toString();
+            } else {
+                responseHeaders = "";
+            }
 
         }
     }
