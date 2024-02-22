@@ -66,7 +66,7 @@ class BlockedRequestsAdapter(
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_blocked_request, parent, false)
         return ViewHolder(view).apply {
-            itemView.setOnClickListener {
+            cardView.setOnClickListener {
                 urlString.takeUnless { it.isNullOrEmpty() }?.let {
                     MaterialAlertDialogBuilder(parent.context).apply {
                         setTitle("请求参数")
