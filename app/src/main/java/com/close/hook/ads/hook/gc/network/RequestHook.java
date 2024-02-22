@@ -31,7 +31,6 @@ import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
 import java.util.List;
-import java.util.Arrays;
 import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -176,7 +175,7 @@ public class RequestHook {
             boolean shouldBlock = pair.first;
             String blockType = pair.second;
 
-            sendBroadcast("OKHTTP", shouldBlock, blockType, formattedUrl);
+            sendBroadcast(" OKHTTP", shouldBlock, blockType, formattedUrl);
             return shouldBlock;
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request: " + e.getMessage());
@@ -268,7 +267,7 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    XposedBridge.log("hook " + methodData); // okhttp3.Call.execute -overload method
+      //            XposedBridge.log("hook " + methodData); // okhttp3.Call.execute -overload method
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                         @Override
