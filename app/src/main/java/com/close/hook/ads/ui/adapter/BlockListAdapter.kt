@@ -17,7 +17,6 @@ import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Item
 import com.close.hook.ads.databinding.ItemBlockListBinding
 import com.close.hook.ads.util.dp
-import java.util.Locale
 
 class BlockListAdapter(
     private val context: Context,

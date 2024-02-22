@@ -31,6 +31,7 @@ import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
 import java.util.List;
+import java.util.Arrays;
 import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -145,10 +146,10 @@ public class RequestHook {
         return shouldBlock;
     }
 
-    private static Object createEmptyResponseForOkHttp(Object chain) throws Exception {
-        if (chain instanceof okhttp3.Interceptor.Chain) {
-            okhttp3.Interceptor.Chain okhttpChain = (okhttp3.Interceptor.Chain) chain;
-            Request request = okhttpChain.request();
+    private static Object createEmptyResponseForOkHttp(Object call) throws Exception {
+        if (call instanceof okhttp3.Call) {
+            okhttp3.Call okHttpCall = (okhttp3.Call) call;
+            Request request = okHttpCall.request();
 
             return new Response.Builder()
                     .request(request)
@@ -160,22 +161,22 @@ public class RequestHook {
         return null;
     }
 
-    private static boolean shouldBlockOkHttpsRequest(Object chain) {
+    private static boolean shouldBlockOkHttpsRequest(Object call) {
         try {
-            if (chain == null) {
+            if (call == null) {
                 return false;
             }
-    
-            Object request = XposedHelpers.callMethod(chain, "request");
+
+            Object request = XposedHelpers.callMethod(call, "request");
             Object httpUrl = XposedHelpers.callMethod(request, "url");
             URL url = new URL(httpUrl.toString());
             String formattedUrl = formatUrlWithoutQuery(url);
-
+    
             Pair<Boolean, String> pair = queryContentProvider("url", formattedUrl);
             boolean shouldBlock = pair.first;
             String blockType = pair.second;
 
-            sendBroadcast(" OKHTTP", shouldBlock, blockType, formattedUrl);
+            sendBroadcast("OKHTTP", shouldBlock, blockType, formattedUrl);
             return shouldBlock;
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request: " + e.getMessage());
@@ -261,20 +262,21 @@ public class RequestHook {
 
     public static void setupOkHttpRequestHook() {
         String cacheKey = DexKitUtil.INSTANCE.getContext().getPackageName() + ":setupOkHttpRequestHook";
-        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, " had non-zero Content-Length: ");
+        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, "Already Executed", "execute");
 
         if (foundMethods != null) {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-    //              XposedBridge.log("hook " + methodData);
+                    XposedBridge.log("hook " + methodData); // okhttp3.Call.execute -overload method
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
+
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            Object chain = param.args[0];
-
-                            if (shouldBlockOkHttpsRequest(chain)) {
-                                Object response = createEmptyResponseForOkHttp(chain);
+                            Object call = param.thisObject;
+                        
+                            if (shouldBlockOkHttpsRequest(call)) {
+                                Object response = createEmptyResponseForOkHttp(call);
                                 param.setResult(response);
                             }
                         }
@@ -285,6 +287,8 @@ public class RequestHook {
                         }
                     });
                 } catch (Exception e) {
+                    XposedBridge.log("Error hooking method: " + methodData);
+                    e.printStackTrace();
                 }
             }
         }
@@ -341,20 +345,19 @@ public class RequestHook {
     private static RequestDetails processOkHttpRequest(XC_MethodHook.MethodHookParam param) {
         try {
             // 获取请求对象
-            Object chain = param.args[0];
-            Object request = XposedHelpers.callMethod(chain, "request");
+            Object request = XposedHelpers.callMethod(param.thisObject, "request");
 
-            // 获取请求信息
+            // 获取并打印请求信息
             String method = (String) XposedHelpers.callMethod(request, "method");
             String urlString = XposedHelpers.callMethod(request, "url").toString();
             Object requestHeaders = XposedHelpers.callMethod(request, "headers");
 
-            // 获取响应对象
+            // 获取并打印响应对象
             Object response = param.getResult();
             int code = (int) XposedHelpers.callMethod(response, "code");
             String message = (String) XposedHelpers.callMethod(response, "message");
             Object responseHeaders = XposedHelpers.callMethod(response, "headers");
-
+    
             return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
@@ -362,9 +365,9 @@ public class RequestHook {
         }
     }
 
-
     private static void logRequestDetails(RequestDetails details) {
         if (details != null) {
+
 /*			StringBuilder logBuilder = new StringBuilder();
 			logBuilder.append(LOG_PREFIX).append("Request Details:\n");
 			logBuilder.append("Method: ").append(details.getMethod()).append("\n");
@@ -376,20 +379,13 @@ public class RequestHook {
 
 			XposedBridge.log(logBuilder.toString());
 */
-            method = details.getMethod();
-            urlString = details.getUrlString();
-            if (details.getRequestHeaders() != null) {
-                requestHeaders = details.getRequestHeaders().toString();
-            } else {
-                requestHeaders = "";
-            }
-            responseCode = details.getResponseCode();
-            responseMessage = details.getResponseMessage();
-            if (details.getResponseHeaders() != null) {
-                responseHeaders = details.getResponseHeaders().toString();
-            } else {
-                responseHeaders = "";
-            }
+
+            String method = details.getMethod();
+            String urlString = details.getUrlString();
+            String requestHeaders = details.getRequestHeaders() != null ? details.getRequestHeaders().toString() : "";
+            int responseCode = details.getResponseCode();
+            String responseMessage = details.getResponseMessage();
+            String responseHeaders = details.getResponseHeaders() != null ? details.getResponseHeaders().toString() : "";
 
         }
     }

@@ -4,7 +4,7 @@ import org.luckypray.dexkit.result.MethodData
 
 object StringFinderKit {
 
-    fun findMethodsWithString(key: String, searchString: String): List<MethodData>? {
+    fun findMethodsWithString(key: String, searchString: String, methodName: String): List<MethodData>? {
         DexKitUtil.initializeDexKitBridge()
 
         val foundMethods = DexKitUtil.getCachedOrFindMethods(key) {
@@ -12,6 +12,7 @@ object StringFinderKit {
                 searchPackages(listOf("okhttp3"))
                 matcher {
                     usingStrings = listOf(searchString)
+                    name = methodName
                 }
             }?.toList()
         }
