@@ -44,8 +44,6 @@ import okhttp3.Response;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
-    private static final Set<String> BLOCKED_LISTS = ConcurrentHashMap.newKeySet(); // 包含策略
-    private static final ExecutorService executorService = Executors.newCachedThreadPool();
     private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
             .maximumSize(15000)
             .expireAfterAccess(1, TimeUnit.HOURS) // 更改为最后一次访问后1小时过期
@@ -94,51 +92,43 @@ public class RequestHook {
     };
 
     private static boolean shouldBlockDnsRequest(String host) {
-        if (host == null) {
-            return false;
-        }
-
-        Pair<Boolean, String> pair = queryContentProvider("host", host);
-        boolean shouldBlock = pair.first;
-        String blockType = pair.second;
-
-        sendBroadcast(" DNS", shouldBlock, blockType, host, null);
-        return shouldBlock;
+        return checkShouldBlockRequest(host, null, " DNS", "host");
     }
 
     private static boolean shouldBlockHttpsRequest(final URL url, final RequestDetails details) {
         String formattedUrl = formatUrlWithoutQuery(url);
-
-        Pair<Boolean, String> pair = queryContentProvider("url", formattedUrl);
-        boolean shouldBlock = pair.first;
-        String blockType = pair.second;
-        sendBroadcast(" HTTP", shouldBlock, blockType, formattedUrl, details);
-        return shouldBlock;
-    }
-
-    private static Object createEmptyResponseForOkHttp(Object call) throws Exception {
-        if (call instanceof okhttp3.Call) {
-            okhttp3.Call okHttpCall = (okhttp3.Call) call;
-            Request request = okHttpCall.request();
-
-            return new Response.Builder()
-                    .request(request)
-                    .protocol(Protocol.HTTP_1_1)
-                    .code(204)
-                    .message("No Content")
-                    .build();
-        }
-        return null;
+        return checkShouldBlockRequest(formattedUrl, details, " HTTP", "url");
     }
 
     private static boolean shouldBlockOkHttpsRequest(final URL url, final RequestDetails details) {
         String formattedUrl = formatUrlWithoutQuery(url);
+        return checkShouldBlockRequest(formattedUrl, details, " OKHTTP", "url");
+    }
 
-        Pair<Boolean, String> pair = queryContentProvider("url", formattedUrl);
-        boolean shouldBlock = pair.first;
+    private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
+        Boolean shouldBlock = urlBlockCache.getIfPresent(queryValue);
+        if (shouldBlock != null) {
+            return shouldBlock;
+        }
+
+        Pair<Boolean, String> pair = queryContentProvider(queryType, queryValue);
+        shouldBlock = pair.first;
         String blockType = pair.second;
-        sendBroadcast(" OKHTTP", shouldBlock, blockType, formattedUrl, details);
+
+        urlBlockCache.put(queryValue, shouldBlock);
+
+        sendBroadcast(requestType, shouldBlock, blockType, queryValue, details);
         return shouldBlock;
+    }
+
+    private static String formatUrlWithoutQuery(URL url) {
+        try {
+            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath());
+            return formattedUrl.toExternalForm();
+        } catch (MalformedURLException e) {
+            XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
+            return null;
+        }
     }
 
     private static Pair<Boolean, String> queryContentProvider(String queryType, String queryValue) {
@@ -180,16 +170,6 @@ public class RequestHook {
         return urlType.replace("url", "URL").replace("keyword", "KeyWord");
     }
 
-    private static String formatUrlWithoutQuery(URL url) {
-        try {
-            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath());
-            return formattedUrl.toExternalForm();
-        } catch (MalformedURLException e) {
-            XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
-            return null;
-        }
-    }
-
     private static void setupHttpRequestHook() {
         try {
             Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
@@ -198,20 +178,20 @@ public class RequestHook {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+
+                    XposedHelpers.callMethod(httpEngine, "readResponse");
+                    Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
+
                     Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
                     Object httpUrl = XposedHelpers.callMethod(request, "urlString");
                     URL url = new URL(httpUrl.toString());
 
-                    RequestDetails details = processHttpRequest(httpEngine, request, url);
-                    if (shouldBlockHttpsRequest(url, details)) {
+                    RequestDetails details = processHttpRequest(request, response, url);
+                    if (details != null && shouldBlockHttpsRequest(url, details)) {
                         param.setResult(new BlockedURLConnection(url));
-                    }/* else {
-                        processHttpRequestAsync(httpEngine, request, url);
-                    }*/
-
+                    }
                 }
             });
-
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
         }
@@ -239,10 +219,7 @@ public class RequestHook {
                             if (shouldBlockOkHttpsRequest(url, details)) {
                                 Object response = createEmptyResponseForOkHttp(call);
                                 param.setResult(response);
-                            }/* else {
-                                Object response = param.getResult();
-                                processOkHttpRequestAsync(call, request, url, response);
-                            }*/
+                            }
                         }
                     });
                 } catch (Exception e) {
@@ -253,39 +230,27 @@ public class RequestHook {
         }
     }
 
-    private static void processHttpRequestAsync(final Object httpEngine, final Object request, final URL url) {
-        executorService.submit(() -> {
-            try {
-                RequestDetails details = processHttpRequest(httpEngine, request, url);
-                if (details != null) {
-                    logRequestDetails(details);
-                }
-            } catch (Exception e) {
-                XposedBridge.log(LOG_PREFIX + "Error processing HTTP request async: " + e.getMessage());
-            }
-        });
+    private static Object createEmptyResponseForOkHttp(Object call) throws Exception {
+        if (call instanceof okhttp3.Call) {
+            okhttp3.Call okHttpCall = (okhttp3.Call) call;
+            Request request = okHttpCall.request();
+
+            return new Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(204)
+                    .message("No Content")
+                    .build();
+        }
+        return null;
     }
 
-    private static void processOkHttpRequestAsync(final Object call, final Object request, final URL url, final Object response) {
-        executorService.submit(() -> {
-            try {
-                RequestDetails details = processOkHttpRequest(call, request, url, response);
-                if (details != null) {
-                    logRequestDetails(details);
-                }
-            } catch (Exception e) {
-                XposedBridge.log(LOG_PREFIX + "Error processing OkHttp request async: " + e.getMessage());
-            }
-        });
-    }
-
-    private static RequestDetails processHttpRequest(Object httpEngine, Object request, URL url) {
+    private static RequestDetails processHttpRequest(Object request, Object response, URL url) {
         try {
             String method = (String) XposedHelpers.callMethod(request, "method");
             String urlString = url.toString();
             Object requestHeaders = XposedHelpers.callMethod(request, "headers");
 
-            Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
             int code = (int) XposedHelpers.callMethod(response, "code");
             String message = (String) XposedHelpers.callMethod(response, "message");
             Object responseHeaders = XposedHelpers.callMethod(response, "headers");
