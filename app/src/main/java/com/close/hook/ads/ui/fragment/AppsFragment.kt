@@ -132,87 +132,109 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
     private fun handleItemLongClick(appInfo: AppInfo) {
         val bottomSheetDialog = BottomSheetDialog(requireContext())
-        val binding = BottomDialogAppInfoBinding.inflate(layoutInflater, null, false)
+        val binding = BottomDialogAppInfoBinding.inflate(layoutInflater)
         bottomSheetDialog.setContentView(binding.root)
         setupBottomDialogAppInfoBinding(binding, appInfo)
         bottomSheetDialog.show()
+        setupDialogActions(bottomSheetDialog, binding, appInfo)
+    }
+
+    private fun setupDialogActions(bottomSheetDialog: BottomSheetDialog, binding: BottomDialogAppInfoBinding, appInfo: AppInfo) {
         binding.close.setOnClickListener {
             bottomSheetDialog.dismiss()
         }
         binding.detail.setOnClickListener {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            intent.data = Uri.fromParts("package", appInfo.packageName, null)
-            try {
-                startActivity(intent)
-            } catch (e: ActivityNotFoundException) {
-                AppUtils.showToast(requireContext(), "无法打开应用详情")
-                e.printStackTrace()
-            }
+            openAppDetails(appInfo.packageName)
             bottomSheetDialog.dismiss()
         }
         binding.launch.setOnClickListener {
-            val intent =
-                requireContext().packageManager.getLaunchIntentForPackage(appInfo.packageName)
-            if (intent != null) {
-                try {
-                    startActivity(intent)
-                } catch (e: ActivityNotFoundException) {
-                    AppUtils.showToast(requireContext(), "打开失败")
-                    e.printStackTrace()
-                }
-            } else {
+            launchApp(appInfo.packageName)
+            bottomSheetDialog.dismiss()
+        }
+    }
+
+    private fun openAppDetails(packageName: String) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+        }
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            AppUtils.showToast(requireContext(), "无法打开应用详情")
+        }
+    }
+
+    private fun launchApp(packageName: String) {
+        val intent = requireContext().packageManager.getLaunchIntentForPackage(packageName)
+        if (intent != null) {
+            try {
+                startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
                 AppUtils.showToast(requireContext(), "打开失败")
             }
-            bottomSheetDialog.dismiss()
+        } else {
+            AppUtils.showToast(requireContext(), "打开失败")
         }
     }
 
     private fun getFormatSize(size: Long): String {
-        val GB = 1024 * 1024 * 1024
-        val MB = 1024 * 1024
-        val KB = 1024
         val df = DecimalFormat("0.00")
-        return if (size / GB >= 1) {
-            df.format(size / GB.toFloat()) + "GB"
-        } else if (size / MB >= 1) {
-            df.format(size / MB.toFloat()) + "MB"
-        } else if (size / KB >= 1) {
-            df.format(size / KB.toFloat()) + "KB"
-        } else {
-            size.toString() + "B"
+        return when {
+            size >= 1.shl(30) -> "${df.format(size / 1.shl(30).toFloat())}GB"
+            size >= 1.shl(20) -> "${df.format(size / 1.shl(20).toFloat())}MB"
+            size >= 1.shl(10) -> "${df.format(size / 1.shl(10).toFloat())}KB"
+            else -> "$size B"
         }
     }
 
-    @SuppressLint("SetTextI18n", "SimpleDateFormat")
-    private fun setupBottomDialogAppInfoBinding(
-        binding: BottomDialogAppInfoBinding,
-        appInfo: AppInfo
-    ) {
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-        binding.apply {
+    private fun setupBottomDialogAppInfoBinding(binding: BottomDialogAppInfoBinding, appInfo: AppInfo) {
+        with(binding) {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
             appName.text = appInfo.appName
-            packageName.title.text = "APK包名"
-            packageName.value.text = appInfo.packageName
-            appSize.title.text = "APK大小"
-            appSize.value.text = getFormatSize(appInfo.size)
-            versionName.title.text = "版本名称"
-            versionName.value.text = appInfo.versionName
-            versionCode.title.text = "版本号"
-            versionCode.value.text = appInfo.versionCode.toString()
-            targetSdk.title.text = "TargetSDk"
-            targetSdk.value.text = appInfo.targetSdk.toString()
-            minSdk.title.text = "MinSDk"
-            minSdk.value.text = appInfo.minSdk.toString()
-            installTime.title.text = "安装时间"
-            installTime.value.text = dateFormat.format(Date(appInfo.firstInstallTime))
-            updateTime.title.text = "更新时间"
-            updateTime.value.text = dateFormat.format(Date(appInfo.lastUpdateTime))
+            packageName.apply {
+                title.text = "APK包名"
+                value.text = appInfo.packageName
+            }
+            appSize.apply {
+                title.text = "APK大小"
+                value.text = getFormatSize(appInfo.size)
+            }
+            versionName.apply {
+                title.text = "版本名称"
+                value.text = appInfo.versionName
+            }
+            versionCode.apply {
+                title.text = "版本号"
+                value.text = appInfo.versionCode.toString()
+            }
+            targetSdk.apply {
+                title.text = "TargetSDK"
+                value.text = appInfo.targetSdk.toString()
+            }
+            minSdk.apply {
+                title.text = "MinSDK"
+                value.text = appInfo.minSdk.toString()
+            }
+            installTime.apply {
+                title.text = "安装时间"
+                value.text = dateFormat.format(Date(appInfo.firstInstallTime))
+            }
+            updateTime.apply {
+                title.text = "更新时间"
+                value.text = dateFormat.format(Date(appInfo.lastUpdateTime))
+            }
         }
     }
 
     private fun setupLiveDataObservation() {
         val appInfoMediatorLiveData = MediatorLiveData<List<AppInfo>>()
+    
+        if (type == "configured" && !MainActivity.isModuleActivated()) {
+            AppUtils.showToast(requireContext(), "模块尚未被激活")
+            binding.progressBar.visibility = View.GONE
+            return
+        }
 
         when (type) {
             "configured", "user" -> appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { apps ->
