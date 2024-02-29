@@ -11,13 +11,11 @@ import android.view.View.OnFocusChangeListener
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.view.isVisible
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHostsBinding
 import com.close.hook.ads.ui.fragment.RequestListFragment.Companion.newInstance
 import com.close.hook.ads.util.DensityTool
-import com.close.hook.ads.util.IFabContainer
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
@@ -41,14 +39,12 @@ import io.reactivex.rxjava3.schedulers.Schedulers
 import java.util.concurrent.TimeUnit
 
 class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContainer,
-    OnBackPressListener, IOnTabClickContainer, IOnFabClickContainer, IFabContainer,
-    OnBackPressFragmentContainer {
+    OnBackPressListener, IOnTabClickContainer, IOnFabClickContainer, OnBackPressFragmentContainer {
 
     private val imm by lazy { requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager }
     private var lastSearchQuery = ""
     private var searchDisposable: Disposable? = null
     private val fabViewBehavior by lazy { HideBottomViewOnScrollBehavior<FloatingActionButton>() }
-    private val blockViewBehavior by lazy { HideBottomViewOnScrollBehavior<FloatingActionButton>() }
 
     override var controller: OnClearClickListener? = null
     override var tabController: IOnTabClickListener? = null
@@ -240,30 +236,4 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
             DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
         } else 25.dp
 
-    override fun showBlock() {
-        if (!binding.block.isVisible)
-            initBlock()
-        if (blockViewBehavior.isScrolledDown)
-            blockViewBehavior.slideUp(binding.block)
-    }
-
-    private fun initBlock() {
-        with(binding.block) {
-            layoutParams = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 0, 25.dp, fabMarginBottom + 81.dp)
-                gravity = Gravity.BOTTOM or Gravity.END
-                behavior = blockViewBehavior
-            }
-            visibility = View.VISIBLE
-            setOnClickListener { fabController?.onBlock() }
-        }
-    }
-
-    override fun hideBlock() {
-        if (blockViewBehavior.isScrolledUp)
-            blockViewBehavior.slideDown(binding.block)
-    }
 }

@@ -11,10 +11,13 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.selection.ItemDetailsLookup
@@ -25,14 +28,15 @@ import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.selection.StorageStrategy
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.close.hook.ads.R
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentHostsListBinding
+import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
-import com.close.hook.ads.util.IFabContainer
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
@@ -86,6 +90,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     private val urlDao by lazy {
         UrlDatabase.getDatabase(requireContext()).urlDao
     }
+    private var mActionMode: ActionMode? = null
 
     companion object {
         @JvmStatic
@@ -122,6 +127,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         setupBroadcastReceiver()
         setUpTracker()
         addObserverToTracker()
+
     }
 
     private fun addObserverToTracker() {
@@ -131,15 +137,53 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     super.onSelectionChanged()
                     selectedItems = tracker?.selection
                     val items = tracker?.selection?.size()
-                    if (items != null && items > 0) {
-                        (requireParentFragment() as? IFabContainer)?.showBlock()
-                    } else {
-                        (requireParentFragment() as? IFabContainer)?.hideBlock()
+                    if (items != null) {
+                        if (items > 0) {
+                            mActionMode?.title = "Selected $items"
+                            if (mActionMode != null) {
+                                return
+                            }
+                            mActionMode =
+                                (activity as MainActivity).startSupportActionMode(
+                                    mActionModeCallback
+                                )
+                        } else {
+                            if (mActionMode != null) {
+                                mActionMode?.finish()
+                            }
+                            mActionMode = null
+                        }
                     }
                 }
             }
         )
     }
+
+    private val mActionModeCallback = object : ActionMode.Callback {
+        override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+            mode?.menuInflater?.inflate(R.menu.menu_block, menu)
+            mode?.title = "Choose option"
+            return true
+        }
+
+        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+            return false
+        }
+
+        override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
+            when (item?.itemId) {
+                R.id.block -> onBlock()
+
+            }
+            return true
+        }
+
+        override fun onDestroyActionMode(mode: ActionMode?) {
+            mActionMode = null
+            tracker?.clearSelection()
+        }
+    }
+
 
     private fun setUpTracker() {
         tracker = SelectionTracker.Builder(
@@ -299,7 +343,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                             CoordinatorLayout.LayoutParams.WRAP_CONTENT
                         )
                         lp.gravity = Gravity.BOTTOM
-                        lp.setMargins(0, 0, 0, 80.dp)
+                        lp.setMargins(10.dp, 0, 10.dp, 90.dp)
                         snackBar.view.layoutParams = lp
                         snackBar.show()
                     }

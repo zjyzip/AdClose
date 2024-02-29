@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -15,6 +17,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.view.ActionMode
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
@@ -55,6 +58,7 @@ class BlockListActivity : BaseActivity() {
     }
     private var tracker: SelectionTracker<String>? = null
     private var selectedItems: Selection<String>? = null
+    private var mActionMode: ActionMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,9 +93,50 @@ class BlockListActivity : BaseActivity() {
                 override fun onSelectionChanged() {
                     super.onSelectionChanged()
                     selectedItems = tracker?.selection
+                    val items = tracker?.selection?.size()
+                    if (items != null) {
+                        if (items > 0) {
+                            mActionMode?.title = "Selected $items"
+                            if (mActionMode != null) {
+                                return
+                            }
+                            mActionMode =
+                                this@BlockListActivity.startSupportActionMode(mActionModeCallback)
+                        } else {
+                            if (mActionMode != null) {
+                                mActionMode?.finish()
+                            }
+                            mActionMode = null
+                        }
+                    }
                 }
             }
         )
+    }
+
+    private val mActionModeCallback = object : ActionMode.Callback {
+        override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+            mode?.menuInflater?.inflate(R.menu.menu_hosts, menu)
+            mode?.title = "Choose option"
+            return true
+        }
+
+        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+            return false
+        }
+
+        override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
+            when (item?.itemId) {
+                R.id.clear -> deleteSelectedItem()
+
+            }
+            return true
+        }
+
+        override fun onDestroyActionMode(mode: ActionMode?) {
+            mActionMode = null
+            tracker?.clearSelection()
+        }
     }
 
     private fun deleteSelectedItem() {
@@ -209,7 +254,8 @@ class BlockListActivity : BaseActivity() {
             submitList()
         }
         binding.add.setOnClickListener {
-            val dialogView = LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
+            val dialogView =
+                LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
             val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
             val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
             type.setText("URL")
@@ -226,9 +272,10 @@ class BlockListActivity : BaseActivity() {
                 .setPositiveButton(android.R.string.ok) { _, _ ->
                     val newType = type.text.toString()
                     val newUrl = editText.text.toString().trim()
-    
+
                     if (newUrl.isEmpty()) {
-                        Toast.makeText(this@BlockListActivity, "Value不能为空", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@BlockListActivity, "Value不能为空", Toast.LENGTH_SHORT)
+                            .show()
                         return@setPositiveButton
                     }
 
@@ -242,7 +289,11 @@ class BlockListActivity : BaseActivity() {
                             }
                         } else {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(this@BlockListActivity, "规则已存在", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    this@BlockListActivity,
+                                    "规则已存在",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     }
@@ -262,23 +313,18 @@ class BlockListActivity : BaseActivity() {
 
     private fun initClearHistory() {
         binding.delete.setOnClickListener {
-            val size = tracker?.selection?.size()
-            if (size != null && size > 0) {
-                deleteSelectedItem()
-            } else {
-                MaterialAlertDialogBuilder(this).setTitle("确定清除全部黑名单？")
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                        CoroutineScope(Dispatchers.IO).launch {
-                            urlDao.deleteAll()
-                            viewModel.blockList.clear()
-                            withContext(Dispatchers.Main) {
-                                submitList()
-                            }
+            MaterialAlertDialogBuilder(this).setTitle("确定清除全部黑名单？")
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        urlDao.deleteAll()
+                        viewModel.blockList.clear()
+                        withContext(Dispatchers.Main) {
+                            submitList()
                         }
                     }
-                    .show()
-            }
+                }
+                .show()
         }
     }
 
