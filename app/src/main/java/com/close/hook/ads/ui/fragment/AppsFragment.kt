@@ -2,13 +2,11 @@ package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
-import android.provider.Settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
+import android.provider.Settings
 import android.view.View
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -16,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.FilterBean
+import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.hook.preference.PreferencesHelper
@@ -35,10 +34,10 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
+import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-import java.util.Optional
-import java.util.function.Predicate
-import java.util.stream.Collectors
 
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     IOnTabClickListener {
@@ -80,8 +79,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
             if (viewModel.isFilter) {
                 newList.addAll(viewModel.filterList)
-            }
-            else {
+            } else {
                 newList.addAll(viewModel.appInfoList)
             }
             appsAdapter.submitList(newList)
@@ -95,8 +93,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
                 handleItemClick(packageName)
             }
 
-            override fun onItemLongClick(packageName: String) {
-                handleItemLongClick(packageName)
+            override fun onItemLongClick(appInfo: AppInfo) {
+                handleItemLongClick(appInfo)
             }
         })
 
@@ -110,7 +108,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
-    
+
                     if (dy > 0) {
                         (activity as? INavContainer)?.hideNavigation()
                     } else if (dy < 0) {
@@ -132,14 +130,84 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         }
     }
 
-    private fun handleItemLongClick(packageName: String) {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        intent.data = Uri.fromParts("package", packageName, null)
-        try {
-            startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            AppUtils.showToast(requireContext(), "无法打开应用设置")
-            e.printStackTrace()
+    private fun handleItemLongClick(appInfo: AppInfo) {
+        val bottomSheetDialog = BottomSheetDialog(requireContext())
+        val binding = BottomDialogAppInfoBinding.inflate(layoutInflater, null, false)
+        bottomSheetDialog.setContentView(binding.root)
+        setupBottomDialogAppInfoBinding(binding, appInfo)
+        bottomSheetDialog.show()
+        binding.close.setOnClickListener {
+            bottomSheetDialog.dismiss()
+        }
+        binding.detail.setOnClickListener {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.fromParts("package", appInfo.packageName, null)
+            try {
+                startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                AppUtils.showToast(requireContext(), "无法打开应用详情")
+                e.printStackTrace()
+            }
+            bottomSheetDialog.dismiss()
+        }
+        binding.launch.setOnClickListener {
+            val intent =
+                requireContext().packageManager.getLaunchIntentForPackage(appInfo.packageName)
+            if (intent != null) {
+                try {
+                    startActivity(intent)
+                } catch (e: ActivityNotFoundException) {
+                    AppUtils.showToast(requireContext(), "打开失败")
+                    e.printStackTrace()
+                }
+            } else {
+                AppUtils.showToast(requireContext(), "打开失败")
+            }
+            bottomSheetDialog.dismiss()
+        }
+    }
+
+    private fun getFormatSize(size: Long): String {
+        val GB = 1024 * 1024 * 1024
+        val MB = 1024 * 1024
+        val KB = 1024
+        val df = DecimalFormat("0.00")
+        return if (size / GB >= 1) {
+            df.format(size / GB.toFloat()) + "GB"
+        } else if (size / MB >= 1) {
+            df.format(size / MB.toFloat()) + "MB"
+        } else if (size / KB >= 1) {
+            df.format(size / KB.toFloat()) + "KB"
+        } else {
+            size.toString() + "B"
+        }
+    }
+
+    @SuppressLint("SetTextI18n", "SimpleDateFormat")
+    private fun setupBottomDialogAppInfoBinding(
+        binding: BottomDialogAppInfoBinding,
+        appInfo: AppInfo
+    ) {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        binding.apply {
+            icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
+            appName.text = appInfo.appName
+            packageName.title.text = "APK包名"
+            packageName.value.text = appInfo.packageName
+            appSize.title.text = "APK大小"
+            appSize.value.text = getFormatSize(appInfo.size)
+            versionName.title.text = "版本名称"
+            versionName.value.text = appInfo.versionName
+            versionCode.title.text = "版本号"
+            versionCode.value.text = appInfo.versionCode.toString()
+            targetSdk.title.text = "TargetSDk"
+            targetSdk.value.text = appInfo.targetSdk.toString()
+            minSdk.title.text = "MinSDk"
+            minSdk.value.text = appInfo.minSdk.toString()
+            installTime.title.text = "安装时间"
+            installTime.value.text = dateFormat.format(Date(appInfo.firstInstallTime))
+            updateTime.title.text = "更新时间"
+            updateTime.value.text = dateFormat.format(Date(appInfo.lastUpdateTime))
         }
     }
 
@@ -150,6 +218,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             "configured", "user" -> appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { apps ->
                 appInfoMediatorLiveData.value = processAppInfoList(apps)
             }
+
             "configured", "system" -> appInfoMediatorLiveData.addSource(viewModel.systemAppsLiveData) { apps ->
                 appInfoMediatorLiveData.value = processAppInfoList(apps)
             }
@@ -187,7 +256,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         bottomSheetDialog.show()
     }
 
-    private fun setupBottomSheetDialogBinding(binding: BottomDialogSwitchesBinding, appInfo: AppInfo) {
+    private fun setupBottomSheetDialogBinding(
+        binding: BottomDialogSwitchesBinding,
+        appInfo: AppInfo
+    ) {
         binding.apply {
             sheetAppName.text = appInfo.appName
             buttonClose.setOnClickListener { bottomSheetDialog.dismiss() }
@@ -321,7 +393,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             safeAppInfoList.filter { getAppInfoFilter(null, keyWord)(it) }
         }
 
-        val comparator = getAppInfoComparator(filterBean.title).let { if (isReverse) it.reversed() else it }
+        val comparator =
+            getAppInfoComparator(filterBean.title).let { if (isReverse) it.reversed() else it }
         val sortedList = filteredList.sortedWith(comparator)
 
         viewModel.filterList.clear()
@@ -331,7 +404,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     }
 
     private fun getAppInfoComparator(title: String): Comparator<AppInfo> {
-    return when (title) {
+        return when (title) {
             "应用大小" -> compareBy { it.size }
             "最近更新时间" -> compareBy { it.lastUpdateTime }
             "安装日期" -> compareBy { it.firstInstallTime }
@@ -345,7 +418,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         return { appInfo: AppInfo ->
             when (title) {
                 "已配置" -> appInfo.isEnable == 1 && appInfo.matchesKeyword(keyWord)
-                "最近更新" -> System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time && appInfo.matchesKeyword(keyWord)
+                "最近更新" -> System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time && appInfo.matchesKeyword(
+                    keyWord
+                )
+
                 "已禁用" -> appInfo.isAppEnable == 0 && appInfo.matchesKeyword(keyWord)
                 else -> appInfo.matchesKeyword(keyWord)
             }
@@ -355,7 +431,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     private fun AppInfo.matchesKeyword(keyWord: String): Boolean {
         val lowerCaseKeyword = keyWord.lowercase(Locale.getDefault())
         return this.appName.lowercase(Locale.getDefault()).contains(lowerCaseKeyword) ||
-               this.packageName.lowercase(Locale.getDefault()).contains(lowerCaseKeyword)
+                this.packageName.lowercase(Locale.getDefault()).contains(lowerCaseKeyword)
     }
 
     override fun onDestroyView() {

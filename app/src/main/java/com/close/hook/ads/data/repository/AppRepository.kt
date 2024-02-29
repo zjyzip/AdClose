@@ -54,6 +54,7 @@ class AppRepository(private val packageManager: PackageManager) {
             packageInfo.lastUpdateTime,
             size,
             packageInfo.applicationInfo.targetSdkVersion,
+            packageInfo.applicationInfo.minSdkVersion,
             isAppEnable,
             isEnable
         )
