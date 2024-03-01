@@ -100,4 +100,6 @@
     <string name="model">型号</string>
     <string name="build_type">构建种类</string>
     <string name="finger_print">构建指纹</string>
+    <string name="support">支持</string>
+    <string name="feed_back"><![CDATA[%1$s 反馈]]></string>
 </resources>
