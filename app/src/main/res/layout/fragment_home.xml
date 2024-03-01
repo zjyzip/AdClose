@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    app:consumeSystemWindowsInsets="@integer/internal_fragment_insets"
+    app:edgeToEdge="true"
+    app:fitsSystemWindowsInsets="@integer/internal_fragment_insets">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:fitsSystemWindows="false"
+        app:fitsSystemWindowsInsets="@integer/internal_fragment_top_insets">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1px"
+            android:background="?attr/colorSurfaceVariant" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:animateLayoutChanges="true"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/m3_appbar_expanded_title_margin_horizontal"
+            android:paddingVertical="?dialogPreferredPadding">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/status"
+                style="@style/Widget.Material3.CardView.Elevated"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:outlineAmbientShadowColor="?colorPrimary"
+                android:outlineSpotShadowColor="?colorPrimary"
+                android:stateListAnimator="@null"
+                app:cardBackgroundColor="?colorPrimary"
+                app:cardElevation="6dp"
+                app:cardPreventCornerOverlap="false">
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="?dialogPreferredPadding">
+
+                    <ImageView
+                        android:id="@+id/status_icon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_centerVertical="true"
+                        android:tint="?colorOnPrimary"
+                        app:srcCompat="@drawable/ic_round_check_circle_24"
+                        tools:ignore="ContentDescription" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/status_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="24dp"
+                        android:layout_toEndOf="@id/status_icon"
+                        android:fontFamily="sans-serif-medium"
+                        android:textAppearance="?textAppearanceTitleMedium"
+                        android:textColor="?colorOnPrimary"
+                        android:textSize="16sp" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/status_summary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/status_title"
+                        android:layout_alignStart="@id/status_title"
+                        android:textAppearance="?textAppearanceBodyMedium"
+                        android:textColor="?colorOnPrimary" />
+                </RelativeLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/info_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="?dialogPreferredPadding">
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/infoTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/info"
+                        android:textStyle="bold"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/android_version"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/android_version"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/infoTitle" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/android_version_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:layout_constraintBottom_toBottomOf="@id/android_version"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/android_version"
+                        tools:text="14" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/sdk_version"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/sdk_level"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/android_version" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/sdk_version_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:layout_constraintBottom_toBottomOf="@id/sdk_version"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/sdk_version"
+                        tools:text="34" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/android_id"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/android_id"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/sdk_version" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/android_id_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textIsSelectable="true"
+                        app:layout_constraintBottom_toBottomOf="@+id/android_id"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/android_id"
+                        tools:text="0123456789" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/brand"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/brand"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/android_id" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/brand_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textIsSelectable="true"
+                        app:layout_constraintBottom_toBottomOf="@id/brand"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/brand"
+                        tools:text="Google" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/model"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/model"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/brand" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/model_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textIsSelectable="true"
+                        app:layout_constraintBottom_toBottomOf="@id/model"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/model"
+                        tools:text="Pixel" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/sku"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/sku"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/model" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/sku_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textIsSelectable="true"
+                        app:layout_constraintBottom_toBottomOf="@id/sku"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/sku"
+                        tools:text="sku" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/type"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/build_type"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/sku" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/type_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:layout_constraintBottom_toBottomOf="@id/type"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/type"
+                        tools:text="user" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/finger"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:paddingBottom="0dp"
+                        android:text="@string/finger_print"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/type" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/finger_value"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:gravity="end"
+                        android:textIsSelectable="true"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/finger"
+                        app:layout_constraintTop_toTopOf="@id/finger"
+                        tools:text="finger_value" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

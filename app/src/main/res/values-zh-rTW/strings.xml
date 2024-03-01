@@ -92,4 +92,12 @@
     <string name="delete">删除</string>
     <string name="bottom_item_4">Block</string>
     <string name="add">添加</string>
+    <string name="info">基本信息</string>
+    <string name="android_version">安卓版本</string>
+    <string name="sdk_level">SDK等级</string>
+    <string name="android_id">安卓ID</string>
+    <string name="brand">品牌</string>
+    <string name="model">型号</string>
+    <string name="build_type">构建种类</string>
+    <string name="finger_print">构建指纹</string>
 </resources>
