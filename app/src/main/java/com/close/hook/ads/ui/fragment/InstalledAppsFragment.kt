@@ -7,13 +7,10 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.View.OnFocusChangeListener
 import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
-import android.widget.CompoundButton
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.viewpager2.adapter.FragmentStateAdapter
@@ -88,7 +85,8 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
         viewModel.filterBean.filter = viewModel.sortList
 
         bottomSheetDialog = BottomSheetDialog(requireContext())
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_dialog_search_filter, null)
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.bottom_dialog_search_filter, null)
         bottomSheetDialog.setContentView(dialogView)
         setupFilterListeners(dialogView)
     }
@@ -116,10 +114,18 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
         reverseSwitch.setOnCheckedChangeListener { _, isReverse ->
             PrefManager.isReverse = isReverse
             viewModel.isFilter = true
-            controller?.updateSortList(viewModel.filterBean, binding.searchEditText.text.toString(), isReverse)
+            controller?.updateSortList(
+                viewModel.filterBean,
+                binding.searchEditText.text.toString(),
+                isReverse
+            )
         }
 
-        setupChipGroup(sortBy, listOf("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本"), true)
+        setupChipGroup(
+            sortBy,
+            listOf("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本"),
+            true
+        )
         setupChipGroup(filter, listOf("已配置", "最近更新", "已禁用"), false)
     }
 
@@ -132,6 +138,8 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
 
     private fun getChip(title: String, isSortBy: Boolean): Chip {
         return Chip(requireContext()).apply {
+            if (title == "应用名称")
+                id = 0
             text = title
             isCheckable = true
             isClickable = true
@@ -167,11 +175,18 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
         } else {
             PrefManager.order = title
             viewModel.filterBean.title = title
-            AppUtils.showToast(requireContext(), "${requireContext().getString(R.string.sort_by_default)}: $title")
+            AppUtils.showToast(
+                requireContext(),
+                "${requireContext().getString(R.string.sort_by_default)}: $title"
+            )
         }
         viewModel.filterBean.filter = viewModel.sortList
         viewModel.isFilter = true
-        controller?.updateSortList(viewModel.filterBean, binding.searchEditText.text.toString(), PrefManager.isReverse)
+        controller?.updateSortList(
+            viewModel.filterBean,
+            binding.searchEditText.text.toString(),
+            PrefManager.isReverse
+        )
     }
 
     private fun showFilterToast(title: String, isEnabled: Boolean) {
