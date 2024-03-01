@@ -83,6 +83,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
         viewModel.blackListLiveData.observe(viewLifecycleOwner) {
             mAdapter.submitList(it)
+            binding.progressBar.visibility = View.GONE
         }
     }
 
@@ -178,6 +179,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         selectedItems?.let {
             if (it.size() != 0) {
                 viewModel.removeList(it.toList())
+                tracker?.clearSelection()
             }
         }
     }

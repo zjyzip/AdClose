@@ -14,8 +14,13 @@ class DataSource(context: Context) {
     private val urlDao by lazy {
         UrlDatabase.getDatabase(context).urlDao
     }
-    private var initialUrlList: List<Url> = urlDao.loadAllList()
-    private val urlsLiveData = MutableLiveData(initialUrlList)
+    private val urlsLiveData = MutableLiveData(emptyList<Url>())
+
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            urlsLiveData.postValue(urlDao.loadAllList())
+        }
+    }
 
     fun addUrl(url: Url) {
         CoroutineScope(Dispatchers.IO).launch {
