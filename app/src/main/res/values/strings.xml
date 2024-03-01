@@ -93,4 +93,14 @@
     <string name="delete">Delete</string>
     <string name="bottom_item_4">Block</string>
     <string name="add">add</string>
+    <string name="bottom_item_5">Home</string>
+    <string name="info">Info</string>
+    <string name="android_version">Android Version</string>
+    <string name="sdk_level">SDK Level</string>
+    <string name="android_id">Android ID</string>
+    <string name="brand">Brand</string>
+    <string name="model">Model</string>
+    <string name="sku">SKU</string>
+    <string name="build_type">Build Type</string>
+    <string name="finger_print">Finger Print</string>
 </resources>
