@@ -19,7 +19,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
-import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.util.AppUtils
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -31,7 +30,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 class BlockedRequestsAdapter(
-    private val context: Context
+    private val context: Context,
+    private val addUrl: (String) -> Unit,
+    private val removeUrl: (String) -> Unit
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     private val urlDao by lazy {
@@ -99,11 +100,9 @@ responseHeaders: $responseHeaders
                 CoroutineScope(Dispatchers.IO).launch {
                     val url = request.text.toString()
                     if (isExist) {
-                        if (urlDao.isExist(url))
-                            urlDao.delete(url)
+                        removeUrl(url)
                     } else {
-                        if (!urlDao.isExist(url))
-                            urlDao.insert(Url("url", url))
+                        addUrl(url)
                     }
                 }
             }

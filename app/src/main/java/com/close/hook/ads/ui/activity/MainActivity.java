@@ -11,6 +11,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
 import com.close.hook.ads.data.database.UrlDatabase;
+import com.close.hook.ads.ui.fragment.BlockListFragment;
 import com.close.hook.ads.ui.fragment.InstalledAppsFragment;
 import com.close.hook.ads.ui.fragment.RequestFragment;
 import com.close.hook.ads.ui.fragment.SettingsFragment;
@@ -59,6 +60,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         List<Fragment> fragments = new ArrayList<>();
         fragments.add(new InstalledAppsFragment());
         fragments.add(new RequestFragment());
+        fragments.add(new BlockListFragment());
         fragments.add(new SettingsFragment());
 
         BottomFragmentStateAdapter adapter = new BottomFragmentStateAdapter(this, fragments);
@@ -72,6 +74,8 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
                 viewPager2.setCurrentItem(1);
             } else if (item.getItemId() == R.id.bottom_item_3) {
                 viewPager2.setCurrentItem(2);
+            } else if (item.getItemId() == R.id.bottom_item_4) {
+                viewPager2.setCurrentItem(3);
             }
             return true;
         });

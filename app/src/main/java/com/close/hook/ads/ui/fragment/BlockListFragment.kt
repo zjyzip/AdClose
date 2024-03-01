@@ -1,7 +1,8 @@
-package com.close.hook.ads.ui.activity
+package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
@@ -11,6 +12,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -18,7 +20,8 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
-import androidx.lifecycle.ViewModelProvider
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.fragment.app.viewModels
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
 import androidx.recyclerview.selection.Selection
@@ -29,12 +32,20 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.database.UrlDatabase
-import com.close.hook.ads.data.model.Item
 import com.close.hook.ads.data.model.Url
-import com.close.hook.ads.databinding.ActivityBlockListBinding
+import com.close.hook.ads.databinding.FragmentBlockListBinding
+import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
+import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
+import com.close.hook.ads.util.DensityTool
+import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.OnBackPressContainer
+import com.close.hook.ads.util.OnBackPressListener
+import com.close.hook.ads.util.dp
+import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
@@ -44,47 +55,69 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
-import java.io.IOException
 
-class BlockListActivity : BaseActivity() {
+class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
 
-    private lateinit var binding: ActivityBlockListBinding
-    private val viewModel by lazy { ViewModelProvider(this)[BlockListViewModel::class.java] }
+    private val viewModel by viewModels<BlockListViewModel> {
+        UrlViewModelFactory(requireContext())
+    }
     private lateinit var mAdapter: BlockListAdapter
     private lateinit var mLayoutManager: RecyclerView.LayoutManager
     private var searchJob: Job? = null
     private val urlDao by lazy {
-        UrlDatabase.getDatabase(this).urlDao
+        UrlDatabase.getDatabase(requireContext()).urlDao
     }
     private var tracker: SelectionTracker<String>? = null
     private var selectedItems: Selection<String>? = null
     private var mActionMode: ActionMode? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityBlockListBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
         initView()
-        if (viewModel.blockList.isEmpty()) {
-            viewModel.getBlackList()
-        } else {
-            submitList()
-        }
-
-        initToolBar()
-        initClearHistory()
         initEditText()
         initButton()
+        initFab()
 
         setUpTracker()
         addObserverToTracker()
 
-        viewModel.blackListLiveData.observe(this) { newList ->
-            viewModel.blockList.clear()
-            viewModel.blockList.addAll(newList)
-            submitList()
+        viewModel.blackListLiveData.observe(viewLifecycleOwner) {
+            mAdapter.submitList(it)
         }
+    }
+
+    private val fabMarginBottom
+        get() = if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
+            DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
+        } else 25.dp
+
+    private fun initFab() {
+        with(binding.delete) {
+            layoutParams = CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 25.dp, fabMarginBottom)
+                gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
+            }
+            visibility = View.VISIBLE
+            setOnClickListener { clearHistory() }
+        }
+
+        with(binding.add) {
+            layoutParams = CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 25.dp, fabMarginBottom + 81.dp)
+                gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
+            }
+            visibility = View.VISIBLE
+            setOnClickListener { addRule() }
+        }
+
     }
 
     private fun addObserverToTracker() {
@@ -101,7 +134,9 @@ class BlockListActivity : BaseActivity() {
                                 return
                             }
                             mActionMode =
-                                this@BlockListActivity.startSupportActionMode(mActionModeCallback)
+                                (activity as MainActivity).startSupportActionMode(
+                                    mActionModeCallback
+                                )
                         } else {
                             if (mActionMode != null) {
                                 mActionMode?.finish()
@@ -142,18 +177,7 @@ class BlockListActivity : BaseActivity() {
     private fun deleteSelectedItem() {
         selectedItems?.let {
             if (it.size() != 0) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    it.forEach { url ->
-                        val item = viewModel.blockList.find {
-                            it.url == url
-                        }
-                        viewModel.blockList.remove(item)
-                        urlDao.delete(url)
-                    }
-                    withContext(Dispatchers.Main) {
-                        submitList()
-                    }
-                }
+                viewModel.removeList(it.toList())
             }
         }
     }
@@ -172,8 +196,8 @@ class BlockListActivity : BaseActivity() {
     }
 
     private fun initView() {
-        mLayoutManager = LinearLayoutManager(this)
-        mAdapter = BlockListAdapter(this,
+        mLayoutManager = LinearLayoutManager(requireContext())
+        mAdapter = BlockListAdapter(requireContext(),
             onRemoveUrl = { position ->
                 onRemoveUrl(position)
             },
@@ -185,55 +209,42 @@ class BlockListActivity : BaseActivity() {
         binding.recyclerView.apply {
             adapter = mAdapter
             layoutManager = mLayoutManager
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    val navContainer = activity as? INavContainer
+                    if (dy > 0) navContainer?.hideNavigation() else if (dy < 0) navContainer?.showNavigation()
+                }
+            })
         }
-    }
-
-    private fun submitList() {
-        val newList = ArrayList<Item>().apply {
-            addAll(viewModel.blockList)
-        }
-        mAdapter.submitList(newList)
     }
 
     private fun onRemoveUrl(position: Int) {
-        val url = viewModel.blockList[position].url
-        CoroutineScope(Dispatchers.IO).launch {
-            urlDao.delete(url)
-            viewModel.blockList.removeAt(position)
-            withContext(Dispatchers.Main) {
-                submitList()
-            }
-        }
+        viewModel.removeUrl(viewModel.blackListLiveData.value!![position])
     }
 
     private fun onEditUrl(position: Int) {
-        val item = viewModel.blockList[position]
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null)
+        val item = viewModel.blackListLiveData.value!![position]
+        val dialogView =
+            LayoutInflater.from(requireContext()).inflate(R.layout.item_block_list_add, null)
         val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
         editText.setText(item.url)
         val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
         type.setText(item.type)
         type.setAdapter(
             ArrayAdapter(
-                this,
+                requireContext(),
                 android.R.layout.simple_spinner_dropdown_item,
                 arrayOf("Domain", "URL", "KeyWord")
             )
         )
-        MaterialAlertDialogBuilder(this).setTitle("Edit Rule")
+        MaterialAlertDialogBuilder(requireContext()).setTitle("Edit Rule")
             .setView(dialogView)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val newType = type.text.toString()
                 val newUrl = editText.text.toString()
-                CoroutineScope(Dispatchers.IO).launch {
-                    urlDao.delete(item.url)
-                    urlDao.insert(Url(newType, newUrl))
-                    withContext(Dispatchers.Main) {
-                        viewModel.blockList[position] = Item(newType, newUrl)
-                        submitList()
-                    }
-                }
+                viewModel.editUrl(Pair(item, Url(newType, newUrl)))
             }
             .create().apply {
                 window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
@@ -251,81 +262,56 @@ class BlockListActivity : BaseActivity() {
         }
         binding.clear.setOnClickListener {
             binding.editText.text = null
-            submitList()
         }
-        binding.add.setOnClickListener {
-            val dialogView =
-                LayoutInflater.from(this).inflate(R.layout.item_block_list_add, null, false)
-            val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
-            val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
-            type.setText("URL")
-            type.setAdapter(
-                ArrayAdapter(
-                    this,
-                    android.R.layout.simple_spinner_dropdown_item,
-                    arrayOf("Domain", "URL", "KeyWord")
-                )
+    }
+
+    private fun addRule() {
+        val dialogView =
+            LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_block_list_add, null, false)
+        val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
+        val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
+        type.setText("URL")
+        type.setAdapter(
+            ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_spinner_dropdown_item,
+                arrayOf("Domain", "URL", "KeyWord")
             )
-            MaterialAlertDialogBuilder(this).setTitle("Add Rule")
-                .setView(dialogView)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val newType = type.text.toString()
-                    val newUrl = editText.text.toString().trim()
+        )
+        MaterialAlertDialogBuilder(requireContext()).setTitle("Add Rule")
+            .setView(dialogView)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val newType = type.text.toString()
+                val newUrl = editText.text.toString().trim()
 
-                    if (newUrl.isEmpty()) {
-                        Toast.makeText(this@BlockListActivity, "Value不能为空", Toast.LENGTH_SHORT)
-                            .show()
-                        return@setPositiveButton
-                    }
-
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val isExist = urlDao.isExist(newUrl)
-                        if (!isExist) {
-                            urlDao.insert(Url(newType, newUrl))
-                            withContext(Dispatchers.Main) {
-                                viewModel.blockList.add(0, Item(newType, newUrl))
-                                submitList()
-                            }
-                        } else {
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(
-                                    this@BlockListActivity,
-                                    "规则已存在",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                    }
+                if (newUrl.isEmpty()) {
+                    Toast.makeText(requireContext(), "Value不能为空", Toast.LENGTH_SHORT)
+                        .show()
+                    return@setPositiveButton
                 }
-                .create().apply {
-                    window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-                    editText.requestFocus()
-                }.show()
-        }
+                val currentList = viewModel.blackListLiveData.value ?: emptyList()
+                val isExist = currentList.indexOf(Url(newType, newUrl)) != -1
+                if (!isExist) {
+                    viewModel.addUrl(Url(newType, newUrl))
+                } else {
+                    Toast.makeText(requireContext(), "规则已存在", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .create().apply {
+                window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+                editText.requestFocus()
+            }.show()
     }
 
-    private fun initToolBar() {
-        binding.backbtn.setOnClickListener {
-            finish()
-        }
-    }
-
-    private fun initClearHistory() {
-        binding.delete.setOnClickListener {
-            MaterialAlertDialogBuilder(this).setTitle("确定清除全部黑名单？")
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        urlDao.deleteAll()
-                        viewModel.blockList.clear()
-                        withContext(Dispatchers.Main) {
-                            submitList()
-                        }
-                    }
-                }
-                .show()
-        }
+    private fun clearHistory() {
+        MaterialAlertDialogBuilder(requireContext()).setTitle("确定清除全部黑名单？")
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                viewModel.removeAll()
+            }
+            .show()
     }
 
     private fun search() {
@@ -333,7 +319,7 @@ class BlockListActivity : BaseActivity() {
         searchJob?.cancel()
         searchJob = CoroutineScope(Dispatchers.Main).launch {
             val filteredList = withContext(Dispatchers.IO) {
-                urlDao.searchUrls("%$searchText%").map { Item(it.type, it.url) }
+                urlDao.searchUrls("%$searchText%")
             }
             mAdapter.submitList(filteredList)
         }
@@ -366,7 +352,7 @@ class BlockListActivity : BaseActivity() {
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                     searchJob?.cancel()
                     search()
-                    (getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                    (requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
                         ?.hideSoftInputFromWindow(windowToken, 0)
                     true
                 } else {
@@ -377,20 +363,20 @@ class BlockListActivity : BaseActivity() {
     }
 
     private fun prepareDataForExport(): List<String> {
-        return viewModel.blockList
-            .map { "${it.type}, ${it.url}" } // 转换为 "Type, Url" 格式
-            .distinct() // 去重
-            .filter { it.contains(",") } // 确保每项至少包含一个逗号
-            .sorted() // 字母排序
+        return viewModel.blackListLiveData.value
+            ?.map { "${it.type}, ${it.url}" } // 转换为 "Type, Url" 格式
+            ?.distinct() // 去重
+            ?.filter { it.contains(",") } // 确保每项至少包含一个逗号
+            ?.sorted() ?: emptyList() // 字母排序
     }
 
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let { uri ->
                 CoroutineScope(Dispatchers.IO).launch {
-                    try {
+                    runCatching {
                         val existingUrls = urlDao.getAllUrls().toSet() // 获取所有现有的URLs并转换为集合
-                        val inputStream = contentResolver.openInputStream(uri)
+                        val inputStream = requireContext().contentResolver.openInputStream(uri)
                         val newItems = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
                                 val parts = line.split(",\\s*".toRegex()).map { it.trim() }
@@ -405,20 +391,28 @@ class BlockListActivity : BaseActivity() {
                             urlDao.insertAll(newItems)
                         }
 
-                        val newBlockItems = newItems.map { Item(it.type, it.url) }
-                        viewModel.blockList.addAll(0, newBlockItems)
+                        val newBlockItems = newItems.map { Url(it.type, it.url) }
+                        viewModel.addListUrl(newBlockItems)
 
                         withContext(Dispatchers.Main) {
-                            submitList()
-                            Toast.makeText(this@BlockListActivity, "导入成功", Toast.LENGTH_SHORT)
+                            Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT)
                                 .show()
                         }
-                    } catch (e: IOException) {
+                    }.onFailure {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BlockListActivity, "导入失败", Toast.LENGTH_SHORT)
+                            MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("导入失败")
+                                .setMessage(it.message)
+                                .setPositiveButton(android.R.string.ok, null)
+                                .setNegativeButton("Crash Log") { _, _ ->
+                                    MaterialAlertDialogBuilder(requireContext())
+                                        .setTitle("Crash Log")
+                                        .setMessage(it.stackTraceToString())
+                                        .setPositiveButton(android.R.string.ok, null)
+                                        .show()
+                                }
                                 .show()
                         }
-                        e.printStackTrace()
                     }
                 }
             }
@@ -428,22 +422,32 @@ class BlockListActivity : BaseActivity() {
         registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri: Uri? ->
             uri?.let {
                 CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
-                            prepareDataForExport().forEach { line ->
-                                writer?.write("$line\n")
+                    runCatching {
+                        requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter()
+                            .use { writer ->
+                                prepareDataForExport().forEach { line ->
+                                    writer?.write("$line\n")
+                                }
                             }
-                        }
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BlockListActivity, "导出成功", Toast.LENGTH_SHORT)
+                            Toast.makeText(requireContext(), "导出成功", Toast.LENGTH_SHORT)
                                 .show()
                         }
-                    } catch (e: IOException) {
+                    }.onFailure {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BlockListActivity, "导出失败", Toast.LENGTH_SHORT)
+                            MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("导出失败")
+                                .setMessage(it.message)
+                                .setPositiveButton(android.R.string.ok, null)
+                                .setNegativeButton("Crash Log") { _, _ ->
+                                    MaterialAlertDialogBuilder(requireContext())
+                                        .setTitle("Crash Log")
+                                        .setMessage(it.stackTraceToString())
+                                        .setPositiveButton(android.R.string.ok, null)
+                                        .show()
+                                }
                                 .show()
                         }
-                        e.printStackTrace()
                     }
                 }
             }
@@ -468,16 +472,25 @@ class BlockListActivity : BaseActivity() {
             adapter.currentList.indexOfFirst { it.url == key }
     }
 
-    override fun onBackPressed() {
-        selectedItems?.let {
-            if (it.size() > 0) {
-                tracker?.clearSelection()
-                return
-            }
-        }
-        if (binding.recyclerView.closeMenus())
-            return
-        super.onBackPressed()
+    override fun onBackPressed(): Boolean {
+        return if (binding.editText.isFocused) {
+            binding.editText.setText("")
+            binding.editText.clearFocus()
+            true
+        } else if (selectedItems?.isEmpty == false) {
+            tracker?.clearSelection()
+            true
+        } else binding.recyclerView.closeMenus()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        (requireContext() as? OnBackPressContainer)?.controller = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (requireContext() as? OnBackPressContainer)?.controller = this
     }
 
 }
