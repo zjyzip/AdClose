@@ -19,7 +19,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.lifecycle.ViewModelProvider
+import androidx.fragment.app.viewModels
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
 import androidx.recyclerview.selection.Selection
@@ -36,7 +36,8 @@ import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
-import com.close.hook.ads.ui.viewmodel.AppsViewModel
+import com.close.hook.ads.ui.viewmodel.BlockListViewModel
+import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
@@ -52,10 +53,6 @@ import com.google.gson.Gson
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
 import java.io.FileOutputStream
@@ -66,7 +63,9 @@ import java.util.Optional
 class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
     IOnTabClickListener, IOnFabClickListener, OnBackPressFragmentListener {
 
-    private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
+    private val viewModel by viewModels<BlockListViewModel> {
+        UrlViewModelFactory(requireContext())
+    }
     private lateinit var adapter: BlockedRequestsAdapter
     private lateinit var type: String
     private lateinit var filter: IntentFilter
@@ -111,7 +110,10 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         super.onViewCreated(view, savedInstanceState)
         FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
 
-        adapter = BlockedRequestsAdapter(requireContext())
+        adapter = BlockedRequestsAdapter(
+            requireContext(),
+            { viewModel.addUrl(Url("URL", it)) },
+            { viewModel.removeUrlString(it) })
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@RequestListFragment.adapter
@@ -324,30 +326,21 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     override fun onBlock() {
         selectedItems?.let {
             if (it.size() != 0) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    it.forEach { url ->
-                        if (!url.isNullOrEmpty() && url != "null") {
-                            if (!urlDao.isExist(url))
-                                urlDao.insert(Url("URL", url))
-                        }
-                    }
-                    withContext(Dispatchers.Main) {
-                        tracker?.clearSelection()
-                        val snackBar = Snackbar.make(
-                            requireParentFragment().requireView(),
-                            "已批量加入黑名单",
-                            Snackbar.LENGTH_SHORT
-                        )
-                        val lp = CoordinatorLayout.LayoutParams(
-                            CoordinatorLayout.LayoutParams.MATCH_PARENT,
-                            CoordinatorLayout.LayoutParams.WRAP_CONTENT
-                        )
-                        lp.gravity = Gravity.BOTTOM
-                        lp.setMargins(10.dp, 0, 10.dp, 90.dp)
-                        snackBar.view.layoutParams = lp
-                        snackBar.show()
-                    }
-                }
+                viewModel.addListUrl(it.toList().map { Url("URL", it) })
+                tracker?.clearSelection()
+                val snackBar = Snackbar.make(
+                    requireParentFragment().requireView(),
+                    "已批量加入黑名单",
+                    Snackbar.LENGTH_SHORT
+                )
+                val lp = CoordinatorLayout.LayoutParams(
+                    CoordinatorLayout.LayoutParams.MATCH_PARENT,
+                    CoordinatorLayout.LayoutParams.WRAP_CONTENT
+                )
+                lp.gravity = Gravity.BOTTOM
+                lp.setMargins(10.dp, 0, 10.dp, 90.dp)
+                snackBar.view.layoutParams = lp
+                snackBar.show()
             }
         }
     }

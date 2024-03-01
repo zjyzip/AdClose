@@ -5,7 +5,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.view.LayoutInflater
-import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.recyclerview.selection.ItemDetailsLookup
@@ -13,8 +12,7 @@ import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.close.hook.ads.R
-import com.close.hook.ads.data.model.Item
+import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockListBinding
 import com.close.hook.ads.util.dp
 
@@ -23,7 +21,7 @@ class BlockListAdapter(
     private val onRemoveUrl: (Int) -> Unit,
     private val onEditUrl: (Int) -> Unit
 ) :
-    ListAdapter<Item, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
+    ListAdapter<Url, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<String>? = null
 
@@ -65,17 +63,19 @@ class BlockListAdapter(
             }
         }
 
-        fun bind(item: Item, isSelected: Boolean) {
+        fun bind(item: Url, isSelected: Boolean) {
             with(binding) {
                 url.text = item.url
-                type.text = item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                type.text =
+                    item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                 cardView.isChecked = isSelected
                 container.setPadding(16.dp, 12.dp, if (isSelected) 35.dp else 16.dp, 12.dp)
             }
         }
 
         private fun copyToClipboard(type: String, url: String) {
-            val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipboardManager =
+                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clipDataText = "$type, $url"
             val clipData = ClipData.newPlainText("request", clipDataText)
             clipboardManager.setPrimaryClip(clipData)
@@ -85,11 +85,11 @@ class BlockListAdapter(
     }
 
     companion object {
-        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<Item>() {
-            override fun areItemsTheSame(oldItem: Item, newItem: Item): Boolean =
+        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<Url>() {
+            override fun areItemsTheSame(oldItem: Url, newItem: Url): Boolean =
                 oldItem.url == newItem.url && oldItem.type == newItem.type
 
-            override fun areContentsTheSame(oldItem: Item, newItem: Item): Boolean =
+            override fun areContentsTheSame(oldItem: Url, newItem: Url): Boolean =
                 oldItem == newItem
         }
     }

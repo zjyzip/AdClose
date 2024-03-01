@@ -16,7 +16,6 @@ import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.ui.activity.AboutActivity
-import com.close.hook.ads.ui.activity.BlockListActivity
 import com.close.hook.ads.util.CacheDataManager
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
@@ -184,11 +183,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 }
                 true
             }
-        }
-
-        findPreference<Preference>("blockList")?.setOnPreferenceClickListener {
-            startActivity(Intent(requireContext(), BlockListActivity::class.java))
-            true
         }
 
     }

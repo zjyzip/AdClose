@@ -1,35 +1,59 @@
 package com.close.hook.ads.ui.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.viewModelScope
-import com.close.hook.ads.data.database.UrlDatabase
-import com.close.hook.ads.data.model.Item
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import android.content.Context
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.close.hook.ads.data.DataSource
+import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.data.model.Url
 
-class BlockListViewModel(application: Application) : AndroidViewModel(application) {
+class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
 
-    val blockList = ArrayList<Item>()
-    val blackListLiveData: MutableLiveData<ArrayList<Item>> = MutableLiveData()
+    var requestList = ArrayList<BlockedRequest>()
 
-    private val urlDao by lazy {
-        UrlDatabase.getDatabase(application).urlDao
+    val blackListLiveData: LiveData<List<Url>> = dataSource.getUrlList()
+
+    fun editUrl(data: Pair<Url, Url>) {
+        dataSource.editUrl(data)
     }
 
-    init {
-        getBlackList()
+
+    fun addUrl(url: Url) {
+        dataSource.addUrl(url)
     }
 
-    fun getBlackList() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val urls = urlDao.loadAllList()
-            val newList = urls.map { Item(it.type, it.url) }
-            withContext(Dispatchers.Main) {
-                blackListLiveData.value = ArrayList(newList)
-            }
+    fun removeUrl(url: Url) {
+        dataSource.removeUrl(url)
+    }
+
+    fun removeUrlString(url: String) {
+        dataSource.removeUrlString(url)
+    }
+
+    fun removeList(list: List<String>) {
+        dataSource.removeList(list)
+    }
+
+    fun removeAll() {
+        dataSource.removeAll()
+    }
+
+    fun addListUrl(list: List<Url>) {
+        dataSource.addListUrl(list)
+    }
+
+}
+
+class UrlViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(BlockListViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return BlockListViewModel(
+                dataSource = DataSource.getDataSource(context)
+            ) as T
         }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
