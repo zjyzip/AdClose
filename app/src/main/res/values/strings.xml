@@ -103,4 +103,6 @@
     <string name="sku">SKU</string>
     <string name="build_type">Build Type</string>
     <string name="finger_print">Finger Print</string>
+    <string name="support">Support</string>
+    <string name="feed_back"><![CDATA[Feedback at %1$s]]></string>
 </resources>

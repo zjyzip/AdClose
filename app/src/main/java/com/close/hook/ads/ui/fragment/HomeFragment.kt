@@ -5,8 +5,10 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.method.LinkMovementMethod
 import android.view.View
 import androidx.appcompat.widget.ThemeUtils
+import androidx.core.text.HtmlCompat
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHomeBinding
@@ -55,6 +57,21 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
             skuValue.text = if (Build.VERSION.SDK_INT >= 31) Build.SKU else ""
             typeValue.text = Build.TYPE
             fingerValue.text = Build.FINGERPRINT
+
+            viewSource.movementMethod = LinkMovementMethod.getInstance()
+            viewSource.text = HtmlCompat.fromHtml(
+                getString(
+                    R.string.about_view_source_code,
+                    "<b><a href=\"https://github.com/zjyzip/AdClose\">GitHub</a></b>",
+                ), HtmlCompat.FROM_HTML_MODE_LEGACY
+            )
+            feedback.movementMethod = LinkMovementMethod.getInstance()
+            feedback.text = HtmlCompat.fromHtml(
+                getString(
+                    R.string.feed_back,
+                    "<b><a href=\"https://t.me/AdClose_Chat\">Telegram</a></b>",
+                ), HtmlCompat.FROM_HTML_MODE_LEGACY
+            )
         }
     }
 
