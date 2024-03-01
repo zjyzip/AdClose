@@ -103,7 +103,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
             }
             visibility = View.VISIBLE
-            setOnClickListener { clearHistory() }
+            setOnClickListener { clearBlockList() }
         }
 
         with(binding.add) {
@@ -164,7 +164,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             when (item?.itemId) {
                 R.id.clear -> deleteSelectedItem()
-
             }
             return true
         }
@@ -180,6 +179,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             if (it.size() != 0) {
                 viewModel.removeList(it.toList())
                 tracker?.clearSelection()
+                (activity as? MainActivity)?.showNavigation()
             }
         }
     }
@@ -307,7 +307,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }.show()
     }
 
-    private fun clearHistory() {
+    private fun clearBlockList() {
         MaterialAlertDialogBuilder(requireContext()).setTitle("确定清除全部黑名单？")
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
