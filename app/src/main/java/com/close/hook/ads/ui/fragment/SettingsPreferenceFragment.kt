@@ -61,6 +61,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "darkTheme" -> PrefManager.darkTheme.toString()
                 "themeColor" -> PrefManager.themeColor
                 "language" -> PrefManager.language
+                "defaultPage" -> PrefManager.defaultPage.toString()
                 else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }
@@ -70,6 +71,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "darkTheme" -> PrefManager.darkTheme = value!!.toInt()
                 "themeColor" -> PrefManager.themeColor = value!!
                 "language" -> PrefManager.language = value!!
+                "defaultPage" -> PrefManager.defaultPage = value!!.toInt()
                 else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }

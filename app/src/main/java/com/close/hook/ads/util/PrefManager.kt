@@ -39,7 +39,11 @@ object PrefManager {
             val status =
                 if (value) PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                 else PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            closeApp.packageManager.setComponentEnabledSetting(component, status, PackageManager.DONT_KILL_APP)
+            closeApp.packageManager.setComponentEnabledSetting(
+                component,
+                status,
+                PackageManager.DONT_KILL_APP
+            )
         }
 
     var order: String
@@ -48,26 +52,30 @@ object PrefManager {
 
     var configured: Boolean
         get() = pref.getBoolean("configured", false)
-        set(value) =pref.edit().putBoolean("configured", value).apply()
+        set(value) = pref.edit().putBoolean("configured", value).apply()
 
     var updated: Boolean
         get() = pref.getBoolean("updated", false)
-        set(value) =pref.edit().putBoolean("updated", value).apply()
+        set(value) = pref.edit().putBoolean("updated", value).apply()
 
     var disabled: Boolean
         get() = pref.getBoolean("disabled", false)
-        set(value) =pref.edit().putBoolean("disabled", value).apply()
+        set(value) = pref.edit().putBoolean("disabled", value).apply()
 
     var isReverse: Boolean
         get() = pref.getBoolean("isReverse", false)
-        set(value) =pref.edit().putBoolean("isReverse", value).apply()
+        set(value) = pref.edit().putBoolean("isReverse", value).apply()
 
     var setData: Boolean
         get() = pref.getBoolean("setData", true)
-        set(value) =pref.edit().putBoolean("setData", value).apply()
+        set(value) = pref.edit().putBoolean("setData", value).apply()
 
     var language: String
         get() = pref.getString("language", "SYSTEM")!!
         set(value) = pref.edit().putString("language", value).apply()
+
+    var defaultPage: Int
+        get() = pref.getInt("defaultPage", 2)
+        set(value) = pref.edit().putInt("defaultPage", value).apply()
 
 }
