@@ -1,6 +1,8 @@
 package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
@@ -153,19 +155,23 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private val mActionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             mode?.menuInflater?.inflate(R.menu.menu_hosts, menu)
-            mode?.title = "Choose option"
             return true
         }
 
-        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            return false
-        }
+        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
 
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             when (item?.itemId) {
-                R.id.clear -> deleteSelectedItem()
+                R.id.clear -> {
+                    deleteSelectedItem()
+                    return true
+                }
+                R.id.action_copy -> {
+                    onCopy()
+                    return true
+                }
             }
-            return true
+            return false
         }
 
         override fun onDestroyActionMode(mode: ActionMode?) {
@@ -180,6 +186,19 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 viewModel.removeList(it.toList())
                 tracker?.clearSelection()
                 (activity as? MainActivity)?.showNavigation()
+            }
+        }
+    }
+
+    private fun onCopy() {
+        selectedItems?.let { selection ->
+            val selectedUrls = viewModel.blackListLiveData.value?.filter { selection.contains(it.url) }
+            val combinedText = selectedUrls?.joinToString(separator = "\n") { it.url }
+            if (!combinedText.isNullOrEmpty()) {
+                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("copied_urls", combinedText)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
             }
         }
     }

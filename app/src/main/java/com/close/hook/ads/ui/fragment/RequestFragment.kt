@@ -75,7 +75,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     private fun setupToolbar() {
         binding.toolbar.apply {
             setTitle(R.string.bottom_item_2)
-            inflateMenu(R.menu.menu_hosts)
+            inflateMenu(R.menu.menu_clear)
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     R.id.clear -> controller?.onClearAll()

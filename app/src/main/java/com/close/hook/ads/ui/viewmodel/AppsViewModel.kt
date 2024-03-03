@@ -32,6 +32,21 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         loadSystemApps()
     }
 
+    fun refreshApps(currentTab: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                when (currentTab) {
+                    "user" -> _userAppsLiveData.postValue(appRepository.getInstalledApps(false))
+                    "system" -> _systemAppsLiveData.postValue(appRepository.getInstalledApps(true))
+                    "configured" -> {
+                    }
+                }
+            } catch (e: Exception) {
+                _errorLiveData.postValue(e.message)
+            }
+        }
+    }
+
     private fun loadUserApps() {
         viewModelScope.launch(Dispatchers.IO) {
             try {

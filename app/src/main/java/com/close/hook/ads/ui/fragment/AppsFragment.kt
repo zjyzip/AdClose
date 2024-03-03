@@ -58,6 +58,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
+
+        setupSwipeRefreshLayout()
+        observeLiveData()
+
         if (viewModel.appInfoList.isEmpty() && viewModel.filterList.isEmpty()) {
             viewModel.filterBean = FilterBean()
             viewModel.sortList = ArrayList<String>()
@@ -117,6 +121,30 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
                 }
             })
         }
+    }
+
+    private fun setupSwipeRefreshLayout() {
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            viewModel.refreshApps(type ?: "user")
+        }
+    }
+
+    private fun observeLiveData() {
+        viewModel.userAppsLiveData.observe(viewLifecycleOwner) { apps ->
+            if (type == "user") {
+                appsAdapter.submitList(apps)
+                binding.swipeRefreshLayout.isRefreshing = false
+            }
+        }
+
+        viewModel.systemAppsLiveData.observe(viewLifecycleOwner) { apps ->
+            if (type == "system") {
+                appsAdapter.submitList(apps)
+                binding.swipeRefreshLayout.isRefreshing = false
+            }
+        }
+
+        //configured
     }
 
     private fun handleItemClick(packageName: String) {

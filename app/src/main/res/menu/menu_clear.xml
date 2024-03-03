@@ -5,9 +5,4 @@
         android:icon="@drawable/ic_clear_all"
         android:title="@string/clearAll" 
         android:showAsAction="ifRoom"/>
-    <item
-        android:id="@+id/action_copy"
-        android:icon="@drawable/ic_copy"
-        android:title="@string/copy"
-        android:showAsAction="ifRoom" />
 </menu>

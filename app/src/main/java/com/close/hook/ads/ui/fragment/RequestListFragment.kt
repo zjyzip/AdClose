@@ -1,6 +1,8 @@
 package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -163,21 +165,25 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private val mActionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            mode?.menuInflater?.inflate(R.menu.menu_block, menu)
+            mode?.menuInflater?.inflate(R.menu.menu_requset, menu)
             mode?.title = "Choose option"
             return true
         }
 
-        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            return false
-        }
+        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
 
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             when (item?.itemId) {
-                R.id.block -> onBlock()
-
+                R.id.action_copy -> {
+                    onCopy()
+                    return true
+                }
+                R.id.action_block -> {
+                    onBlock()
+                    return true
+                }
             }
-            return true
+            return false
         }
 
         override fun onDestroyActionMode(mode: ActionMode?) {
@@ -185,7 +191,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             tracker?.clearSelection()
         }
     }
-
 
     private fun setUpTracker() {
         tracker = SelectionTracker.Builder(
@@ -342,6 +347,17 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 snackBar.view.layoutParams = lp
                 snackBar.show()
             }
+        }
+    }
+
+    private fun onCopy() {
+        selectedItems?.let { selection ->
+            val selectedRequests = viewModel.requestList.filter { selection.contains(it.request) }
+            val combinedText = selectedRequests.joinToString(separator = "\n") { it.request }
+            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("copied_requests", combinedText)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
         }
     }
 

@@ -68,8 +68,8 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
             feedback.movementMethod = LinkMovementMethod.getInstance()
             feedback.text = HtmlCompat.fromHtml(
                 getString(
-                    R.string.feed_back,
-                    "<b><a href=\"https://t.me/AdClose_Chat\">Telegram</a></b>",
+                    R.string.join_telegram_channel,
+                    "<b><a href=\"https://t.me/AdClose\">Telegram</a></b>"
                 ), HtmlCompat.FROM_HTML_MODE_LEGACY
             )
         }
