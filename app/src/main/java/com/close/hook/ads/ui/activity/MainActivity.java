@@ -94,7 +94,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
                 updateCurrentFragmentController(position);
             }
         });
-        viewPager2.setCurrentItem(2, false);
+        viewPager2.setCurrentItem(PrefManager.INSTANCE.getDefaultPage(), false);
     }
 
     private void updateCurrentFragmentController(int position) {

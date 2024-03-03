@@ -57,6 +57,14 @@
         <item>MATERIAL_BLUE_GREY</item>
     </string-array>
 
+    <string-array name="default_page_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+
     <string-array name="color_texts" translatable="false">
         <item>@string/color_default</item>
         <item>@string/color_sakura</item>
@@ -78,6 +86,14 @@
         <item>@string/color_deep_orange</item>
         <item>@string/color_brown</item>
         <item>@string/color_blue_grey</item>
+    </string-array>
+
+    <string-array name="default_page_texts" translatable="false">
+        <item>@string/bottom_item_1</item>
+        <item>@string/bottom_item_2</item>
+        <item>@string/bottom_item_5</item>
+        <item>@string/bottom_item_4</item>
+        <item>@string/bottom_item_3</item>
     </string-array>
 
 </resources>
