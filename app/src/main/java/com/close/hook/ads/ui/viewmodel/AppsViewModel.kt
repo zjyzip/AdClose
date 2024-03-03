@@ -6,8 +6,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.model.AppInfo
-import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.repository.AppRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,9 +36,11 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 when (currentTab) {
-                    "user" -> _userAppsLiveData.postValue(appRepository.getInstalledApps(false))
-                    "system" -> _systemAppsLiveData.postValue(appRepository.getInstalledApps(true))
+                    "user" -> loadUserApps()
+                    "system" -> loadSystemApps()
                     "configured" -> {
+                        loadUserApps()
+                        loadSystemApps()
                     }
                 }
             } catch (e: Exception) {

@@ -1,10 +1,10 @@
 package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Context.RECEIVER_EXPORTED
 import android.content.Intent
@@ -114,7 +114,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
         adapter = BlockedRequestsAdapter(
             requireContext(),
-            { viewModel.addUrl(Url("URL", it)) },
+            { viewModel.addUrl(Url(if (it.second.replace(" ", "").endsWith("DNS")) "Domain" else "URL", it.first)) },
             { viewModel.removeUrlString(it) })
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())

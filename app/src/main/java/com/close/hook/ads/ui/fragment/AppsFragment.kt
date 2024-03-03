@@ -33,6 +33,7 @@ import com.close.hook.ads.util.PrefManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
+import com.google.android.material.color.MaterialColors
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -60,7 +61,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         setupRecyclerView()
 
         setupSwipeRefreshLayout()
-        observeLiveData()
 
         if (viewModel.appInfoList.isEmpty() && viewModel.filterList.isEmpty()) {
             viewModel.filterBean = FilterBean()
@@ -124,27 +124,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     }
 
     private fun setupSwipeRefreshLayout() {
+        binding.swipeRefreshLayout.setColorSchemeColors(
+            MaterialColors.getColor(
+                requireContext(),
+                com.google.android.material.R.attr.colorPrimary,
+                -1
+            )
+        )
         binding.swipeRefreshLayout.setOnRefreshListener {
             viewModel.refreshApps(type ?: "user")
         }
-    }
-
-    private fun observeLiveData() {
-        viewModel.userAppsLiveData.observe(viewLifecycleOwner) { apps ->
-            if (type == "user") {
-                appsAdapter.submitList(apps)
-                binding.swipeRefreshLayout.isRefreshing = false
-            }
-        }
-
-        viewModel.systemAppsLiveData.observe(viewLifecycleOwner) { apps ->
-            if (type == "system") {
-                appsAdapter.submitList(apps)
-                binding.swipeRefreshLayout.isRefreshing = false
-            }
-        }
-
-        //configured
     }
 
     private fun handleItemClick(packageName: String) {
@@ -275,9 +264,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         }
 
         appInfoMediatorLiveData.observe(viewLifecycleOwner) { combinedAppInfoList ->
-            if (combinedAppInfoList.isNotEmpty()) {
-                handleCombinedAppInfoList(combinedAppInfoList)
-            }
+            handleCombinedAppInfoList(combinedAppInfoList)
         }
     }
 
@@ -296,6 +283,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
             binding.progressBar.visibility = View.GONE
         }
+        binding.swipeRefreshLayout.isRefreshing = false
     }
 
     private fun showBottomSheetDialog(appInfo: AppInfo) {

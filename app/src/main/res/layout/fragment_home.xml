@@ -86,8 +86,11 @@
                         android:layout_below="@id/status_title"
                         android:layout_alignStart="@id/status_title"
                         android:textAppearance="?textAppearanceBodyMedium"
-                        android:textColor="?colorOnPrimary" />
+                        android:textColor="?colorOnPrimary"
+                        android:textSize="15sp" />
+
                 </RelativeLayout>
+
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
@@ -107,6 +110,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/info"
+                        android:textSize="16sp"
                         android:textStyle="bold"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toTopOf="parent" />
@@ -115,8 +119,9 @@
                         android:id="@+id/android_version"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/android_version"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/infoTitle" />
 
@@ -124,6 +129,7 @@
                         android:id="@+id/android_version_value"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:textSize="15sp"
                         app:layout_constraintBottom_toBottomOf="@id/android_version"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="@id/android_version"
@@ -133,8 +139,9 @@
                         android:id="@+id/sdk_version"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/sdk_level"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/android_version" />
 
@@ -142,6 +149,7 @@
                         android:id="@+id/sdk_version_value"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:textSize="15sp"
                         app:layout_constraintBottom_toBottomOf="@id/sdk_version"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="@id/sdk_version"
@@ -151,8 +159,9 @@
                         android:id="@+id/android_id"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/android_id"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/sdk_version" />
 
@@ -161,6 +170,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textIsSelectable="true"
+                        android:textSize="15sp"
                         app:layout_constraintBottom_toBottomOf="@+id/android_id"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="@+id/android_id"
@@ -170,8 +180,9 @@
                         android:id="@+id/brand"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/brand"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/android_id" />
 
@@ -180,6 +191,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textIsSelectable="true"
+                        android:textSize="15sp"
                         app:layout_constraintBottom_toBottomOf="@id/brand"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="@id/brand"
@@ -189,8 +201,9 @@
                         android:id="@+id/model"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/model"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/brand" />
 
@@ -199,6 +212,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textIsSelectable="true"
+                        android:textSize="15sp"
                         app:layout_constraintBottom_toBottomOf="@id/model"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="@id/model"
@@ -208,8 +222,9 @@
                         android:id="@+id/sku"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/sku"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/model" />
 
@@ -218,6 +233,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textIsSelectable="true"
+                        android:textSize="15sp"
                         app:layout_constraintBottom_toBottomOf="@id/sku"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="@id/sku"
@@ -227,8 +243,9 @@
                         android:id="@+id/type"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:text="@string/build_type"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/sku" />
 
@@ -236,6 +253,7 @@
                         android:id="@+id/type_value"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:textSize="15sp"
                         app:layout_constraintBottom_toBottomOf="@id/type"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="@id/type"
@@ -245,9 +263,10 @@
                         android:id="@+id/finger"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="16dp"
                         android:paddingBottom="0dp"
                         android:text="@string/finger_print"
+                        android:textSize="15sp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/type" />
 
@@ -258,6 +277,7 @@
                         android:layout_marginStart="10dp"
                         android:gravity="end"
                         android:textIsSelectable="true"
+                        android:textSize="15sp"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toEndOf="@id/finger"
                         app:layout_constraintTop_toTopOf="@id/finger"
@@ -284,20 +304,23 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/support"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/view_source"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/about_view_source_code" />
+                        android:layout_marginTop="16dp"
+                        android:text="@string/about_view_source_code"
+                        android:textSize="15sp" />
 
                     <TextView
                         android:id="@+id/feedback"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/join_telegram_channel" />
+                        android:text="@string/join_telegram_channel"
+                        android:textSize="15sp" />
 
                 </LinearLayout>
 
