@@ -29,7 +29,7 @@ import java.util.Date
 
 class BlockedRequestsAdapter(
     private val context: Context,
-    private val addUrl: (String) -> Unit,
+    private val addUrl: (Pair<String, String>) -> Unit,
     private val removeUrl: (String) -> Unit
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
@@ -145,7 +145,7 @@ class BlockedRequestsAdapter(
             if (isExist) {
                 removeUrl(request.request)
             } else {
-                addUrl(request.request)
+                addUrl(Pair(request.request, request.appName))
             }
             withContext(Dispatchers.Main) {
                 checkBlockStatus(request)
