@@ -86,6 +86,7 @@
     <string name="sort_by_default">The default sorting method has been switched to</string>
     <string name="about_view_source_code"><![CDATA[View source code at %1$s]]></string>
     <string name="block">block</string>
+    <string name="copy">copy to clipboard</string>
     <string name="clearAll">clear all</string>
     <string name="block_list">Block List</string>
     <string name="edit">edit</string>
@@ -104,5 +105,5 @@
     <string name="build_type">Build Type</string>
     <string name="finger_print">Finger Print</string>
     <string name="support">Support</string>
-    <string name="feed_back"><![CDATA[Feedback at %1$s]]></string>
+    <string name="join_telegram_channel"><![CDATA[Join %1$s Channel]]></string>
 </resources>

@@ -85,6 +85,7 @@
     <string name="sort_by_default">默认排序方式已切换为</string>
     <string name="about_view_source_code"><![CDATA[在 %1$s 查看源码]]></string>
     <string name="block">加入黑名单</string>
+    <string name="copy">复制到剪贴板</string>
     <string name="clearAll">全部清除</string>
     <string name="block_list">黑名单</string>
     <string name="edit">编辑</string>
@@ -101,5 +102,5 @@
     <string name="build_type">构建种类</string>
     <string name="finger_print">构建指纹</string>
     <string name="support">支持</string>
-    <string name="feed_back"><![CDATA[%1$s 反馈]]></string>
+    <string name="join_telegram_channel"><![CDATA[加入我们的 %1$s 频道]]></string>
 </resources>

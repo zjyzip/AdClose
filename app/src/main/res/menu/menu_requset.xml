@@ -1,0 +1,12 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_block"
+        android:title="Block"
+        android:icon="@drawable/ic_block"
+        android:showAsAction="ifRoom"/>
+    <item
+        android:id="@+id/action_copy"
+        android:title="Copy"
+        android:icon="@drawable/ic_copy"
+        android:showAsAction="ifRoom"/>
+</menu>
