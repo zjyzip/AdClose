@@ -177,6 +177,8 @@ public class RequestHook {
                     RequestDetails details = processHttpRequest(request, response, url);
                     if (details != null && shouldBlockHttpsRequest(url, details)) {
                         param.setResult(new BlockedURLConnection(url));
+                    } else {
+                        param.setResult(XposedHelpers.callMethod(param.thisObject, "getResponse"));
                     }
                 }
             });
