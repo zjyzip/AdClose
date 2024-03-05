@@ -8,7 +8,8 @@ import org.luckypray.dexkit.result.MethodData
 import java.util.concurrent.TimeUnit
 
 object DexKitUtil {
-    @Volatile private var bridge: DexKitBridge? = null
+    @Volatile 
+    private var bridge: DexKitBridge? = null
     private val methodCache = CacheBuilder.newBuilder()
         .maximumSize(100)
         .expireAfterAccess(1, TimeUnit.HOURS)
@@ -17,10 +18,13 @@ object DexKitUtil {
     val context: Context
         get() = HookInit.globalContext
 
+    init {
+        System.loadLibrary("dexkit")
+    }
+
     @Synchronized
     fun initializeDexKitBridge() {
         if (bridge == null) {
-            System.loadLibrary("dexkit")
             val apkPath = context.applicationInfo.sourceDir
             bridge = DexKitBridge.create(apkPath)
         }
@@ -39,5 +43,4 @@ object DexKitUtil {
     fun getCachedOrFindMethods(key: String, findMethodLogic: () -> List<MethodData>?): List<MethodData>? {
         return methodCache.get(key, findMethodLogic)
     }
-
 }
