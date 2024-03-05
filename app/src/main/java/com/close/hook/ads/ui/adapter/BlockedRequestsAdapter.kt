@@ -141,22 +141,21 @@ class BlockedRequestsAdapter(
         }
 
         private fun toggleBlockStatus(request: BlockedRequest) = CoroutineScope(Dispatchers.IO).launch {
-            val isExist = request.request.let { urlDao.isExist(it) }
+            val isExist = urlDao.isExist(request.request)
             if (isExist) {
                 removeUrl(request.request)
+                request.isBlocked = false
             } else {
                 addUrl(Pair(request.request, request.appName))
+                request.isBlocked = true
             }
             withContext(Dispatchers.Main) {
                 checkBlockStatus(request)
             }
         }
 
-        private fun checkBlockStatus(request: BlockedRequest) = CoroutineScope(Dispatchers.IO).launch {
-            val isExist = urlDao.isExist(request.request)
-            withContext(Dispatchers.Main) {
-                binding.block.text = if (isExist) "移除黑名单" else "加入黑名单"
-            }
+        private fun checkBlockStatus(request: BlockedRequest) {
+            binding.block.text = if (request.isBlocked ?: false) "移除黑名单" else "加入黑名单"
         }
     }
 
