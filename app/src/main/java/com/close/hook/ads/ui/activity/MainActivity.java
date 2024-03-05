@@ -39,15 +39,16 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         setupViewPagerAndBottomNavigation();
-        setData();
     }
 
+/*
     private void setData() {
         if (PrefManager.INSTANCE.getSetData()) {
             PrefManager.INSTANCE.setSetData(false);
             DataUtil.INSTANCE.setData(UrlDatabase.Companion.getDatabase(this).getUrlDao());
         }
     }
+*/
 
     public static boolean isModuleActivated() {
         return false;

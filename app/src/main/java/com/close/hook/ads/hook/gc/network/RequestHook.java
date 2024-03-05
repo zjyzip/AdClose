@@ -18,8 +18,6 @@ import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 import com.close.hook.ads.provider.UrlContentProvider;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 
 import org.luckypray.dexkit.result.MethodData;
 
@@ -30,10 +28,6 @@ import java.net.URL;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -44,10 +38,6 @@ import okhttp3.Response;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
-    private static final Cache<String, Boolean> urlBlockCache = CacheBuilder.newBuilder()
-            .maximumSize(15000)
-            .expireAfterAccess(1, TimeUnit.HOURS) // 更改为最后一次访问后1小时过期
-            .build();
 
     @Nullable
     private static String method;
@@ -106,17 +96,10 @@ public class RequestHook {
     }
 
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
-        Boolean shouldBlock = urlBlockCache.getIfPresent(queryValue);
-        if (shouldBlock != null) {
-            return shouldBlock;
-        }
-
         Pair<Boolean, String> pair = queryContentProvider(queryType, queryValue);
-        shouldBlock = pair.first;
+        boolean shouldBlock = pair.first;
         String blockType = pair.second;
-
-        urlBlockCache.put(queryValue, shouldBlock);
-
+    
         sendBroadcast(requestType, shouldBlock, blockType, queryValue, details);
         return shouldBlock;
     }
@@ -178,6 +161,11 @@ public class RequestHook {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+
+                    boolean isResponseAvailable = (boolean) XposedHelpers.callMethod(httpEngine, "hasResponse");
+                    if (!isResponseAvailable) {
+                        return;
+                    }
 
                     XposedHelpers.callMethod(httpEngine, "readResponse");
                     Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
