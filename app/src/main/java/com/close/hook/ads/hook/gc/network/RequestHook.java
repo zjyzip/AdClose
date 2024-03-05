@@ -176,9 +176,8 @@ public class RequestHook {
 
                     RequestDetails details = processHttpRequest(request, response, url);
                     if (details != null && shouldBlockHttpsRequest(url, details)) {
-                        param.setResult(new BlockedURLConnection(url));
-                    } else {
-                        param.setResult(XposedHelpers.callMethod(param.thisObject, "getResponse"));
+                        param.setResult(false);
+                        return;
                     }
                 }
             });
@@ -206,9 +205,10 @@ public class RequestHook {
                             URL url = new URL(okhttpUrl.toString());
 
                             RequestDetails details = processOkHttpRequest(call, request, url, param.getResult());
-                            if (shouldBlockOkHttpsRequest(url, details)) {
+                            if (details != null && shouldBlockOkHttpsRequest(url, details)) {
                                 Object response = createEmptyResponseForOkHttp(call);
                                 param.setResult(response);
+                                return;
                             }
                         }
                     });
