@@ -184,6 +184,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         selectedItems?.let {
             if (it.size() != 0) {
                 viewModel.removeList(it.toList())
+                Toast.makeText(requireContext(), "已批量移出黑名单", Toast.LENGTH_SHORT).show()
                 tracker?.clearSelection()
                 (activity as? MainActivity)?.showNavigation()
             }
@@ -336,13 +337,15 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun search() {
-        val searchText = binding.editText.text.toString()
+        val searchText = safeBinding?.editText?.text.toString()
         searchJob?.cancel()
         searchJob = CoroutineScope(Dispatchers.Main).launch {
             val filteredList = withContext(Dispatchers.IO) {
                 urlDao.searchUrls("%$searchText%")
             }
-            mAdapter.submitList(filteredList)
+            safeBinding?.let { binding ->
+                mAdapter.submitList(filteredList)
+            }
         }
     }
 

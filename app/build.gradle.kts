@@ -137,7 +137,7 @@ dependencies {
     implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
-    implementation("com.google.guava:guava:33.0.0-jre")
+    implementation("com.google.guava:guava:33.1.0-jre")
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     implementation("com.microsoft.appcenter:appcenter-analytics:5.0.4")

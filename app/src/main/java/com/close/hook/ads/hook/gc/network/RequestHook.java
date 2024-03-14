@@ -21,6 +21,7 @@ import com.close.hook.ads.provider.UrlContentProvider;
 
 import org.luckypray.dexkit.result.MethodData;
 
+import java.io.ByteArrayInputStream;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
@@ -29,9 +30,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+
 import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -120,29 +123,24 @@ public class RequestHook {
             ContentResolver contentResolver = context.getContentResolver();
             Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
             String[] projection = new String[]{Url.Companion.getURL_TYPE(), Url.Companion.getURL_ADDRESS()};
-            String selection = null;
-            String[] selectionArgs = null;
-
-            if ("host".equals(queryType)) {
-                selection = Url.Companion.getURL_TYPE() + " = ?";
-                selectionArgs = new String[]{"host"};
-            }
+            String selection = Url.Companion.getURL_TYPE() + " = ?";
+            String[] selectionArgs = new String[]{queryType};
 
             try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, null)) {
-                if (cursor != null) {
+                if (cursor != null && cursor.moveToFirst()) {
                     int urlTypeIndex = cursor.getColumnIndex(Url.Companion.getURL_TYPE());
                     int urlValueIndex = cursor.getColumnIndex(Url.Companion.getURL_ADDRESS());
 
-                    while (cursor.moveToNext()) {
+                    do {
                         String urlType = cursor.getString(urlTypeIndex);
                         String urlValue = cursor.getString(urlValueIndex);
 
-                        if ("host".equals(queryType) && Objects.equals(urlValue, queryValue)) {
+                        if ("host".equals(queryType) && urlValue.equals(queryValue)) {
                             return new Pair<>(true, "Domain");
                         } else if (("url".equals(queryType) || "keyword".equals(queryType)) && queryValue.contains(urlValue)) {
                             return new Pair<>(true, formatUrlType(urlType));
                         }
-                    }
+                    } while (cursor.moveToNext());
                 }
             }
         }
@@ -161,23 +159,22 @@ public class RequestHook {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
-
                     boolean isResponseAvailable = (boolean) XposedHelpers.callMethod(httpEngine, "hasResponse");
                     if (!isResponseAvailable) {
                         return;
                     }
 
-                    XposedHelpers.callMethod(httpEngine, "readResponse");
-                    Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
-
                     Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
-                    Object httpUrl = XposedHelpers.callMethod(request, "urlString");
-                    URL url = new URL(httpUrl.toString());
+                    URL url = new URL(XposedHelpers.callMethod(request, "urlString").toString());
+                    RequestDetails details = processHttpRequest(request, null, url);
 
-                    RequestDetails details = processHttpRequest(request, response, url);
                     if (details != null && shouldBlockHttpsRequest(url, details)) {
-                        param.setResult(false);
-                        return;
+                        XposedHelpers.findAndHookMethod(param.thisObject.getClass(), "getInputStream", new XC_MethodReplacement() {
+                            @Override
+                            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                                return new ByteArrayInputStream(new byte[0]);
+                            }
+                        });
                     }
                 }
             });
@@ -271,19 +268,6 @@ public class RequestHook {
 
     private static void logRequestDetails(RequestDetails details) {
         if (details != null) {
-
-/*			StringBuilder logBuilder = new StringBuilder();
-			logBuilder.append(LOG_PREFIX).append("Request Details:\n");
-			logBuilder.append("Method: ").append(details.getMethod()).append("\n");
-			logBuilder.append("URL: ").append(details.getUrlString()).append("\n");
-			logBuilder.append("Request Headers: ").append(details.getRequestHeaders().toString()).append("\n");
-			logBuilder.append("Response Code: ").append(details.getResponseCode()).append("\n");
-			logBuilder.append("Response Message: ").append(details.getResponseMessage()).append("\n");
-			logBuilder.append("Response Headers: ").append(details.getResponseHeaders().toString());
-
-			XposedBridge.log(logBuilder.toString());
-*/
-
             method = details.getMethod();
             urlString = details.getUrlString();
             if (details.getRequestHeaders() != null) {
