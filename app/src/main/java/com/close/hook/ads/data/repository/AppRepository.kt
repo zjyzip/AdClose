@@ -15,27 +15,23 @@ import java.io.File
 
 class AppRepository(private val packageManager: PackageManager) {
 
-    companion object {
-        private const val TAG = "AppRepository"
-    }
-
     suspend fun getInstalledApps(isSystem: Boolean): List<AppInfo> = coroutineScope {
         val allPackages = packageManager.getInstalledPackages(0)
 
-        val deferredAppInfos = allPackages.mapNotNull { packageInfo ->
-            if (isSystemApp(packageInfo.applicationInfo) == isSystem) {
-                async(Dispatchers.IO) {
-                    getAppInfo(packageInfo)
-                }
-            } else null
-        }
-        deferredAppInfos.awaitAll().sortedBy { it.appName.lowercase() }
+        allPackages.filter {
+            isSystemApp(it.applicationInfo) == isSystem
+        }.map { packageInfo ->
+            async(Dispatchers.IO) {
+                getAppInfo(packageInfo)
+            }
+        }.awaitAll().sortedBy { it.appName.lowercase() }
     }
 
     private fun getAppInfo(packageInfo: PackageInfo): AppInfo {
-        val appName = packageManager.getApplicationLabel(packageInfo.applicationInfo).toString()
-        val appIcon = packageManager.getApplicationIcon(packageInfo.applicationInfo)
-        val size = File(packageInfo.applicationInfo.sourceDir).length()
+        val applicationInfo = packageInfo.applicationInfo
+        val appName = packageManager.getApplicationLabel(applicationInfo).toString()
+        val appIcon = packageManager.getApplicationIcon(applicationInfo)
+        val size = File(applicationInfo.sourceDir).length()
         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode.toInt()
         } else {
@@ -53,8 +49,8 @@ class AppRepository(private val packageManager: PackageManager) {
             packageInfo.firstInstallTime,
             packageInfo.lastUpdateTime,
             size,
-            packageInfo.applicationInfo.targetSdkVersion,
-            packageInfo.applicationInfo.minSdkVersion,
+            applicationInfo.targetSdkVersion,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) applicationInfo.minSdkVersion else 0,
             isAppEnable,
             isEnable
         )

@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.text.method.LinkMovementMethod
 import android.view.View
 import androidx.appcompat.widget.ThemeUtils
+import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
@@ -27,50 +28,45 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
 
     @SuppressLint("SetTextI18n", "RestrictedApi", "HardwareIds")
     private fun initInfo() {
+        val context = requireContext()
         val isActivated = MainActivity.isModuleActivated()
         binding.apply {
-            status.setCardBackgroundColor(
-                ThemeUtils.getThemeAttrColor(
-                    requireContext(),
-                    if (isActivated) com.google.android.material.R.attr.colorPrimary
-                    else com.google.android.material.R.attr.colorError
-                )
+            val primaryOrErrorColor = ThemeUtils.getThemeAttrColor(
+                context,
+                if (isActivated) com.google.android.material.R.attr.colorPrimary
+                else com.google.android.material.R.attr.colorError
             )
-            statusIcon.setImageDrawable(
-                requireContext().getDrawable(
-                    if (isActivated) R.drawable.ic_round_check_circle_24
-                    else R.drawable.ic_about
-                )
+            status.setCardBackgroundColor(primaryOrErrorColor)
+
+            val statusIconDrawable = ContextCompat.getDrawable(
+                context,
+                if (isActivated) R.drawable.ic_round_check_circle_24
+                else R.drawable.ic_about
             )
-            statusTitle.text = if (isActivated) "已激活"
-            else "未激活"
+            statusIcon.setImageDrawable(statusIconDrawable)
+
+            statusTitle.text = if (isActivated) "已激活" else "未激活"
             statusSummary.text = "版本: ${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})"
 
             androidVersionValue.text = Build.VERSION.RELEASE
             sdkVersionValue.text = Build.VERSION.SDK_INT.toString()
-            androidIdValue.text = Settings.Secure.getString(
-                requireContext().contentResolver,
-                Settings.Secure.ANDROID_ID
-            )
+            androidIdValue.text = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
             brandValue.text = Build.BRAND
             modelValue.text = Build.MODEL
-            skuValue.text = if (Build.VERSION.SDK_INT >= 31) Build.SKU else ""
+            skuValue.text = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.SKU else ""
             typeValue.text = Build.TYPE
             fingerValue.text = Build.FINGERPRINT
 
-            viewSource.movementMethod = LinkMovementMethod.getInstance()
+            val linkMovementMethod = LinkMovementMethod.getInstance()
+            viewSource.movementMethod = linkMovementMethod
             viewSource.text = HtmlCompat.fromHtml(
-                getString(
-                    R.string.about_view_source_code,
-                    "<b><a href=\"https://github.com/zjyzip/AdClose\">GitHub</a></b>",
-                ), HtmlCompat.FROM_HTML_MODE_LEGACY
+                getString(R.string.about_view_source_code, "<b><a href=\"https://github.com/zjyzip/AdClose\">GitHub</a></b>"),
+                HtmlCompat.FROM_HTML_MODE_LEGACY
             )
-            feedback.movementMethod = LinkMovementMethod.getInstance()
+            feedback.movementMethod = linkMovementMethod
             feedback.text = HtmlCompat.fromHtml(
-                getString(
-                    R.string.join_telegram_channel,
-                    "<b><a href=\"https://t.me/AdClose\">Telegram</a></b>"
-                ), HtmlCompat.FROM_HTML_MODE_LEGACY
+                getString(R.string.join_telegram_channel, "<b><a href=\"https://t.me/AdClose\">Telegram</a></b>"),
+                HtmlCompat.FROM_HTML_MODE_LEGACY
             )
         }
     }
