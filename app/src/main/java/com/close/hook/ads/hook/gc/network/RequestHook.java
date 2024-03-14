@@ -159,14 +159,20 @@ public class RequestHook {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+
                     boolean isResponseAvailable = (boolean) XposedHelpers.callMethod(httpEngine, "hasResponse");
                     if (!isResponseAvailable) {
                         return;
                     }
 
+                    XposedHelpers.callMethod(httpEngine, "readResponse");
+                    Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
+
                     Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
-                    URL url = new URL(XposedHelpers.callMethod(request, "urlString").toString());
-                    RequestDetails details = processHttpRequest(request, null, url);
+                    Object httpUrl = XposedHelpers.callMethod(request, "urlString");
+                    URL url = new URL(httpUrl.toString());
+
+                    RequestDetails details = processHttpRequest(request, response, url);
 
                     if (details != null && shouldBlockHttpsRequest(url, details)) {
                         XposedHelpers.findAndHookMethod(param.thisObject.getClass(), "getInputStream", new XC_MethodReplacement() {
