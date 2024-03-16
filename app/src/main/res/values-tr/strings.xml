@@ -1,0 +1,110 @@
+<resources>
+    <string name="app_name">AdClose</string>
+
+    <string name="error_title">Beklenmeyen bir hata oluştu.\nKarışıklık için özür dileriz.</string>
+
+
+    <string name="bottom_item_1">Uygulamalar</string>
+    <string name="bottom_item_2">İstekler</string>
+    <string name="bottom_item_3">Ayarlar</string>
+
+    <string name="search_hint">Ara</string>
+
+    <string name="sort_filter">sırala ve filtrele</string>
+    <string name="reset">sıfırla</string>
+    <string name="sort_by">Sıralama Ölçütü</string>
+    <string name="reverse">Tersine çevir</string>
+    <string name="filter">Filtre</string>
+
+
+    <string name="tab_user_apps">Kullanıcı Uygulamaları</string>
+    <string name="tab_configured_apps">Yapılandırılmış Uygulamalar</string>
+    <string name="tab_system_apps">Sistem Uygulamaları</string>
+
+
+    <string name="tab_domain_list">İstek Listesi</string>
+    <string name="tab_host_list">Engelleme Listesi</string>
+    <string name="tab_host_whitelist">Geçiş Listesi</string>
+
+    <string name="export">Dışa Aktar</string>
+    <string name="restore">içe Aktar</string>
+
+    <string name="update_checkbox_status">Kaydet</string>
+    <string name="description_two">•İstek sayfasında web reklam isteği engellemeyi yönetmek için etkinleştirildi</string>
+    <string name="description_seven">•Sadece Genel Root, Magisk ve Xposed tespiti</string>
+
+    <string name="handle_platform_ad">Platform reklamı başlatmayı durdur</string>
+    <string name="check_request">Uygulama isteği kontrolü</string>
+
+    <string name="remove_flag_secure">Bayrak Güvenliğini Kaldır</string>
+    <string name="remove_vpn_state">VPN ve sistem proxy algılamasını kaldır</string>
+    <string name="remove_sensor_monitor">Hızlanma sensörü kaydını çıkar</string>
+    <string name="remove_envi_detection">Ortam Algılamayı Kaldır</string>
+
+    <string name="settings_theme">Tema</string>
+    <string name="settings_system_theme_color_summary">Sistemdeki tema rengi</string>
+    <string name="settings_system_theme_color">Sistem Teması Rengi</string>
+    <string name="settings_theme_color">Tema Rengi</string>
+    <string name="dark_theme">Koyu Tema</string>
+    <string name="settings_pure_black_dark_theme">Saf Siyah Koyu Tema</string>
+    <string name="settings_pure_black_dark_theme_summary">Koyu tema etkinleştirilmişse saf siyah temayı kullanın</string>
+    <string name="dark_theme_off">Daima Kapalı</string>
+    <string name="dark_theme_on">Daima Açık</string>
+    <string name="follow_system">Sistemi Takip Et</string>
+    <string name="dark_theme_follow_system">@string/follow_system</string>
+
+    <!-- Colors -->
+    <string name="color_default">Varsayılan</string>
+    <string name="color_sakura">Sakura</string>
+    <string name="color_red">Kırmızı</string>
+    <string name="color_pink">Pembe</string>
+    <string name="color_purple">Mor</string>
+    <string name="color_deep_purple">Derin mor</string>
+    <string name="color_indigo">Çivit</string>
+    <string name="color_blue">Mavi</string>
+    <string name="color_light_blue">Açık mavi</string>
+    <string name="color_cyan">Camgöbeği</string>
+    <string name="color_teal">Deniz mavisi</string>
+    <string name="color_green">Yeşil</string>
+    <string name="color_light_green">Açık yeşil</string>
+    <string name="color_lime">Kireç</string>
+    <string name="color_yellow">Sarı</string>
+    <string name="color_amber">Amber</string>
+    <string name="color_orange">Turuncu</string>
+    <string name="color_deep_orange">Derin turuncu</string>
+    <string name="color_brown">Kahverengi</string>
+    <string name="color_blue_grey">Mavi gri</string>
+
+    <string name="others">Diğer</string>
+    <string name="about">Hakkında</string>
+    <string name="feedback">Geri Bildirim</string>
+    <string name="cache_clean">Önbellek Temizleme</string>
+    <string name="select_all">Hepsini Seç</string>
+    <string name="hide_icon">Simgeyi Gizle</string>
+    <string name="filter_enabled">Filtre varsayılan olarak etkin</string>
+    <string name="filter_disabled">Filtre devre dışı</string>
+    <string name="sort_by_default">Varsayılan sıralama yöntemi şu şekilde değiştirilmiştir</string>
+    <string name="about_view_source_code"><![CDATA[Kaynak kodunu şurada görün %1$s]]></string>
+    <string name="block">engelle</string>
+    <string name="copy">panoya kopyala</string>
+    <string name="clearAll">hepsini temizle</string>
+    <string name="block_list">Engelleme Listesi</string>
+    <string name="edit">düzenle</string>
+    <string name="settings_language">Dil</string>
+    <string name="delete">Sil</string>
+    <string name="bottom_item_4">Engelle</string>
+    <string name="add">ekle</string>
+    <string name="bottom_item_5">Anasayfa</string>
+    <string name="info">Bilgi</string>
+    <string name="android_version">Android Sürümü</string>
+    <string name="sdk_level">SDK Seviyesi</string>
+    <string name="android_id">Android ID</string>
+    <string name="brand">Marka</string>
+    <string name="model">Model</string>
+    <string name="sku">SKU</string>
+    <string name="build_type">Yapı Türü</string>
+    <string name="finger_print">Parmak İzi</string>
+    <string name="support">Destek</string>
+    <string name="join_telegram_channel"><![CDATA[1$s Kanalına Katılın]]></string>
+    <string name="default_page">Varsayılan Sayfa</string>
+</resources>
