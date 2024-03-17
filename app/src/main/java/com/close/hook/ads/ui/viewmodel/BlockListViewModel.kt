@@ -14,25 +14,16 @@ class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
 
     val blackListLiveData: LiveData<List<Url>> = dataSource.getUrlList()
 
-    fun editUrl(data: Pair<Url, Url>) {
-        dataSource.editUrl(data)
-    }
-
-
     fun addUrl(url: Url) {
         dataSource.addUrl(url)
     }
 
-    fun removeUrl(url: Url) {
-        dataSource.removeUrl(url)
-    }
-
-    fun removeUrlString(url: String) {
-        dataSource.removeUrlString(url)
-    }
-
     fun removeList(list: List<String>) {
         dataSource.removeList(list)
+    }
+
+    fun removeUrl(url: Url) {
+        dataSource.removeUrl(url)
     }
 
     fun removeAll() {
@@ -41,6 +32,14 @@ class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
 
     fun addListUrl(list: List<Url>) {
         dataSource.addListUrl(list)
+    }
+
+    fun editUrl(data: Pair<Url, Url>) {
+        dataSource.editUrl(data)
+    }
+
+    fun removeUrlString(url: String) {
+        dataSource.removeUrlString(url)
     }
 
 }
