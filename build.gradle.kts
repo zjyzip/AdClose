@@ -5,6 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.android") version "1.9.23" apply false
     id("dev.rikka.tools.materialthemebuilder") version "1.3.3"
     id("com.google.devtools.ksp") version "1.9.23-1.0.19" apply false
+    id("dev.rikka.tools.autoresconfig") version "1.2.2" apply false
 }
 
 tasks.register<Delete>("clean") {

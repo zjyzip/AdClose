@@ -5,6 +5,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("dev.rikka.tools.materialthemebuilder")
     id("com.google.devtools.ksp")
+    id("dev.rikka.tools.autoresconfig")
+}
+
+autoResConfig {
+    generateClass.set(true)
+    generateRes.set(false)
+    generatedClassFullName.set("com.close.hook.ads.util.LangList")
+    generatedArrayFirstItem.set("SYSTEM")
 }
 
 materialThemeBuilder {
