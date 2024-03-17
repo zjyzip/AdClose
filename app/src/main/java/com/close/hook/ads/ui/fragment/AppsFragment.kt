@@ -418,6 +418,11 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         return -1
     }
 
+    private fun updateHint() {
+        val size = if (viewModel.isFilter) viewModel.filterList.size else viewModel.appInfoList.size
+        (requireParentFragment() as OnSetHintListener).setHint(size)
+    }
+
     override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
         val safeAppInfoList = viewModel.appInfoList ?: emptyList()
 
@@ -438,7 +443,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         viewModel.filterList.clear()
         viewModel.filterList.addAll(sortedList)
         appsAdapter.submitList(sortedList)
-        (requireParentFragment() as OnSetHintListener).setHint(sortedList.size)
+        updateHint()
     }
 
     private fun getAppInfoComparator(title: String): Comparator<AppInfo> {
@@ -504,11 +509,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
 
         (requireParentFragment() as OnCLearCLickContainer).controller = this
         (requireParentFragment() as IOnTabClickContainer).tabController = this
-        (requireParentFragment() as OnSetHintListener).setHint(
-            if (viewModel.isFilter) viewModel.filterList.size
-            else viewModel.appInfoList.size
-        )
-
+        updateHint()
     }
 
     override fun onReturnTop() {

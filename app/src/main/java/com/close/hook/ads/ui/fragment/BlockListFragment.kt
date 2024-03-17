@@ -193,11 +193,15 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun onCopy() {
         selectedItems?.let { selection ->
-            val selectedUrls = viewModel.blackListLiveData.value?.filter { selection.contains(it.url) }
-            val combinedText = selectedUrls?.joinToString(separator = "\n") { it.url }
-            if (!combinedText.isNullOrEmpty()) {
+            val uniqueUrls = viewModel.blackListLiveData.value
+                ?.filter { selection.contains(it.url) }
+                ?.map { it.url }
+                ?.distinct()
+                ?.joinToString(separator = "\n")
+
+            if (!uniqueUrls.isNullOrEmpty()) {
                 val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("copied_urls", combinedText)
+                val clip = ClipData.newPlainText("copied_urls", uniqueUrls)
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
             }
@@ -341,7 +345,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         searchJob?.cancel()
         searchJob = CoroutineScope(Dispatchers.Main).launch {
             val filteredList = withContext(Dispatchers.IO) {
-                urlDao.searchUrls("%$searchText%")
+                urlDao.searchUrls("%$searchText%").distinct()
             }
             safeBinding?.let { binding ->
                 mAdapter.submitList(filteredList)

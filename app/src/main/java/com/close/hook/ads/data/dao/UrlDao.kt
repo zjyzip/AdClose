@@ -1,6 +1,7 @@
 package com.close.hook.ads.data.dao
 
 import android.database.Cursor
+import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
@@ -25,8 +26,8 @@ interface UrlDao {
     @Insert
     fun insertAll(urls: List<Url>)
 
-    @Query("select * from url_info ORDER BY id DESC")
-    fun loadAllList(): List<Url>
+    @Query("SELECT * FROM url_info ORDER BY id DESC")
+    fun loadAllList(): LiveData<List<Url>>
 
     @Query("SELECT url FROM url_info")
     fun getAllUrls(): List<String>
