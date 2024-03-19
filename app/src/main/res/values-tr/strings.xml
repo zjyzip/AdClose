@@ -105,6 +105,6 @@
     <string name="build_type">Yapı Türü</string>
     <string name="finger_print">Parmak İzi</string>
     <string name="support">Destek</string>
-    <string name="join_telegram_channel"><![CDATA[1$s Kanalına Katılın]]></string>
+    <string name="join_telegram_channel"><![CDATA[%1$s Kanalına Katılın]]></string>
     <string name="default_page">Varsayılan Sayfa</string>
 </resources>

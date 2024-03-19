@@ -12,7 +12,7 @@ class DataSource(context: Context) {
 
     private val urlDao = UrlDatabase.getDatabase(context).urlDao
 
-    val urlsLiveData: LiveData<List<Url>> = urlDao.loadAllList()
+    private val urlsLiveData: LiveData<List<Url>> = urlDao.loadAllList()
 
     fun getUrlList(): LiveData<List<Url>> {
         return urlsLiveData
@@ -50,10 +50,9 @@ class DataSource(context: Context) {
         }
     }
 
-    fun editUrl(data: Pair<Url, Url>) {
+    fun updateUrl(url: Url) {
         CoroutineScope(Dispatchers.IO).launch {
-            urlDao.delete(data.first.url)
-            urlDao.insert(data.second)
+            urlDao.update(url)
         }
     }
 
@@ -63,8 +62,13 @@ class DataSource(context: Context) {
         }
     }
 
+    fun search(searchText: String): List<Url> {
+        return urlDao.searchUrls(searchText)
+    }
+
     companion object {
-        @Volatile private var INSTANCE: DataSource? = null
+        @Volatile
+        private var INSTANCE: DataSource? = null
 
         fun getDataSource(context: Context): DataSource {
             return INSTANCE ?: synchronized(this) {

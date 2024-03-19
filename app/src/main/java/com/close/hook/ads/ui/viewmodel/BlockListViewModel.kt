@@ -2,11 +2,14 @@ package com.close.hook.ads.ui.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
 
@@ -34,18 +37,25 @@ class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
         dataSource.addListUrl(list)
     }
 
-    fun editUrl(data: Pair<Url, Url>) {
-        dataSource.editUrl(data)
+    fun updateUrl(url: Url) {
+        dataSource.updateUrl(url)
     }
 
     fun removeUrlString(url: String) {
         dataSource.removeUrlString(url)
     }
 
+    suspend fun search(searchText: String): List<Url> {
+        return if (searchText.isBlank())
+            blackListLiveData.value?.toList() ?: emptyList()
+        else withContext(Dispatchers.IO) {
+            dataSource.search(searchText)
+        }
+    }
+
 }
 
 class UrlViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
-
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(BlockListViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")

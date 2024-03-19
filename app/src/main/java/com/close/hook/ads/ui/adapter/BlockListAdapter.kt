@@ -18,8 +18,8 @@ import com.close.hook.ads.util.dp
 
 class BlockListAdapter(
     private val context: Context,
-    private val onRemoveUrl: (Int) -> Unit,
-    private val onEditUrl: (Int) -> Unit
+    private val onRemoveUrl: (Url) -> Unit,
+    private val onEditUrl: (Url) -> Unit
 ) :
     ListAdapter<Url, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
@@ -41,8 +41,8 @@ class BlockListAdapter(
     inner class ViewHolder(
         private val binding: ItemBlockListBinding,
         private val context: Context,
-        private val onRemoveUrl: (Int) -> Unit,
-        private val onEditUrl: (Int) -> Unit
+        private val onRemoveUrl: (Url) -> Unit,
+        private val onEditUrl: (Url) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<String> =
@@ -53,10 +53,10 @@ class BlockListAdapter(
 
         init {
             binding.edit.setOnClickListener {
-                onEditUrl(bindingAdapterPosition)
+                onEditUrl(currentList[bindingAdapterPosition])
             }
             binding.delete.setOnClickListener {
-                onRemoveUrl(bindingAdapterPosition)
+                onRemoveUrl(currentList[bindingAdapterPosition])
             }
             binding.cardView.setOnClickListener {
                 copyToClipboard(binding.type.text.toString(), binding.url.text.toString())

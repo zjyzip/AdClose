@@ -1,6 +1,5 @@
 package com.close.hook.ads.ui.fragment
 
-import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -31,7 +30,6 @@ import androidx.recyclerview.selection.StorageStrategy
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
-import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.model.Url
@@ -88,9 +86,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
     private var tracker: SelectionTracker<String>? = null
     private var selectedItems: Selection<String>? = null
-    private val urlDao by lazy {
-        UrlDatabase.getDatabase(requireContext()).urlDao
-    }
     private var mActionMode: ActionMode? = null
 
     companion object {
@@ -114,7 +109,14 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
         adapter = BlockedRequestsAdapter(
             requireContext(),
-            { viewModel.addUrl(Url(if (it.second.replace(" ", "").endsWith("DNS")) "Domain" else "URL", it.first)) },
+            {
+                viewModel.addUrl(
+                    Url(
+                        if (it.second.trim().endsWith("DNS")) "Domain" else "URL",
+                        it.first
+                    )
+                )
+            },
             { viewModel.removeUrlString(it) })
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
@@ -178,6 +180,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     onCopy()
                     return true
                 }
+
                 R.id.action_block -> {
                     onBlock()
                     return true
@@ -257,7 +260,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         disposables.dispose()
     }
 
-    @SuppressLint("NotifyDataSetChanged")
     override fun onClearAll() {
         viewModel.requestList.clear()
         adapter.submitList(emptyList())
@@ -331,7 +333,11 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     override fun onBlock() {
         selectedItems?.let {
             if (it.size() != 0) {
-                viewModel.addListUrl(it.toList().map { Url("URL", it) })
+                val currentList = viewModel.blackListLiveData.value?.toList() ?: emptyList()
+                val updateList = it.toList().map { Url("URL", it) }.filter {
+                    it !in currentList
+                }
+                viewModel.addListUrl(updateList)
                 tracker?.clearSelection()
                 val snackBar = Snackbar.make(
                     requireParentFragment().requireView(),
@@ -354,7 +360,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         selectedItems?.let { selection ->
             val selectedRequests = viewModel.requestList.filter { selection.contains(it.request) }
             val combinedText = selectedRequests.joinToString(separator = "\n") { it.request }
-            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipboard =
+                requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("copied_requests", combinedText)
             clipboard.setPrimaryClip(clip)
             Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
