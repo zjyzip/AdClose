@@ -5,6 +5,7 @@ import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.close.hook.ads.data.model.Url
 
@@ -29,10 +30,11 @@ interface UrlDao {
     @Query("SELECT * FROM url_info ORDER BY id DESC")
     fun loadAllList(): LiveData<List<Url>>
 
-    @Query("SELECT url FROM url_info")
+    @Query("SELECT url FROM url_info ORDER BY id DESC")
     fun getAllUrls(): List<String>
 
-    @Query("SELECT * FROM url_info WHERE url LIKE :searchText")
+    @Transaction
+    @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' ORDER BY id DESC")
     fun searchUrls(searchText: String): List<Url>
 
     @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")

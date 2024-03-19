@@ -16,14 +16,14 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
 import androidx.recyclerview.selection.Selection
@@ -33,7 +33,6 @@ import androidx.recyclerview.selection.StorageStrategy
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
-import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentBlockListBinding
 import com.close.hook.ads.ui.activity.MainActivity
@@ -52,8 +51,10 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -65,21 +66,17 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
     private lateinit var mAdapter: BlockListAdapter
     private lateinit var mLayoutManager: RecyclerView.LayoutManager
-    private var searchJob: Job? = null
-    private val urlDao by lazy {
-        UrlDatabase.getDatabase(requireContext()).urlDao
-    }
     private var tracker: SelectionTracker<String>? = null
     private var selectedItems: Selection<String>? = null
     private var mActionMode: ActionMode? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
         initView()
         initEditText()
         initButton()
         initFab()
-
         setUpTracker()
         addObserverToTracker()
 
@@ -87,6 +84,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             mAdapter.submitList(it)
             binding.progressBar.visibility = View.GONE
         }
+
     }
 
     private val fabMarginBottom
@@ -166,6 +164,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     deleteSelectedItem()
                     return true
                 }
+
                 R.id.action_copy -> {
                     onCopy()
                     return true
@@ -200,7 +199,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 ?.joinToString(separator = "\n")
 
             if (!uniqueUrls.isNullOrEmpty()) {
-                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clipboard =
+                    requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("copied_urls", uniqueUrls)
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
@@ -224,11 +224,11 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private fun initView() {
         mLayoutManager = LinearLayoutManager(requireContext())
         mAdapter = BlockListAdapter(requireContext(),
-            onRemoveUrl = { position ->
-                onRemoveUrl(position)
+            onRemoveUrl = {
+                onRemoveUrl(it)
             },
-            onEditUrl = { position ->
-                onEditUrl(position)
+            onEditUrl = {
+                onEditUrl(it)
             }
         )
         FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
@@ -245,18 +245,17 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
-    private fun onRemoveUrl(position: Int) {
-        viewModel.removeUrl(viewModel.blackListLiveData.value!![position])
+    private fun onRemoveUrl(url: Url) {
+        viewModel.removeUrl(url)
     }
 
-    private fun onEditUrl(position: Int) {
-        val item = viewModel.blackListLiveData.value!![position]
+    private fun onEditUrl(url: Url) {
         val dialogView =
             LayoutInflater.from(requireContext()).inflate(R.layout.item_block_list_add, null)
         val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
-        editText.setText(item.url)
+        editText.setText(url.url)
         val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
-        type.setText(item.type)
+        type.setText(url.type)
         type.setAdapter(
             ArrayAdapter(
                 requireContext(),
@@ -270,7 +269,10 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val newType = type.text.toString()
                 val newUrl = editText.text.toString()
-                viewModel.editUrl(Pair(item, Url(newType, newUrl)))
+                val item = Url(type = newType, url = newUrl).also {
+                    it.id = url.id
+                }
+                viewModel.updateUrl(item)
             }
             .create().apply {
                 window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
@@ -278,7 +280,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }.show()
     }
 
-    @SuppressLint("InflateParams", "SetTextI18n")
     private fun initButton() {
         binding.export.setOnClickListener {
             backupSAFLauncher.launch("block_list.rule")
@@ -291,6 +292,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun addRule() {
         val dialogView =
             LayoutInflater.from(requireContext())
@@ -340,53 +342,17 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             .show()
     }
 
-    private fun search() {
-        val searchText = safeBinding?.editText?.text.toString()
-        searchJob?.cancel()
-        searchJob = CoroutineScope(Dispatchers.Main).launch {
-            val filteredList = withContext(Dispatchers.IO) {
-                urlDao.searchUrls("%$searchText%").distinct()
-            }
-            safeBinding?.let { binding ->
-                mAdapter.submitList(filteredList)
-            }
-        }
+    private suspend fun search(searchText: String) {
+        mAdapter.submitList(viewModel.search(searchText))
     }
 
     private fun initEditText() {
-        binding.editText.apply {
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(
-                    s: CharSequence,
-                    start: Int,
-                    count: Int,
-                    after: Int
-                ) {
+        lifecycleScope.launch {
+            binding.editText.textWatcherFlow()
+                .collectLatest {
+                    binding.clear.visibility = if (it.isEmpty()) View.GONE else View.VISIBLE
+                    search(it)
                 }
-
-                override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-                    binding.clear.visibility = if (s.isEmpty()) View.GONE else View.VISIBLE
-                    searchJob?.cancel()
-                    searchJob = CoroutineScope(Dispatchers.Main).launch {
-                        delay(300)
-                        search()
-                    }
-                }
-
-                override fun afterTextChanged(s: Editable) {}
-            })
-
-            setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                    searchJob?.cancel()
-                    search()
-                    (requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
-                        ?.hideSoftInputFromWindow(windowToken, 0)
-                    true
-                } else {
-                    false
-                }
-            }
         }
     }
 
@@ -403,24 +369,28 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             uri?.let { uri ->
                 CoroutineScope(Dispatchers.IO).launch {
                     runCatching {
-                        val existingUrls = urlDao.getAllUrls().toSet() // 获取所有现有的URLs并转换为集合
+                        val currentList: List<Url> =
+                            viewModel.blackListLiveData.value ?: emptyList()
                         val inputStream = requireContext().contentResolver.openInputStream(uri)
-                        val newItems = inputStream?.bufferedReader()?.useLines { lines ->
+                        val newList: List<Url> = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
-                                val parts = line.split(",\\s*".toRegex()).map { it.trim() }
-                                if (parts.size == 2 && parts[1] !in existingUrls) Url(
-                                    parts[0],
-                                    parts[1]
-                                ) else null
+                                val parts: List<String> = line.split(",\\s*".toRegex()).map {
+                                    it.trim()
+                                }
+                                if (parts.size == 2) Url(parts[0], parts[1])
+                                else null
                             }.toList()
                         } ?: listOf()
 
-                        if (newItems.isNotEmpty()) {
-                            urlDao.insertAll(newItems)
-                        }
+                        val updateList =
+                            if (currentList.isEmpty()) newList
+                            else newList.filter {
+                                it !in currentList
+                            }
 
-                        val newBlockItems = newItems.map { Url(it.type, it.url) }
-                        viewModel.addListUrl(newBlockItems)
+                        if (updateList.isNotEmpty()) {
+                            viewModel.addListUrl(updateList)
+                        }
 
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT)
@@ -519,6 +489,18 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     override fun onResume() {
         super.onResume()
         (requireContext() as? OnBackPressContainer)?.controller = this
+    }
+
+    private fun TextView.textWatcherFlow(): Flow<String> = callbackFlow {
+        val textWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                trySend(s.toString())
+            }
+        }
+        addTextChangedListener(textWatcher)
+        awaitClose { removeTextChangedListener(textWatcher) }
     }
 
 }
