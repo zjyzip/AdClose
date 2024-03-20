@@ -28,8 +28,8 @@ class ResponseInfoFragment : BaseFragment<FragmentResponseBinding>() {
         val responseMessage = arguments?.getString(RESPONSE_MESSAGE) ?: ""
         val responseHeaders = arguments?.getString(RESPONSE_HEADERS) ?: ""
 
-        binding.responseCodeText.text = responseCode
-        binding.responseMessageText.text = responseMessage
-        binding.responseHeadersText.text = responseHeaders
+        binding.responseCodeText.setText(responseCode)
+        binding.responseMessageText.setText(responseMessage)
+        binding.responseHeadersText.setText(responseHeaders)
     }
 }
