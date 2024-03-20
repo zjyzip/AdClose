@@ -84,8 +84,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             }
         }
     }
-    private var tracker: SelectionTracker<String>? = null
-    private var selectedItems: Selection<String>? = null
+    private var tracker: SelectionTracker<BlockedRequest>? = null
+    private var selectedItems: Selection<BlockedRequest>? = null
     private var mActionMode: ActionMode? = null
 
     companion object {
@@ -138,7 +138,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun addObserverToTracker() {
         tracker?.addObserver(
-            object : SelectionTracker.SelectionObserver<String>() {
+            object : SelectionTracker.SelectionObserver<BlockedRequest>() {
                 override fun onSelectionChanged() {
                     super.onSelectionChanged()
                     selectedItems = tracker?.selection
@@ -201,7 +201,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             binding.recyclerView,
             CategoryItemKeyProvider(adapter),
             CategoryItemDetailsLookup(binding.recyclerView),
-            StorageStrategy.createStringStorage()
+            StorageStrategy.createParcelableStorage(BlockedRequest::class.java)
         ).withSelectionPredicate(
             SelectionPredicates.createSelectAnything()
         ).build()
@@ -331,10 +331,15 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     override fun onBlock() {
-        selectedItems?.let {
-            if (it.size() != 0) {
+        selectedItems?.let { selection ->
+            if (selection.size() != 0) {
                 val currentList = viewModel.blackListLiveData.value?.toList() ?: emptyList()
-                val updateList = it.toList().map { Url("URL", it) }.filter {
+                val updateList = selection.toList().map {
+                    Url(
+                        if (it.appName.trim().endsWith("DNS")) "Domain" else "URL",
+                        it.request
+                    )
+                }.filter {
                     it !in currentList
                 }
                 viewModel.addListUrl(updateList)
@@ -358,13 +363,14 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun onCopy() {
         selectedItems?.let { selection ->
-            val selectedRequests = viewModel.requestList.filter { selection.contains(it.request) }
-            val combinedText = selectedRequests.joinToString(separator = "\n") { it.request }
+            val selectedRequests = selection.map { it.request }
+            val combinedText = selectedRequests.joinToString(separator = "\n")
             val clipboard =
                 requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("copied_requests", combinedText)
             clipboard.setPrimaryClip(clip)
             Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
+            tracker?.clearSelection()
         }
     }
 
@@ -385,8 +391,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         }
 
     class CategoryItemDetailsLookup(private val recyclerView: RecyclerView) :
-        ItemDetailsLookup<String>() {
-        override fun getItemDetails(e: MotionEvent): ItemDetails<String>? {
+        ItemDetailsLookup<BlockedRequest>() {
+        override fun getItemDetails(e: MotionEvent): ItemDetails<BlockedRequest>? {
             val view = recyclerView.findChildViewUnder(e.x, e.y)
             if (view != null) {
                 return (recyclerView.getChildViewHolder(view) as BlockedRequestsAdapter.ViewHolder).getItemDetails()
@@ -396,11 +402,11 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     class CategoryItemKeyProvider(private val adapter: BlockedRequestsAdapter) :
-        ItemKeyProvider<String>(SCOPE_CACHED) {
-        override fun getKey(position: Int): String? = adapter.currentList[position].request
+        ItemKeyProvider<BlockedRequest>(SCOPE_CACHED) {
+        override fun getKey(position: Int): BlockedRequest? = adapter.currentList[position]
 
-        override fun getPosition(key: String): Int =
-            adapter.currentList.indexOfFirst { it.request == key }
+        override fun getPosition(key: BlockedRequest): Int =
+            adapter.currentList.indexOfFirst { it == key }
     }
 
     override fun onBackPressed(): Boolean {

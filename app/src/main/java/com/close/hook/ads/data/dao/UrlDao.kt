@@ -3,6 +3,7 @@ package com.close.hook.ads.data.dao
 import android.database.Cursor
 import androidx.lifecycle.LiveData
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
@@ -19,7 +20,7 @@ interface UrlDao {
     fun findAll(): Cursor
 
     @Query("DELETE FROM url_info WHERE id = :id ")
-    fun delete(id: Long): Int
+    fun deleteById(id: Long): Int
 
     @Update
     fun update(url: Url): Int
@@ -40,8 +41,14 @@ interface UrlDao {
     @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")
     fun isExist(url: String): Boolean
 
+    @Delete
+    fun deleteList(list:List<Url>)
+
+    @Delete
+    fun deleteUrl(url: Url)
+
     @Query("DELETE FROM url_info WHERE url = :url")
-    fun delete(url: String)
+    fun deleteUrlString(url: String)
 
     @Query("DELETE FROM url_info")
     fun deleteAll()

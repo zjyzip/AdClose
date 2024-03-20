@@ -45,7 +45,7 @@ class UrlContentProvider : ContentProvider() {
         when (uriMatcher.match(uri)) {
             ID_URL_DATA_ITEM -> {
                 val id = ContentUris.parseId(uri)
-                val count = urlDao.delete(id)
+                val count = urlDao.deleteById(id)
                 notifyChange(uri)
                 count
             }

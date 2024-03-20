@@ -38,36 +38,51 @@ class BlockedRequestsAdapter(
     private val urlDao by lazy {
         UrlDatabase.getDatabase(context).urlDao
     }
-    var tracker: SelectionTracker<String>? = null
+    var tracker: SelectionTracker<BlockedRequest>? = null
 
     companion object {
         @SuppressLint("SimpleDateFormat")
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
-        private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> = object : DiffUtil.ItemCallback<BlockedRequest>() {
-            override fun areItemsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
-                oldItem.timestamp == newItem.timestamp
+        private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> =
+            object : DiffUtil.ItemCallback<BlockedRequest>() {
+                override fun areItemsTheSame(
+                    oldItem: BlockedRequest,
+                    newItem: BlockedRequest
+                ): Boolean =
+                    oldItem.timestamp == newItem.timestamp
 
-            override fun areContentsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
-                oldItem == newItem
-        }
+                @SuppressLint("DiffUtilEquals")
+                override fun areContentsTheSame(
+                    oldItem: BlockedRequest,
+                    newItem: BlockedRequest
+                ): Boolean =
+                    oldItem == newItem
+            }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-        ViewHolder(ItemBlockedRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+        ViewHolder(
+            ItemBlockedRequestBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
+            )
+        )
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         getItem(position)?.let { holder.bind(it) }
     }
 
-    inner class ViewHolder(private val binding: ItemBlockedRequestBinding) : RecyclerView.ViewHolder(binding.root) {
+    inner class ViewHolder(private val binding: ItemBlockedRequestBinding) :
+        RecyclerView.ViewHolder(binding.root) {
 
         private var currentRequest: BlockedRequest? = null
 
-        fun getItemDetails(): ItemDetailsLookup.ItemDetails<String> =
-            object : ItemDetailsLookup.ItemDetails<String>() {
+        fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
+            object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
                 override fun getPosition(): Int = absoluteAdapterPosition
-                override fun getSelectionKey(): String? = getItem(absoluteAdapterPosition).request
+                override fun getSelectionKey(): BlockedRequest? = getItem(absoluteAdapterPosition)
             }
 
         init {
@@ -98,14 +113,17 @@ class BlockedRequestsAdapter(
             }
         }
 
+        @SuppressLint("SetTextI18n", "RestrictedApi")
         fun bind(request: BlockedRequest) = with(binding) {
             currentRequest = request
 
-            appName.text = "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
+            appName.text =
+                "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
             icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
-            blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
+            blockType.visibility =
+                if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
             blockType.text = request.blockType
 
             val textColor = ThemeUtils.getThemeAttrColor(
@@ -118,12 +136,13 @@ class BlockedRequestsAdapter(
             this.request.setTextColor(textColor)
 
             tracker?.let {
-                cardView.isChecked = it.isSelected(request.request)
+                cardView.isChecked = it.isSelected(request)
             }
 
             checkBlockStatus(request)
         }
 
+        @SuppressLint("SetTextI18n")
         private fun showRequestDialog(request: BlockedRequest) {
             val dialogBinding = RequestDialogBinding.inflate(LayoutInflater.from(itemView.context))
             dialogBinding.requestDialogContent.text = """
@@ -146,23 +165,26 @@ class BlockedRequestsAdapter(
         }
 
         private fun copyToClipboard(text: String) {
-            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("request", text))
+            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
+                ClipData.newPlainText("request", text)
+            )
             Toast.makeText(context, "已复制: $text", Toast.LENGTH_SHORT).show()
         }
 
-        private fun toggleBlockStatus(request: BlockedRequest) = CoroutineScope(Dispatchers.IO).launch {
-            val isExist = urlDao.isExist(request.request)
-            if (isExist) {
-                removeUrl(request.request)
-                request.isBlocked = false
-            } else {
-                addUrl(Pair(request.request, request.appName))
-                request.isBlocked = true
+        private fun toggleBlockStatus(request: BlockedRequest) =
+            CoroutineScope(Dispatchers.IO).launch {
+                val isExist = urlDao.isExist(request.request)
+                if (isExist) {
+                    removeUrl(request.request)
+                    request.isBlocked = false
+                } else {
+                    addUrl(Pair(request.request, request.appName))
+                    request.isBlocked = true
+                }
+                withContext(Dispatchers.Main) {
+                    checkBlockStatus(request)
+                }
             }
-            withContext(Dispatchers.Main) {
-                checkBlockStatus(request)
-            }
-        }
 
         private fun checkBlockStatus(request: BlockedRequest) {
             binding.block.text = if (request.isBlocked ?: false) "移除黑名单" else "加入黑名单"

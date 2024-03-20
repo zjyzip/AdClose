@@ -21,7 +21,7 @@ class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
         dataSource.addUrl(url)
     }
 
-    fun removeList(list: List<String>) {
+    fun removeList(list: List<Url>) {
         dataSource.removeList(list)
     }
 

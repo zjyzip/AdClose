@@ -66,8 +66,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
     private lateinit var mAdapter: BlockListAdapter
     private lateinit var mLayoutManager: RecyclerView.LayoutManager
-    private var tracker: SelectionTracker<String>? = null
-    private var selectedItems: Selection<String>? = null
+    private var tracker: SelectionTracker<Url>? = null
+    private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -123,7 +123,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun addObserverToTracker() {
         tracker?.addObserver(
-            object : SelectionTracker.SelectionObserver<String>() {
+            object : SelectionTracker.SelectionObserver<Url>() {
                 override fun onSelectionChanged() {
                     super.onSelectionChanged()
                     selectedItems = tracker?.selection
@@ -192,19 +192,20 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun onCopy() {
         selectedItems?.let { selection ->
-            val uniqueUrls = viewModel.blackListLiveData.value
-                ?.filter { selection.contains(it.url) }
-                ?.map { it.url }
-                ?.distinct()
-                ?.joinToString(separator = "\n")
+            val uniqueUrls = selection
+                .map { it.url }
+                .distinct()
+                .joinToString(separator = "\n")
 
-            if (!uniqueUrls.isNullOrEmpty()) {
+            if (uniqueUrls.isNotEmpty()) {
                 val clipboard =
                     requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("copied_urls", uniqueUrls)
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
             }
+
+            tracker?.clearSelection()
         }
     }
 
@@ -214,7 +215,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             binding.recyclerView,
             CategoryItemKeyProvider(mAdapter),
             CategoryItemDetailsLookup(binding.recyclerView),
-            StorageStrategy.createStringStorage()
+            StorageStrategy.createParcelableStorage(Url::class.java)
         ).withSelectionPredicate(
             SelectionPredicates.createSelectAnything()
         ).build()
@@ -452,8 +453,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
 
     class CategoryItemDetailsLookup(private val recyclerView: RecyclerView) :
-        ItemDetailsLookup<String>() {
-        override fun getItemDetails(e: MotionEvent): ItemDetails<String>? {
+        ItemDetailsLookup<Url>() {
+        override fun getItemDetails(e: MotionEvent): ItemDetails<Url>? {
             val view = recyclerView.findChildViewUnder(e.x, e.y)
             if (view != null) {
                 return (recyclerView.getChildViewHolder(view) as BlockListAdapter.ViewHolder).getItemDetails()
@@ -463,11 +464,10 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     class CategoryItemKeyProvider(private val adapter: BlockListAdapter) :
-        ItemKeyProvider<String>(SCOPE_CACHED) {
-        override fun getKey(position: Int): String = adapter.currentList[position].url
+        ItemKeyProvider<Url>(SCOPE_CACHED) {
+        override fun getKey(position: Int): Url = adapter.currentList[position]
 
-        override fun getPosition(key: String): Int =
-            adapter.currentList.indexOfFirst { it.url == key }
+        override fun getPosition(key: Url): Int = adapter.currentList.indexOfFirst { it == key }
     }
 
     override fun onBackPressed(): Boolean {

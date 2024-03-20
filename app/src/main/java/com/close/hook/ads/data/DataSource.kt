@@ -24,17 +24,15 @@ class DataSource(context: Context) {
         }
     }
 
-    fun removeList(list: List<String>) {
+    fun removeList(list: List<Url>) {
         CoroutineScope(Dispatchers.IO).launch {
-            list.forEach { url ->
-                urlDao.delete(url)
-            }
+            urlDao.deleteList(list)
         }
     }
 
     fun removeUrl(url: Url) {
         CoroutineScope(Dispatchers.IO).launch {
-            urlDao.delete(url.url)
+            urlDao.deleteUrl(url)
         }
     }
 
@@ -58,7 +56,7 @@ class DataSource(context: Context) {
 
     fun removeUrlString(url: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            urlDao.delete(url)
+            urlDao.deleteUrlString(url)
         }
     }
 
