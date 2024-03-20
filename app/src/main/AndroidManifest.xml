@@ -30,6 +30,10 @@
             android:exported="true" />
 
         <activity
+            android:name=".ui.activity.RequestInfoActivity"
+            android:exported="true" />
+
+        <activity
             android:name=".ui.activity.AboutActivity"
             android:exported="false"
             android:theme="@style/AppTheme.About" />
