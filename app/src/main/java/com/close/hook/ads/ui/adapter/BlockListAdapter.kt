@@ -23,7 +23,7 @@ class BlockListAdapter(
 ) :
     ListAdapter<Url, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
-    var tracker: SelectionTracker<String>? = null
+    var tracker: SelectionTracker<Url>? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding =
@@ -33,7 +33,7 @@ class BlockListAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         tracker?.let {
-            holder.bind(getItem(position), it.isSelected(getItem(position).url))
+            holder.bind(getItem(position), it.isSelected(getItem(position)))
         }
     }
 
@@ -45,10 +45,10 @@ class BlockListAdapter(
         private val onEditUrl: (Url) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun getItemDetails(): ItemDetailsLookup.ItemDetails<String> =
-            object : ItemDetailsLookup.ItemDetails<String>() {
+        fun getItemDetails(): ItemDetailsLookup.ItemDetails<Url> =
+            object : ItemDetailsLookup.ItemDetails<Url>() {
                 override fun getPosition(): Int = bindingAdapterPosition
-                override fun getSelectionKey(): String = getItem(bindingAdapterPosition).url
+                override fun getSelectionKey(): Url = getItem(bindingAdapterPosition)
             }
 
         init {
