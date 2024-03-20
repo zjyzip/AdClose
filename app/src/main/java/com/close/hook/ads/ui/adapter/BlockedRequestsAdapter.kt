@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,6 +20,7 @@ import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.databinding.ItemBlockedRequestBinding
 import com.close.hook.ads.databinding.RequestDialogBinding
 import com.close.hook.ads.util.AppUtils
+import com.close.hook.ads.ui.activity.RequestInfoActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -71,8 +73,16 @@ class BlockedRequestsAdapter(
         init {
             binding.apply {
                 cardView.setOnClickListener {
-                    currentRequest?.takeUnless { it.urlString.isNullOrEmpty() }?.let {
-                        showRequestDialog(it)
+                    currentRequest?.takeUnless { it.urlString.isNullOrEmpty() }?.let { request ->
+                        val intent = Intent(context, RequestInfoActivity::class.java).apply {
+                            putExtra("method", request.method)
+                            putExtra("urlString", request.urlString)
+                            putExtra("requestHeaders", request.requestHeaders)
+                            putExtra("responseCode", request.responseCode)
+                            putExtra("responseMessage", request.responseMessage)
+                            putExtra("responseHeaders", request.responseHeaders)
+                        }
+                        context.startActivity(intent)
                     }
                 }
                 copy.setOnClickListener {
