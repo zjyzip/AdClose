@@ -10,6 +10,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
+import com.google.android.material.appbar.MaterialToolbar
 import com.close.hook.ads.ui.fragment.RequestInfoFragment
 import com.close.hook.ads.ui.fragment.ResponseInfoFragment
 
@@ -18,6 +19,11 @@ class RequestInfoActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_request_info)
+
+        val toolbar: MaterialToolbar = findViewById(R.id.toolbar)
+        toolbar.setNavigationOnClickListener {
+            onBackPressed()
+        }
 
         val method = intent.getStringExtra("method") ?: ""
         val urlString = intent.getStringExtra("urlString") ?: ""

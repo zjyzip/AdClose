@@ -28,8 +28,8 @@ class RequestInfoFragment : BaseFragment<FragmentRequestBinding>() {
         val urlString = arguments?.getString(URL_STRING) ?: ""
         val requestHeaders = arguments?.getString(REQUEST_HEADERS) ?: ""
 
-        binding.methodText.text = method
-        binding.urlStringText.text = urlString
-        binding.requestHeadersText.text = requestHeaders
+        binding.methodText.setText(method)
+        binding.urlStringText.setText(urlString)
+        binding.requestHeadersText.setText(requestHeaders)
     }
 }
