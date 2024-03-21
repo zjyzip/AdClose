@@ -13,9 +13,13 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Method"/>
+                android:text="Request Method"/>
             <TextView
                 android:id="@+id/methodText"
+                android:textIsSelectable="true"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="4dp"
+                android:gravity="start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="2"/>
@@ -30,9 +34,13 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="URL String"/>
+                android:text="Request URL"/>
             <TextView
                 android:id="@+id/urlStringText"
+                android:textIsSelectable="true"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="4dp"
+                android:gravity="start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="2"/>
@@ -50,6 +58,10 @@
                 android:text="Request Headers"/>
             <TextView
                 android:id="@+id/requestHeadersText"
+                android:textIsSelectable="true"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="4dp"
+                android:gravity="start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="2"/>

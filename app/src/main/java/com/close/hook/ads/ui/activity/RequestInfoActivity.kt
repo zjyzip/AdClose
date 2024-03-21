@@ -13,6 +13,7 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.appbar.MaterialToolbar
 import com.close.hook.ads.ui.fragment.RequestInfoFragment
 import com.close.hook.ads.ui.fragment.ResponseInfoFragment
+import com.close.hook.ads.ui.fragment.RequestStackFragment
 
 class RequestInfoActivity : BaseActivity() {
 
@@ -31,11 +32,12 @@ class RequestInfoActivity : BaseActivity() {
         val responseCode = intent.getStringExtra("responseCode") ?: ""
         val responseMessage = intent.getStringExtra("responseMessage") ?: ""
         val responseHeaders = intent.getStringExtra("responseHeaders") ?: ""
+        val stack = intent.getStringExtra("stack") ?: ""
 
         val sectionsPagerAdapter = SectionsPagerAdapter(
             this, supportFragmentManager, lifecycle,
             method, urlString, requestHeaders,
-            responseCode, responseMessage, responseHeaders
+            responseCode, responseMessage, responseHeaders, stack
         )
 
         val viewPager: ViewPager2 = findViewById(R.id.view_pager)
@@ -45,7 +47,8 @@ class RequestInfoActivity : BaseActivity() {
         TabLayoutMediator(tabs, viewPager) { tab, position ->
             tab.text = when (position) {
                 0 -> "Request"
-                else -> "Response"
+                1 -> "Response"
+                else -> "Stack"
             }
         }.attach()
     }
@@ -59,14 +62,16 @@ class RequestInfoActivity : BaseActivity() {
         private val requestHeaders: String,
         private val responseCode: String,
         private val responseMessage: String,
-        private val responseHeaders: String
+        private val responseHeaders: String,
+        private val stack: String
     ) : FragmentStateAdapter(fm, lifecycle) {
-        override fun getItemCount(): Int = 2
+        override fun getItemCount(): Int = 3
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
                 0 -> RequestInfoFragment.newInstance(method, urlString, requestHeaders)
-                else -> ResponseInfoFragment.newInstance(responseCode, responseMessage, responseHeaders)
+                1 -> ResponseInfoFragment.newInstance(responseCode, responseMessage, responseHeaders)
+                else -> RequestStackFragment.newInstance(stack)
             }
         }
     }

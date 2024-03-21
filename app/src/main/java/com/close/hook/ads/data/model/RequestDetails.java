@@ -7,14 +7,16 @@ public class RequestDetails {
     private final int responseCode;
     private final String responseMessage;
     private final Object responseHeaders;
+    private final String stack;
 
-    public RequestDetails(String method, String urlString, Object requestHeaders, int responseCode, String responseMessage, Object responseHeaders) {
+    public RequestDetails(String method, String urlString, Object requestHeaders, int responseCode, String responseMessage, Object responseHeaders, String stack) {
         this.method = method;
         this.urlString = urlString;
         this.requestHeaders = requestHeaders;
         this.responseCode = responseCode;
         this.responseMessage = responseMessage;
         this.responseHeaders = responseHeaders;
+        this.stack = stack;
     }
 
     public String getMethod() {
@@ -39,5 +41,9 @@ public class RequestDetails {
 
     public Object getResponseHeaders() {
         return responseHeaders;
+    }
+
+    public String getStack() {
+        return stack;
     }
 }

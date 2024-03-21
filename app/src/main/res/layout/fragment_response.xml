@@ -16,6 +16,10 @@
                 android:text="Response Code"/>
             <TextView
                 android:id="@+id/responseCodeText"
+                android:textIsSelectable="true"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="4dp"
+                android:gravity="start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="2"/>
@@ -33,6 +37,10 @@
                 android:text="Response Message"/>
             <TextView
                 android:id="@+id/responseMessageText"
+                android:textIsSelectable="true"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="4dp"
+                android:gravity="start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="2"/>
@@ -50,6 +58,10 @@
                 android:text="Response Headers"/>
             <TextView
                 android:id="@+id/responseHeadersText"
+                android:textIsSelectable="true"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="4dp"
+                android:gravity="start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="2"/>
