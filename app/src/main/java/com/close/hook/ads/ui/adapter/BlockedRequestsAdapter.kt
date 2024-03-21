@@ -136,7 +136,7 @@ class BlockedRequestsAdapter(
         fun bind(request: BlockedRequest) = with(binding) {
             currentRequest = request
 
-            type = if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
+            type =  request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
             url = request.request
             appName.text =
                 "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
@@ -173,15 +173,10 @@ class BlockedRequestsAdapter(
         private fun toggleBlockStatus(request: BlockedRequest) =
             CoroutineScope(Dispatchers.IO).launch {
                 if (request.isBlocked == true) {
-                    dataSource.removeUrlString(request.blockType.toString(), request.url.toString())
+                    dataSource.removeUrlString(type, url)
                     request.isBlocked = false
                 } else {
-                    dataSource.addUrl(
-                        Url(
-                            if (request.appName.trim().endsWith("DNS")) "Domain" else "URL",
-                            request.request
-                        )
-                    )
+                    dataSource.addUrl(Url(type, url))
                     request.isBlocked = true
                 }
                 withContext(Dispatchers.Main) {
