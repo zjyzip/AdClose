@@ -18,10 +18,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.databinding.ItemBlockedRequestBinding
-import com.close.hook.ads.databinding.RequestDialogBinding
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.ui.activity.RequestInfoActivity
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -96,6 +94,7 @@ class BlockedRequestsAdapter(
                             putExtra("responseCode", request.responseCode)
                             putExtra("responseMessage", request.responseMessage)
                             putExtra("responseHeaders", request.responseHeaders)
+                            putExtra("stack", request.stack)
                         }
                         context.startActivity(intent)
                     }
@@ -140,28 +139,6 @@ class BlockedRequestsAdapter(
             }
 
             checkBlockStatus(request)
-        }
-
-        @SuppressLint("SetTextI18n")
-        private fun showRequestDialog(request: BlockedRequest) {
-            val dialogBinding = RequestDialogBinding.inflate(LayoutInflater.from(itemView.context))
-            dialogBinding.requestDialogContent.text = """
-                |Method: ${request.method}
-                |
-                |URLString: ${request.urlString}
-                |
-                |RequestHeaders: ${request.requestHeaders}
-                |
-                |ResponseCode: ${request.responseCode}
-                |ResponseMessage: ${request.responseMessage}
-                |ResponseHeaders: ${request.responseHeaders}
-            """.trimMargin()
-
-            MaterialAlertDialogBuilder(itemView.context)
-                .setTitle("请求参数")
-                .setView(dialogBinding.root)
-                .setPositiveButton("关闭", null)
-                .show()
         }
 
         private fun copyToClipboard(text: String) {
