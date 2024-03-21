@@ -197,41 +197,47 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    //            XposedBridge.log("hook " + methodData); // okhttp3.Call.execute -overload method
+  //                XposedBridge.log("hook " + methodData); // okhttp3.Call.execute -overload method
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                            Object call = param.thisObject;
-                            Object request = XposedHelpers.callMethod(call, "request");
+                            Object response = param.getResult();
+
+                            if (response == null) {
+                                return;
+                            }
+
+                            Object request = XposedHelpers.callMethod(response, "request");
                             Object okhttpUrl = XposedHelpers.callMethod(request, "url");
                             URL url = new URL(okhttpUrl.toString());
 
-                            RequestDetails details = processOkHttpRequest(call, request, url, param.getResult());
-                            if (details != null && shouldBlockOkHttpsRequest(url, details)) {
-                                Object response = createEmptyResponseForOkHttp(call);
-                                param.setResult(response);
-                                return;
+                            if (response != null) {
+                                RequestDetails details = processOkHttpRequest(request, response, url);
+                                if (details != null && shouldBlockOkHttpsRequest(url, details)) {
+                                    Object emptyResponse = createEmptyResponseForOkHttp(response);
+                                    param.setResult(emptyResponse);
+                                    return;
+                                }
                             }
                         }
                     });
                 } catch (Exception e) {
                     XposedBridge.log("Error hooking method: " + methodData);
-                    e.printStackTrace();
                 }
             }
         }
     }
 
-    private static Object createEmptyResponseForOkHttp(Object call) throws Exception {
-        if (call instanceof okhttp3.Call) {
-            okhttp3.Call okHttpCall = (okhttp3.Call) call;
-            Request request = okHttpCall.request();
+    private static Object createEmptyResponseForOkHttp(Object response) throws Exception {
+        if (response instanceof okhttp3.Response) {
+            okhttp3.Response originalResponse = (okhttp3.Response) response;
+            okhttp3.Request request = originalResponse.request();
 
-            return new Response.Builder()
+            return new okhttp3.Response.Builder()
                     .request(request)
-                    .protocol(Protocol.HTTP_1_1)
-                    .code(204)
+                    .protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(204) // 204 No Content
                     .message("No Content")
                     .build();
         }
@@ -255,7 +261,7 @@ public class RequestHook {
         }
     }
 
-    private static RequestDetails processOkHttpRequest(Object call, Object request, URL url, Object response) {
+    private static RequestDetails processOkHttpRequest(Object request, Object response, URL url) {
         try {
             String method = (String) XposedHelpers.callMethod(request, "method");
             String urlString = url.toString();
@@ -265,30 +271,10 @@ public class RequestHook {
             String message = (String) XposedHelpers.callMethod(response, "message");
             Object responseHeaders = XposedHelpers.callMethod(response, "headers");
 
-            return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders);
+            return new RequestDetails(method, url.toString(), requestHeaders, code, message, responseHeaders);
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Exception in processing OkHttp request: " + e.getMessage());
             return null;
-        }
-    }
-
-    private static void logRequestDetails(RequestDetails details) {
-        if (details != null) {
-            method = details.getMethod();
-            urlString = details.getUrlString();
-            if (details.getRequestHeaders() != null) {
-                requestHeaders = details.getRequestHeaders().toString();
-            } else {
-                requestHeaders = "";
-            }
-            responseCode = details.getResponseCode();
-            responseMessage = details.getResponseMessage();
-            if (details.getResponseHeaders() != null) {
-                responseHeaders = details.getResponseHeaders().toString();
-            } else {
-                responseHeaders = "";
-            }
-
         }
     }
 
@@ -331,13 +317,38 @@ public class RequestHook {
             String packageName = currentContext.getPackageName();
             BlockedRequest blockedRequest;
             if (details != null) {
-                blockedRequest = new BlockedRequest(appName, packageName, request,
-                        System.currentTimeMillis(), type, isBlocked, blockType, details.getMethod(), details.getUrlString(), details.getRequestHeaders() == null ? null : details.getRequestHeaders().toString(),
-                        details.getResponseCode(), details.getResponseMessage(), details.getResponseHeaders() == null ? null : details.getMethod().toString());
+
+                blockedRequest = new BlockedRequest(
+                    appName, 
+                    packageName, 
+                    request,
+                    System.currentTimeMillis(), 
+                    type, 
+                    isBlocked, 
+                    blockType, 
+                    details.getMethod(), 
+                    details.getUrlString(), 
+                    details.getRequestHeaders().toString(),
+                    details.getResponseCode(), 
+                    details.getResponseMessage(), 
+                    details.getResponseHeaders().toString() 
+                );
             } else {
-                blockedRequest = new BlockedRequest(appName, packageName, request,
-                        System.currentTimeMillis(), type, isBlocked, blockType, null, null, null,
-                        -1, null, null);
+                blockedRequest = new BlockedRequest(
+                    appName, 
+                    packageName, 
+                    request,
+                    System.currentTimeMillis(), 
+                    type, 
+                    isBlocked, 
+                    blockType, 
+                    null, // method
+                    null, // urlString
+                    null, // requestHeaders
+                    -1,   // responseCode
+                    null, // responseMessage
+                    null  // responseHeaders
+                );
             }
 
             intent.putExtra("request", blockedRequest);
