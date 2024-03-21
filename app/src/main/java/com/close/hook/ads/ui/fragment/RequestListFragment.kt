@@ -109,7 +109,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
         adapter = BlockedRequestsAdapter(
             requireContext(),
-            {
+            viewModel.dataSource,
+          /*  {
                 viewModel.addUrl(
                     Url(
                         if (it.second.trim().endsWith("DNS")) "Domain" else "URL",
@@ -117,7 +118,9 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     )
                 )
             },
-            { viewModel.removeUrlString(it) })
+            {
+                viewModel.removeUrlString(it.first, it.second)
+            }*/)
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@RequestListFragment.adapter

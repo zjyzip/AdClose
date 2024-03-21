@@ -15,8 +15,12 @@ import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.aitsuki.swipe.SwipeLayout
+import com.close.hook.ads.R
+import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockedRequestBinding
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.ui.activity.RequestInfoActivity
@@ -24,18 +28,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.internal.notify
 import java.text.SimpleDateFormat
 import java.util.Date
 
 class BlockedRequestsAdapter(
     private val context: Context,
-    private val addUrl: (Pair<String, String>) -> Unit,
-    private val removeUrl: (String) -> Unit
+    private val dataSource: DataSource,
+    //private val addUrl: (Pair<String, String>) -> Unit,
+    // private val removeUrl: (Pair<String, String>) -> Unit
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
-    private val urlDao by lazy {
-        UrlDatabase.getDatabase(context).urlDao
-    }
     var tracker: SelectionTracker<BlockedRequest>? = null
 
     companion object {
@@ -83,7 +86,24 @@ class BlockedRequestsAdapter(
                 override fun getSelectionKey(): BlockedRequest? = getItem(absoluteAdapterPosition)
             }
 
+        private var type: String = "URL"
+        private var url: String = ""
+
         init {
+            binding.parent.addListener(object : SwipeLayout.Listener {
+                override fun onMenuOpened(menuView: View) {
+                    super.onMenuOpened(menuView)
+                    if (menuView.id == R.id.block) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val isExist = dataSource.isExist(type, url)
+                            currentList[bindingAdapterPosition].isBlocked = isExist
+                            withContext(Dispatchers.Main) {
+                                checkBlockStatus(isExist)
+                            }
+                        }
+                    }
+                }
+            })
             binding.apply {
                 cardView.setOnClickListener {
                     currentRequest?.takeUnless { it.urlString.isNullOrEmpty() }?.let { request ->
@@ -116,6 +136,8 @@ class BlockedRequestsAdapter(
         fun bind(request: BlockedRequest) = with(binding) {
             currentRequest = request
 
+            type = if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
+            url = request.request
             appName.text =
                 "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
@@ -126,7 +148,7 @@ class BlockedRequestsAdapter(
             blockType.text = request.blockType
 
             val textColor = ThemeUtils.getThemeAttrColor(
-                itemView.context, if (request.requestType == "block" || request.isBlocked == true) {
+                itemView.context, if (request.isBlocked == true) {
                     com.google.android.material.R.attr.colorError
                 } else {
                     com.google.android.material.R.attr.colorControlNormal
@@ -138,7 +160,7 @@ class BlockedRequestsAdapter(
                 cardView.isChecked = it.isSelected(request)
             }
 
-            checkBlockStatus(request)
+            checkBlockStatus(request.isBlocked)
         }
 
         private fun copyToClipboard(text: String) {
@@ -150,21 +172,34 @@ class BlockedRequestsAdapter(
 
         private fun toggleBlockStatus(request: BlockedRequest) =
             CoroutineScope(Dispatchers.IO).launch {
-                val isExist = urlDao.isExist(request.request)
-                if (isExist) {
-                    removeUrl(request.request)
+                if (request.isBlocked == true) {
+                    dataSource.removeUrlString(request.blockType.toString(), request.url.toString())
                     request.isBlocked = false
                 } else {
-                    addUrl(Pair(request.request, request.appName))
+                    dataSource.addUrl(
+                        Url(
+                            if (request.appName.trim().endsWith("DNS")) "Domain" else "URL",
+                            request.request
+                        )
+                    )
                     request.isBlocked = true
                 }
                 withContext(Dispatchers.Main) {
-                    checkBlockStatus(request)
+                    checkBlockStatus(request.isBlocked)
                 }
             }
 
-        private fun checkBlockStatus(request: BlockedRequest) {
-            binding.block.text = if (request.isBlocked ?: false) "移除黑名单" else "加入黑名单"
+        @SuppressLint("RestrictedApi")
+        private fun checkBlockStatus(isBlocked: Boolean?) {
+            binding.block.text = if (isBlocked == true) "移除黑名单" else "加入黑名单"
+            val textColor = ThemeUtils.getThemeAttrColor(
+                itemView.context, if (isBlocked == true) {
+                    com.google.android.material.R.attr.colorError
+                } else {
+                    com.google.android.material.R.attr.colorControlNormal
+                }
+            )
+            binding.request.setTextColor(textColor)
         }
     }
 

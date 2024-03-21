@@ -11,7 +11,7 @@ import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
+class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
 
     var requestList = ArrayList<BlockedRequest>()
 
@@ -41,8 +41,8 @@ class BlockListViewModel(private val dataSource: DataSource) : ViewModel() {
         dataSource.updateUrl(url)
     }
 
-    fun removeUrlString(url: String) {
-        dataSource.removeUrlString(url)
+    fun removeUrlString(type: String, url:String) {
+        dataSource.removeUrlString(type, url)
     }
 
     suspend fun search(searchText: String): List<Url> {

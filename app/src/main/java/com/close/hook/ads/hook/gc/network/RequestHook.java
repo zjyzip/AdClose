@@ -36,6 +36,7 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
+import kotlin.Triple;
 import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -102,11 +103,12 @@ public class RequestHook {
     }
 
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
-        Pair<Boolean, String> pair = queryContentProvider(queryType, queryValue);
-        boolean shouldBlock = pair.first;
-        String blockType = pair.second;
-    
-        sendBroadcast(requestType, shouldBlock, blockType, queryValue, details);
+        Triple<Boolean, String, String> triple = queryContentProvider(queryType, queryValue);
+        boolean shouldBlock = triple.getFirst();
+        String blockType = triple.getSecond();
+        String url = triple.getThird();
+
+        sendBroadcast(requestType, shouldBlock, blockType, url, queryValue, details);
         return shouldBlock;
     }
 
@@ -120,7 +122,7 @@ public class RequestHook {
         }
     }
 
-    private static Pair<Boolean, String> queryContentProvider(String queryType, String queryValue) {
+    private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
             ContentResolver contentResolver = context.getContentResolver();
@@ -138,16 +140,16 @@ public class RequestHook {
                         String urlType = cursor.getString(urlTypeIndex);
                         String urlValue = cursor.getString(urlValueIndex);
 
-                        if ("host".equals(queryType) && urlValue.equals(queryValue)) {
-                            return new Pair<>(true, "Domain");
+                        if ("host".equals(queryType) && urlValue.equals(queryValue) ) {
+                            return new Triple<>(true, urlType, urlValue);
                         } else if (("url".equals(queryType) || "keyword".equals(queryType)) && queryValue.contains(urlValue)) {
-                            return new Pair<>(true, formatUrlType(urlType));
+                            return new Triple<>(true, formatUrlType(urlType), urlValue);
                         }
                     } while (cursor.moveToNext());
                 }
             }
         }
-        return new Pair<>(false, null);
+        return new Triple<>(false, null, null);
     }
 
     private static String formatUrlType(String urlType) {
@@ -283,17 +285,21 @@ public class RequestHook {
         }
     }
 
-    private static void sendBroadcast(String requestType, boolean shouldBlock, String blockType, String url, RequestDetails details) {
-        sendBlockedRequestBroadcast("all", requestType, shouldBlock, blockType, url, details);
+    private static void sendBroadcast(
+            String requestType, boolean shouldBlock, String blockType, String ruleUrl,
+            String url, RequestDetails details) {
+        sendBlockedRequestBroadcast("all", requestType, shouldBlock, ruleUrl, blockType, url, details);
         if (shouldBlock) {
-            sendBlockedRequestBroadcast("block", requestType, true, blockType, url, details);
+            sendBlockedRequestBroadcast("block", requestType, true, ruleUrl, blockType, url, details);
         } else {
-            sendBlockedRequestBroadcast("pass", requestType, false, blockType, url, details);
+            sendBlockedRequestBroadcast("pass", requestType, false, ruleUrl, blockType, url, details);
         }
     }
 
-    private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType,
-                                                @Nullable Boolean isBlocked, @Nullable String blockType, String request, RequestDetails details) {
+    private static void sendBlockedRequestBroadcast(
+            String type, @Nullable String requestType, @Nullable Boolean isBlocked,
+            @Nullable String url, @Nullable String blockType, String request,
+            RequestDetails details) {
         Intent intent;
         switch (type) {
             case "all":
@@ -331,19 +337,20 @@ public class RequestHook {
             String stackTrace = details != null ? details.getStack() : null;
 
             blockedRequest = new BlockedRequest(
-                appName, 
-                packageName, 
+                appName,
+                packageName,
                 request,
-                System.currentTimeMillis(), 
-                type, 
-                isBlocked, 
-                blockType, 
-                method, 
-                urlString, 
+                System.currentTimeMillis(),
+                type,
+                isBlocked,
+                url,
+                blockType,
+                method,
+                urlString,
                 requestHeaders,
-                responseCode, 
-                responseMessage, 
-                responseHeaders, 
+                responseCode,
+                responseMessage,
+                responseHeaders,
                 stackTrace
             );
 

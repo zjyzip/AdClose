@@ -41,14 +41,17 @@ interface UrlDao {
     @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")
     fun isExist(url: String): Boolean
 
+    @Query("SELECT 1 FROM url_info WHERE type = :type AND url = :url LIMIT 1")
+    fun isExist(type: String, url:String): Boolean
+
     @Delete
     fun deleteList(list:List<Url>)
 
     @Delete
     fun deleteUrl(url: Url)
 
-    @Query("DELETE FROM url_info WHERE url = :url")
-    fun deleteUrlString(url: String)
+    @Query("DELETE FROM url_info WHERE type = :type AND url = :url")
+    fun deleteUrlString(type: String, url:String)
 
     @Query("DELETE FROM url_info")
     fun deleteAll()
