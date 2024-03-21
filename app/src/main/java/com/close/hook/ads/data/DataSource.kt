@@ -54,14 +54,18 @@ class DataSource(context: Context) {
         }
     }
 
-    fun removeUrlString(url: String) {
+    fun removeUrlString(type: String, url:String) {
         CoroutineScope(Dispatchers.IO).launch {
-            urlDao.deleteUrlString(url)
+            urlDao.deleteUrlString(type, url)
         }
     }
 
     fun search(searchText: String): List<Url> {
         return urlDao.searchUrls(searchText)
+    }
+
+    fun isExist(type: String, url: String): Boolean {
+        return urlDao.isExist(type, url)
     }
 
     companion object {
