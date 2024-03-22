@@ -20,7 +20,8 @@ class DataSource(context: Context) {
 
     fun addUrl(url: Url) {
         CoroutineScope(Dispatchers.IO).launch {
-            urlDao.insert(url)
+            if (!urlDao.isExist(url.type, url.url))
+                urlDao.insert(url)
         }
     }
 
@@ -54,7 +55,7 @@ class DataSource(context: Context) {
         }
     }
 
-    fun removeUrlString(type: String, url:String) {
+    fun removeUrlString(type: String, url: String) {
         CoroutineScope(Dispatchers.IO).launch {
             urlDao.deleteUrlString(type, url)
         }
