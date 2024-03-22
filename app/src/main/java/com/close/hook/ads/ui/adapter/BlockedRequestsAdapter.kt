@@ -136,8 +136,9 @@ class BlockedRequestsAdapter(
         fun bind(request: BlockedRequest) = with(binding) {
             currentRequest = request
 
-            type =  request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
-            url = request.request
+            type =
+                request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
+            url = request.url ?: request.request
             appName.text =
                 "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
