@@ -63,6 +63,7 @@ public class RequestHook {
             setupDNSRequestHook();
             setupHttpRequestHook();
             setupOkHttpRequestHook();
+            setupOkHttp2RequestHook();
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
@@ -160,7 +161,7 @@ public class RequestHook {
         try {
             Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
 
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "execute", boolean.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getResponse", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
@@ -170,7 +171,6 @@ public class RequestHook {
                         return;
                     }
 
-                    XposedHelpers.callMethod(httpEngine, "readResponse");
                     Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
 
                     Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
@@ -197,14 +197,22 @@ public class RequestHook {
     }
 
     public static void setupOkHttpRequestHook() {
-        String cacheKey = DexKitUtil.INSTANCE.getContext().getPackageName() + ":setupOkHttpRequestHook";
-        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, "Already Executed", "execute");
+        hookMethod("setupOkHttpRequestHook", "Already Executed", "execute");  // okhttp3.Call.execute -overload method
+    }
+
+    public static void setupOkHttp2RequestHook() {
+        hookMethod("setupOkHttp2RequestHook", "Canceled", "intercept");  // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
+    }
+
+    private static void hookMethod(String cacheKeySuffix, String methodDescription, String methodName) {
+        String cacheKey = DexKitUtil.INSTANCE.getContext().getPackageName() + ":" + cacheKeySuffix;
+        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, methodDescription, methodName);
 
         if (foundMethods != null) {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-  //                XposedBridge.log("hook " + methodData); // okhttp3.Call.execute -overload method
+                    XposedBridge.log("hook " + methodData);
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                         @Override
