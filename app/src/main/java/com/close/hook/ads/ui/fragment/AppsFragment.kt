@@ -30,8 +30,6 @@ import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.OnSetHintListener
 import com.close.hook.ads.util.PrefManager
-import com.close.hook.ads.util.doOnMainThreadIdle
-import com.close.hook.ads.util.setBottomPaddingSpace
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
@@ -52,6 +50,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     private lateinit var selectAll: MaterialCheckBox
     private var totalCheck = 0
     private val checkHashMap = HashMap<String, Int>()
+    private lateinit var appInfoMediatorLiveData: MediatorLiveData<List<AppInfo>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,9 +88,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
                 newList.addAll(viewModel.appInfoList)
             }
             appsAdapter.submitList(newList)
-            doOnMainThreadIdle {
-                binding.recyclerViewApps.setBottomPaddingSpace()
-            }
             binding.progressBar.visibility = View.GONE
         }
     }
@@ -108,11 +104,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         })
 
         FastScrollerBuilder(binding.recyclerViewApps).useMd2Style().build()
-        val space = resources.getDimensionPixelSize(ITEM_DECORATION_SPACE)
         binding.recyclerViewApps.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = appsAdapter
-            addItemDecoration(LinearItemDecoration(space))
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -137,6 +131,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
             )
         )
         binding.swipeRefreshLayout.setOnRefreshListener {
+            appInfoMediatorLiveData.value = emptyList()
             viewModel.refreshApps(type ?: "user")
         }
     }
@@ -161,7 +156,11 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         setupDialogActions(bottomSheetDialog, binding, appInfo)
     }
 
-    private fun setupDialogActions(bottomSheetDialog: BottomSheetDialog, binding: BottomDialogAppInfoBinding, appInfo: AppInfo) {
+    private fun setupDialogActions(
+        bottomSheetDialog: BottomSheetDialog,
+        binding: BottomDialogAppInfoBinding,
+        appInfo: AppInfo
+    ) {
         binding.close.setOnClickListener {
             bottomSheetDialog.dismiss()
         }
@@ -209,7 +208,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         }
     }
 
-    private fun setupBottomDialogAppInfoBinding(binding: BottomDialogAppInfoBinding, appInfo: AppInfo) {
+    private fun setupBottomDialogAppInfoBinding(
+        binding: BottomDialogAppInfoBinding,
+        appInfo: AppInfo
+    ) {
         with(binding) {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
@@ -250,8 +252,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     }
 
     private fun setupLiveDataObservation() {
-        val appInfoMediatorLiveData = MediatorLiveData<List<AppInfo>>()
-    
+        appInfoMediatorLiveData = MediatorLiveData<List<AppInfo>>()
+
         if (type == "configured" && !MainActivity.isModuleActivated()) {
             AppUtils.showToast(requireContext(), "模块尚未被激活")
             binding.progressBar.visibility = View.GONE
@@ -259,17 +261,33 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         }
 
         when (type) {
-            "configured", "user" -> appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { apps ->
-                appInfoMediatorLiveData.value = processAppInfoList(apps)
-            }
+            "user" -> addUserApp()
 
-            "configured", "system" -> appInfoMediatorLiveData.addSource(viewModel.systemAppsLiveData) { apps ->
-                appInfoMediatorLiveData.value = processAppInfoList(apps)
+            "system" -> addSystemApp()
+
+            "configured" -> {
+                addUserApp()
+                addSystemApp()
             }
         }
 
         appInfoMediatorLiveData.observe(viewLifecycleOwner) { combinedAppInfoList ->
             handleCombinedAppInfoList(combinedAppInfoList)
+        }
+
+    }
+
+    private fun addSystemApp() {
+        appInfoMediatorLiveData.addSource(viewModel.systemAppsLiveData) { apps ->
+            appInfoMediatorLiveData.value =
+                (appInfoMediatorLiveData.value ?: emptyList()) + processAppInfoList(apps)
+        }
+    }
+
+    private fun addUserApp() {
+        appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { apps ->
+            appInfoMediatorLiveData.value =
+                (appInfoMediatorLiveData.value ?: emptyList()) + processAppInfoList(apps)
         }
     }
 
@@ -448,9 +466,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         viewModel.filterList.clear()
         viewModel.filterList.addAll(sortedList)
         appsAdapter.submitList(sortedList)
-        doOnMainThreadIdle {
-            binding.recyclerViewApps.setBottomPaddingSpace()
-        }
         updateHint()
     }
 

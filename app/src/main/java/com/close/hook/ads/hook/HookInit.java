@@ -83,7 +83,7 @@ public class HookInit implements IXposedHookLoadPackage {
 					CharSequence appName = getAppName(globalContext, packageName);
 
 					if (!TAG.equals(packageName)) {
-						XposedBridge.log("found classload is => " + classLoader.toString());
+		//				XposedBridge.log("found classload is => " + classLoader.toString());
 						XposedBridge.log("Application Name: " + appName);
 					}
 
