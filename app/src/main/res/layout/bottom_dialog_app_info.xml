@@ -22,11 +22,12 @@
 
         <TextView
             android:id="@+id/appName"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
             android:textSize="16sp"
             android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@id/close"
             app:layout_constraintBottom_toBottomOf="@id/icon"
             app:layout_constraintStart_toEndOf="@id/icon"
             app:layout_constraintTop_toTopOf="@id/icon"

@@ -1,9 +1,12 @@
 package com.close.hook.ads.hook.ha
 
+import android.os.BaseBundle
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XposedBridge
+import de.robv.android.xposed.XposedHelpers
 import com.close.hook.ads.hook.util.DexKitUtil
 import org.luckypray.dexkit.result.MethodData
+import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
 
 object SDKAdsKit {
@@ -28,8 +31,8 @@ object SDKAdsKit {
             "com.vungle.warren"
         )
 
-        val cacheKey = "$packageName:blockAds"
-        val foundMethods = DexKitUtil.getCachedOrFindMethods(cacheKey) {
+        val cacheKeyForAds = "$packageName:blockAds"
+        val foundMethodsForAds = DexKitUtil.getCachedOrFindMethods(cacheKeyForAds) {
             DexKitUtil.getBridge().findMethod {
                 searchPackages(adPackages)
                 matcher {
@@ -38,9 +41,99 @@ object SDKAdsKit {
                 }
             }?.filter { isValidAdMethod(it) }?.toList()
         }
-        
-        foundMethods?.let { hookMethods(it, DexKitUtil.context.classLoader) }
+
+        foundMethodsForAds?.let { hookMethods(it, DexKitUtil.context.classLoader) }
+
+        blockFirebaseWithString()
+        blockFirebaseWithString2()
+
+        blockAdsWithBaseBundle()
+
+        blockAdsWithString()
+
         DexKitUtil.releaseBridge()
+    }
+
+    fun blockFirebaseWithString() {
+        val packageName = DexKitUtil.context.packageName
+        val initializeMessage = "Device unlocked: initializing all Firebase APIs for app "
+        val cacheKeyForString = "$packageName:blockFirebaseWithString"
+
+        val foundMethodsForString = DexKitUtil.getCachedOrFindMethods(cacheKeyForString) {
+            DexKitUtil.getBridge().findMethod {
+                matcher {
+                    usingStrings = listOf(initializeMessage)
+                }
+            }?.toList()
+        }
+
+        foundMethodsForString?.let { hookMethods(it, DexKitUtil.context.classLoader) }
+    }
+
+    fun blockFirebaseWithString2() {
+        val packageName = DexKitUtil.context.packageName
+        val initializeMessage = "[DEFAULT]"
+        val cacheKeyForString = "$packageName:blockFirebaseWithString2"
+
+        val foundMethodsForString = DexKitUtil.getCachedOrFindMethods(cacheKeyForString) {
+            DexKitUtil.getBridge().findMethod {
+                matcher {
+                    usingStrings = listOf(initializeMessage)
+                    paramTypes("android.content.Context")
+                }
+            }?.toList()
+        }
+
+        foundMethodsForString?.forEach { methodData ->
+            try {
+                val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
+                XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        param.result = null
+                    }
+                })
+            } catch (e: Throwable) {
+            }
+        }
+    }
+
+    fun blockAdsWithBaseBundle() {
+        XposedHelpers.findAndHookMethod(BaseBundle::class.java, "get", String::class.java, object : XC_MethodHook() {
+            override fun afterHookedMethod(param: MethodHookParam) {
+                val key = param.args[0] as String
+
+                if ("com.google.android.gms.ads.APPLICATION_ID" == key) {
+                    val newValue = "ca-app-pub-0000000000000000~0000000000"
+                    param.result = newValue
+                }
+            }
+        })
+    }
+
+    fun blockAdsWithString() {
+        val packageName = DexKitUtil.context.packageName
+        val warningMessage = "Flags.initialize() was not called!"
+        val cacheKeyForString = "$packageName:blockAdsWithString"
+
+        val foundMethodsForString = DexKitUtil.getCachedOrFindMethods(cacheKeyForString) {
+            DexKitUtil.getBridge().findMethod {
+                matcher {
+                    usingStrings = listOf(warningMessage)
+                }
+            }?.toList()
+        }
+
+        foundMethodsForString?.forEach { methodData ->
+            try {
+                val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
+                XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        param.result = true
+                    }
+                })
+            } catch (e: Throwable) {
+            }
+        }
     }
 
     private fun isValidAdMethod(methodData: MethodData): Boolean {
@@ -53,7 +146,7 @@ object SDKAdsKit {
             try {
                 val method = methodData.getMethodInstance(classLoader)
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-    //          XposedBridge.log("hook $methodData")
+  //            XposedBridge.log("hook $methodData")
             } catch (e: NoClassDefFoundError) {
             }
         }

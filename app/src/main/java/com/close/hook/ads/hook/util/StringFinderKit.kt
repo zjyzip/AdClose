@@ -9,7 +9,7 @@ object StringFinderKit {
 
         val foundMethods = DexKitUtil.getCachedOrFindMethods(key) {
             DexKitUtil.getBridge().findMethod {
-                searchPackages(listOf("okhttp3"))
+            excludePackages(listOf("com"))
                 matcher {
                     usingStrings = listOf(searchString)
                     name = methodName

@@ -17,33 +17,34 @@
 
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/icon"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginTop="16dp"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="24dp"
         android:scaleType="centerCrop"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/button_close"
-        app:shapeAppearance="@style/circleImageStyle"
+        app:shapeAppearance="@style/Widget.MaterialComponents.ShapeableImageView"
         tools:src="#000000" />
 
     <TextView
         android:id="@+id/sheet_app_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
-        android:layout_marginTop="16dp"
-        android:textSize="16sp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:textSize="18sp"
         android:textStyle="bold"
         app:layout_constraintStart_toEndOf="@id/icon"
-        app:layout_constraintTop_toBottomOf="@id/button_close"
+        app:layout_constraintTop_toTopOf="@id/icon"
         tools:text="appName" />
 
     <TextView
         android:id="@+id/version"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
-        android:textSize="14sp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:textSize="16sp"
         app:layout_constraintStart_toEndOf="@id/icon"
         app:layout_constraintTop_toBottomOf="@id/sheet_app_name"
         tools:text="appVersion" />
@@ -138,10 +139,10 @@
         app:layout_constraintTop_toBottomOf="@id/switch_five" />
 
     <TextView
-        android:id="@+id/desc_seven"
+        android:id="@+id/desc_six"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/description_seven"
+        android:text="@string/description_six"
         android:textSize="10sp"
         app:layout_constraintBottom_toBottomOf="@id/switch_six"
         app:layout_constraintStart_toStartOf="parent" />
@@ -151,12 +152,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="end"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="24dp"
         android:text="@string/update_checkbox_status"
         android:theme="@style/Widget.MaterialComponents.Button"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/desc_seven" />
+        app:layout_constraintTop_toBottomOf="@id/desc_six" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

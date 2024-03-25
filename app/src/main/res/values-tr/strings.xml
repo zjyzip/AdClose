@@ -30,8 +30,8 @@
     <string name="restore">içe Aktar</string>
 
     <string name="update_checkbox_status">Kaydet</string>
-    <string name="description_two">•İstek sayfasında web reklam isteği engellemeyi yönetmek için etkinleştirildi</string>
-    <string name="description_seven">•Sadece Genel Root, Magisk ve Xposed tespiti</string>
+    <string name="description_two">İstek sayfasında web reklam isteği engellemeyi yönetmek için etkinleştirildi</string>
+    <string name="description_six">Sadece Genel Root, Magisk ve Xposed tespiti</string>
 
     <string name="handle_platform_ad">Platform reklamı başlatmayı durdur</string>
     <string name="check_request">Uygulama isteği kontrolü</string>

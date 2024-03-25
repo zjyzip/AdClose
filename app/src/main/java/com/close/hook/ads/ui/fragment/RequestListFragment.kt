@@ -47,9 +47,7 @@ import com.close.hook.ads.util.OnBackPressFragmentContainer
 import com.close.hook.ads.util.OnBackPressFragmentListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
-import com.close.hook.ads.util.doOnMainThreadIdle
 import com.close.hook.ads.util.dp
-import com.close.hook.ads.util.setBottomPaddingSpace
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
@@ -83,9 +81,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     viewModel.requestList.add(0, item)
                     adapter.submitList(viewModel.requestList.toList())
                 }
-                doOnMainThreadIdle {
-                    binding.recyclerView.setBottomPaddingSpace()
-                }
             }
         }
     }
@@ -112,7 +107,20 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         super.onViewCreated(view, savedInstanceState)
         FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
 
-        adapter = BlockedRequestsAdapter(requireContext(), viewModel.dataSource)
+        adapter = BlockedRequestsAdapter(
+            requireContext(),
+            viewModel.dataSource,
+          /*  {
+                viewModel.addUrl(
+                    Url(
+                        if (it.second.trim().endsWith("DNS")) "Domain" else "URL",
+                        it.first
+                    )
+                )
+            },
+            {
+                viewModel.removeUrlString(it.first, it.second)
+            }*/)
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@RequestListFragment.adapter

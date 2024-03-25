@@ -24,6 +24,7 @@ import org.luckypray.dexkit.result.MethodData;
 
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -172,28 +173,57 @@ public class RequestHook {
                     }
 
                     Object response = XposedHelpers.callMethod(httpEngine, "getResponse");
-
                     Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
                     Object httpUrl = XposedHelpers.callMethod(request, "urlString");
                     URL url = new URL(httpUrl.toString());
 
                     String stackTrace = HookUtil.getFormattedStackTrace();
 
-                    RequestDetails details = processHttpRequest(request, response, url, stackTrace);
+                    RequestDetails details = processRequest(request, response, url, stackTrace);
 
                     if (details != null && shouldBlockHttpsRequest(url, details)) {
-                        XposedHelpers.findAndHookMethod(param.thisObject.getClass(), "getInputStream", new XC_MethodReplacement() {
-                            @Override
-                            protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                                return new ByteArrayInputStream(new byte[0]);
-                            }
-                        });
+                        Object emptyResponse = createEmptyResponseForHttp(response);
+
+                        Field userResponseField = httpEngine.getClass().getDeclaredField("userResponse");
+                        userResponseField.setAccessible(true);
+                        userResponseField.set(httpEngine, emptyResponse);
                     }
                 }
             });
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
+            XposedBridge.log("Error setting up HTTP connection hook: " + e.getMessage());
         }
+    }
+
+    private static Object createEmptyResponseForHttp(Object response) throws Exception {
+        if (response.getClass().getName().equals("com.android.okhttp.Response")) {
+            Class<?> responseClass = response.getClass();
+
+            Class<?> builderClass = Class.forName("com.android.okhttp.Response$Builder");
+            Class<?> requestClass = Class.forName("com.android.okhttp.Request");
+            Class<?> protocolClass = Class.forName("com.android.okhttp.Protocol");
+            Class<?> responseBodyClass = Class.forName("com.android.okhttp.ResponseBody");
+
+            Object request = XposedHelpers.callMethod(response, "request");
+
+            Object builder = builderClass.newInstance();
+
+            builderClass.getMethod("request", requestClass).invoke(builder, request);
+
+            Object protocolHTTP11 = protocolClass.getField("HTTP_1_1").get(null);
+            builderClass.getMethod("protocol", protocolClass).invoke(builder, protocolHTTP11);
+
+            builderClass.getMethod("code", int.class).invoke(builder, 204); // 204 No Content
+            builderClass.getMethod("message", String.class).invoke(builder, "No Content");
+
+            Method createMethod = responseBodyClass.getMethod("create", Class.forName("com.android.okhttp.MediaType"), String.class);
+            Object emptyResponseBody = createMethod.invoke(null, null, "");
+
+            builderClass.getMethod("body", responseBodyClass).invoke(builder, emptyResponseBody);
+
+            return builderClass.getMethod("build").invoke(builder);
+        }
+        return null;
     }
 
     public static void setupOkHttpRequestHook() {
@@ -212,7 +242,7 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    XposedBridge.log("hook " + methodData);
+  //                XposedBridge.log("hook " + methodData);
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                         @Override
@@ -229,7 +259,7 @@ public class RequestHook {
 
                             String stackTrace = HookUtil.getFormattedStackTrace();
 
-                            RequestDetails details = processOkHttpRequest(request, response, url, stackTrace);
+                            RequestDetails details = processRequest(request, response, url, stackTrace);
                             if (details != null && shouldBlockOkHttpsRequest(url, details)) {
                                 Object emptyResponse = createEmptyResponseForOkHttp(response);
                                 param.setResult(emptyResponse);
@@ -259,7 +289,7 @@ public class RequestHook {
         return null;
     }
 
-    private static RequestDetails processHttpRequest(Object request, Object response, URL url, String stack) {
+    private static RequestDetails processRequest(Object request, Object response, URL url, String stack) {
         try {
             String method = (String) XposedHelpers.callMethod(request, "method");
             String urlString = url.toString();
@@ -271,24 +301,7 @@ public class RequestHook {
 
             return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders, stack);
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception in processing Http request: " + e.getMessage());
-            return null;
-        }
-    }
-
-    private static RequestDetails processOkHttpRequest(Object request, Object response, URL url, String stack) {
-        try {
-            String method = (String) XposedHelpers.callMethod(request, "method");
-            String urlString = url.toString();
-            Object requestHeaders = XposedHelpers.callMethod(request, "headers");
-
-            int code = (int) XposedHelpers.callMethod(response, "code");
-            String message = (String) XposedHelpers.callMethod(response, "message");
-            Object responseHeaders = XposedHelpers.callMethod(response, "headers");
-
-            return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders, stack);
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception in processing OkHttp request: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
             return null;
         }
     }
