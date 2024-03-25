@@ -20,6 +20,8 @@ import com.close.hook.ads.util.CacheDataManager
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
 import com.close.hook.ads.util.PrefManager
+import com.close.hook.ads.util.doOnMainThreadIdle
+import com.close.hook.ads.util.setBottomPaddingSpace
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.core.util.ResourceUtils
 import rikka.material.app.LocaleDelegate
@@ -50,6 +52,10 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                     }
                 }
             })
+
+            doOnMainThreadIdle {
+                recyclerView.setBottomPaddingSpace()
+            }
 
         }
         return recyclerView

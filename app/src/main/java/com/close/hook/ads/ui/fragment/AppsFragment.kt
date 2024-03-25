@@ -30,6 +30,8 @@ import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.OnSetHintListener
 import com.close.hook.ads.util.PrefManager
+import com.close.hook.ads.util.doOnMainThreadIdle
+import com.close.hook.ads.util.setBottomPaddingSpace
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
@@ -87,6 +89,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
                 newList.addAll(viewModel.appInfoList)
             }
             appsAdapter.submitList(newList)
+            doOnMainThreadIdle {
+                binding.recyclerViewApps.setBottomPaddingSpace()
+            }
             binding.progressBar.visibility = View.GONE
         }
     }
@@ -443,6 +448,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         viewModel.filterList.clear()
         viewModel.filterList.addAll(sortedList)
         appsAdapter.submitList(sortedList)
+        doOnMainThreadIdle {
+            binding.recyclerViewApps.setBottomPaddingSpace()
+        }
         updateHint()
     }
 

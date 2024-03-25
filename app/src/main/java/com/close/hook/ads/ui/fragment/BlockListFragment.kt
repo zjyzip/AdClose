@@ -43,7 +43,9 @@ import com.close.hook.ads.util.DensityTool
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
+import com.close.hook.ads.util.doOnMainThreadIdle
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.setBottomPaddingSpace
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -83,6 +85,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         viewModel.blackListLiveData.observe(viewLifecycleOwner) {
             mAdapter.submitList(it)
             binding.progressBar.visibility = View.GONE
+            doOnMainThreadIdle {
+                binding.recyclerView.setBottomPaddingSpace()
+            }
         }
 
     }
@@ -345,6 +350,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private suspend fun search(searchText: String) {
         mAdapter.submitList(viewModel.search(searchText))
+        doOnMainThreadIdle {
+            binding.recyclerView.setBottomPaddingSpace()
+        }
     }
 
     private fun initEditText() {
