@@ -7,170 +7,165 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
-import androidx.lifecycle.MediatorLiveData
-import androidx.lifecycle.ViewModelProvider
+import androidx.core.view.isVisible
+import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.FilterBean
+import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.hook.preference.PreferencesHelper
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
-import com.close.hook.ads.ui.viewmodel.AppsViewModel
+import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
+import com.close.hook.ads.ui.viewmodel.AppsViewModelNew
 import com.close.hook.ads.util.AppUtils
+import com.close.hook.ads.util.CacheDataManager.getFormatSize
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
-import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
-import com.close.hook.ads.util.OnSetHintListener
-import com.close.hook.ads.util.PrefManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
-import me.zhanghai.android.fastscroll.FastScrollerBuilder
-import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
-    IOnTabClickListener {
+class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
+    IOnTabClickListener, OnClearClickListener {
 
-    private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
-    private lateinit var appsAdapter: AppsAdapter
-    private var type: String? = null
-    private lateinit var bottomSheetDialog: BottomSheetDialog
-    private lateinit var selectAll: MaterialCheckBox
-    private var totalCheck = 0
-    private val checkHashMap = HashMap<String, Int>()
-    private lateinit var appInfoMediatorLiveData: MediatorLiveData<List<AppInfo>>
+    private val viewModel by viewModels<AppsViewModelNew> {
+        AppsViewModelFactory(
+            arguments?.getString("type") ?: "user",
+            AppRepository(requireContext().packageManager)
+        )
+    }
+    private lateinit var mAdapter: AppsAdapter
+    private var appConfigDialog: BottomSheetDialog? = null
+    private var appInfoDialog: BottomSheetDialog? = null
+    private lateinit var configBinding: BottomDialogSwitchesBinding
+    private lateinit var infoBinding: BottomDialogAppInfoBinding
+    private val childrenCheckBoxes by lazy {
+        listOf(
+            configBinding.switchOne,
+            configBinding.switchTwo,
+            configBinding.switchThree,
+            configBinding.switchFour,
+            configBinding.switchFive,
+            configBinding.switchSix,
+        )
+    }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        type = arguments?.getString("type")
+    companion object {
+        @JvmStatic
+        fun newInstance(type: String) =
+            AppsFragment().apply {
+                arguments = Bundle().apply {
+                    putString("type", type)
+                }
+            }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupRecyclerView()
 
-        setupSwipeRefreshLayout()
+        initView()
+        initRefresh()
+        initSheet()
+        initObserve()
 
-        if (viewModel.appInfoList.isEmpty() && viewModel.filterList.isEmpty()) {
-            viewModel.filterBean = FilterBean()
-            viewModel.sortList = ArrayList<String>()
-            if (PrefManager.configured) {
-                viewModel.sortList.add("已配置")
-            }
-            if (PrefManager.updated) {
-                viewModel.sortList.add("最近更新")
-            }
-            if (PrefManager.disabled) {
-                viewModel.sortList.add("已禁用")
-            }
-            viewModel.filterBean.title = PrefManager.order
-            viewModel.filterBean.filter = viewModel.sortList
-            setupLiveDataObservation()
-        } else {
+    }
 
-            val newList = ArrayList<AppInfo>()
+    private fun initSheet() {
+        // AppConfig
+        appConfigDialog = BottomSheetDialog(requireContext())
+        configBinding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
+        appConfigDialog?.setContentView(configBinding.root)
+        initAppConfig()
 
-            if (viewModel.isFilter) {
-                newList.addAll(viewModel.filterList)
-            } else {
-                newList.addAll(viewModel.appInfoList)
+        // AppInfo
+        appInfoDialog = BottomSheetDialog(requireContext())
+        infoBinding = BottomDialogAppInfoBinding.inflate(layoutInflater, null, false)
+        appInfoDialog?.setContentView(infoBinding.root)
+        initAppInfo()
+    }
+
+    private fun initAppInfo() {
+        infoBinding.apply {
+            close.setOnClickListener {
+                appInfoDialog?.dismiss()
             }
-            appsAdapter.submitList(newList)
-            binding.progressBar.visibility = View.GONE
+            detail.setOnClickListener {
+                openAppDetails(packageName.value.text.toString())
+                appInfoDialog?.dismiss()
+            }
+            launch.setOnClickListener {
+                launchApp(packageName.value.text.toString())
+                appInfoDialog?.dismiss()
+            }
         }
     }
 
-    private fun setupRecyclerView() {
-        appsAdapter = AppsAdapter(requireContext(), object : AppsAdapter.OnItemClickListener {
-            override fun onItemClick(packageName: String) {
-                handleItemClick(packageName)
+    private fun initAppConfig() {
+        configBinding.apply {
+            buttonClose.setOnClickListener {
+                appConfigDialog?.dismiss()
             }
 
-            override fun onItemLongClick(appInfo: AppInfo) {
-                handleItemLongClick(appInfo)
+            var isUpdatingChildren = false
+            val parentOnCheckedStateChangedListener = { checkBox: MaterialCheckBox, state: Int ->
+                val isChecked = checkBox.isChecked
+                if (state != MaterialCheckBox.STATE_INDETERMINATE) {
+                    isUpdatingChildren = true
+                    childrenCheckBoxes.forEach {
+                        it.isChecked = isChecked
+                    }
+                    isUpdatingChildren = false
+                }
             }
-        })
 
-        FastScrollerBuilder(binding.recyclerViewApps).useMd2Style().build()
-        binding.recyclerViewApps.apply {
-            layoutManager = LinearLayoutManager(context)
-            adapter = appsAdapter
+            selectAll.addOnCheckedStateChangedListener(parentOnCheckedStateChangedListener)
 
-            addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                    super.onScrolled(recyclerView, dx, dy)
+            fun setParentState(
+                checkBoxParent: MaterialCheckBox,
+                childrenCheckBoxes: List<MaterialCheckBox>,
+                parentOnCheckedStateChangedListener: MaterialCheckBox.OnCheckedStateChangedListener
+            ) {
+                val checkedCount = childrenCheckBoxes.count { it.isChecked }
+                val allChecked = checkedCount == childrenCheckBoxes.size
+                val noneChecked = checkedCount == 0
+                checkBoxParent.removeOnCheckedStateChangedListener(
+                    parentOnCheckedStateChangedListener
+                )
+                if (allChecked) {
+                    checkBoxParent.isChecked = true
+                } else if (noneChecked) {
+                    checkBoxParent.isChecked = false
+                } else {
+                    checkBoxParent.checkedState = MaterialCheckBox.STATE_INDETERMINATE
+                }
+                checkBoxParent.addOnCheckedStateChangedListener(
+                    parentOnCheckedStateChangedListener
+                )
+            }
 
-                    if (dy > 0) {
-                        (activity as? INavContainer)?.hideNavigation()
-                    } else if (dy < 0) {
-                        (activity as? INavContainer)?.showNavigation()
+            childrenCheckBoxes.forEach {
+                it.addOnCheckedStateChangedListener { _, _ ->
+                    if (!isUpdatingChildren) {
+                        setParentState(
+                            selectAll,
+                            childrenCheckBoxes,
+                            parentOnCheckedStateChangedListener
+                        )
                     }
                 }
-            })
-        }
-    }
-
-    private fun setupSwipeRefreshLayout() {
-        binding.swipeRefreshLayout.setColorSchemeColors(
-            MaterialColors.getColor(
-                requireContext(),
-                com.google.android.material.R.attr.colorPrimary,
-                -1
-            )
-        )
-        binding.swipeRefreshLayout.setOnRefreshListener {
-            appInfoMediatorLiveData.value = emptyList()
-            viewModel.refreshApps(type ?: "user")
-        }
-    }
-
-    private fun handleItemClick(packageName: String) {
-        val appInfo = viewModel.appInfoList.find { it.packageName == packageName }
-        if (appInfo != null) {
-            if (MainActivity.isModuleActivated()) {
-                showBottomSheetDialog(appInfo)
-            } else {
-                AppUtils.showToast(requireContext(), "模块尚未被激活")
             }
-        }
-    }
 
-    private fun handleItemLongClick(appInfo: AppInfo) {
-        val bottomSheetDialog = BottomSheetDialog(requireContext())
-        val binding = BottomDialogAppInfoBinding.inflate(layoutInflater)
-        bottomSheetDialog.setContentView(binding.root)
-        setupBottomDialogAppInfoBinding(binding, appInfo)
-        bottomSheetDialog.show()
-        setupDialogActions(bottomSheetDialog, binding, appInfo)
-    }
-
-    private fun setupDialogActions(
-        bottomSheetDialog: BottomSheetDialog,
-        binding: BottomDialogAppInfoBinding,
-        appInfo: AppInfo
-    ) {
-        binding.close.setOnClickListener {
-            bottomSheetDialog.dismiss()
-        }
-        binding.detail.setOnClickListener {
-            openAppDetails(appInfo.packageName)
-            bottomSheetDialog.dismiss()
-        }
-        binding.launch.setOnClickListener {
-            launchApp(appInfo.packageName)
-            bottomSheetDialog.dismiss()
         }
     }
 
@@ -186,7 +181,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
     }
 
     private fun launchApp(packageName: String) {
-        val intent = requireContext().packageManager.getLaunchIntentForPackage(packageName)
+        val intent =
+            requireContext().packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             try {
                 startActivity(intent)
@@ -198,21 +194,93 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
         }
     }
 
-    private fun getFormatSize(size: Long): String {
-        val df = DecimalFormat("0.00")
-        return when {
-            size >= 1.shl(30) -> "${df.format(size / 1.shl(30).toFloat())}GB"
-            size >= 1.shl(20) -> "${df.format(size / 1.shl(20).toFloat())}MB"
-            size >= 1.shl(10) -> "${df.format(size / 1.shl(10).toFloat())}KB"
-            else -> "$size B"
+    private fun initRefresh() {
+        binding.swipeRefresh.apply {
+            setColorSchemeColors(
+                MaterialColors.getColor(
+                    requireContext(),
+                    com.google.android.material.R.attr.colorPrimary,
+                    -1
+                )
+            )
+            setOnRefreshListener {
+                viewModel.refreshApps()
+            }
         }
     }
 
-    private fun setupBottomDialogAppInfoBinding(
-        binding: BottomDialogAppInfoBinding,
-        appInfo: AppInfo
-    ) {
-        with(binding) {
+    private fun initView() {
+        mAdapter = AppsAdapter(requireContext(), this)
+        binding.recyclerView.apply {
+            adapter = mAdapter
+            layoutManager = LinearLayoutManager(requireContext())
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    if (dy > 0) {
+                        (activity as? INavContainer)?.hideNavigation()
+                    } else if (dy < 0) {
+                        (activity as? INavContainer)?.showNavigation()
+                    }
+                }
+            })
+        }
+    }
+
+    private fun initObserve() {
+        viewModel.appsLiveData.observe(viewLifecycleOwner) {
+            mAdapter.submitList(it)
+            binding.swipeRefresh.isRefreshing = false
+            binding.progressBar.isVisible = false
+            updateSearchHint(it.size)
+        }
+    }
+
+    private fun updateSearchHint(size: Int) {
+        (parentFragment as? InstalledAppsFragment)?.setHint(size)
+    }
+
+    override fun onItemClick(appInfo: AppInfo) {
+        if (!MainActivity.isModuleActivated()) {
+            AppUtils.showToast(requireContext(), "模块尚未被激活")
+            return
+        }
+        val prefsHelper = PreferencesHelper(requireContext(), "com.close.hook.ads_preferences")
+        configBinding.apply {
+            sheetAppName.text = appInfo.appName
+            version.text = appInfo.versionName
+            icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
+
+            val prefKeys = arrayOf(
+                "switch_one_",
+                "switch_two_",
+                "switch_three_",
+                "switch_four_",
+                "switch_five_",
+                "switch_six_",
+            )
+
+            childrenCheckBoxes.forEachIndexed { index, checkBox ->
+                val key = prefKeys[index] + appInfo.packageName
+                checkBox.isChecked = prefsHelper.getBoolean(key, false)
+            }
+
+            buttonUpdate.setOnClickListener {
+                childrenCheckBoxes.forEachIndexed { index, checkBox ->
+                    val key = prefKeys[index] + appInfo.packageName
+                    prefsHelper.setBoolean(key, checkBox.isChecked)
+                }
+                AppUtils.showToast(requireContext(), "保存成功")
+                appConfigDialog?.dismiss()
+            }
+
+        }
+        appConfigDialog?.show()
+    }
+
+    @SuppressLint("SetTextI18n")
+    override fun onItemLongClick(appInfo: AppInfo) {
+        infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
             appName.text = appInfo.appName
@@ -249,295 +317,46 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), OnClearClickListener,
                 value.text = dateFormat.format(Date(appInfo.lastUpdateTime))
             }
         }
+        appInfoDialog?.show()
     }
 
-    private fun setupLiveDataObservation() {
-        appInfoMediatorLiveData = MediatorLiveData<List<AppInfo>>()
-
-        if (type == "configured" && !MainActivity.isModuleActivated()) {
-            AppUtils.showToast(requireContext(), "模块尚未被激活")
-            binding.progressBar.visibility = View.GONE
-            return
-        }
-
-        when (type) {
-            "user" -> addUserApp()
-
-            "system" -> addSystemApp()
-
-            "configured" -> {
-                addUserApp()
-                addSystemApp()
-            }
-        }
-
-        appInfoMediatorLiveData.observe(viewLifecycleOwner) { combinedAppInfoList ->
-            handleCombinedAppInfoList(combinedAppInfoList)
-        }
-
-    }
-
-    private fun addSystemApp() {
-        appInfoMediatorLiveData.addSource(viewModel.systemAppsLiveData) { apps ->
-            appInfoMediatorLiveData.value =
-                (appInfoMediatorLiveData.value ?: emptyList()) + processAppInfoList(apps)
-        }
-    }
-
-    private fun addUserApp() {
-        appInfoMediatorLiveData.addSource(viewModel.userAppsLiveData) { apps ->
-            appInfoMediatorLiveData.value =
-                (appInfoMediatorLiveData.value ?: emptyList()) + processAppInfoList(apps)
-        }
-    }
-
-    private fun processAppInfoList(appInfoList: List<AppInfo>): List<AppInfo> {
-        return if (type == "configured") {
-            appInfoList.filter { it.isEnable == 1 }
-        } else {
-            appInfoList
-        }
-    }
-
-    private fun handleCombinedAppInfoList(combinedAppInfoList: List<AppInfo>) {
-        if (viewModel.appInfoList != combinedAppInfoList) {
-            viewModel.appInfoList.clear()
-            viewModel.appInfoList.addAll(combinedAppInfoList)
-            updateSortList(viewModel.filterBean, "", PrefManager.isReverse)
-            binding.progressBar.visibility = View.GONE
-        }
-        binding.swipeRefreshLayout.isRefreshing = false
-    }
-
-    private fun showBottomSheetDialog(appInfo: AppInfo) {
-        bottomSheetDialog = BottomSheetDialog(requireContext())
-        val binding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
-        bottomSheetDialog.setContentView(binding.root)
-        setupBottomSheetDialogBinding(binding, appInfo)
-        bottomSheetDialog.show()
-    }
-
-    private fun setupBottomSheetDialogBinding(
-        binding: BottomDialogSwitchesBinding,
-        appInfo: AppInfo
-    ) {
-        binding.apply {
-            sheetAppName.text = appInfo.appName
-            buttonClose.setOnClickListener { bottomSheetDialog.dismiss() }
-            version.text = appInfo.versionName
-            icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
-        }
-        setupListeners(binding.root, appInfo)
-    }
-
-    private fun updateCheckNum(packageName: String, isChecked: Boolean?) {
-        isChecked?.let {
-            val currentCount = checkHashMap[packageName] ?: 0
-            val newCount = if (isChecked) currentCount + 1 else currentCount - 1
-            checkHashMap[packageName] = newCount
-        }
-        when (checkHashMap[packageName]) {
-            0 -> {
-                selectAll.isChecked = false
-                selectAll.checkedState = MaterialCheckBox.STATE_UNCHECKED
-            }
-
-            totalCheck -> {
-                selectAll.isChecked = true
-                selectAll.checkedState = MaterialCheckBox.STATE_CHECKED
-            }
-
-            else -> {
-                selectAll.checkedState = MaterialCheckBox.STATE_INDETERMINATE
-            }
-        }
-    }
-
-    @SuppressLint("CommitPrefEdits")
-    private fun setupListeners(dialogView: View, appInfo: AppInfo) {
-        @SuppressLint("WorldReadableFiles") val prefsHelper =
-            PreferencesHelper(dialogView.context, PREFERENCES_NAME)
-        val checkBoxIds = intArrayOf(
-            R.id.switch_one,
-            R.id.switch_two,
-            R.id.switch_three,
-            R.id.switch_four,
-            R.id.switch_five,
-            R.id.switch_six,
-        )
-        val prefKeys = arrayOf(
-            "switch_one_",
-            "switch_two_",
-            "switch_three_",
-            "switch_four_",
-            "switch_five_",
-            "switch_six_",
-        )
-
-        selectAll = dialogView.findViewById(R.id.select_all)
-        totalCheck = checkBoxIds.size
-        checkHashMap[appInfo.packageName] = checkBoxIds.size
-        for (i in checkBoxIds.indices) {
-            val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
-            val key = prefKeys[i] + appInfo.packageName
-            checkBoxView.isChecked = prefsHelper.getBoolean(key, false)
-            if (!checkBoxView.isChecked) {
-                checkHashMap[appInfo.packageName] =
-                    checkHashMap[appInfo.packageName]!! - 1
-            }
-            if (i == checkBoxIds.size - 1) {
-                updateCheckNum(appInfo.packageName, null)
-            }
-            checkBoxView.addOnCheckedStateChangedListener { checkBox, _ ->
-                updateCheckNum(appInfo.packageName, checkBox.isChecked)
-            }
-        }
-
-        val buttonUpdate = dialogView.findViewById<MaterialButton>(R.id.button_update)
-        buttonUpdate.setOnClickListener {
-            var total = 0
-            for (i in checkBoxIds.indices) {
-                val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
-                if (checkBoxView.isChecked)
-                    total++
-                val key = prefKeys[i] + appInfo.packageName
-                prefsHelper.setBoolean(key, checkBoxView.isChecked)
-            }
-            val position = getAppPosition(appInfo.packageName)
-            if (position != -1)
-                if (total == 0)
-                    viewModel.appInfoList[position].isEnable = 0
-                else
-                    viewModel.appInfoList[position].isEnable = 1
-            AppUtils.showToast(requireContext(), "保存成功")
-            bottomSheetDialog.dismiss()
-        }
-
-        selectAll.addOnCheckedStateChangedListener { _, state ->
-            when (state) {
-                MaterialCheckBox.STATE_CHECKED -> {
-                    for (i in checkBoxIds.indices) {
-                        val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
-                        checkBoxView.isChecked = true
-                    }
-                }
-
-                MaterialCheckBox.STATE_UNCHECKED -> {
-                    for (i in checkBoxIds.indices) {
-                        val checkBoxView = dialogView.findViewById<MaterialCheckBox>(checkBoxIds[i])
-                        checkBoxView.isChecked = false
-                    }
-                }
-            }
-        }
-
-    }
-
-    private fun getAppPosition(packageName: String): Int {
-        for ((index, element) in viewModel.appInfoList.withIndex()) {
-            if (element.packageName == packageName)
-                return index
-        }
-        return -1
-    }
-
-    private fun updateHint() {
-        val size = if (viewModel.isFilter) viewModel.filterList.size else viewModel.appInfoList.size
-        (requireParentFragment() as OnSetHintListener).setHint(size)
-    }
-
-    override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
-        val safeAppInfoList = viewModel.appInfoList ?: emptyList()
-
-        val filteredList = if (filterBean.filter.isNotEmpty()) {
-            filterBean.filter.fold(safeAppInfoList) { list, title ->
-                list.filter { appInfo ->
-                    getAppInfoFilter(title, keyWord)(appInfo)
-                }
-            }
-        } else {
-            safeAppInfoList.filter { getAppInfoFilter(null, keyWord)(it) }
-        }
-
-        val comparator =
-            getAppInfoComparator(filterBean.title).let { if (isReverse) it.reversed() else it }
-        val sortedList = filteredList.sortedWith(comparator)
-
-        viewModel.filterList.clear()
-        viewModel.filterList.addAll(sortedList)
-        appsAdapter.submitList(sortedList)
-        updateHint()
-    }
-
-    private fun getAppInfoComparator(title: String): Comparator<AppInfo> {
-        return when (title) {
-            "应用大小" -> compareBy { it.size }
-            "最近更新时间" -> compareBy { it.lastUpdateTime }
-            "安装日期" -> compareBy { it.firstInstallTime }
-            "Target 版本" -> compareBy { it.targetSdk }
-            else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
-        }
-    }
-
-    private fun getAppInfoFilter(title: String?, keyWord: String): (AppInfo) -> Boolean {
-        val time = 3 * 24 * 3600L
-        return { appInfo: AppInfo ->
-            when (title) {
-                "已配置" -> appInfo.isEnable == 1 && appInfo.matchesKeyword(keyWord)
-                "最近更新" -> System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time && appInfo.matchesKeyword(
-                    keyWord
-                )
-
-                "已禁用" -> appInfo.isAppEnable == 0 && appInfo.matchesKeyword(keyWord)
-                else -> appInfo.matchesKeyword(keyWord)
-            }
-        }
-    }
-
-    private fun AppInfo.matchesKeyword(keyWord: String): Boolean {
-        val lowerCaseKeyword = keyWord.lowercase(Locale.getDefault())
-        return this.appName.lowercase(Locale.getDefault()).contains(lowerCaseKeyword) ||
-                this.packageName.lowercase(Locale.getDefault()).contains(lowerCaseKeyword)
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-    }
-
-    companion object {
-        private const val PREFERENCES_NAME = "com.close.hook.ads_preferences"
-        private val ITEM_DECORATION_SPACE = R.dimen.normal_space
-
-        @JvmStatic
-        fun newInstance(type: String): AppsFragment {
-            val fragment = AppsFragment()
-            val args = Bundle()
-            args.putString("type", type)
-            fragment.arguments = args
-            return fragment
-        }
-    }
-
-    override fun onClearAll() {}
-    override fun search(keyWord: String?) {}
-
-    override fun onStop() {
-        super.onStop()
-        (requireParentFragment() as OnCLearCLickContainer).controller = null
-        (requireParentFragment() as IOnTabClickContainer).tabController = null
+    override fun onReturnTop() {
+        binding.recyclerView.scrollToPosition(0)
+        (activity as? MainActivity)?.showNavigation()
     }
 
     override fun onResume() {
         super.onResume()
-
-        (requireParentFragment() as OnCLearCLickContainer).controller = this
-        (requireParentFragment() as IOnTabClickContainer).tabController = this
-        updateHint()
+        (parentFragment as? IOnTabClickContainer)?.tabController = this
+        (parentFragment as? OnCLearCLickContainer)?.controller = this
+        updateSearchHint(viewModel.appsLiveData.value?.size ?: 0)
     }
 
-    override fun onReturnTop() {
-        binding.recyclerViewApps.scrollToPosition(0)
-        (activity as MainActivity).showNavigation()
+    override fun onPause() {
+        super.onPause()
+        (parentFragment as? IOnTabClickContainer)?.tabController = null
+        (parentFragment as? OnCLearCLickContainer)?.controller = null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        appConfigDialog?.dismiss()
+        appInfoDialog?.dismiss()
+        appConfigDialog = null
+        appInfoDialog = null
+    }
+
+    override fun onClearAll() {
+        viewModel.clearSearch()
+    }
+
+    override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
+        viewModel.updateList(
+            filterBean,
+            keyWord.lowercase(),
+            isReverse,
+            if (keyWord.isEmpty()) 0L else 300L
+        )
     }
 
 }
