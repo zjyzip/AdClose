@@ -20,7 +20,7 @@ class AppsViewModelNew(
 ) : ViewModel() {
 
     private var searchJob: Job? = null
-    private var tmpList: List<AppInfo>? = null
+    private var appList: List<AppInfo> = emptyList()
     private val _appsLiveData = MutableLiveData<List<AppInfo>>()
     val appsLiveData: LiveData<List<AppInfo>> = _appsLiveData
 
@@ -38,8 +38,8 @@ class AppsViewModelNew(
 
     private fun loadApps(isSystem: Boolean? = null) {
         viewModelScope.launch(Dispatchers.IO) {
-            tmpList = appRepository.getInstalledApps(isSystem)
-            if (type == "configured") tmpList = tmpList?.filter { it.isEnable == 1 }
+            appList = appRepository.getInstalledApps(isSystem)
+            if (type == "configured") appList = appList.filter { it.isEnable == 1 }
             val filterList = ArrayList<String>().apply {
                 if (PrefManager.configured) add("已配置")
                 if (PrefManager.updated) add("最近更新")
@@ -49,7 +49,7 @@ class AppsViewModelNew(
                 title = PrefManager.order
                 filter = filterList
             }
-            updateList(filterBean, "", PrefManager.isReverse, 0)
+            updateAppList(filterBean, "", PrefManager.isReverse)
         }
     }
 
@@ -70,22 +70,22 @@ class AppsViewModelNew(
         }
     }
 
-    private fun updateAppList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
-        if (tmpList == null) {
-            tmpList = _appsLiveData.value
-        }
-
+    private fun updateAppList(
+        filterBean: FilterBean,
+        keyWord: String,
+        isReverse: Boolean
+    ) {
         // search
-        var updateList = if (keyWord.isBlank()) tmpList
-        else tmpList?.filter {
+        var updateList = if (keyWord.isBlank()) appList
+        else appList.filter {
             it.appName.lowercase().contains(keyWord)
                     || it.packageName.lowercase().contains(keyWord)
-        } ?: emptyList()
+        }
 
         // filter
         if (filterBean.filter.isNotEmpty()) {
             updateList = filterBean.filter.fold(updateList) { list, title ->
-                list?.filter { appInfo ->
+                list.filter { appInfo ->
                     getAppInfoFilter(title)(appInfo)
                 }
             }
@@ -95,7 +95,7 @@ class AppsViewModelNew(
         val comparator =
             getAppInfoComparator(filterBean.title).let { if (isReverse) it.reversed() else it }
 
-        _appsLiveData.postValue(updateList?.sortedWith(comparator))
+        _appsLiveData.postValue(updateList.sortedWith(comparator))
     }
 
     private fun getAppInfoComparator(title: String): Comparator<AppInfo> {
@@ -118,11 +118,6 @@ class AppsViewModelNew(
                 else -> throw IllegalArgumentException()
             }
         }
-    }
-
-    fun clearSearch() {
-        _appsLiveData.postValue(tmpList ?: emptyList())
-        tmpList = null
     }
 
 }

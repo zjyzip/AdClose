@@ -29,9 +29,12 @@ import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
+import com.close.hook.ads.util.doOnMainThreadIdle
+import com.close.hook.ads.util.setBottomPaddingSpace
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
+import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -224,6 +227,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     }
                 }
             })
+            FastScrollerBuilder(this).useMd2Style().build()
         }
     }
 
@@ -233,6 +237,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             binding.swipeRefresh.isRefreshing = false
             binding.progressBar.isVisible = false
             updateSearchHint(it.size)
+            doOnMainThreadIdle {
+                binding.recyclerView.setBottomPaddingSpace()
+            }
         }
     }
 
@@ -344,10 +351,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appInfoDialog?.dismiss()
         appConfigDialog = null
         appInfoDialog = null
-    }
-
-    override fun onClearAll() {
-        viewModel.clearSearch()
     }
 
     override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
