@@ -23,7 +23,8 @@ class AppsAdapter(
         .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
-        val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding =
+            InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return AppViewHolder(binding, onItemClickListener, requestOptions)
     }
 
@@ -46,8 +47,8 @@ class AppsAdapter(
 
         init {
             with(binding.root) {
-                setOnClickListener { onItemClickListener.onItemClick(binding.packageName.text.toString()) }
-                setOnLongClickListener { 
+                setOnClickListener { onItemClickListener.onItemClick(appInfo) }
+                setOnLongClickListener {
                     onItemClickListener.onItemLongClick(appInfo)
                     true
                 }
@@ -73,7 +74,7 @@ class AppsAdapter(
     }
 
     interface OnItemClickListener {
-        fun onItemClick(packageName: String)
+        fun onItemClick(appInfo: AppInfo)
         fun onItemLongClick(appInfo: AppInfo)
     }
 

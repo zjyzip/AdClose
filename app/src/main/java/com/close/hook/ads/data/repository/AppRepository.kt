@@ -15,12 +15,15 @@ import java.io.File
 
 class AppRepository(private val packageManager: PackageManager) {
 
-    suspend fun getInstalledApps(isSystem: Boolean): List<AppInfo> = coroutineScope {
-        val allPackages = packageManager.getInstalledPackages(0)
+    suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = coroutineScope {
+        var allPackages = packageManager.getInstalledPackages(0)
+        isSystem?.let {
+            allPackages = allPackages.filter {
+                isSystemApp(it.applicationInfo) == isSystem
+            }
+        }
 
-        allPackages.filter {
-            isSystemApp(it.applicationInfo) == isSystem
-        }.map { packageInfo ->
+        allPackages.map { packageInfo ->
             async(Dispatchers.IO) {
                 getAppInfo(packageInfo)
             }
@@ -38,7 +41,8 @@ class AppRepository(private val packageManager: PackageManager) {
             packageInfo.versionCode
         }
         val isAppEnable = getIsAppEnable(packageInfo.packageName)
-        val isEnable = if (MainActivity.isModuleActivated()) AppUtils.isAppEnabled(packageInfo.packageName) else 0
+        val isEnable =
+            if (MainActivity.isModuleActivated()) AppUtils.isAppEnabled(packageInfo.packageName) else 0
 
         return AppInfo(
             appName,

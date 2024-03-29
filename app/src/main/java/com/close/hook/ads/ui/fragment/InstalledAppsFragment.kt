@@ -26,7 +26,6 @@ import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
-import com.close.hook.ads.util.OnSetHintListener
 import com.close.hook.ads.util.PrefManager
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -42,7 +41,7 @@ import io.reactivex.rxjava3.subjects.PublishSubject
 import java.util.concurrent.TimeUnit
 
 class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressListener,
-    OnCLearCLickContainer, OnSetHintListener, IOnTabClickContainer {
+    OnCLearCLickContainer, IOnTabClickContainer {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppsViewModel::class.java] }
     private var searchSubject: PublishSubject<String> = PublishSubject.create()
@@ -336,7 +335,7 @@ class InstalledAppsFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPr
         (requireContext() as OnBackPressContainer).controller = this
     }
 
-    override fun setHint(totalApp: Int) {
+    fun setHint(totalApp: Int) {
         if (totalApp != 0) {
             binding.searchEditText.hint = "搜索 " + totalApp + "个应用"
         } else {

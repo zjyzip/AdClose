@@ -135,6 +135,8 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview-selection:1.1.0")
     implementation("androidx.room:room-runtime:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
+
 
     implementation("com.google.android.material:material:1.10.0")
     implementation("com.drakeet.about:about:2.5.2")
