@@ -495,9 +495,16 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     class CategoryItemKeyProvider(private val adapter: BlockListAdapter) :
         ItemKeyProvider<Url>(SCOPE_CACHED) {
-        override fun getKey(position: Int): Url = adapter.currentList[position - 1]
+        override fun getKey(position: Int): Url? {
+            return if (position in 1..adapter.currentList.size) {
+                adapter.currentList[position - 1]
+            } else null
+        }
 
-        override fun getPosition(key: Url): Int = adapter.currentList.indexOfFirst { it == key } + 1
+        override fun getPosition(key: Url): Int {
+            val index = adapter.currentList.indexOfFirst { it == key }
+            return if (index >= 0) index + 1 else RecyclerView.NO_POSITION
+        }
     }
 
     override fun onBackPressed(): Boolean {
