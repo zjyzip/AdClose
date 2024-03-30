@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
@@ -18,11 +17,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ArrayAdapter
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
@@ -55,10 +54,8 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -76,6 +73,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private var tracker: SelectionTracker<Url>? = null
     private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
+    private var searchJob: Job? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -84,15 +82,18 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         initEditText()
         initButton()
         initFab()
+        initObserve()
         setUpTracker()
         addObserverToTracker()
 
+    }
+
+    private fun initObserve() {
         viewModel.blackListLiveData.observe(viewLifecycleOwner) {
             mAdapter.submitList(it)
             binding.progressBar.visibility = View.GONE
             binding.vfContainer.displayedChild = it.size
         }
-
     }
 
     private val fabMarginBottom
@@ -234,7 +235,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         mLayoutManager = LinearLayoutManager(requireContext())
         mAdapter = BlockListAdapter(requireContext(),
             onRemoveUrl = {
-                onRemoveUrl(it)
+                viewModel.removeUrl(it)
             },
             onEditUrl = {
                 onEditUrl(it)
@@ -265,10 +266,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     adapter.removeAdapter(footerAdapter)
             }
         }
-    }
-
-    private fun onRemoveUrl(url: Url) {
-        viewModel.removeUrl(url)
     }
 
     private fun onEditUrl(url: Url) {
@@ -371,12 +368,22 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initEditText() {
-        lifecycleScope.launch {
-            binding.editText.textWatcherFlow()
-                .collectLatest {
-                    binding.clear.visibility = if (it.isEmpty()) View.GONE else View.VISIBLE
-                    search(it)
-                }
+        binding.editText.addTextChangedListener(textWatcher)
+    }
+
+    private val textWatcher = object : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
+
+        override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+            searchJob?.cancel()
+            searchJob = lifecycleScope.launch {
+                delay(if (s.isBlank()) 0L else 300L)
+                search(s.toString())
+            }
+        }
+
+        override fun afterTextChanged(s: Editable) {
+            binding.clear.isVisible = s.isNotBlank()
         }
     }
 
@@ -488,9 +495,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     class CategoryItemKeyProvider(private val adapter: BlockListAdapter) :
         ItemKeyProvider<Url>(SCOPE_CACHED) {
-        override fun getKey(position: Int): Url = adapter.currentList[position]
+        override fun getKey(position: Int): Url = adapter.currentList[position - 1]
 
-        override fun getPosition(key: Url): Int = adapter.currentList.indexOfFirst { it == key }
+        override fun getPosition(key: Url): Int = adapter.currentList.indexOfFirst { it == key } + 1
     }
 
     override fun onBackPressed(): Boolean {
@@ -514,29 +521,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         (requireContext() as? OnBackPressContainer)?.controller = this
     }
 
-    private fun TextView.textWatcherFlow(): Flow<String> = callbackFlow {
-        val textWatcher = object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                trySend(s.toString())
-            }
-        }
-        addTextChangedListener(textWatcher)
-        awaitClose { removeTextChangedListener(textWatcher) }
+    override fun onDestroyView() {
+        binding.editText.removeTextChangedListener(textWatcher)
+        super.onDestroyView()
     }
-
-    private fun shouldAddPadding(): Boolean {
-        val addedPadding = (binding.recyclerView.adapter as ConcatAdapter).adapters.size > 1
-        val a = binding.recyclerView.childCount
-        val b = mAdapter.itemCount
-        Log.i("sfsdfsdfsdfsdf", "a: $a,, b: $b")
-        return if (!addedPadding) {
-            a >= b
-        } else {
-            a >= b - 1
-        }
-    }
-
 
 }

@@ -37,7 +37,6 @@ class BlockListAdapter(
         }
     }
 
-    @SuppressLint("NotifyDataSetChanged")
     inner class ViewHolder(
         private val binding: ItemBlockListBinding,
         private val context: Context,
@@ -47,7 +46,7 @@ class BlockListAdapter(
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<Url> =
             object : ItemDetailsLookup.ItemDetails<Url>() {
-                override fun getPosition(): Int = bindingAdapterPosition
+                override fun getPosition(): Int = bindingAdapterPosition + 1
                 override fun getSelectionKey(): Url = getItem(bindingAdapterPosition)
             }
 
