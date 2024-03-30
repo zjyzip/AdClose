@@ -54,12 +54,13 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
     private val textWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
-        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-            handleSearchTextChange(s.toString())
+        override fun afterTextChanged(s: Editable?) {
+            binding.searchClear.visibility =
+                if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
         }
 
-        override fun afterTextChanged(s: Editable?) {
-            binding.searchClear.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            handleSearchTextChange(s.toString())
         }
     }
 
@@ -69,7 +70,6 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
         setupViewPager()
         initEditText()
         initFab()
-        binding.searchEditText.removeTextChangedListener(textWatcher)
     }
 
     private fun setupToolbar() {
@@ -139,24 +139,7 @@ class RequestFragment : BaseFragment<FragmentHostsBinding>(), OnCLearCLickContai
             onFocusChangeListener = OnFocusChangeListener { _, hasFocus ->
                 setIcon(if (hasFocus) R.drawable.ic_back else R.drawable.ic_search, hasFocus)
             }
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(
-                    s: CharSequence?,
-                    start: Int,
-                    count: Int,
-                    after: Int
-                ) {
-                }
-
-                override fun afterTextChanged(s: Editable?) {
-                    binding.searchClear.visibility =
-                        if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
-                }
-
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    handleSearchTextChange(s.toString())
-                }
-            })
+            addTextChangedListener(textWatcher)
         }
         binding.searchClear.setOnClickListener { resetSearch() }
     }
