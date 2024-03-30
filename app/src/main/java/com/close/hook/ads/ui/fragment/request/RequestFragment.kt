@@ -1,6 +1,7 @@
 package com.close.hook.ads.ui.fragment.request
 
 import android.content.res.Configuration
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -44,8 +45,11 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
                 gravity = Gravity.BOTTOM or Gravity.END
                 behavior = fabViewBehavior
             }
+            setImageResource(R.drawable.ic_export)
+            tooltipText = getString(R.string.export)
             setOnClickListener { fabController?.onExport() }
         }
+        binding.root.addView(fab)
         return binding.root
     }
 
