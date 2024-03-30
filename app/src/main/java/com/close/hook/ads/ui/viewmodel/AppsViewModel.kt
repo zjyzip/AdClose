@@ -7,7 +7,6 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.BlockedRequest
-import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.repository.AppRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,7 +23,6 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     private val _errorLiveData = MutableLiveData<String>()
     val errorLiveData: LiveData<String> = _errorLiveData
     lateinit var sortList: ArrayList<String>
-    lateinit var filterBean: FilterBean
     var isFilter = false
 
     init {

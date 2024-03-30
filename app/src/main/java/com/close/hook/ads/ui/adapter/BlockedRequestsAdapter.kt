@@ -18,17 +18,15 @@ import androidx.recyclerview.widget.RecyclerView
 import com.aitsuki.swipe.SwipeLayout
 import com.close.hook.ads.R
 import com.close.hook.ads.data.DataSource
-import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockedRequestBinding
-import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.ui.activity.RequestInfoActivity
+import com.close.hook.ads.util.AppUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.internal.notify
 import java.text.SimpleDateFormat
 import java.util.Date
 

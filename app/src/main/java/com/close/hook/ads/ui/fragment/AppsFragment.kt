@@ -9,10 +9,10 @@ import android.provider.Settings
 import android.view.View
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.AppInfo
-import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
@@ -20,6 +20,7 @@ import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.hook.preference.PreferencesHelper
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
+import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
 import com.close.hook.ads.ui.viewmodel.AppsViewModelNew
 import com.close.hook.ads.util.AppUtils
@@ -29,8 +30,6 @@ import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
-import com.close.hook.ads.util.doOnMainThreadIdle
-import com.close.hook.ads.util.setBottomPaddingSpace
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
@@ -49,6 +48,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         )
     }
     private lateinit var mAdapter: AppsAdapter
+    private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null
     private var appInfoDialog: BottomSheetDialog? = null
     private lateinit var configBinding: BottomDialogSwitchesBinding
@@ -215,7 +215,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initView() {
         mAdapter = AppsAdapter(requireContext(), this)
         binding.recyclerView.apply {
-            adapter = mAdapter
+            adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -229,6 +229,19 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             })
             FastScrollerBuilder(this).useMd2Style().build()
         }
+        binding.vfContainer.setOnDisplayedChildChangedListener {
+            val lastCompletelyVisibleItemPosition =
+                (binding.recyclerView.layoutManager as LinearLayoutManager).findLastCompletelyVisibleItemPosition()
+            val b: Boolean = lastCompletelyVisibleItemPosition < mAdapter.itemCount - 1
+            val adapter = binding.recyclerView.adapter as ConcatAdapter
+            if (!b) {
+                if (!adapter.adapters.contains(footerAdapter))
+                    adapter.addAdapter(footerAdapter)
+            } else {
+                if (adapter.adapters.contains(footerAdapter))
+                    adapter.removeAdapter(footerAdapter)
+            }
+        }
     }
 
     private fun initObserve() {
@@ -237,14 +250,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             binding.swipeRefresh.isRefreshing = false
             binding.progressBar.isVisible = false
             updateSearchHint(it.size)
-            doOnMainThreadIdle {
-                binding.recyclerView.setBottomPaddingSpace()
-            }
+            binding.vfContainer.displayedChild = it.size
         }
     }
 
     private fun updateSearchHint(size: Int) {
-        (parentFragment as? InstalledAppsFragment)?.setHint(size)
+        (parentFragment as? AppsPagerFragment)?.setHint(size)
     }
 
     override fun onItemClick(appInfo: AppInfo) {
@@ -353,9 +364,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appInfoDialog = null
     }
 
-    override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {
+    override fun updateSortList(
+        filter: Pair<String, List<String>>,
+        keyWord: String,
+        isReverse: Boolean
+    ) {
         viewModel.updateList(
-            filterBean,
+            filter,
             keyWord.lowercase(),
             isReverse,
             if (keyWord.isEmpty()) 0L else 300L

@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.model.AppInfo
-import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
@@ -45,33 +44,29 @@ class AppsViewModelNew(
                 if (PrefManager.updated) add("最近更新")
                 if (PrefManager.disabled) add("已禁用")
             }
-            val filterBean = FilterBean().apply {
-                title = PrefManager.order
-                filter = filterList
-            }
-            updateAppList(filterBean, "", PrefManager.isReverse)
+            updateAppList(Pair(PrefManager.order, filterList), "", PrefManager.isReverse)
         }
     }
 
     fun updateList(
-        filterBean: FilterBean,
+        filter: Pair<String, List<String>>,
         keyWord: String,
         isReverse: Boolean,
         delayTime: Long = 300L
     ) {
         searchJob?.cancel()
         if (delayTime == 0L)
-            updateAppList(filterBean, keyWord, isReverse)
+            updateAppList(filter, keyWord, isReverse)
         else {
             searchJob = viewModelScope.launch {
                 delay(delayTime)
-                updateAppList(filterBean, keyWord, isReverse)
+                updateAppList(filter, keyWord, isReverse)
             }
         }
     }
 
     private fun updateAppList(
-        filterBean: FilterBean,
+        filter: Pair<String, List<String>>,
         keyWord: String,
         isReverse: Boolean
     ) {
@@ -83,8 +78,8 @@ class AppsViewModelNew(
         }
 
         // filter
-        if (filterBean.filter.isNotEmpty()) {
-            updateList = filterBean.filter.fold(updateList) { list, title ->
+        if (filter.second.isNotEmpty()) {
+            updateList = filter.second.fold(updateList) { list, title ->
                 list.filter { appInfo ->
                     getAppInfoFilter(title)(appInfo)
                 }
@@ -93,7 +88,7 @@ class AppsViewModelNew(
 
         // compare
         val comparator =
-            getAppInfoComparator(filterBean.title).let { if (isReverse) it.reversed() else it }
+            getAppInfoComparator(filter.first).let { if (isReverse) it.reversed() else it }
 
         _appsLiveData.postValue(updateList.sortedWith(comparator))
     }

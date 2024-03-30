@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
@@ -30,6 +31,7 @@ import androidx.recyclerview.selection.Selection
 import androidx.recyclerview.selection.SelectionPredicates
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.selection.StorageStrategy
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
@@ -37,6 +39,7 @@ import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentBlockListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
+import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.DensityTool
@@ -59,13 +62,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
+
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
 
     private val viewModel by viewModels<BlockListViewModel> {
         UrlViewModelFactory(requireContext())
     }
     private lateinit var mAdapter: BlockListAdapter
-    private lateinit var mLayoutManager: RecyclerView.LayoutManager
+    private val footerAdapter = FooterAdapter()
+    private lateinit var mLayoutManager: LinearLayoutManager
     private var tracker: SelectionTracker<Url>? = null
     private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
@@ -83,6 +88,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         viewModel.blackListLiveData.observe(viewLifecycleOwner) {
             mAdapter.submitList(it)
             binding.progressBar.visibility = View.GONE
+            binding.vfContainer.displayedChild = it.size
         }
 
     }
@@ -234,7 +240,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         )
         FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
         binding.recyclerView.apply {
-            adapter = mAdapter
+            adapter = ConcatAdapter(mAdapter)
             layoutManager = mLayoutManager
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -243,6 +249,19 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     if (dy > 0) navContainer?.hideNavigation() else if (dy < 0) navContainer?.showNavigation()
                 }
             })
+        }
+        binding.vfContainer.setOnDisplayedChildChangedListener {
+            val lastCompletelyVisibleItemPosition =
+                (binding.recyclerView.layoutManager as LinearLayoutManager).findLastCompletelyVisibleItemPosition()
+            val b: Boolean = lastCompletelyVisibleItemPosition < mAdapter.itemCount - 1
+            val adapter = binding.recyclerView.adapter as ConcatAdapter
+            if (!b) {
+                if (!adapter.adapters.contains(footerAdapter))
+                    adapter.addAdapter(footerAdapter)
+            } else {
+                if (adapter.adapters.contains(footerAdapter))
+                    adapter.removeAdapter(footerAdapter)
+            }
         }
     }
 
@@ -344,7 +363,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private suspend fun search(searchText: String) {
-        mAdapter.submitList(viewModel.search(searchText))
+        val list = viewModel.search(searchText)
+        mAdapter.submitList(list)
+        binding.vfContainer.displayedChild = list.size
     }
 
     private fun initEditText() {
@@ -502,5 +523,18 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         addTextChangedListener(textWatcher)
         awaitClose { removeTextChangedListener(textWatcher) }
     }
+
+    private fun shouldAddPadding(): Boolean {
+        val addedPadding = (binding.recyclerView.adapter as ConcatAdapter).adapters.size > 1
+        val a = binding.recyclerView.childCount
+        val b = mAdapter.itemCount
+        Log.i("sfsdfsdfsdfsdf", "a: $a,, b: $b")
+        return if (!addedPadding) {
+            a >= b
+        } else {
+            a >= b - 1
+        }
+    }
+
 
 }

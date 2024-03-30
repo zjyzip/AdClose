@@ -8,12 +8,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
+import com.close.hook.ads.ui.fragment.RequestInfoFragment
+import com.close.hook.ads.ui.fragment.RequestStackFragment
+import com.close.hook.ads.ui.fragment.ResponseInfoFragment
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
-import com.google.android.material.appbar.MaterialToolbar
-import com.close.hook.ads.ui.fragment.RequestInfoFragment
-import com.close.hook.ads.ui.fragment.ResponseInfoFragment
-import com.close.hook.ads.ui.fragment.RequestStackFragment
 
 class RequestInfoActivity : BaseActivity() {
 
