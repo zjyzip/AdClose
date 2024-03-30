@@ -1,6 +1,5 @@
 package com.close.hook.ads.ui.adapter
 
-import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context

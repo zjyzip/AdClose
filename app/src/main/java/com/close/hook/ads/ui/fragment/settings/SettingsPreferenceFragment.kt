@@ -1,4 +1,4 @@
-package com.close.hook.ads.ui.fragment
+package com.close.hook.ads.ui.fragment.settings
 
 import android.annotation.SuppressLint
 import android.content.Intent

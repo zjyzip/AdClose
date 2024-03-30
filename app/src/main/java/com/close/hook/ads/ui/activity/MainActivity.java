@@ -10,11 +10,11 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
-import com.close.hook.ads.ui.fragment.AppsPagerFragment;
 import com.close.hook.ads.ui.fragment.BlockListFragment;
 import com.close.hook.ads.ui.fragment.HomeFragment;
-import com.close.hook.ads.ui.fragment.RequestFragment;
-import com.close.hook.ads.ui.fragment.SettingsFragment;
+import com.close.hook.ads.ui.fragment.app.AppsPagerFragment;
+import com.close.hook.ads.ui.fragment.request.RequestFragment;
+import com.close.hook.ads.ui.fragment.settings.SettingsFragment;
 import com.close.hook.ads.util.INavContainer;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
@@ -113,12 +113,12 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
     }
 
     @Override
-    public OnBackPressListener getController() {
+    public OnBackPressListener getBackController() {
         return currentFragmentController;
     }
 
     @Override
-    public void setController(OnBackPressListener onBackPressListener) {
+    public void setBackController(OnBackPressListener onBackPressListener) {
         this.currentFragmentController = onBackPressListener;
     }
 

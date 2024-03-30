@@ -1,4 +1,4 @@
-package com.close.hook.ads.ui.fragment
+package com.close.hook.ads.ui.fragment.app
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
@@ -22,8 +22,9 @@ import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.adapter.HeaderAdapter
-import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
+import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
+import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.CacheDataManager.getFormatSize
 import com.close.hook.ads.util.INavContainer
@@ -260,7 +261,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     private fun updateSearchHint(size: Int) {
-        (parentFragment as? AppsPagerFragment)?.setHint(size)
+        if (this.isResumed)
+            (parentFragment as? AppsPagerFragment)?.setHint(size)
     }
 
     override fun onItemClick(appInfo: AppInfo) {
@@ -376,7 +378,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     ) {
         viewModel.updateList(
             filter,
-            keyWord.lowercase(),
+            keyWord,
             isReverse,
             if (keyWord.isEmpty()) 0L else 300L
         )

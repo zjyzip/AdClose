@@ -1,4 +1,4 @@
-package com.close.hook.ads.ui.fragment
+package com.close.hook.ads.ui.fragment.request
 
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
@@ -37,6 +37,8 @@ import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
+import com.close.hook.ads.ui.adapter.HeaderAdapter
+import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
@@ -44,8 +46,8 @@ import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
-import com.close.hook.ads.util.OnBackPressFragmentContainer
-import com.close.hook.ads.util.OnBackPressFragmentListener
+import com.close.hook.ads.util.OnBackPressContainer
+import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
@@ -62,32 +64,16 @@ import java.util.Optional
 
 
 class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
-    IOnTabClickListener, IOnFabClickListener, OnBackPressFragmentListener {
+    IOnTabClickListener, IOnFabClickListener, OnBackPressListener {
 
     private val viewModel by viewModels<BlockListViewModel> {
         UrlViewModelFactory(requireContext())
     }
-    private lateinit var adapter: BlockedRequestsAdapter
+    private lateinit var mAdapter: BlockedRequestsAdapter
     private val footerAdapter = FooterAdapter()
     private lateinit var type: String
     private lateinit var filter: IntentFilter
     private val disposables = CompositeDisposable()
-    private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val request = intent.getParcelableExtra<BlockedRequest>("request")
-            request?.let { item ->
-                val checkItem = viewModel.requestList.find {
-                    it.request == item.request
-                }
-                if (checkItem == null) {
-                    viewModel.requestList.add(0, item)
-                    adapter.submitList(viewModel.requestList.toList())
-
-
-                }
-            }
-        }
-    }
     private var tracker: SelectionTracker<BlockedRequest>? = null
     private var selectedItems: Selection<BlockedRequest>? = null
     private var mActionMode: ActionMode? = null
@@ -109,38 +95,58 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
 
-        adapter = BlockedRequestsAdapter(
-            requireContext(),
-            viewModel.dataSource,
-          /*  {
-                viewModel.addUrl(
-                    Url(
-                        if (it.second.trim().endsWith("DNS")) "Domain" else "URL",
-                        it.first
-                    )
-                )
-            },
-            {
-                viewModel.removeUrlString(it.first, it.second)
-            }*/)
-        binding.recyclerView.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = ConcatAdapter(this@RequestListFragment.adapter)
-            addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                    super.onScrolled(recyclerView, dx, dy)
-                    val navContainer = activity as? INavContainer
-                    if (dy > 0) navContainer?.hideNavigation() else if (dy < 0) navContainer?.showNavigation()
-                }
-            })
-        }
-
+        initView()
         setupBroadcastReceiver()
         setUpTracker()
         addObserverToTracker()
 
+    }
+
+    private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val request = intent.getParcelableExtra<BlockedRequest>("request")
+            request?.let { item ->
+                val checkItem = viewModel.requestList.find {
+                    it.request == item.request
+                }
+                if (checkItem == null) {
+                    viewModel.requestList.add(0, item)
+                    mAdapter.submitList(viewModel.requestList.toList())
+                    binding.vfContainer.displayedChild = viewModel.requestList.size
+                }
+            }
+        }
+    }
+
+    private fun initView() {
+        mAdapter = BlockedRequestsAdapter(viewModel.dataSource)
+        binding.recyclerView.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = ConcatAdapter(HeaderAdapter(), mAdapter)
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    val navContainer = activity as? INavContainer
+                    if (dy > 0) navContainer?.hideNavigation()
+                    else if (dy < 0) navContainer?.showNavigation()
+                }
+            })
+            FastScrollerBuilder(this).useMd2Style().build()
+        }
+        binding.vfContainer.setOnDisplayedChildChangedListener {
+            val lastCompletelyVisibleItemPosition =
+                (binding.recyclerView.layoutManager as LinearLayoutManager).findLastCompletelyVisibleItemPosition()
+            val b: Boolean = lastCompletelyVisibleItemPosition < mAdapter.itemCount - 1
+            val adapter = binding.recyclerView.adapter as ConcatAdapter
+            if (!b) {
+                if (!adapter.adapters.contains(footerAdapter))
+                    adapter.addAdapter(footerAdapter)
+            } else {
+                if (adapter.adapters.contains(footerAdapter))
+                    adapter.removeAdapter(footerAdapter)
+            }
+        }
     }
 
     private fun addObserverToTracker() {
@@ -206,13 +212,13 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         tracker = SelectionTracker.Builder(
             "selection_id",
             binding.recyclerView,
-            CategoryItemKeyProvider(adapter),
+            CategoryItemKeyProvider(mAdapter),
             CategoryItemDetailsLookup(binding.recyclerView),
             StorageStrategy.createParcelableStorage(BlockedRequest::class.java)
         ).withSelectionPredicate(
             SelectionPredicates.createSelectAnything()
         ).build()
-        adapter.tracker = tracker
+        mAdapter.tracker = tracker
     }
 
     private fun setupBroadcastReceiver() {
@@ -230,20 +236,20 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_EXPORTED else 0
     }
 
-    override fun search(keyWord: String?) {
+    override fun search(keyWord: String) {
         val safeAppInfoList: List<BlockedRequest> =
             Optional.ofNullable<List<BlockedRequest>>(viewModel.requestList)
                 .orElseGet { emptyList() }
         disposables.add(Observable.fromIterable(safeAppInfoList)
             .filter { blockRequest: BlockedRequest ->
-                (blockRequest.request.contains(keyWord.toString())
-                        || blockRequest.packageName.contains(keyWord.toString())
-                        || blockRequest.appName.contains(keyWord.toString()))
+                (blockRequest.request.contains(keyWord)
+                        || blockRequest.packageName.contains(keyWord)
+                        || blockRequest.appName.contains(keyWord))
             }
             .toList().observeOn(AndroidSchedulers.mainThread())
             .subscribe(
                 { filteredList: List<BlockedRequest?>? ->
-                    adapter.submitList(
+                    mAdapter.submitList(
                         filteredList
                     )
                 },
@@ -265,7 +271,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     override fun onClearAll() {
         viewModel.requestList.clear()
-        adapter.submitList(emptyList())
+        mAdapter.submitList(emptyList())
         (activity as? INavContainer)?.showNavigation()
     }
 
@@ -274,12 +280,12 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         (activity as? INavContainer)?.showNavigation()
     }
 
-    override fun onStop() {
-        super.onStop()
+    override fun onPause() {
+        super.onPause()
         (requireParentFragment() as? OnCLearCLickContainer)?.controller = null
         (requireParentFragment() as? IOnTabClickContainer)?.tabController = null
         (requireParentFragment() as? IOnFabClickContainer)?.fabController = null
-        (requireParentFragment() as? OnBackPressFragmentContainer)?.backController = null
+        (requireParentFragment() as? OnBackPressContainer)?.backController = null
     }
 
     override fun onResume() {
@@ -287,7 +293,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         (requireParentFragment() as? OnCLearCLickContainer)?.controller = this
         (requireParentFragment() as? IOnTabClickContainer)?.tabController = this
         (requireParentFragment() as? IOnFabClickContainer)?.fabController = this
-        (requireParentFragment() as? OnBackPressFragmentContainer)?.backController = this
+        (requireParentFragment() as? OnBackPressContainer)?.backController = this
     }
 
     private fun saveFile(content: String): Boolean {
@@ -406,10 +412,14 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     class CategoryItemKeyProvider(private val adapter: BlockedRequestsAdapter) :
         ItemKeyProvider<BlockedRequest>(SCOPE_CACHED) {
-        override fun getKey(position: Int): BlockedRequest? = adapter.currentList[position]
+        override fun getKey(position: Int): BlockedRequest? {
+            return adapter.currentList.getOrNull(position - 1)
+        }
 
-        override fun getPosition(key: BlockedRequest): Int =
-            adapter.currentList.indexOfFirst { it == key }
+        override fun getPosition(key: BlockedRequest): Int {
+            val index = adapter.currentList.indexOfFirst { it == key }
+            return if (index >= 0) index + 1 else RecyclerView.NO_POSITION
+        }
     }
 
     override fun onBackPressed(): Boolean {

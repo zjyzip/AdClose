@@ -1,4 +1,4 @@
-package com.close.hook.ads.ui.fragment
+package com.close.hook.ads.ui.fragment.settings
 
 import android.annotation.SuppressLint
 import android.app.Dialog
@@ -17,6 +17,7 @@ import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.DialogAboutBinding
 import com.close.hook.ads.databinding.FragmentSettingBinding
+import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.material.app.LocaleDelegate
 

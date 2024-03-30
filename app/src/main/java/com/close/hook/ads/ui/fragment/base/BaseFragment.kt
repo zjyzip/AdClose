@@ -1,4 +1,4 @@
-package com.close.hook.ads.ui.fragment
+package com.close.hook.ads.ui.fragment.base
 
 import android.os.Bundle
 import android.view.LayoutInflater

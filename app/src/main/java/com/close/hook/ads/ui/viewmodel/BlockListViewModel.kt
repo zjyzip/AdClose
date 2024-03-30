@@ -40,7 +40,7 @@ class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
         dataSource.updateUrl(url)
     }
 
-    fun removeUrlString(type: String, url:String) {
+    fun removeUrlString(type: String, url: String) {
         dataSource.removeUrlString(type, url)
     }
 

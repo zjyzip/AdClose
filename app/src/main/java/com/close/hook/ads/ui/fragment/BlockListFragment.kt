@@ -40,6 +40,7 @@ import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.adapter.HeaderAdapter
+import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.DensityTool
@@ -74,6 +75,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
     private var searchJob: Job? = null
+    private var lastQuery = ""
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -375,10 +377,15 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
 
         override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-            searchJob?.cancel()
-            searchJob = lifecycleScope.launch {
-                delay(if (s.isBlank()) 0L else 300L)
-                search(s.toString())
+            with(s.toString()) {
+                if (this != lastQuery) {
+                    searchJob?.cancel()
+                    searchJob = lifecycleScope.launch {
+                        delay(if (s.isBlank()) 0L else 300L)
+                        search(this@with)
+                    }
+                    lastQuery = this
+                }
             }
         }
 
@@ -518,14 +525,14 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         } else binding.recyclerView.closeMenus()
     }
 
-    override fun onStop() {
-        super.onStop()
-        (requireContext() as? OnBackPressContainer)?.controller = null
+    override fun onPause() {
+        super.onPause()
+        (activity as? OnBackPressContainer)?.backController = null
     }
 
     override fun onResume() {
         super.onResume()
-        (requireContext() as? OnBackPressContainer)?.controller = this
+        (activity as? OnBackPressContainer)?.backController = this
     }
 
     override fun onDestroyView() {

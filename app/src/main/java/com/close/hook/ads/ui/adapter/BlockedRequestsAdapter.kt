@@ -31,10 +31,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 class BlockedRequestsAdapter(
-    private val context: Context,
     private val dataSource: DataSource,
-    //private val addUrl: (Pair<String, String>) -> Unit,
-    // private val removeUrl: (Pair<String, String>) -> Unit
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<BlockedRequest>? = null
@@ -80,8 +77,8 @@ class BlockedRequestsAdapter(
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
             object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
-                override fun getPosition(): Int = absoluteAdapterPosition
-                override fun getSelectionKey(): BlockedRequest? = getItem(absoluteAdapterPosition)
+                override fun getPosition(): Int = bindingAdapterPosition + 1
+                override fun getSelectionKey(): BlockedRequest? = getItem(bindingAdapterPosition)
             }
 
         private var type: String = "URL"
@@ -105,16 +102,17 @@ class BlockedRequestsAdapter(
             binding.apply {
                 cardView.setOnClickListener {
                     currentRequest?.takeUnless { it.urlString.isNullOrEmpty() }?.let { request ->
-                        val intent = Intent(context, RequestInfoActivity::class.java).apply {
-                            putExtra("method", request.method)
-                            putExtra("urlString", request.urlString)
-                            putExtra("requestHeaders", request.requestHeaders)
-                            putExtra("responseCode", request.responseCode)
-                            putExtra("responseMessage", request.responseMessage)
-                            putExtra("responseHeaders", request.responseHeaders)
-                            putExtra("stack", request.stack)
-                        }
-                        context.startActivity(intent)
+                        val intent =
+                            Intent(itemView.context, RequestInfoActivity::class.java).apply {
+                                putExtra("method", request.method)
+                                putExtra("urlString", request.urlString)
+                                putExtra("requestHeaders", request.requestHeaders)
+                                putExtra("responseCode", request.responseCode)
+                                putExtra("responseMessage", request.responseMessage)
+                                putExtra("responseHeaders", request.responseHeaders)
+                                putExtra("stack", request.stack)
+                            }
+                        itemView.context.startActivity(intent)
                     }
                 }
                 copy.setOnClickListener {
@@ -163,10 +161,10 @@ class BlockedRequestsAdapter(
         }
 
         private fun copyToClipboard(text: String) {
-            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
+            (itemView.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
                 ClipData.newPlainText("request", text)
             )
-            Toast.makeText(context, "已复制: $text", Toast.LENGTH_SHORT).show()
+            Toast.makeText(itemView.context, "已复制: $text", Toast.LENGTH_SHORT).show()
         }
 
         private fun toggleBlockStatus(request: BlockedRequest) =
