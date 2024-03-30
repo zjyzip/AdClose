@@ -27,15 +27,16 @@ import androidx.recyclerview.selection.Selection
 import androidx.recyclerview.selection.SelectionPredicates
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.selection.StorageStrategy
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.BlockedRequest
-import com.close.hook.ads.data.model.FilterBean
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
+import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
@@ -67,6 +68,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         UrlViewModelFactory(requireContext())
     }
     private lateinit var adapter: BlockedRequestsAdapter
+    private val footerAdapter = FooterAdapter()
     private lateinit var type: String
     private lateinit var filter: IntentFilter
     private val disposables = CompositeDisposable()
@@ -80,6 +82,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 if (checkItem == null) {
                     viewModel.requestList.add(0, item)
                     adapter.submitList(viewModel.requestList.toList())
+
+
                 }
             }
         }
@@ -123,7 +127,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             }*/)
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@RequestListFragment.adapter
+            adapter = ConcatAdapter(this@RequestListFragment.adapter)
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
@@ -210,10 +214,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         ).build()
         adapter.tracker = tracker
     }
-
-
-    override fun updateSortList(filterBean: FilterBean, keyWord: String, isReverse: Boolean) {}
-
 
     private fun setupBroadcastReceiver() {
         filter = when (type) {

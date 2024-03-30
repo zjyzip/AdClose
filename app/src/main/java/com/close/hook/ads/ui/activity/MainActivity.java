@@ -10,13 +10,11 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
-import com.close.hook.ads.data.database.UrlDatabase;
+import com.close.hook.ads.ui.fragment.AppsPagerFragment;
 import com.close.hook.ads.ui.fragment.BlockListFragment;
 import com.close.hook.ads.ui.fragment.HomeFragment;
-import com.close.hook.ads.ui.fragment.InstalledAppsFragment;
 import com.close.hook.ads.ui.fragment.RequestFragment;
 import com.close.hook.ads.ui.fragment.SettingsFragment;
-import com.close.hook.ads.util.DataUtil;
 import com.close.hook.ads.util.INavContainer;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
@@ -60,7 +58,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         hideBottomViewOnScrollBehavior = new HideBottomViewOnScrollBehavior<BottomNavigationView>();
 
         List<Fragment> fragments = new ArrayList<>();
-        fragments.add(new InstalledAppsFragment());
+        fragments.add(new AppsPagerFragment());
         fragments.add(new RequestFragment());
         fragments.add(new HomeFragment());
         fragments.add(new BlockListFragment());

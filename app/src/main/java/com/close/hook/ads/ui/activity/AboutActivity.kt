@@ -4,8 +4,13 @@ import android.annotation.SuppressLint
 import android.widget.ImageView
 import android.widget.TextView
 import com.close.hook.ads.BuildConfig
-import com.drakeet.about.*
 import com.close.hook.ads.R
+import com.drakeet.about.AbsAboutActivity
+import com.drakeet.about.Card
+import com.drakeet.about.Category
+import com.drakeet.about.Contributor
+import com.drakeet.about.License
+import com.drakeet.about.Line
 
 class AboutActivity : AbsAboutActivity() {
 
