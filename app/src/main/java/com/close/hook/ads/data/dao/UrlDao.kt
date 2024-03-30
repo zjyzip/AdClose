@@ -1,7 +1,6 @@
 package com.close.hook.ads.data.dao
 
 import android.database.Cursor
-import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -9,7 +8,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.close.hook.ads.data.model.Url
-
+import kotlinx.coroutines.flow.Flow
 @Dao
 interface UrlDao {
 
@@ -29,7 +28,7 @@ interface UrlDao {
     fun insertAll(urls: List<Url>)
 
     @Query("SELECT * FROM url_info ORDER BY id DESC")
-    fun loadAllList(): LiveData<List<Url>>
+    fun loadAllList(): Flow<List<Url>>
 
     @Query("SELECT url FROM url_info ORDER BY id DESC")
     fun getAllUrls(): List<String>

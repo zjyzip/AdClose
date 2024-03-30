@@ -22,7 +22,6 @@ import com.close.hook.ads.provider.UrlContentProvider;
 
 import org.luckypray.dexkit.result.MethodData;
 
-import java.io.ByteArrayInputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Field;
 import java.net.InetAddress;
@@ -44,20 +43,6 @@ import okhttp3.Response;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
-
-    @Nullable
-    private static String method;
-    @Nullable
-    private static String urlString;
-    @Nullable
-    private static String requestHeaders;
-    private static int responseCode = -1;
-    @Nullable
-    private static String responseMessage;
-    @Nullable
-    private static String responseHeaders;
-    @Nullable
-    private static String stack;
 
     public static void init() {
         try {
@@ -135,16 +120,11 @@ public class RequestHook {
 
             try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, null)) {
                 if (cursor != null && cursor.moveToFirst()) {
-                    int urlTypeIndex = cursor.getColumnIndex(Url.Companion.getURL_TYPE());
-                    int urlValueIndex = cursor.getColumnIndex(Url.Companion.getURL_ADDRESS());
-
                     do {
-                        String urlType = cursor.getString(urlTypeIndex);
-                        String urlValue = cursor.getString(urlValueIndex);
+                        String urlType = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_TYPE()));
+                        String urlValue = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
 
-                        if ("host".equals(queryType) && urlValue.equals(queryValue) ) {
-                            return new Triple<>(true, urlType, urlValue);
-                        } else if (("url".equals(queryType) || "keyword".equals(queryType)) && queryValue.contains(urlValue)) {
+                        if (isQueryMatch(queryType, queryValue, urlType, urlValue)) {
                             return new Triple<>(true, formatUrlType(urlType), urlValue);
                         }
                     } while (cursor.moveToNext());
@@ -152,6 +132,18 @@ public class RequestHook {
             }
         }
         return new Triple<>(false, null, null);
+    }
+
+    private static boolean isQueryMatch(String queryType, String queryValue, String urlType, String urlValue) {
+        switch (queryType) {
+            case "host":
+                return urlValue.equals(queryValue);
+            case "url":
+            case "keyword":
+                return queryValue.contains(urlValue);
+            default:
+                return false;
+        }
     }
 
     private static String formatUrlType(String urlType) {
@@ -191,7 +183,7 @@ public class RequestHook {
                 }
             });
         } catch (Exception e) {
-            XposedBridge.log("Error setting up HTTP connection hook: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
         }
     }
 

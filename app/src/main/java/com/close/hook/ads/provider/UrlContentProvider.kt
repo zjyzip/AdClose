@@ -15,16 +15,16 @@ class UrlContentProvider : ContentProvider() {
     private lateinit var urlDao: UrlDao
 
     override fun onCreate(): Boolean {
-        context?.let {
-            urlDao = UrlDatabase.getDatabase(it).urlDao
-        }
+        urlDao = UrlDatabase.getDatabase(context!!).urlDao
         return true
     }
 
     override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor? =
         when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> urlDao.findAll().also { cursor ->
-                cursor.setNotificationUri(context!!.contentResolver, uri)
+            ID_URL_DATA -> context?.let { ctx ->
+                urlDao.findAll().also { cursor ->
+                    cursor.setNotificationUri(ctx.contentResolver, uri)
+                }
             }
             else -> null
         }

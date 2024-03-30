@@ -14,6 +14,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ArrayAdapter
@@ -55,12 +56,9 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
-
 
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
 
@@ -74,8 +72,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private var tracker: SelectionTracker<Url>? = null
     private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
-    private var searchJob: Job? = null
-    private var lastQuery = ""
+    private var textWatcher: TextWatcher? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -103,62 +100,52 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
         } else 25.dp
 
+    private fun initFabMarginParams(additionalBottomMargin: Int = 0): CoordinatorLayout.LayoutParams =
+        CoordinatorLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            setMargins(0, 0, 25.dp, fabMarginBottom + additionalBottomMargin)
+            gravity = Gravity.BOTTOM or Gravity.END
+            behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
+        }
+
     private fun initFab() {
-        with(binding.delete) {
-            layoutParams = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 0, 25.dp, fabMarginBottom)
-                gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
-            }
+        binding.delete.apply {
+            layoutParams = initFabMarginParams()
             visibility = View.VISIBLE
             setOnClickListener { clearBlockList() }
         }
 
-        with(binding.add) {
-            layoutParams = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 0, 25.dp, fabMarginBottom + 81.dp)
-                gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
-            }
+        binding.add.apply {
+            layoutParams = initFabMarginParams(81.dp)
             visibility = View.VISIBLE
             setOnClickListener { addRule() }
         }
-
     }
 
     private fun addObserverToTracker() {
-        tracker?.addObserver(
-            object : SelectionTracker.SelectionObserver<Url>() {
-                override fun onSelectionChanged() {
-                    super.onSelectionChanged()
-                    selectedItems = tracker?.selection
-                    val items = tracker?.selection?.size()
-                    if (items != null) {
-                        if (items > 0) {
-                            mActionMode?.title = "Selected $items"
-                            if (mActionMode != null) {
-                                return
-                            }
-                            mActionMode =
-                                (activity as MainActivity).startSupportActionMode(
-                                    mActionModeCallback
-                                )
-                        } else {
-                            if (mActionMode != null) {
-                                mActionMode?.finish()
-                            }
-                            mActionMode = null
-                        }
-                    }
+        tracker?.addObserver(object : SelectionTracker.SelectionObserver<Url>() {
+            override fun onSelectionChanged() {
+                super.onSelectionChanged()
+                selectedItems = tracker?.selection
+                tracker?.selection?.size()?.let { size ->
+                    handleActionModeForSelectionSize(size)
                 }
             }
-        )
+        })
+    }
+
+    private fun handleActionModeForSelectionSize(size: Int) {
+        if (size > 0) {
+            if (mActionMode == null) {
+                mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
+            }
+            mActionMode?.title = "Selected $size"
+        } else {
+            mActionMode?.finish()
+            mActionMode = null
+        }
     }
 
     private val mActionModeCallback = object : ActionMode.Callback {
@@ -170,18 +157,17 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
 
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
-            when (item?.itemId) {
+            return when (item?.itemId) {
                 R.id.clear -> {
                     deleteSelectedItem()
-                    return true
+                    true
                 }
-
                 R.id.action_copy -> {
                     onCopy()
-                    return true
+                    true
                 }
+                else -> false
             }
-            return false
         }
 
         override fun onDestroyActionMode(mode: ActionMode?) {
@@ -234,71 +220,53 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initView() {
-        mLayoutManager = LinearLayoutManager(requireContext())
-        mAdapter = BlockListAdapter(requireContext(),
-            onRemoveUrl = {
-                viewModel.removeUrl(it)
-            },
-            onEditUrl = {
-                onEditUrl(it)
-            }
-        )
+        mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
         FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
-        binding.recyclerView.apply {
+        with(binding.recyclerView) {
             adapter = ConcatAdapter(headerAdapter, mAdapter)
-            layoutManager = mLayoutManager
+            layoutManager = LinearLayoutManager(requireContext()).also { mLayoutManager = it }
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
-                    val navContainer = activity as? INavContainer
-                    if (dy > 0) navContainer?.hideNavigation() else if (dy < 0) navContainer?.showNavigation()
+                    (activity as? INavContainer)?.let {
+                        if (dy > 0) it.hideNavigation() else if (dy < 0) it.showNavigation()
+                    }
                 }
             })
         }
+
         binding.vfContainer.setOnDisplayedChildChangedListener {
-            val lastCompletelyVisibleItemPosition =
-                (binding.recyclerView.layoutManager as LinearLayoutManager).findLastCompletelyVisibleItemPosition()
-            val b: Boolean = lastCompletelyVisibleItemPosition < mAdapter.itemCount - 1
-            val adapter = binding.recyclerView.adapter as ConcatAdapter
-            if (!b) {
-                if (!adapter.adapters.contains(footerAdapter))
-                    adapter.addAdapter(footerAdapter)
-            } else {
-                if (adapter.adapters.contains(footerAdapter))
+            val isNotAtBottom = (binding.recyclerView.layoutManager as LinearLayoutManager)
+                .findLastCompletelyVisibleItemPosition() < mAdapter.itemCount - 1
+            (binding.recyclerView.adapter as ConcatAdapter).let { adapter ->
+                if (isNotAtBottom && adapter.adapters.contains(footerAdapter)) {
                     adapter.removeAdapter(footerAdapter)
+                } else if (!isNotAtBottom && !adapter.adapters.contains(footerAdapter)) {
+                    adapter.addAdapter(footerAdapter)
+                }
             }
         }
     }
 
-    private fun onEditUrl(url: Url) {
-        val dialogView =
-            LayoutInflater.from(requireContext()).inflate(R.layout.item_block_list_add, null)
-        val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
-        editText.setText(url.url)
-        val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
-        type.setText(url.type)
-        type.setAdapter(
-            ArrayAdapter(
-                requireContext(),
-                android.R.layout.simple_spinner_dropdown_item,
-                arrayOf("Domain", "URL", "KeyWord")
-            )
-        )
-        MaterialAlertDialogBuilder(requireContext()).setTitle("Edit Rule")
-            .setView(dialogView)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val newType = type.text.toString()
-                val newUrl = editText.text.toString()
-                val item = Url(type = newType, url = newUrl).also {
-                    it.id = url.id
-                }
-                viewModel.updateUrl(item)
+    private fun initEditText() {
+        binding.editText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+                viewModel.searchQuery.value = s.toString()
             }
-            .create().apply {
-                window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-                editText.requestFocus()
-            }.show()
+
+            override fun afterTextChanged(s: Editable) {
+                binding.clear.isVisible = s.isNotBlank()
+            }
+        })
+
+        lifecycleScope.launch {
+            viewModel.searchResults.collect { list: List<Url> ->
+                mAdapter.submitList(list)
+                binding.vfContainer.displayedChild = list.size
+            }
+        }
     }
 
     private fun initButton() {
@@ -313,14 +281,14 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
-    @SuppressLint("SetTextI18n")
-    private fun addRule() {
-        val dialogView =
-            LayoutInflater.from(requireContext())
-                .inflate(R.layout.item_block_list_add, null, false)
+    private fun showRuleDialog(url: Url? = null) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.item_block_list_add, null)
         val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
         val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
-        type.setText("URL")
+
+        editText.setText(url?.url ?: "")
+        type.setText(url?.type ?: "URL")
+
         type.setAdapter(
             ArrayAdapter(
                 requireContext(),
@@ -328,24 +296,33 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 arrayOf("Domain", "URL", "KeyWord")
             )
         )
-        MaterialAlertDialogBuilder(requireContext()).setTitle("Add Rule")
+
+        val title = if (url == null) "Add Rule" else "Edit Rule"
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(title)
             .setView(dialogView)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val newType = type.text.toString()
                 val newUrl = editText.text.toString().trim()
-
+    
                 if (newUrl.isEmpty()) {
-                    Toast.makeText(requireContext(), "Value不能为空", Toast.LENGTH_SHORT)
-                        .show()
+                    Toast.makeText(requireContext(), "Value不能为空", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-                val currentList = viewModel.blackListLiveData.value ?: emptyList()
-                val isExist = currentList.indexOf(Url(newType, newUrl)) != -1
-                if (!isExist) {
-                    viewModel.addUrl(Url(newType, newUrl))
+
+                val newItem = Url(type = newType, url = newUrl).also { it.id = url?.id ?: 0L }
+
+                if (url == null) {
+                    val isExist = viewModel.blackListLiveData.value?.any { it.type == newType && it.url == newUrl } == true
+                    if (!isExist) {
+                        viewModel.addUrl(newItem)
+                    } else {
+                        Toast.makeText(requireContext(), "规则已存在", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
-                    Toast.makeText(requireContext(), "规则已存在", Toast.LENGTH_SHORT).show()
+                    viewModel.updateUrl(newItem)
                 }
             }
             .create().apply {
@@ -354,6 +331,10 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }.show()
     }
 
+    private fun addRule() = showRuleDialog()
+
+    private fun onEditUrl(url: Url) = showRuleDialog(url)
+
     private fun clearBlockList() {
         MaterialAlertDialogBuilder(requireContext()).setTitle("确定清除全部黑名单？")
             .setNegativeButton(android.R.string.cancel, null)
@@ -361,37 +342,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 viewModel.removeAll()
             }
             .show()
-    }
-
-    private suspend fun search(searchText: String) {
-        val list = viewModel.search(searchText)
-        mAdapter.submitList(list)
-        binding.vfContainer.displayedChild = list.size
-    }
-
-    private fun initEditText() {
-        binding.editText.addTextChangedListener(textWatcher)
-    }
-
-    private val textWatcher = object : TextWatcher {
-        override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
-
-        override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-            with(s.toString()) {
-                if (this != lastQuery) {
-                    searchJob?.cancel()
-                    searchJob = lifecycleScope.launch {
-                        delay(if (s.isBlank()) 0L else 300L)
-                        search(this@with)
-                    }
-                    lastQuery = this
-                }
-            }
-        }
-
-        override fun afterTextChanged(s: Editable) {
-            binding.clear.isVisible = s.isNotBlank()
-        }
     }
 
     private fun prepareDataForExport(): List<String> {
@@ -536,7 +486,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     override fun onDestroyView() {
-        binding.editText.removeTextChangedListener(textWatcher)
+        textWatcher?.let { binding.editText.removeTextChangedListener(it) }
         super.onDestroyView()
     }
 

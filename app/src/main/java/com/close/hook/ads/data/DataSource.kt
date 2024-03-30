@@ -7,16 +7,12 @@ import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
 
 class DataSource(context: Context) {
-
     private val urlDao = UrlDatabase.getDatabase(context).urlDao
 
-    private val urlsLiveData: LiveData<List<Url>> = urlDao.loadAllList()
-
-    fun getUrlList(): LiveData<List<Url>> {
-        return urlsLiveData
-    }
+    fun getUrlList(): Flow<List<Url>> = urlDao.loadAllList()
 
     fun addUrl(url: Url) {
         CoroutineScope(Dispatchers.IO).launch {

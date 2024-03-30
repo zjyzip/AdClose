@@ -1,7 +1,7 @@
 package com.close.hook.ads.ui.viewmodel
 
 import android.content.Context
-import androidx.lifecycle.LiveData
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.close.hook.ads.data.DataSource
@@ -9,12 +9,31 @@ import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.*
 
 class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
 
     var requestList = ArrayList<BlockedRequest>()
 
-    val blackListLiveData: LiveData<List<Url>> = dataSource.getUrlList()
+    val blackListLiveData = dataSource.getUrlList().asLiveData()
+
+    val searchQuery = MutableStateFlow("")
+
+    val searchResults: Flow<List<Url>> = searchQuery
+        .debounce(300)
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            if (query.isBlank()) {
+                dataSource.getUrlList()
+            } else {
+                flow {
+                    emit(dataSource.search(query))
+                }
+                .catch { emit(emptyList()) }
+                .flowOn(Dispatchers.IO)
+            }
+        }
+        .flowOn(Dispatchers.Default)
 
     fun addUrl(url: Url) {
         dataSource.addUrl(url)
@@ -42,14 +61,6 @@ class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
 
     fun removeUrlString(type: String, url: String) {
         dataSource.removeUrlString(type, url)
-    }
-
-    suspend fun search(searchText: String): List<Url> {
-        return if (searchText.isBlank())
-            blackListLiveData.value?.toList() ?: emptyList()
-        else withContext(Dispatchers.IO) {
-            dataSource.search(searchText)
-        }
     }
 
 }
