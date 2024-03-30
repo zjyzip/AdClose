@@ -40,6 +40,7 @@ import com.close.hook.ads.databinding.FragmentBlockListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
+import com.close.hook.ads.ui.adapter.HeaderAdapter
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.DensityTool
@@ -69,6 +70,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         UrlViewModelFactory(requireContext())
     }
     private lateinit var mAdapter: BlockListAdapter
+    private val headerAdapter = HeaderAdapter()
     private val footerAdapter = FooterAdapter()
     private lateinit var mLayoutManager: LinearLayoutManager
     private var tracker: SelectionTracker<Url>? = null
@@ -240,7 +242,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         )
         FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
         binding.recyclerView.apply {
-            adapter = ConcatAdapter(mAdapter)
+            adapter = ConcatAdapter(headerAdapter, mAdapter)
             layoutManager = mLayoutManager
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {

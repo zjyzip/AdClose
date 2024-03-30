@@ -21,6 +21,7 @@ import com.close.hook.ads.hook.preference.PreferencesHelper
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
+import com.close.hook.ads.ui.adapter.HeaderAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
 import com.close.hook.ads.ui.viewmodel.AppsViewModelNew
 import com.close.hook.ads.util.AppUtils
@@ -28,8 +29,10 @@ import com.close.hook.ads.util.CacheDataManager.getFormatSize
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
+import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
+import com.close.hook.ads.util.dp
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
@@ -48,6 +51,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         )
     }
     private lateinit var mAdapter: AppsAdapter
+    private val headerAdapter = HeaderAdapter()
     private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null
     private var appInfoDialog: BottomSheetDialog? = null
@@ -215,7 +219,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initView() {
         mAdapter = AppsAdapter(requireContext(), this)
         binding.recyclerView.apply {
-            adapter = ConcatAdapter(mAdapter)
+            adapter = ConcatAdapter(headerAdapter, mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -227,6 +231,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     }
                 }
             })
+            addItemDecoration(LinearItemDecoration(4.dp))
             FastScrollerBuilder(this).useMd2Style().build()
         }
         binding.vfContainer.setOnDisplayedChildChangedListener {
