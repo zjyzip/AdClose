@@ -23,7 +23,7 @@ import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.adapter.HeaderAdapter
 import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
-import com.close.hook.ads.ui.viewmodel.AppsViewModelNew
+import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.CacheDataManager.getFormatSize
 import com.close.hook.ads.util.INavContainer
@@ -44,7 +44,7 @@ import java.util.Locale
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener {
 
-    private val viewModel by viewModels<AppsViewModelNew> {
+    private val viewModel by viewModels<AppsViewModel> {
         AppsViewModelFactory(
             arguments?.getString("type") ?: "user",
             AppRepository(requireContext().packageManager)

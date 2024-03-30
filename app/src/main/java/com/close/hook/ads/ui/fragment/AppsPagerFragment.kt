@@ -7,13 +7,12 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.core.view.isVisible
-import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.BottomDialogSearchFilterBinding
 import com.close.hook.ads.databinding.UniversalWithTabsBinding
 import com.close.hook.ads.ui.activity.MainActivity
-import com.close.hook.ads.ui.viewmodel.AppsPagerViewModel
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnBackPressContainer
@@ -27,20 +26,21 @@ import com.google.android.material.chip.ChipGroup
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class AppsPagerFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressListener,
     IOnTabClickContainer, OnCLearCLickContainer {
 
-    private val viewModel by viewModels<AppsPagerViewModel>()
     override var tabController: IOnTabClickListener? = null
     override var controller: OnClearClickListener? = null
     private val tabList =
         listOf(R.string.tab_user_apps, R.string.tab_configured_apps, R.string.tab_system_apps)
     private var imm: InputMethodManager? = null
-    private lateinit var lastQuery: String
-    private val isQueryChanged get() = viewModel.query.value != lastQuery
     private var bottomSheet: BottomSheetDialog? = null
     private lateinit var filerBinding: BottomDialogSearchFilterBinding
+    private var searchJob: Job? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -50,7 +50,6 @@ class AppsPagerFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressL
         initEditText()
         initButton()
         initFilterSheet()
-        initObserve()
 
     }
 
@@ -203,27 +202,6 @@ class AppsPagerFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressL
         }
     }
 
-    private fun initObserve() {
-        viewModel.query.apply {
-            lastQuery = value ?: ""
-            observe(viewLifecycleOwner) {
-                if (isQueryChanged) {
-                    val filterList = ArrayList<String>().apply {
-                        if (PrefManager.configured) add("已配置")
-                        if (PrefManager.updated) add("最近更新")
-                        if (PrefManager.disabled) add("已禁用")
-                    }
-                    controller?.updateSortList(
-                        Pair(PrefManager.order, filterList),
-                        viewModel.query.value ?: "",
-                        PrefManager.isReverse
-                    )
-                    lastQuery = it
-                }
-            }
-        }
-    }
-
     private fun initEditText() {
         binding.searchEditText.onFocusChangeListener =
             View.OnFocusChangeListener { _, hasFocus ->
@@ -232,23 +210,32 @@ class AppsPagerFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressL
                     hasFocus
                 )
             }
-        binding.searchEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(
-                s: CharSequence,
-                start: Int,
-                count: Int,
-                after: Int
-            ) {
-            }
+        binding.searchEditText.addTextChangedListener(textWatcher)
+    }
 
-            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-                viewModel.postQuery(s.toString(), if (s.isEmpty()) 0L else 300L)
-            }
+    private val textWatcher = object : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
 
-            override fun afterTextChanged(s: Editable) {
-                binding.searchClear.isVisible = s.isNotBlank()
+        override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+            searchJob?.cancel()
+            searchJob = lifecycleScope.launch {
+                delay(if (s.isBlank()) 0L else 300L)
+                val filterList = ArrayList<String>().apply {
+                    if (PrefManager.configured) add("已配置")
+                    if (PrefManager.updated) add("最近更新")
+                    if (PrefManager.disabled) add("已禁用")
+                }
+                controller?.updateSortList(
+                    Pair(PrefManager.order, filterList),
+                    s.toString(),
+                    PrefManager.isReverse
+                )
             }
-        })
+        }
+
+        override fun afterTextChanged(s: Editable) {
+            binding.searchClear.isVisible = s.isNotBlank()
+        }
     }
 
     private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
@@ -312,8 +299,9 @@ class AppsPagerFragment : BaseFragment<UniversalWithTabsBinding>(), OnBackPressL
         return false
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onDestroyView() {
+        binding.searchEditText.removeTextChangedListener(textWatcher)
+        super.onDestroyView()
         bottomSheet?.dismiss()
         bottomSheet = null
     }
