@@ -5,7 +5,7 @@ import android.util.AttributeSet
 import android.widget.ViewFlipper
 import androidx.fragment.app.findFragment
 import androidx.lifecycle.lifecycleScope
-import com.close.hook.ads.ui.fragment.BaseFragment
+import com.close.hook.ads.ui.fragment.base.BaseFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

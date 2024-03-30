@@ -15,6 +15,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHomeBinding
 import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.ui.activity.MainActivity
+import com.close.hook.ads.ui.fragment.base.BaseFragment
 
 class HomeFragment : BaseFragment<FragmentHomeBinding>() {
 

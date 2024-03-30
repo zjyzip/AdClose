@@ -1,5 +1,5 @@
 package com.close.hook.ads.util
 
-interface OnBackPressFragmentListener {
+interface OnBackPressListener {
     fun onBackPressed(): Boolean
 }
