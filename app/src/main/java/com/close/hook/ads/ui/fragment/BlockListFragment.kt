@@ -22,7 +22,10 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
@@ -44,7 +47,6 @@ import com.close.hook.ads.ui.adapter.HeaderAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
-import com.close.hook.ads.util.DensityTool
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
@@ -95,17 +97,11 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
-    private val fabMarginBottom
-        get() = if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
-            DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
-        } else 25.dp
-
-    private fun initFabMarginParams(additionalBottomMargin: Int = 0): CoordinatorLayout.LayoutParams =
+    private fun initFabMarginParams(): CoordinatorLayout.LayoutParams =
         CoordinatorLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply {
-            setMargins(0, 0, 25.dp, fabMarginBottom + additionalBottomMargin)
             gravity = Gravity.BOTTOM or Gravity.END
             behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
         }
@@ -118,9 +114,22 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
 
         binding.add.apply {
-            layoutParams = initFabMarginParams(81.dp)
+            layoutParams = initFabMarginParams()
             visibility = View.VISIBLE
             setOnClickListener { addRule() }
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val navigationBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            binding.delete.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+                rightMargin = 25.dp
+                bottomMargin = navigationBars.bottom + 105.dp
+            }
+            binding.add.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+                rightMargin = 25.dp
+                bottomMargin = navigationBars.bottom + 186.dp
+            }
+            insets
         }
     }
 
@@ -139,7 +148,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private fun handleActionModeForSelectionSize(size: Int) {
         if (size > 0) {
             if (mActionMode == null) {
-                mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
+                mActionMode =
+                    (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
             }
             mActionMode?.title = "Selected $size"
         } else {
@@ -162,10 +172,12 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     deleteSelectedItem()
                     true
                 }
+
                 R.id.action_copy -> {
                     onCopy()
                     true
                 }
+
                 else -> false
             }
         }
@@ -282,7 +294,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun showRuleDialog(url: Url? = null) {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.item_block_list_add, null)
+        val dialogView =
+            LayoutInflater.from(requireContext()).inflate(R.layout.item_block_list_add, null)
         val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
         val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
 
@@ -306,7 +319,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val newType = type.text.toString()
                 val newUrl = editText.text.toString().trim()
-    
+
                 if (newUrl.isEmpty()) {
                     Toast.makeText(requireContext(), "Value不能为空", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
@@ -315,7 +328,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 val newItem = Url(type = newType, url = newUrl).also { it.id = url?.id ?: 0L }
 
                 if (url == null) {
-                    val isExist = viewModel.blackListLiveData.value?.any { it.type == newType && it.url == newUrl } == true
+                    val isExist =
+                        viewModel.blackListLiveData.value?.any { it.type == newType && it.url == newUrl } == true
                     if (!isExist) {
                         viewModel.addUrl(newItem)
                     } else {
