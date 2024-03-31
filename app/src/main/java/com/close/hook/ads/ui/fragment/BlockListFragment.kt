@@ -60,6 +60,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.*
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
@@ -138,24 +139,19 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             override fun onSelectionChanged() {
                 super.onSelectionChanged()
                 selectedItems = tracker?.selection
-                tracker?.selection?.size()?.let { size ->
-                    handleActionModeForSelectionSize(size)
+                val size = tracker?.selection?.size() ?: 0
+
+                if (size > 0) {
+                    if (mActionMode == null) {
+                        mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
+                    }
+                    mActionMode?.title = "Selected $size"
+                } else {
+                    mActionMode?.finish()
+                    mActionMode = null
                 }
             }
         })
-    }
-
-    private fun handleActionModeForSelectionSize(size: Int) {
-        if (size > 0) {
-            if (mActionMode == null) {
-                mActionMode =
-                    (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
-            }
-            mActionMode?.title = "Selected $size"
-        } else {
-            mActionMode?.finish()
-            mActionMode = null
-        }
     }
 
     private val mActionModeCallback = object : ActionMode.Callback {
@@ -274,10 +270,23 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         })
 
         lifecycleScope.launch {
-            viewModel.searchResults.collect { list: List<Url> ->
-                mAdapter.submitList(list)
-                binding.vfContainer.displayedChild = list.size
-            }
+            viewModel.searchQuery
+                .debounce(300)
+                .distinctUntilChanged()
+                .flatMapLatest { query ->
+                    if (query.isBlank()) {
+                        viewModel.dataSource.getUrlList()
+                    } else {
+                        flow { emit(viewModel.dataSource.search(query)) }
+                            .catch { emit(emptyList<Url>()) }
+                            .flowOn(Dispatchers.IO)
+                    }
+                }
+                .flowOn(Dispatchers.Default)
+                .collect { list: List<Url> ->
+                    mAdapter.submitList(list)
+                    binding.vfContainer.displayedChild = if (list.isEmpty()) 0 else 1
+                }
         }
     }
 
