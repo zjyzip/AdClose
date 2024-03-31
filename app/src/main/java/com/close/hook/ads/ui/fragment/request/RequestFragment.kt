@@ -1,18 +1,19 @@
 package com.close.hook.ads.ui.fragment.request
 
 import android.content.res.Configuration
-import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.Fragment
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.BaseTablayoutViewpagerBinding
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
-import com.close.hook.ads.util.DensityTool
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.OnBackPressContainer
@@ -41,13 +42,20 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
                 CoordinatorLayout.LayoutParams.WRAP_CONTENT,
                 CoordinatorLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(0, 0, 25.dp, fabMarginBottom)
                 gravity = Gravity.BOTTOM or Gravity.END
                 behavior = fabViewBehavior
             }
             setImageResource(R.drawable.ic_export)
             tooltipText = getString(R.string.export)
             setOnClickListener { fabController?.onExport() }
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val navigationBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            fab.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+                rightMargin = 25.dp
+                bottomMargin = navigationBars.bottom + 105.dp
+            }
+            insets
         }
         binding.root.addView(fab)
         return binding.root
@@ -87,12 +95,6 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
             2 -> RequestListFragment.newInstance("pass")
             else -> throw IllegalArgumentException()
         }
-
-    private val fabMarginBottom
-        get() =
-            if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT)
-                DensityTool.getNavigationBarHeight(requireContext()) + 105.dp
-            else 25.dp
 
     override fun onBackPressed(): Boolean {
         if (backController?.onBackPressed() == true)
