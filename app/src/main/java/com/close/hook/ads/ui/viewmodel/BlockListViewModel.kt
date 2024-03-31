@@ -7,9 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
 
@@ -18,22 +16,6 @@ class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
     val blackListLiveData = dataSource.getUrlList().asLiveData()
 
     val searchQuery = MutableStateFlow("")
-
-    val searchResults: Flow<List<Url>> = searchQuery
-        .debounce(300)
-        .distinctUntilChanged()
-        .flatMapLatest { query ->
-            if (query.isBlank()) {
-                dataSource.getUrlList()
-            } else {
-                flow {
-                    emit(dataSource.search(query))
-                }
-                .catch { emit(emptyList()) }
-                .flowOn(Dispatchers.IO)
-            }
-        }
-        .flowOn(Dispatchers.Default)
 
     fun addUrl(url: Url) {
         dataSource.addUrl(url)

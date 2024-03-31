@@ -53,14 +53,14 @@ import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Observable
-import io.reactivex.rxjava3.disposables.CompositeDisposable
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.util.Optional
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 
 class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
@@ -73,7 +73,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     private val footerAdapter = FooterAdapter()
     private lateinit var type: String
     private lateinit var filter: IntentFilter
-    private val disposables = CompositeDisposable()
     private var tracker: SelectionTracker<BlockedRequest>? = null
     private var selectedItems: Selection<BlockedRequest>? = null
     private var mActionMode: ActionMode? = null
@@ -150,32 +149,23 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun addObserverToTracker() {
-        tracker?.addObserver(
-            object : SelectionTracker.SelectionObserver<BlockedRequest>() {
-                override fun onSelectionChanged() {
-                    super.onSelectionChanged()
-                    selectedItems = tracker?.selection
-                    val items = tracker?.selection?.size()
-                    if (items != null) {
-                        if (items > 0) {
-                            mActionMode?.title = "Selected $items"
-                            if (mActionMode != null) {
-                                return
-                            }
-                            mActionMode =
-                                (activity as MainActivity).startSupportActionMode(
-                                    mActionModeCallback
-                                )
-                        } else {
-                            if (mActionMode != null) {
-                                mActionMode?.finish()
-                            }
-                            mActionMode = null
-                        }
+        tracker?.addObserver(object : SelectionTracker.SelectionObserver<BlockedRequest>() {
+            override fun onSelectionChanged() {
+                super.onSelectionChanged()
+                selectedItems = tracker?.selection
+                val size = tracker?.selection?.size() ?: 0
+
+                if (size > 0) {
+                    if (mActionMode == null) {
+                        mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
                     }
+                    mActionMode?.title = "Selected $size"
+                } else {
+                    mActionMode?.finish()
+                    mActionMode = null
                 }
             }
-        )
+        })
     }
 
     private val mActionModeCallback = object : ActionMode.Callback {
@@ -236,37 +226,35 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_EXPORTED else 0
     }
 
-    override fun search(keyWord: String) {
-        val safeAppInfoList: List<BlockedRequest> =
-            Optional.ofNullable<List<BlockedRequest>>(viewModel.requestList)
-                .orElseGet { emptyList() }
-        disposables.add(Observable.fromIterable(safeAppInfoList)
-            .filter { blockRequest: BlockedRequest ->
-                (blockRequest.request.contains(keyWord)
-                        || blockRequest.packageName.contains(keyWord)
-                        || blockRequest.appName.contains(keyWord))
-            }
-            .toList().observeOn(AndroidSchedulers.mainThread())
-            .subscribe(
-                { filteredList: List<BlockedRequest?>? ->
-                    mAdapter.submitList(
-                        filteredList
-                    )
-                },
-                { throwable: Throwable? ->
-                    Log.e(
-                        "AppsFragment",
-                        "Error in searchKeyWorld",
-                        throwable
-                    )
-                })
-        )
+    override fun search(keyword: String) {
+        viewModel.searchQuery.value = keyword
+
+        CoroutineScope(Dispatchers.Main).launch {
+            viewModel.searchQuery
+                .debounce(300)
+                .distinctUntilChanged()
+                .flatMapLatest { query ->
+                    flow {
+                        val safeAppInfoList = viewModel.requestList.ifEmpty { emptyList() }
+                        emit(safeAppInfoList.filter { blockedRequest ->
+                            blockedRequest.request.contains(query, ignoreCase = true) ||
+                            blockedRequest.packageName.contains(query, ignoreCase = true) ||
+                            blockedRequest.appName.contains(query, ignoreCase = true)
+                        })
+                    }
+                }
+                .catch { throwable ->
+                    Log.e("AppsFragment", "Error in searchKeyword", throwable)
+                }
+                .collect { filteredList ->
+                    mAdapter.submitList(filteredList)
+                }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         requireContext().unregisterReceiver(receiver)
-        disposables.dispose()
     }
 
     override fun onClearAll() {
