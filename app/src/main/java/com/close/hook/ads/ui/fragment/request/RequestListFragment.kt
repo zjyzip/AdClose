@@ -392,7 +392,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         override fun getItemDetails(e: MotionEvent): ItemDetails<BlockedRequest>? {
             val view = recyclerView.findChildViewUnder(e.x, e.y)
             if (view != null) {
-                return (recyclerView.getChildViewHolder(view) as BlockedRequestsAdapter.ViewHolder).getItemDetails()
+                return (recyclerView.getChildViewHolder(view) as? BlockedRequestsAdapter.ViewHolder)?.getItemDetails()
             }
             return null
         }
