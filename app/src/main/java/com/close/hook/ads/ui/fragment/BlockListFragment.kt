@@ -467,7 +467,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         override fun getItemDetails(e: MotionEvent): ItemDetails<Url>? {
             val view = recyclerView.findChildViewUnder(e.x, e.y)
             if (view != null) {
-                return (recyclerView.getChildViewHolder(view) as BlockListAdapter.ViewHolder).getItemDetails()
+                return (recyclerView.getChildViewHolder(view) as? BlockListAdapter.ViewHolder)?.getItemDetails()
             }
             return null
         }
