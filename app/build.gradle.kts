@@ -146,7 +146,6 @@ dependencies {
     implementation("dev.rikka.rikkax.material:material:2.7.0")
     implementation("dev.rikka.rikkax.material:material-preference:2.0.0")
 
-    implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.google.guava:guava:33.1.0-jre")

@@ -37,39 +37,31 @@ class AppRepository(private val packageManager: PackageManager) {
         keyword: String,
         isReverse: Boolean
     ): List<AppInfo> = withContext(Dispatchers.Default) {
-        var filteredApps = apps
+        val comparator = getComparator(filter.first, isReverse)
 
-        // 关键字搜索
-        if (keyword.isNotBlank()) {
-            filteredApps = filteredApps.filter {
-                it.appName.lowercase().contains(keyword.lowercase()) ||
-                it.packageName.lowercase().contains(keyword.lowercase())
-            }
-        }
-
-        // 过滤
-        filter.second.forEach { filterTitle ->
-            filteredApps = when (filterTitle) {
-                "已配置" -> filteredApps.filter { it.isEnable == 1 }
-                "最近更新" -> {
-                    val time = 3 * 24 * 3600 * 1000L
-                    filteredApps.filter { System.currentTimeMillis() - it.lastUpdateTime < time }
+        apps.filter { app ->
+            (keyword.isBlank() || app.appName.lowercase().contains(keyword.lowercase()) ||
+            app.packageName.lowercase().contains(keyword.lowercase())) &&
+            filter.second.all { filterCriteria ->
+                when (filterCriteria) {
+                    "已配置" -> app.isEnable == 1
+                    "最近更新" -> System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
+                    "已禁用" -> app.isAppEnable == 0
+                    else -> true
                 }
-                "已禁用" -> filteredApps.filter { it.isAppEnable == 0 }
-                else -> filteredApps
             }
-        }
+        }.sortedWith(comparator)
+    }
 
-        // 排序
-        val comparator = when (filter.first) {
+    fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {
+        val comparator = when (sortBy) {
             "应用大小" -> compareBy<AppInfo> { it.size }
             "最近更新时间" -> compareBy { it.lastUpdateTime }
             "安装日期" -> compareBy { it.firstInstallTime }
             "Target 版本" -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
-        }.let { if (isReverse) it.reversed() else it }
-
-        filteredApps.sortedWith(comparator)
+        }
+        return if (isReverse) comparator.reversed() else comparator
     }
 
     private fun getAppInfo(packageInfo: PackageInfo): AppInfo {
