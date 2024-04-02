@@ -1,5 +1,6 @@
 package com.close.hook.ads.ui.fragment.app
 
+import android.content.Context
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
@@ -21,7 +22,6 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.snackbar.Snackbar
 
-
 class AppsPagerFragment : BasePagerFragment() {
 
     override val tabList: List<Int> =
@@ -31,42 +31,39 @@ class AppsPagerFragment : BasePagerFragment() {
     private lateinit var filterBtn: ImageButton
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = BaseTablayoutViewpagerBinding.inflate(inflater, container, false)
+        setupFilterButton()
+        return binding.root
+    }
+
+    private fun setupFilterButton() {
         filterBtn = ImageButton(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.CENTER
-            }
+            ).apply { gravity = Gravity.CENTER }
             setPadding(16.dp, 0, 16.dp, 0)
             setImageResource(R.drawable.ic_filter)
-            val outValue = TypedValue()
-            context.theme.resolveAttribute(
-                android.R.attr.selectableItemBackgroundBorderless,
-                outValue,
-                true
-            )
-            setBackgroundResource(outValue.resourceId)
+            setBackgroundResource(context.getSelectableItemBackgroundBorderless())
+            binding.searchContainer.addView(this)
         }
-        binding.searchContainer.addView(filterBtn)
-        return binding.root
+    }
+
+    private fun Context.getSelectableItemBackgroundBorderless(): Int {
+        val outValue = TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
+        return outValue.resourceId
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         initFilterSheet()
-
     }
 
     override fun initButton() {
         super.initButton()
-
         filterBtn.setOnClickListener { bottomSheet?.show() }
     }
 
@@ -75,49 +72,52 @@ class AppsPagerFragment : BasePagerFragment() {
         filerBinding = BottomDialogSearchFilterBinding.inflate(layoutInflater, null, false)
         bottomSheet?.setContentView(filerBinding.root)
 
-        filerBinding.apply {
-            toolbar.apply {
-                setNavigationOnClickListener {
-                    bottomSheet?.dismiss()
-                }
+        setupToolbar()
+        setupSwitchesAndChips()
+    }
 
-                setOnMenuItemClickListener {
-                    when (it.itemId) {
-                        R.id.action_reset -> resetFilters()
-                    }
-                    return@setOnMenuItemClickListener false
-                }
+    private fun setupToolbar() {
+        filerBinding.toolbar.apply {
+            setNavigationOnClickListener { bottomSheet?.dismiss() }
+            setOnMenuItemClickListener {
+                if (it.itemId == R.id.action_reset) resetFilters()
+                false
             }
-
-            reverseSwitch.isChecked = PrefManager.isReverse
-            reverseSwitch.setOnCheckedChangeListener { _, isReverse ->
-                PrefManager.isReverse = isReverse
-                controller?.updateSortList(
-                    Pair(
-                        PrefManager.order,
-                        ArrayList<String>().apply {
-                            if (PrefManager.configured) add("已配置")
-                            if (PrefManager.updated) add("最近更新")
-                            if (PrefManager.disabled) add("已禁用")
-                        }
-                    ),
-                    binding.editText.text.toString(),
-                    reverseSwitch.isChecked
-                )
-            }
-
-            setupChipGroup(
-                sortBy,
-                listOf("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本"),
-                true
-            )
-            setupChipGroup(filter, listOf("已配置", "最近更新", "已禁用"), false)
         }
     }
 
+    private fun setupSwitchesAndChips() {
+        filerBinding.reverseSwitch.apply {
+            isChecked = PrefManager.isReverse
+            setOnCheckedChangeListener { _, isChecked ->
+                PrefManager.isReverse = isChecked
+                updateSortAndFilters()
+            }
+        }
+
+        val sortByTitles = listOf("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本")
+        val filterTitles = listOf("已配置", "最近更新", "已禁用")
+
+        setupChipGroup(filerBinding.sortBy, sortByTitles, true)
+        setupChipGroup(filerBinding.filter, filterTitles, false)
+    }
+
+    private fun updateSortAndFilters() {
+        val filters = listOfNotNull(
+            "已配置".takeIf { PrefManager.configured },
+            "最近更新".takeIf { PrefManager.updated },
+            "已禁用".takeIf { PrefManager.disabled }
+        )
+        controller?.updateSortList(Pair(PrefManager.order, filters), binding.editText.text.toString(), PrefManager.isReverse)
+    }
+
     private fun resetFilters() {
-        filerBinding.sortBy.check(0)
-        filerBinding.filter.clearCheck()
+        with(filerBinding) {
+            sortBy.check(0)
+            filter.clearCheck()
+            reverseSwitch.isChecked = false
+        }
+
         PrefManager.apply {
             isReverse = false
             order = "应用名称"
@@ -125,72 +125,50 @@ class AppsPagerFragment : BasePagerFragment() {
             updated = false
             disabled = false
         }
-        filerBinding.reverseSwitch.isChecked = false
-        controller?.updateSortList(Pair("应用名称", listOf()), "", false)
+
+        updateSortAndFilters()
     }
 
     private fun setupChipGroup(chipGroup: ChipGroup, titles: List<String>, isSortBy: Boolean) {
         chipGroup.isSingleSelection = isSortBy
         titles.forEach { title ->
-            chipGroup.addView(getChip(title, isSortBy))
+            val chip = Chip(requireContext()).apply {
+                text = title
+                isCheckable = true
+                isClickable = true
+                isChecked = when {
+                    isSortBy -> title == PrefManager.order
+                    else -> title == "已配置" && PrefManager.configured ||
+                            title == "最近更新" && PrefManager.updated ||
+                            title == "已禁用" && PrefManager.disabled
+                }
+                setOnClickListener { handleChipClick(this, title, isSortBy) }
+            }
+            chipGroup.addView(chip)
         }
     }
 
-    private fun getChip(title: String, isSortBy: Boolean): Chip {
-        return Chip(requireContext()).apply {
-            if (title == "应用名称")
-                id = 0
-            text = title
-            isCheckable = true
-            isClickable = true
-            isChecked = when {
-                isSortBy && title == PrefManager.order -> true
-                title == "已配置" && PrefManager.configured -> true
-                title == "最近更新" && PrefManager.updated -> true
-                title == "已禁用" && PrefManager.disabled -> true
-                else -> false
-            }
-            setOnClickListener {
-                chipClickAction(this, title, isSortBy)
-            }
-        }
-    }
-
-    private fun chipClickAction(chip: Chip, title: String, isSortBy: Boolean) {
+    private fun handleChipClick(chip: Chip, title: String, isSortBy: Boolean) {
         if (!isSortBy && title == "已配置" && !MainActivity.isModuleActivated()) {
             Snackbar.make(filerBinding.root, "模块尚未被激活", Snackbar.LENGTH_SHORT).show()
             chip.isChecked = false
             return
         }
 
-        if (!isSortBy) {
+        if (isSortBy) {
+            PrefManager.order = title
+        } else {
             val isChecked = chip.isChecked
             when (title) {
                 "已配置" -> PrefManager.configured = isChecked
                 "最近更新" -> PrefManager.updated = isChecked
                 "已禁用" -> PrefManager.disabled = isChecked
             }
-            showFilterToast(title, isChecked)
-        } else {
-            PrefManager.order = title
-            Snackbar.make(
-                filerBinding.root,
-                "${requireContext().getString(R.string.sort_by_default)}: $title",
-                Snackbar.LENGTH_SHORT
-            ).show()
         }
-        controller?.updateSortList(
-            Pair(
-                PrefManager.order,
-                ArrayList<String>().apply {
-                    if (PrefManager.configured) add("已配置")
-                    if (PrefManager.updated) add("最近更新")
-                    if (PrefManager.disabled) add("已禁用")
-                }
-            ),
-            binding.editText.text.toString(),
-            PrefManager.isReverse
-        )
+
+        val message = if (isSortBy) "${requireContext().getString(R.string.sort_by_default)}: $title" else "$title 已更新"
+        Snackbar.make(filerBinding.root, message, Snackbar.LENGTH_SHORT).show()
+        updateSortAndFilters()
     }
 
     private fun showFilterToast(title: String, isEnabled: Boolean) {

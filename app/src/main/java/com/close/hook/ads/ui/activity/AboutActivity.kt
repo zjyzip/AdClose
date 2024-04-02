@@ -67,7 +67,6 @@ class AboutActivity : AbsAboutActivity() {
         items.add(License("kotlin", "JetBrains", License.APACHE_2, "https://github.com/JetBrains/kotlin"))
         items.add(License("glide", "bumptech", License.APACHE_2, "https://github.com/bumptech/glide"))
         items.add(License("Guava", "Google", License.APACHE_2, "https://github.com/google/guava"))
-        items.add(License("RxJava", "RxAndroid", License.APACHE_2, "https://github.com/ReactiveX/RxAndroid"))
 
     }
 }
