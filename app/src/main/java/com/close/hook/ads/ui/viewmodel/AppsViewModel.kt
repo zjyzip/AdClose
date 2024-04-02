@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class AppsViewModel(
     private val type: String,
@@ -28,24 +29,27 @@ class AppsViewModel(
     }
 
     fun refreshApps() {
-        when (type) {
-            "user" -> loadApps(false)
-            "system" -> loadApps(true)
-            "configured" -> loadApps()
+        viewModelScope.launch(Dispatchers.IO) {
+            val isSystem = when (type) {
+                "user" -> false
+                "system" -> true
+                else -> null
+            }
+            appList = appRepository.getInstalledApps(isSystem)
+            if (type == "configured") appList = appList.filter { it.isEnable == 1 }
+            withContext(Dispatchers.Main) {
+                updateLiveData(appList)
+            }
         }
     }
 
-    private fun loadApps(isSystem: Boolean? = null) {
-        viewModelScope.launch(Dispatchers.IO) {
-            appList = appRepository.getInstalledApps(isSystem)
-            if (type == "configured") appList = appList.filter { it.isEnable == 1 }
-            val filterList = ArrayList<String>().apply {
-                if (PrefManager.configured) add("已配置")
-                if (PrefManager.updated) add("最近更新")
-                if (PrefManager.disabled) add("已禁用")
-            }
-            updateAppList(Pair(PrefManager.order, filterList), "", PrefManager.isReverse)
+    private fun updateLiveData(list: List<AppInfo>) {
+        val filterList = ArrayList<String>().apply {
+            if (PrefManager.configured) add("已配置")
+            if (PrefManager.updated) add("最近更新")
+            if (PrefManager.disabled) add("已禁用")
         }
+        updateList(Pair(PrefManager.order, filterList), "", PrefManager.isReverse)
     }
 
     fun updateList(
@@ -55,66 +59,21 @@ class AppsViewModel(
         delayTime: Long = 300L
     ) {
         searchJob?.cancel()
-        if (delayTime == 0L)
-            updateAppList(filter, keyWord, isReverse)
-        else {
-            searchJob = viewModelScope.launch {
+        searchJob = viewModelScope.launch(Dispatchers.Default) {
+            if (delayTime > 0) {
                 delay(delayTime)
-                updateAppList(filter, keyWord, isReverse)
+            }
+            val updatedList = appRepository.getFilteredAndSortedApps(
+                apps = appList,
+                filter = filter,
+                keyword = keyWord,
+                isReverse = isReverse
+            )
+            withContext(Dispatchers.Main) {
+                _appsLiveData.value = updatedList
             }
         }
     }
-
-    private fun updateAppList(
-        filter: Pair<String, List<String>>,
-        keyWord: String,
-        isReverse: Boolean
-    ) {
-        // search
-        var updateList = if (keyWord.isBlank()) appList
-        else appList.filter {
-            it.appName.lowercase().contains(keyWord)
-                    || it.packageName.lowercase().contains(keyWord)
-        }
-
-        // filter
-        if (filter.second.isNotEmpty()) {
-            updateList = filter.second.fold(updateList) { list, title ->
-                list.filter { appInfo ->
-                    getAppInfoFilter(title)(appInfo)
-                }
-            }
-        }
-
-        // compare
-        val comparator =
-            getAppInfoComparator(filter.first).let { if (isReverse) it.reversed() else it }
-
-        _appsLiveData.postValue(updateList.sortedWith(comparator))
-    }
-
-    private fun getAppInfoComparator(title: String): Comparator<AppInfo> {
-        return when (title) {
-            "应用大小" -> compareBy { it.size }
-            "最近更新时间" -> compareBy { it.lastUpdateTime }
-            "安装日期" -> compareBy { it.firstInstallTime }
-            "Target 版本" -> compareBy { it.targetSdk }
-            else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
-        }
-    }
-
-    private fun getAppInfoFilter(title: String): (AppInfo) -> Boolean {
-        val time = 3 * 24 * 3600L
-        return { appInfo: AppInfo ->
-            when (title) {
-                "已配置" -> appInfo.isEnable == 1
-                "最近更新" -> System.currentTimeMillis() / 1000 - appInfo.lastUpdateTime / 1000 < time
-                "已禁用" -> appInfo.isAppEnable == 0
-                else -> throw IllegalArgumentException()
-            }
-        }
-    }
-
 }
 
 class AppsViewModelFactory(
@@ -124,12 +83,8 @@ class AppsViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AppsViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return AppsViewModel(
-                type, appRepository
-            ) as T
+            return AppsViewModel(type, appRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
-
-
