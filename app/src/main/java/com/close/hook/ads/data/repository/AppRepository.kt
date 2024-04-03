@@ -16,16 +16,16 @@ import java.io.File
 
 class AppRepository(private val packageManager: PackageManager) {
 
-    suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = coroutineScope {
+    suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
         var allPackages = packageManager.getInstalledPackages(0)
         isSystem?.let {
-            allPackages = allPackages.filter {
-                isSystemApp(it.applicationInfo) == isSystem
+            allPackages = allPackages.filter { packageInfo ->
+                isSystemApp(packageInfo.applicationInfo) == isSystem
             }
         }
 
         allPackages.map { packageInfo ->
-            async(Dispatchers.IO) {
+            async {
                 getAppInfo(packageInfo)
             }
         }.awaitAll().sortedBy { it.appName.lowercase() }
