@@ -37,6 +37,11 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
         savedInstanceState: Bundle?
     ): View {
         _binding = BaseTablayoutViewpagerBinding.inflate(inflater, container, false)
+        setupFab()
+        return binding.root
+    }
+
+    private fun setupFab() {
         fab = FloatingActionButton(requireContext()).apply {
             layoutParams = CoordinatorLayout.LayoutParams(
                 CoordinatorLayout.LayoutParams.WRAP_CONTENT,
@@ -49,6 +54,11 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
             tooltipText = getString(R.string.export)
             setOnClickListener { fabController?.onExport() }
         }
+        updateFabMargin()
+        binding.root.addView(fab)
+    }
+
+    private fun updateFabMargin() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val navigationBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             fab.updateLayoutParams<CoordinatorLayout.LayoutParams> {
@@ -57,8 +67,6 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
             }
             insets
         }
-        binding.root.addView(fab)
-        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
