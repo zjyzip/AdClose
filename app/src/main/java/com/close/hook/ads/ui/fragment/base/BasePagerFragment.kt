@@ -1,6 +1,7 @@
 package com.close.hook.ads.ui.fragment.base
 
 import android.content.Context
+import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -63,9 +64,9 @@ abstract class BasePagerFragment : Fragment(), OnBackPressListener,
             searchIcon.setOnClickListener {
                 if (binding.editText.isFocused) {
                     binding.editText.setText("")
-                    setIconAndFocus(R.drawable.ic_search, false)
+                    setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
                 } else {
-                    setIconAndFocus(R.drawable.ic_back, true)
+                    setIconAndFocus(R.drawable.ic_magnifier_to_back, true)
                 }
             }
 
@@ -77,7 +78,7 @@ abstract class BasePagerFragment : Fragment(), OnBackPressListener,
         binding.editText.onFocusChangeListener =
             View.OnFocusChangeListener { _, hasFocus ->
                 setIconAndFocus(
-                    if (hasFocus) R.drawable.ic_back else R.drawable.ic_search,
+                    if (hasFocus) R.drawable.ic_magnifier_to_back else R.drawable.ic_back_to_magnifier,
                     hasFocus
                 )
             }
@@ -86,6 +87,7 @@ abstract class BasePagerFragment : Fragment(), OnBackPressListener,
 
     fun setIconAndFocus(drawableId: Int, focus: Boolean) {
         binding.searchIcon.setImageDrawable(requireContext().getDrawable(drawableId))
+        (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
         if (focus) {
             binding.editText.requestFocus()
             imm?.showSoftInput(binding.editText, 0)
@@ -160,7 +162,7 @@ abstract class BasePagerFragment : Fragment(), OnBackPressListener,
     override fun onBackPressed(): Boolean {
         if (binding.editText.isFocused) {
             binding.editText.setText("")
-            setIconAndFocus(R.drawable.ic_search, false)
+            setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
             return true
         }
         return false
