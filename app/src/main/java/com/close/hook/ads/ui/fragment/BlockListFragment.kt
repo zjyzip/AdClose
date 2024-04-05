@@ -40,6 +40,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentBlockListBinding
+import com.close.hook.ads.databinding.ItemBlockListAddBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
@@ -308,15 +309,12 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun showRuleDialog(url: Url? = null) {
-        val dialogView =
-            LayoutInflater.from(requireContext()).inflate(R.layout.item_block_list_add, null)
-        val editText: TextInputEditText = dialogView.findViewById(R.id.editText)
-        val type: MaterialAutoCompleteTextView = dialogView.findViewById(R.id.type)
+        val binding = ItemBlockListAddBinding.inflate(LayoutInflater.from(requireContext()))
 
-        editText.setText(url?.url ?: "")
-        type.setText(url?.type ?: "URL")
+        binding.editText.setText(url?.url ?: "")
+        binding.type.setText(url?.type ?: "URL")
 
-        type.setAdapter(
+        binding.type.setAdapter(
             ArrayAdapter(
                 requireContext(),
                 android.R.layout.simple_spinner_dropdown_item,
@@ -328,11 +326,11 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(title)
-            .setView(dialogView)
+            .setView(binding.root)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val newType = type.text.toString()
-                val newUrl = editText.text.toString().trim()
+                val newType = binding.type.text.toString()
+                val newUrl = binding.editText.text.toString().trim()
 
                 if (newUrl.isEmpty()) {
                     Toast.makeText(requireContext(), "Value不能为空", Toast.LENGTH_SHORT).show()
@@ -355,7 +353,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }
             .create().apply {
                 window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-                editText.requestFocus()
+                binding.editText.requestFocus()
             }.show()
     }
 
