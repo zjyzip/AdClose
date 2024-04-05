@@ -20,10 +20,10 @@
         android:layout_width="56dp"
         android:layout_height="56dp"
         android:layout_marginTop="24dp"
-        android:scaleType="centerCrop"
+        android:background="@color/searchBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/button_close"
-        app:shapeAppearance="@style/Widget.MaterialComponents.ShapeableImageView"
+        app:shapeAppearance="@style/imageRadius10"
         tools:src="#000000" />
 
     <TextView
@@ -31,9 +31,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
         android:textSize="18sp"
         android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/version"
         app:layout_constraintStart_toEndOf="@id/icon"
         app:layout_constraintTop_toTopOf="@id/icon"
         tools:text="appName" />
@@ -45,6 +45,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="4dp"
         android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="@id/icon"
         app:layout_constraintStart_toEndOf="@id/icon"
         app:layout_constraintTop_toBottomOf="@id/sheet_app_name"
         tools:text="appVersion" />
