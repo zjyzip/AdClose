@@ -109,7 +109,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
             return true
         if (binding.editText.isFocused) {
             binding.editText.setText("")
-            setIconAndFocus(R.drawable.ic_search, false)
+            setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
             return true
         }
         return false
