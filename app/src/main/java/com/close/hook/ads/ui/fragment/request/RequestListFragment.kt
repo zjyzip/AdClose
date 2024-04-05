@@ -70,6 +70,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         UrlViewModelFactory(requireContext())
     }
     private lateinit var mAdapter: BlockedRequestsAdapter
+    private val headerAdapter = HeaderAdapter()
     private val footerAdapter = FooterAdapter()
     private lateinit var type: String
     private lateinit var filter: IntentFilter
@@ -121,29 +122,33 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     private fun initView() {
         mAdapter = BlockedRequestsAdapter(viewModel.dataSource)
         binding.recyclerView.apply {
+            adapter = ConcatAdapter(headerAdapter, mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = ConcatAdapter(HeaderAdapter(), mAdapter)
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
                     val navContainer = activity as? INavContainer
-                    if (dy > 0) navContainer?.hideNavigation()
-                    else if (dy < 0) navContainer?.showNavigation()
+                    if (dy > 0) {
+                        navContainer?.hideNavigation()
+                    } else if (dy < 0) {
+                        navContainer?.showNavigation()
+                    }
                 }
             })
             FastScrollerBuilder(this).useMd2Style().build()
         }
+
         binding.vfContainer.setOnDisplayedChildChangedListener {
-            val lastCompletelyVisibleItemPosition =
-                (binding.recyclerView.layoutManager as LinearLayoutManager).findLastCompletelyVisibleItemPosition()
-            val b: Boolean = lastCompletelyVisibleItemPosition < mAdapter.itemCount - 1
-            val adapter = binding.recyclerView.adapter as ConcatAdapter
-            if (!b) {
-                if (!adapter.adapters.contains(footerAdapter))
-                    adapter.addAdapter(footerAdapter)
-            } else {
-                if (adapter.adapters.contains(footerAdapter))
-                    adapter.removeAdapter(footerAdapter)
+            val isNotAtBottom = (binding.recyclerView.layoutManager as LinearLayoutManager)
+                .findLastCompletelyVisibleItemPosition() < mAdapter.itemCount - 1
+
+            with(binding.recyclerView.adapter as ConcatAdapter) {
+                val hasFooter = adapters.contains(footerAdapter)
+                if (isNotAtBottom && hasFooter) {
+                    removeAdapter(footerAdapter)
+                } else if (!isNotAtBottom && !hasFooter) {
+                    addAdapter(footerAdapter)
+                }
             }
         }
     }

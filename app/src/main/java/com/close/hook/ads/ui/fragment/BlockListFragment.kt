@@ -165,7 +165,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             return when (item?.itemId) {
                 R.id.clear -> {
-                    deleteSelectedItem()
+                    OnRemove()
                     true
                 }
 
@@ -184,7 +184,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
-    private fun deleteSelectedItem() {
+    private fun OnRemove() {
         selectedItems?.let {
             if (it.size() != 0) {
                 viewModel.removeList(it.toList())
@@ -229,28 +229,33 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun initView() {
         mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
-        FastScrollerBuilder(binding.recyclerView).useMd2Style().build()
-        with(binding.recyclerView) {
+        binding.recyclerView.apply {
             adapter = ConcatAdapter(headerAdapter, mAdapter)
-            layoutManager = LinearLayoutManager(requireContext()).also { mLayoutManager = it }
+            layoutManager = LinearLayoutManager(requireContext())
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
-                    (activity as? INavContainer)?.let {
-                        if (dy > 0) it.hideNavigation() else if (dy < 0) it.showNavigation()
+                    val navContainer = activity as? INavContainer
+                    if (dy > 0) {
+                        navContainer?.hideNavigation()
+                    } else if (dy < 0) {
+                        navContainer?.showNavigation()
                     }
                 }
             })
+            FastScrollerBuilder(this).useMd2Style().build()
         }
 
         binding.vfContainer.setOnDisplayedChildChangedListener {
             val isNotAtBottom = (binding.recyclerView.layoutManager as LinearLayoutManager)
                 .findLastCompletelyVisibleItemPosition() < mAdapter.itemCount - 1
-            (binding.recyclerView.adapter as ConcatAdapter).let { adapter ->
-                if (isNotAtBottom && adapter.adapters.contains(footerAdapter)) {
-                    adapter.removeAdapter(footerAdapter)
-                } else if (!isNotAtBottom && !adapter.adapters.contains(footerAdapter)) {
-                    adapter.addAdapter(footerAdapter)
+
+            with(binding.recyclerView.adapter as ConcatAdapter) {
+                val hasFooter = adapters.contains(footerAdapter)
+                if (isNotAtBottom && hasFooter) {
+                    removeAdapter(footerAdapter)
+                } else if (!isNotAtBottom && !hasFooter) {
+                    addAdapter(footerAdapter)
                 }
             }
         }

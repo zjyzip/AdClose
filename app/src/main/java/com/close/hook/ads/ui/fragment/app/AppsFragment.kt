@@ -126,54 +126,44 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             }
 
             var isUpdatingChildren = false
-            val parentOnCheckedStateChangedListener = { checkBox: MaterialCheckBox, state: Int ->
-                val isChecked = checkBox.isChecked
+    
+            fun updateChildrenCheckBoxes(isChecked: Boolean) {
+                isUpdatingChildren = true
+                childrenCheckBoxes.forEach { childCheckBox ->
+                    childCheckBox.isChecked = isChecked
+                }
+                isUpdatingChildren = false
+            }
+
+            val onParentCheckedChange = { checkBox: MaterialCheckBox, state: Int ->
                 if (state != MaterialCheckBox.STATE_INDETERMINATE) {
-                    isUpdatingChildren = true
-                    childrenCheckBoxes.forEach {
-                        it.isChecked = isChecked
-                    }
-                    isUpdatingChildren = false
+                    updateChildrenCheckBoxes(checkBox.isChecked)
                 }
             }
 
-            selectAll.addOnCheckedStateChangedListener(parentOnCheckedStateChangedListener)
+            selectAll.addOnCheckedStateChangedListener(onParentCheckedChange)
 
-            fun setParentState(
-                checkBoxParent: MaterialCheckBox,
-                childrenCheckBoxes: List<MaterialCheckBox>,
-                parentOnCheckedStateChangedListener: MaterialCheckBox.OnCheckedStateChangedListener
-            ) {
+            fun updateParentCheckBoxState() {
                 val checkedCount = childrenCheckBoxes.count { it.isChecked }
                 val allChecked = checkedCount == childrenCheckBoxes.size
                 val noneChecked = checkedCount == 0
-                checkBoxParent.removeOnCheckedStateChangedListener(
-                    parentOnCheckedStateChangedListener
-                )
-                if (allChecked) {
-                    checkBoxParent.isChecked = true
-                } else if (noneChecked) {
-                    checkBoxParent.isChecked = false
-                } else {
-                    checkBoxParent.checkedState = MaterialCheckBox.STATE_INDETERMINATE
+
+                selectAll.removeOnCheckedStateChangedListener(onParentCheckedChange)
+                selectAll.checkedState = when {
+                    allChecked -> MaterialCheckBox.STATE_CHECKED
+                    noneChecked -> MaterialCheckBox.STATE_UNCHECKED
+                    else -> MaterialCheckBox.STATE_INDETERMINATE
                 }
-                checkBoxParent.addOnCheckedStateChangedListener(
-                    parentOnCheckedStateChangedListener
-                )
+                selectAll.addOnCheckedStateChangedListener(onParentCheckedChange)
             }
 
-            childrenCheckBoxes.forEach {
-                it.addOnCheckedStateChangedListener { _, _ ->
+            childrenCheckBoxes.forEach { childCheckBox ->
+                childCheckBox.addOnCheckedStateChangedListener { _, _ ->
                     if (!isUpdatingChildren) {
-                        setParentState(
-                            selectAll,
-                            childrenCheckBoxes,
-                            parentOnCheckedStateChangedListener
-                        )
+                        updateParentCheckBoxState()
                     }
                 }
             }
-
         }
     }
 
@@ -225,27 +215,29 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
+                    val navContainer = activity as? INavContainer
                     if (dy > 0) {
-                        (activity as? INavContainer)?.hideNavigation()
+                        navContainer?.hideNavigation()
                     } else if (dy < 0) {
-                        (activity as? INavContainer)?.showNavigation()
+                        navContainer?.showNavigation()
                     }
                 }
             })
             addItemDecoration(LinearItemDecoration(4.dp))
             FastScrollerBuilder(this).useMd2Style().build()
         }
+
         binding.vfContainer.setOnDisplayedChildChangedListener {
-            val lastCompletelyVisibleItemPosition =
-                (binding.recyclerView.layoutManager as LinearLayoutManager).findLastCompletelyVisibleItemPosition()
-            val b: Boolean = lastCompletelyVisibleItemPosition < mAdapter.itemCount - 1
-            val adapter = binding.recyclerView.adapter as ConcatAdapter
-            if (!b) {
-                if (!adapter.adapters.contains(footerAdapter))
-                    adapter.addAdapter(footerAdapter)
-            } else {
-                if (adapter.adapters.contains(footerAdapter))
-                    adapter.removeAdapter(footerAdapter)
+            val isNotAtBottom = (binding.recyclerView.layoutManager as LinearLayoutManager)
+                .findLastCompletelyVisibleItemPosition() < mAdapter.itemCount - 1
+
+            with(binding.recyclerView.adapter as ConcatAdapter) {
+                val hasFooter = adapters.contains(footerAdapter)
+                if (isNotAtBottom && hasFooter) {
+                    removeAdapter(footerAdapter)
+                } else if (!isNotAtBottom && !hasFooter) {
+                    addAdapter(footerAdapter)
+                }
             }
         }
     }

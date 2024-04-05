@@ -1,6 +1,5 @@
 package com.close.hook.ads.ui.fragment.app
 
-import android.content.Context
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
@@ -46,15 +45,13 @@ class AppsPagerFragment : BasePagerFragment() {
             ).apply { gravity = Gravity.CENTER }
             setPadding(16.dp, 0, 16.dp, 0)
             setImageResource(R.drawable.ic_filter)
-            setBackgroundResource(context.getSelectableItemBackgroundBorderless())
+
+            val outValue = TypedValue()
+            context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+
             binding.searchContainer.addView(this)
         }
-    }
-
-    private fun Context.getSelectableItemBackgroundBorderless(): Int {
-        val outValue = TypedValue()
-        theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
-        return outValue.resourceId
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
