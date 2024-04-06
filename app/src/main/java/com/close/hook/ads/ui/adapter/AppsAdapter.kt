@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.request.RequestOptions
+import com.bumptech.glide.signature.ObjectKey
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.databinding.InstallsItemAppBinding
@@ -62,10 +63,11 @@ class AppsAdapter(
                 appName.text = appInfo.appName
                 packageName.text = appInfo.packageName
                 appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
-                Glide.with(appIcon.context)
+                Glide.with(binding.appIcon.context)
                     .load(getAppIconNew(appInfo.packageName))
                     .apply(requestOptions)
-                    .into(appIcon)
+                    .signature(ObjectKey("${appInfo.packageName}-${appInfo.versionCode}"))
+                    .into(binding.appIcon)
             }
         }
 
