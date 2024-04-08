@@ -52,7 +52,7 @@ import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
 import com.google.android.material.snackbar.Snackbar
-import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
 import java.io.FileOutputStream
@@ -317,18 +317,16 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             Toast.makeText(requireContext(), "请求列表为空，无法导出", Toast.LENGTH_SHORT).show()
             return
         }
-        if (saveFile(Gson().toJson(viewModel.requestList))) {
-            try {
+
+        try {
+            val content = GsonBuilder().setPrettyPrinting().create().toJson(viewModel.requestList)
+            if (saveFile(content)) {
                 backupSAFLauncher.launch("${type}_request_list.json")
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(
-                    requireContext(),
-                    "无法导出文件，未找到合适的应用来创建文件",
-                    Toast.LENGTH_SHORT
-                ).show()
+            } else {
+                Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
             }
-        } else {
-            Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(requireContext(), "无法导出文件，未找到合适的应用来创建文件", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -365,14 +363,29 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun onCopy() {
         selectedItems?.let { selection ->
-            val selectedRequests = selection.map { it.request }
+            val selectedRequests = selection.map { item ->
+                val type = if (item.request.startsWith("http://") || item.request.startsWith("https://")) "URL" else item.blockType
+                "$type, ${item.request}"
+            }
             val combinedText = selectedRequests.joinToString(separator = "\n")
             val clipboard =
                 requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("copied_requests", combinedText)
             clipboard.setPrimaryClip(clip)
-            Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
             tracker?.clearSelection()
+            val snackBar = Snackbar.make(
+                requireParentFragment().requireView(),
+                "已批量复制到剪贴板",
+                Snackbar.LENGTH_SHORT
+            )
+            val lp = CoordinatorLayout.LayoutParams(
+                CoordinatorLayout.LayoutParams.MATCH_PARENT,
+                CoordinatorLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.gravity = Gravity.BOTTOM
+            lp.setMargins(10.dp, 0, 10.dp, 90.dp)
+            snackBar.view.layoutParams = lp
+            snackBar.show()
         }
     }
 

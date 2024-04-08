@@ -51,6 +51,7 @@ import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
+import com.google.android.material.snackbar.Snackbar
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -166,7 +167,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             return when (item?.itemId) {
                 R.id.clear -> {
-                    OnRemove()
+                    onRemove()
                     true
                 }
 
@@ -185,7 +186,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
-    private fun OnRemove() {
+    private fun onRemove() {
         selectedItems?.let {
             if (it.size() != 0) {
                 viewModel.removeList(it.toList())
@@ -198,16 +199,17 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun onCopy() {
         selectedItems?.let { selection ->
-            val uniqueUrls = selection
-                .map { it.url }
+            val uniqueTypeUrls = selection
+                .map { "${it.type}, ${it.url}" }
                 .distinct()
                 .joinToString(separator = "\n")
 
-            if (uniqueUrls.isNotEmpty()) {
+            if (uniqueTypeUrls.isNotEmpty()) {
                 val clipboard =
                     requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("copied_urls", uniqueUrls)
+                val clip = ClipData.newPlainText("copied_type_urls", uniqueTypeUrls)
                 clipboard.setPrimaryClip(clip)
+
                 Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
             }
 
