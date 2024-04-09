@@ -34,7 +34,6 @@ class AboutActivity : AbsAboutActivity() {
     |拦截屏蔽应用的网络广告请求。
     |
     |同时提供了一些其他Hook功能和特定应用去广告适配。
-    |
     """.trimMargin()))
 
         items.add(Category("Developer"))
