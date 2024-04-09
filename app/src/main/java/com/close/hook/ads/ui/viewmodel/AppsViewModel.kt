@@ -9,8 +9,11 @@ import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -19,13 +22,15 @@ class AppsViewModel(
     private val appRepository: AppRepository
 ) : ViewModel() {
 
-    private var searchJob: Job? = null
     private var appList: List<AppInfo> = emptyList()
     private val _appsLiveData = MutableLiveData<List<AppInfo>>()
     val appsLiveData: LiveData<List<AppInfo>> = _appsLiveData
 
+    private val updateParams = MutableStateFlow(Triple("", false, 0L))
+
     init {
         refreshApps()
+        handleUpdateList()
     }
 
     fun refreshApps() {
@@ -38,41 +43,40 @@ class AppsViewModel(
             appList = appRepository.getInstalledApps(isSystem)
             if (type == "configured") appList = appList.filter { it.isEnable == 1 }
             withContext(Dispatchers.Main) {
-                updateLiveData(appList)
+                _appsLiveData.value = appList
             }
         }
     }
 
-    private fun updateLiveData(list: List<AppInfo>) {
-        val filterList = ArrayList<String>().apply {
-            if (PrefManager.configured) add("已配置")
-            if (PrefManager.updated) add("最近更新")
-            if (PrefManager.disabled) add("已禁用")
+    private fun handleUpdateList() {
+        viewModelScope.launch {
+            updateParams
+                .debounce(300L)
+                .map { (keyWord, isReverse, _) ->
+                    appRepository.getFilteredAndSortedApps(
+                        apps = appList,
+                        filter = Pair(PrefManager.order, listOfNotNull(
+                            if (PrefManager.configured) "已配置" else null,
+                            if (PrefManager.updated) "最近更新" else null,
+                            if (PrefManager.disabled) "已禁用" else null
+                        )),
+                        keyword = keyWord,
+                        isReverse = isReverse
+                    )
+                }
+                .flowOn(Dispatchers.Default)
+                .collect { updatedList ->
+                    _appsLiveData.postValue(updatedList)
+                }
         }
-        updateList(Pair(PrefManager.order, filterList), "", PrefManager.isReverse)
     }
 
     fun updateList(
         filter: Pair<String, List<String>>,
         keyWord: String,
-        isReverse: Boolean,
-        delayTime: Long = 300L
+        isReverse: Boolean
     ) {
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch(Dispatchers.Default) {
-            if (delayTime > 0) {
-                delay(delayTime)
-            }
-            val updatedList = appRepository.getFilteredAndSortedApps(
-                apps = appList,
-                filter = filter,
-                keyword = keyWord,
-                isReverse = isReverse
-            )
-            withContext(Dispatchers.Main) {
-                _appsLiveData.value = updatedList
-            }
-        }
+        updateParams.value = Triple(keyWord, isReverse, System.currentTimeMillis())
     }
 }
 

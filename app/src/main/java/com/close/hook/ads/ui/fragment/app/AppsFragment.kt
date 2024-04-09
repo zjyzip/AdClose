@@ -396,8 +396,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         viewModel.updateList(
             filter,
             keyWord,
-            isReverse,
-            if (keyWord.isEmpty()) 0L else 300L
+            isReverse
         )
     }
 
@@ -476,7 +475,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-            uri?.let { uri ->
+            uri?.let {
                 CoroutineScope(Dispatchers.IO).launch {
                     runCatching {
                         val string = requireContext().contentResolver
@@ -486,27 +485,27 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                             string,
                             Array<ConfiguredBean>::class.java
                         ).toList()
-                        dataList.forEach {
-                            prefsHelper.setBoolean(prefKeys[0] + it.packageName, it.switch1)
-                            prefsHelper.setBoolean(prefKeys[1] + it.packageName, it.switch2)
-                            prefsHelper.setBoolean(prefKeys[2] + it.packageName, it.switch3)
-                            prefsHelper.setBoolean(prefKeys[3] + it.packageName, it.switch4)
-                            prefsHelper.setBoolean(prefKeys[4] + it.packageName, it.switch5)
-                            prefsHelper.setBoolean(prefKeys[5] + it.packageName, it.switch6)
+                        dataList.forEach { bean ->
+                            prefsHelper.setBoolean(prefKeys[0] + bean.packageName, bean.switch1)
+                            prefsHelper.setBoolean(prefKeys[1] + bean.packageName, bean.switch2)
+                            prefsHelper.setBoolean(prefKeys[2] + bean.packageName, bean.switch3)
+                            prefsHelper.setBoolean(prefKeys[3] + bean.packageName, bean.switch4)
+                            prefsHelper.setBoolean(prefKeys[4] + bean.packageName, bean.switch5)
+                            prefsHelper.setBoolean(prefKeys[5] + bean.packageName, bean.switch6)
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT).show()
                         }
-                    }.onFailure {
+                    }.onFailure { e ->
                         withContext(Dispatchers.Main) {
                             MaterialAlertDialogBuilder(requireContext())
                                 .setTitle("导入失败")
-                                .setMessage(it.message)
+                                .setMessage(e.message ?: "Unknown error")
                                 .setPositiveButton(android.R.string.ok, null)
                                 .setNegativeButton("Crash Log") { _, _ ->
                                     MaterialAlertDialogBuilder(requireContext())
                                         .setTitle("Crash Log")
-                                        .setMessage(it.stackTraceToString())
+                                        .setMessage(e.stackTraceToString())
                                         .setPositiveButton(android.R.string.ok, null)
                                         .show()
                                 }

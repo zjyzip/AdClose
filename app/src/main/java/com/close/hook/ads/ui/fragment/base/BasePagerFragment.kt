@@ -21,9 +21,6 @@ import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 
 abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>(), OnBackPressListener,
@@ -33,7 +30,6 @@ abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>()
     override var controller: OnClearClickListener? = null
     abstract val tabList: List<Int>
     private var imm: InputMethodManager? = null
-    private var searchJob: Job? = null
     private var lastQuery = ""
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -90,11 +86,7 @@ abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>()
         override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
             with(s.toString().lowercase()) {
                 if (this != lastQuery) {
-                    searchJob?.cancel()
-                    searchJob = lifecycleScope.launch {
-                        delay(if (s.isBlank()) 0L else 300L)
-                        searchJob(this@with)
-                    }
+                    search(this@with)
                     lastQuery = this
                 }
             }
@@ -105,7 +97,7 @@ abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>()
         }
     }
 
-    abstract fun searchJob(text: String)
+    abstract fun search(text: String)
 
     open fun initView() {
         binding.viewPager.offscreenPageLimit = tabList.size

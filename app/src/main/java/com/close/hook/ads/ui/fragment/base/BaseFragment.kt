@@ -13,8 +13,6 @@ abstract class BaseFragment<VB : ViewBinding> : Fragment() {
 
     var _binding: VB? = null
     protected val binding get() = _binding!!
-    protected val safeBinding: VB?
-        get() = _binding
 
     override fun onCreateView(
         inflater: LayoutInflater,
