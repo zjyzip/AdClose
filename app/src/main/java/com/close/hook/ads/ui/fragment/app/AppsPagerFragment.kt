@@ -8,33 +8,88 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.Fragment
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.BaseTablayoutViewpagerBinding
 import com.close.hook.ads.databinding.BottomDialogSearchFilterBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
+import com.close.hook.ads.util.IOnFabClickContainer
+import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.PrefManager
 import com.close.hook.ads.util.dp
+import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 
-class AppsPagerFragment : BasePagerFragment() {
+class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     override val tabList: List<Int> =
         listOf(R.string.tab_user_apps, R.string.tab_configured_apps, R.string.tab_system_apps)
     private var bottomSheet: BottomSheetDialog? = null
     private lateinit var filerBinding: BottomDialogSearchFilterBinding
     private lateinit var filterBtn: ImageButton
+    private lateinit var backupFab: FloatingActionButton
+    private lateinit var restoreFab: FloatingActionButton
+    override var fabController: IOnFabClickListener? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = BaseTablayoutViewpagerBinding.inflate(inflater, container, false)
         setupFilterButton()
+        setupFab()
         return binding.root
+    }
+
+    private fun setupFab() {
+        backupFab = getFab(R.drawable.ic_export, R.string.export) {
+            fabController?.onExport()
+        }
+        restoreFab = getFab(R.drawable.ic_import, R.string.restore) {
+            fabController?.onRestore()
+        }
+        updateFabMargin()
+        binding.root.apply {
+            addView(backupFab)
+            addView(restoreFab)
+        }
+    }
+
+    private fun getFab(image: Int, tooltip: Int, onClick: () -> Unit): FloatingActionButton =
+        FloatingActionButton(requireContext()).apply {
+            layoutParams = CoordinatorLayout.LayoutParams(
+                CoordinatorLayout.LayoutParams.WRAP_CONTENT,
+                CoordinatorLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.END
+                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
+            }
+            setImageResource(image)
+            tooltipText = getString(tooltip)
+            setOnClickListener { onClick() }
+        }
+
+    private fun updateFabMargin() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val navigationBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            restoreFab.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+                rightMargin = 25.dp
+                bottomMargin = navigationBars.bottom + 105.dp
+            }
+            backupFab.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+                rightMargin = 25.dp
+                bottomMargin = navigationBars.bottom + 186.dp
+            }
+            insets
+        }
     }
 
     private fun setupFilterButton() {
@@ -218,5 +273,6 @@ class AppsPagerFragment : BasePagerFragment() {
         super.onDestroyView()
         bottomSheet?.dismiss()
         bottomSheet = null
+        fabController = null
     }
 }
