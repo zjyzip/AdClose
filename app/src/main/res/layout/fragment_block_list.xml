@@ -54,7 +54,7 @@
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:paddingLeft="16dp"
                             android:paddingRight="16dp"
-                            android:src="@drawable/ic_search" />
+                            android:src="@drawable/ic_magnifier_to_back" />
 
                         <EditText
                             android:id="@+id/editText"

@@ -5,9 +5,7 @@ import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -28,26 +26,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
-abstract class BasePagerFragment : Fragment(), OnBackPressListener,
+abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>(), OnBackPressListener,
     IOnTabClickContainer, OnCLearCLickContainer {
 
-    var _binding: BaseTablayoutViewpagerBinding? = null
-    protected val binding get() = _binding!!
     override var tabController: IOnTabClickListener? = null
     override var controller: OnClearClickListener? = null
     abstract val tabList: List<Int>
     private var imm: InputMethodManager? = null
     private var searchJob: Job? = null
     private var lastQuery = ""
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        _binding = BaseTablayoutViewpagerBinding.inflate(inflater, container, false)
-        return binding.root
-    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -144,9 +131,8 @@ abstract class BasePagerFragment : Fragment(), OnBackPressListener,
     abstract fun getFragment(position: Int): Fragment
 
     override fun onDestroyView() {
-        super.onDestroyView()
         binding.editText.removeTextChangedListener(textWatcher)
-        _binding = null
+        super.onDestroyView()
     }
 
     override fun onPause() {

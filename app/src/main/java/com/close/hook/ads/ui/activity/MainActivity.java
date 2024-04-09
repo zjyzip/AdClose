@@ -86,6 +86,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         CoordinatorLayout.LayoutParams layoutParams = (CoordinatorLayout.LayoutParams) bottomNavigationView.getLayoutParams();
         layoutParams.setBehavior(hideBottomViewOnScrollBehavior);
 
+        viewPager2.setOffscreenPageLimit(fragments.size());
         viewPager2.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
