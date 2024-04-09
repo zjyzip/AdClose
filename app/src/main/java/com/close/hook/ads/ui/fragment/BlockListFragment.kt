@@ -1,22 +1,22 @@
 package com.close.hook.ads.ui.fragment
 
-import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.res.Configuration
+import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
-import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,18 +51,20 @@ import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
-import com.google.android.material.snackbar.Snackbar
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.textfield.MaterialAutoCompleteTextView
-import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.*
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
@@ -73,14 +75,14 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private lateinit var mAdapter: BlockListAdapter
     private val headerAdapter = HeaderAdapter()
     private val footerAdapter = FooterAdapter()
-    private lateinit var mLayoutManager: LinearLayoutManager
     private var tracker: SelectionTracker<Url>? = null
     private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
-    private var textWatcher: TextWatcher? = null
+    private var imm: InputMethodManager? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        imm = requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
 
         initView()
         initEditText()
@@ -145,7 +147,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
                 if (size > 0) {
                     if (mActionMode == null) {
-                        mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
+                        mActionMode =
+                            (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
                     }
                     mActionMode?.title = "Selected $size"
                 } else {
@@ -264,18 +267,39 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
+    private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
+        binding.searchIcon.setImageDrawable(requireContext().getDrawable(drawableId))
+        (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
+        if (focus) {
+            binding.editText.requestFocus()
+            imm?.showSoftInput(binding.editText, 0)
+        } else {
+            binding.editText.clearFocus()
+            imm?.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+        }
+    }
+
+    private val textWatcher = object : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
+
+        override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+            viewModel.searchQuery.value = s.toString()
+        }
+
+        override fun afterTextChanged(s: Editable) {
+            binding.clear.isVisible = s.isNotBlank()
+        }
+    }
+
     private fun initEditText() {
-        binding.editText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
-
-            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-                viewModel.searchQuery.value = s.toString()
+        binding.editText.onFocusChangeListener =
+            View.OnFocusChangeListener { _, hasFocus ->
+                setIconAndFocus(
+                    if (hasFocus) R.drawable.ic_magnifier_to_back else R.drawable.ic_back_to_magnifier,
+                    hasFocus
+                )
             }
-
-            override fun afterTextChanged(s: Editable) {
-                binding.clear.isVisible = s.isNotBlank()
-            }
-        })
+        binding.editText.addTextChangedListener(textWatcher)
 
         lifecycleScope.launch {
             viewModel.searchQuery
@@ -299,14 +323,27 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initButton() {
-        binding.export.setOnClickListener {
-            backupSAFLauncher.launch("block_list.rule")
-        }
-        binding.restore.setOnClickListener {
-            restoreSAFLauncher.launch(arrayOf("application/octet-stream"))
-        }
-        binding.clear.setOnClickListener {
-            binding.editText.text = null
+        binding.apply {
+            searchIcon.setOnClickListener {
+                if (binding.editText.isFocused) {
+                    binding.editText.setText("")
+                    setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
+                } else {
+                    setIconAndFocus(R.drawable.ic_magnifier_to_back, true)
+                }
+            }
+
+            export.setOnClickListener {
+                backupSAFLauncher.launch("block_list.rule")
+            }
+
+            restore.setOnClickListener {
+                restoreSAFLauncher.launch(arrayOf("application/octet-stream"))
+            }
+
+            clear.setOnClickListener {
+                binding.editText.text = null
+            }
         }
     }
 
@@ -495,7 +532,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     override fun onBackPressed(): Boolean {
         return if (binding.editText.isFocused) {
             binding.editText.setText("")
-            binding.editText.clearFocus()
+            setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
             true
         } else if (selectedItems?.isEmpty == false) {
             tracker?.clearSelection()
@@ -514,7 +551,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     override fun onDestroyView() {
-        textWatcher?.let { binding.editText.removeTextChangedListener(it) }
+        binding.editText.removeTextChangedListener(textWatcher)
         super.onDestroyView()
     }
 

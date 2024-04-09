@@ -47,7 +47,11 @@ class AppsPagerFragment : BasePagerFragment() {
             setImageResource(R.drawable.ic_filter)
 
             val outValue = TypedValue()
-            context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
+            context.theme.resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless,
+                outValue,
+                true
+            )
             setBackgroundResource(outValue.resourceId)
 
             binding.searchContainer.addView(this)
@@ -105,7 +109,11 @@ class AppsPagerFragment : BasePagerFragment() {
             "最近更新".takeIf { PrefManager.updated },
             "已禁用".takeIf { PrefManager.disabled }
         )
-        controller?.updateSortList(Pair(PrefManager.order, filters), binding.editText.text.toString(), PrefManager.isReverse)
+        controller?.updateSortList(
+            Pair(PrefManager.order, filters),
+            binding.editText.text.toString(),
+            PrefManager.isReverse
+        )
     }
 
     private fun resetFilters() {
@@ -130,6 +138,8 @@ class AppsPagerFragment : BasePagerFragment() {
         chipGroup.isSingleSelection = isSortBy
         titles.forEach { title ->
             val chip = Chip(requireContext()).apply {
+                if (title == "应用名称")
+                    id = 0
                 text = title
                 isCheckable = true
                 isClickable = true
@@ -163,7 +173,8 @@ class AppsPagerFragment : BasePagerFragment() {
             }
         }
 
-        val message = if (isSortBy) "${requireContext().getString(R.string.sort_by_default)}: $title" else "$title 已更新"
+        val message =
+            if (isSortBy) "${requireContext().getString(R.string.sort_by_default)}: $title" else "$title 已更新"
         Snackbar.make(filerBinding.root, message, Snackbar.LENGTH_SHORT).show()
         updateSortAndFilters()
     }
