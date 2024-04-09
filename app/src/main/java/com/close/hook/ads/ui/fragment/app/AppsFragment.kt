@@ -7,12 +7,15 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.AppInfo
+import com.close.hook.ads.data.model.ConfiguredBean
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
@@ -28,6 +31,8 @@ import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.CacheDataManager.getFormatSize
 import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.IOnFabClickContainer
+import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.LinearItemDecoration
@@ -37,13 +42,23 @@ import com.close.hook.ads.util.dp
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
-    IOnTabClickListener, OnClearClickListener {
+    IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
 
     private val viewModel by viewModels<AppsViewModel> {
         AppsViewModelFactory(
@@ -68,6 +83,20 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             configBinding.switchSix,
         )
     }
+    private val prefKeys = listOf(
+        "switch_one_",
+        "switch_two_",
+        "switch_three_",
+        "switch_four_",
+        "switch_five_",
+        "switch_six_",
+    )
+    private val prefsHelper by lazy {
+        PreferencesHelper(
+            requireContext(),
+            "com.close.hook.ads_preferences"
+        )
+    }
 
     companion object {
         @JvmStatic
@@ -77,6 +106,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     putString("type", type)
                 }
             }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (viewModel.type == "configured")
+            (parentFragment as? IOnFabClickContainer)?.fabController = this
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -126,7 +161,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             }
 
             var isUpdatingChildren = false
-    
+
             fun updateChildrenCheckBoxes(isChecked: Boolean) {
                 isUpdatingChildren = true
                 childrenCheckBoxes.forEach { childCheckBox ->
@@ -262,20 +297,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             AppUtils.showToast(requireContext(), "模块尚未被激活")
             return
         }
-        val prefsHelper = PreferencesHelper(requireContext(), "com.close.hook.ads_preferences")
         configBinding.apply {
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
             icon.setImageBitmap(AppUtils.getAppIconNew(appInfo.packageName))
-
-            val prefKeys = arrayOf(
-                "switch_one_",
-                "switch_two_",
-                "switch_three_",
-                "switch_four_",
-                "switch_five_",
-                "switch_six_",
-            )
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName
@@ -375,5 +400,121 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             if (keyWord.isEmpty()) 0L else 300L
         )
     }
+
+    override fun onExport() {
+        val configuredList = viewModel.appsLiveData.value?.map {
+            ConfiguredBean(
+                it.packageName,
+                prefsHelper.getBoolean(prefKeys[0] + it.packageName, false),
+                prefsHelper.getBoolean(prefKeys[1] + it.packageName, false),
+                prefsHelper.getBoolean(prefKeys[2] + it.packageName, false),
+                prefsHelper.getBoolean(prefKeys[3] + it.packageName, false),
+                prefsHelper.getBoolean(prefKeys[4] + it.packageName, false),
+                prefsHelper.getBoolean(prefKeys[5] + it.packageName, false)
+            )
+        } ?: emptyList()
+        try {
+            val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
+            if (saveFile(content)) {
+                backupSAFLauncher.launch("configured_list.json")
+            } else {
+                Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(
+                requireContext(),
+                "无法导出文件，未找到合适的应用来创建文件",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun saveFile(content: String): Boolean {
+        return try {
+            val dir = File(requireContext().cacheDir.toString())
+            if (!dir.exists())
+                dir.mkdir()
+            val file = File("${requireContext().cacheDir}/configured_list.json")
+            if (!file.exists())
+                file.createNewFile()
+            else {
+                file.delete()
+                file.createNewFile()
+            }
+            val fileOutputStream = FileOutputStream(file)
+            fileOutputStream.write(content.toByteArray())
+            fileOutputStream.flush()
+            fileOutputStream.close()
+            true
+        } catch (e: IOException) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    private val backupSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
+            if (uri == null) return@backup
+            try {
+                File("${requireContext().cacheDir}/configured_list.json").inputStream()
+                    .use { input ->
+                        requireContext().contentResolver.openOutputStream(uri).use { output ->
+                            if (output == null)
+                                Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT)
+                                    .show()
+                            else input.copyTo(output)
+                        }
+                    }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+
+    override fun onRestore() {
+        restoreSAFLauncher.launch(arrayOf("application/json"))
+    }
+
+    private val restoreSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+            uri?.let { uri ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    runCatching {
+                        val string = requireContext().contentResolver
+                            .openInputStream(uri)?.reader().use { it?.readText() }
+                            ?: throw IOException("Backup file was damaged")
+                        val dataList: List<ConfiguredBean> = Gson().fromJson(
+                            string,
+                            Array<ConfiguredBean>::class.java
+                        ).toList()
+                        dataList.forEach {
+                            prefsHelper.setBoolean(prefKeys[0] + it.packageName, it.switch1)
+                            prefsHelper.setBoolean(prefKeys[1] + it.packageName, it.switch2)
+                            prefsHelper.setBoolean(prefKeys[2] + it.packageName, it.switch3)
+                            prefsHelper.setBoolean(prefKeys[3] + it.packageName, it.switch4)
+                            prefsHelper.setBoolean(prefKeys[4] + it.packageName, it.switch5)
+                            prefsHelper.setBoolean(prefKeys[5] + it.packageName, it.switch6)
+                        }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT).show()
+                        }
+                    }.onFailure {
+                        withContext(Dispatchers.Main) {
+                            MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("导入失败")
+                                .setMessage(it.message)
+                                .setPositiveButton(android.R.string.ok, null)
+                                .setNegativeButton("Crash Log") { _, _ ->
+                                    MaterialAlertDialogBuilder(requireContext())
+                                        .setTitle("Crash Log")
+                                        .setMessage(it.stackTraceToString())
+                                        .setPositiveButton(android.R.string.ok, null)
+                                        .show()
+                                }
+                                .show()
+                        }
+                    }
+                }
+            }
+        }
 
 }

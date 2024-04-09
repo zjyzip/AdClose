@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class AppsViewModel(
-    private val type: String,
+    val type: String,
     private val appRepository: AppRepository
 ) : ViewModel() {
 
