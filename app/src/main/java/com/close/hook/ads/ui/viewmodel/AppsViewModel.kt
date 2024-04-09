@@ -11,11 +11,11 @@ import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class AppsViewModel(
     val type: String,
@@ -26,7 +26,7 @@ class AppsViewModel(
     private val _appsLiveData = MutableLiveData<List<AppInfo>>()
     val appsLiveData: LiveData<List<AppInfo>> = _appsLiveData
 
-    private val updateParams = MutableStateFlow(Triple("", false, 0L))
+    private val updateParams = MutableStateFlow(Triple(Pair("", listOf("")), Pair("", false), 0L))
 
     init {
         refreshApps()
@@ -42,27 +42,36 @@ class AppsViewModel(
             }
             appList = appRepository.getInstalledApps(isSystem)
             if (type == "configured") appList = appList.filter { it.isEnable == 1 }
-            withContext(Dispatchers.Main) {
-                _appsLiveData.value = appList
-            }
+
+            val filterList = getFilterList()
+            updateList(Pair(PrefManager.order, filterList), "", PrefManager.isReverse)
         }
+    }
+
+    private fun getFilterList(): List<String> {
+        return listOfNotNull(
+            if (PrefManager.configured) "已配置" else null,
+            if (PrefManager.updated) "最近更新" else null,
+            if (PrefManager.disabled) "已禁用" else null
+        )
     }
 
     private fun handleUpdateList() {
         viewModelScope.launch {
             updateParams
                 .debounce(300L)
-                .map { (keyWord, isReverse, _) ->
-                    appRepository.getFilteredAndSortedApps(
-                        apps = appList,
-                        filter = Pair(PrefManager.order, listOfNotNull(
-                            if (PrefManager.configured) "已配置" else null,
-                            if (PrefManager.updated) "最近更新" else null,
-                            if (PrefManager.disabled) "已禁用" else null
-                        )),
-                        keyword = keyWord,
-                        isReverse = isReverse
-                    )
+                .distinctUntilChanged()
+                .flatMapLatest { (filter, params, _) ->
+                    flow {
+                        emit(
+                            appRepository.getFilteredAndSortedApps(
+                                apps = appList,
+                                filter = filter,
+                                keyword = params.first,
+                                isReverse = params.second
+                            )
+                        )
+                    }
                 }
                 .flowOn(Dispatchers.Default)
                 .collect { updatedList ->
@@ -76,7 +85,7 @@ class AppsViewModel(
         keyWord: String,
         isReverse: Boolean
     ) {
-        updateParams.value = Triple(keyWord, isReverse, System.currentTimeMillis())
+        updateParams.value = Triple(filter, Pair(keyWord, isReverse), System.currentTimeMillis())
     }
 }
 
