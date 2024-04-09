@@ -92,7 +92,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
         binding.viewPager.isUserInputEnabled = false
     }
 
-    override fun searchJob(text: String) {
+    override fun search(text: String) {
         controller?.search(text)
     }
 

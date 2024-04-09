@@ -178,13 +178,11 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
             reverseSwitch.isChecked = false
         }
 
-        PrefManager.apply {
-            isReverse = false
-            order = "应用名称"
-            configured = false
-            updated = false
-            disabled = false
-        }
+        PrefManager.isReverse = false
+        PrefManager.order = "应用名称"
+        PrefManager.configured = false
+        PrefManager.updated = false
+        PrefManager.disabled = false
 
         updateSortAndFilters()
     }
@@ -193,16 +191,14 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         chipGroup.isSingleSelection = isSortBy
         titles.forEach { title ->
             val chip = Chip(requireContext()).apply {
-                if (title == "应用名称")
-                    id = 0
                 text = title
                 isCheckable = true
                 isClickable = true
-                isChecked = when {
-                    isSortBy -> title == PrefManager.order
-                    else -> title == "已配置" && PrefManager.configured ||
-                            title == "最近更新" && PrefManager.updated ||
-                            title == "已禁用" && PrefManager.disabled
+                isChecked = if (isSortBy) title == PrefManager.order else when (title) {
+                    "已配置" -> PrefManager.configured
+                    "最近更新" -> PrefManager.updated
+                    "已禁用" -> PrefManager.disabled
+                    else -> false
                 }
                 setOnClickListener { handleChipClick(this, title, isSortBy) }
             }
@@ -220,11 +216,10 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         if (isSortBy) {
             PrefManager.order = title
         } else {
-            val isChecked = chip.isChecked
             when (title) {
-                "已配置" -> PrefManager.configured = isChecked
-                "最近更新" -> PrefManager.updated = isChecked
-                "已禁用" -> PrefManager.disabled = isChecked
+                "已配置" -> PrefManager.configured = chip.isChecked
+                "最近更新" -> PrefManager.updated = chip.isChecked
+                "已禁用" -> PrefManager.disabled = chip.isChecked
             }
         }
 
@@ -234,26 +229,8 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         updateSortAndFilters()
     }
 
-    private fun showFilterToast(title: String, isEnabled: Boolean) {
-        val message = if (isEnabled) {
-            "${requireContext().getString(R.string.filter_enabled)}: $title"
-        } else {
-            "${requireContext().getString(R.string.filter_disabled)}: $title"
-        }
-        Snackbar.make(filerBinding.root, message, Snackbar.LENGTH_SHORT).show()
-    }
-
-    override fun searchJob(text: String) {
-        val filterList = ArrayList<String>().apply {
-            if (PrefManager.configured) add("已配置")
-            if (PrefManager.updated) add("最近更新")
-            if (PrefManager.disabled) add("已禁用")
-        }
-        controller?.updateSortList(
-            Pair(PrefManager.order, filterList),
-            text,
-            PrefManager.isReverse
-        )
+    override fun search(text: String) {
+        updateSortAndFilters()
     }
 
     override fun getFragment(position: Int): Fragment =
