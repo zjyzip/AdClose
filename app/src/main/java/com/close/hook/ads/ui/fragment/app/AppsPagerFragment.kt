@@ -173,7 +173,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun resetFilters() {
         with(filerBinding) {
-            sortBy.check(0)
+            sortBy.check(sortBy.getChildAt(0).id)
             filter.clearCheck()
             reverseSwitch.isChecked = false
         }
