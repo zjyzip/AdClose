@@ -12,7 +12,7 @@ class LinearItemDecoration(private val space: Int) : RecyclerView.ItemDecoration
         parent: RecyclerView,
         state: RecyclerView.State
     ) {
-        outRect.bottom = space
+        outRect.top = space
     }
 
 }

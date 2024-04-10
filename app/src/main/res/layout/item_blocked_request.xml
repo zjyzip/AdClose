@@ -66,7 +66,7 @@
                 android:layout_margin="12dp"
                 android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/blockType"
+                app:layout_constraintEnd_toStartOf="@id/typeLayout"
                 app:layout_constraintStart_toEndOf="@id/icon"
                 app:layout_constraintTop_toTopOf="parent">
 
@@ -100,33 +100,36 @@
 
             </LinearLayout>
 
-            <ImageView
-                android:id="@+id/check"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:background="?android:windowBackground"
-                android:src="@drawable/outline_remove_circle_24"
-                android:tint="@android:color/holo_red_dark"
-                android:visibility="gone"
-                app:layout_constraintBottom_toBottomOf="@id/icon"
-                app:layout_constraintEnd_toEndOf="@id/icon"
-                app:layout_constraintStart_toStartOf="@id/icon"
-                app:layout_constraintTop_toTopOf="@id/icon" />
-
-            <TextView
-                android:id="@+id/blockType"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/typeLayout"
+                style="?materialCardViewFilledStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
                 android:layout_marginEnd="10dp"
-                android:background="@drawable/pic_count_bg"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:textColor="@color/wb"
-                android:textSize="12sp"
+                app:cardBackgroundColor="?colorSecondaryContainer"
+                app:cardCornerRadius="3dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                tools:text="host" />
+                app:layout_constraintTop_toTopOf="parent">
+
+                <TextView
+                    android:id="@+id/blockType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:fontFamily="sans-serif"
+                    android:paddingStart="6dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="3dp"
+                    android:textAllCaps="true"
+                    android:textColor="?colorOnSecondaryContainer"
+                    android:textFontWeight="600"
+                    android:textSize="10sp"
+                    tools:targetApi="p"
+                    tools:text="Host" />
+
+            </com.google.android.material.card.MaterialCardView>
 
             <View
                 android:layout_width="match_parent"

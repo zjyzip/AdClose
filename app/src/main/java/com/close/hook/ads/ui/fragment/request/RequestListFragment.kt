@@ -37,7 +37,6 @@ import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
-import com.close.hook.ads.ui.adapter.HeaderAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
@@ -51,6 +50,7 @@ import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.setSpaceFooterView
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -70,7 +70,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         UrlViewModelFactory(requireContext())
     }
     private lateinit var mAdapter: BlockedRequestsAdapter
-    private val headerAdapter = HeaderAdapter()
     private val footerAdapter = FooterAdapter()
     private lateinit var type: String
     private lateinit var filter: IntentFilter
@@ -122,7 +121,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     private fun initView() {
         mAdapter = BlockedRequestsAdapter(viewModel.dataSource)
         binding.recyclerView.apply {
-            adapter = ConcatAdapter(headerAdapter, mAdapter)
+            adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -139,17 +138,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         }
 
         binding.vfContainer.setOnDisplayedChildChangedListener {
-            val isNotAtBottom = (binding.recyclerView.layoutManager as LinearLayoutManager)
-                .findLastCompletelyVisibleItemPosition() < mAdapter.itemCount - 1
-
-            with(binding.recyclerView.adapter as ConcatAdapter) {
-                val hasFooter = adapters.contains(footerAdapter)
-                if (isNotAtBottom && hasFooter) {
-                    removeAdapter(footerAdapter)
-                } else if (!isNotAtBottom && !hasFooter) {
-                    addAdapter(footerAdapter)
-                }
-            }
+            binding.recyclerView.setSpaceFooterView(footerAdapter)
         }
     }
 
@@ -279,6 +268,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         (requireParentFragment() as? IOnTabClickContainer)?.tabController = null
         (requireParentFragment() as? IOnFabClickContainer)?.fabController = null
         (requireParentFragment() as? OnBackPressContainer)?.backController = null
+        tracker?.clearSelection()
     }
 
     override fun onResume() {
@@ -419,12 +409,12 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     class CategoryItemKeyProvider(private val adapter: BlockedRequestsAdapter) :
         ItemKeyProvider<BlockedRequest>(SCOPE_CACHED) {
         override fun getKey(position: Int): BlockedRequest? {
-            return adapter.currentList.getOrNull(position - 1)
+            return adapter.currentList.getOrNull(position)
         }
 
         override fun getPosition(key: BlockedRequest): Int {
             val index = adapter.currentList.indexOfFirst { it == key }
-            return if (index >= 0) index + 1 else RecyclerView.NO_POSITION
+            return if (index >= 0) index else RecyclerView.NO_POSITION
         }
     }
 

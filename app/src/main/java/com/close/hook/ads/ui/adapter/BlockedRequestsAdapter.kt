@@ -77,7 +77,7 @@ class BlockedRequestsAdapter(
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
             object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
-                override fun getPosition(): Int = bindingAdapterPosition + 1
+                override fun getPosition(): Int = bindingAdapterPosition
                 override fun getSelectionKey(): BlockedRequest? = getItem(bindingAdapterPosition)
             }
 
