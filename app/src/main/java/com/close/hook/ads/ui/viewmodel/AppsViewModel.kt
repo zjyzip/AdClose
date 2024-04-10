@@ -1,9 +1,9 @@
 package com.close.hook.ads.ui.viewmodel
 
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
@@ -15,69 +15,52 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.launch
 
 class AppsViewModel(
     val type: String,
     private val appRepository: AppRepository
 ) : ViewModel() {
 
-    private var appList: List<AppInfo> = emptyList()
-    private val _appsLiveData = MutableLiveData<List<AppInfo>>()
-    val appsLiveData: LiveData<List<AppInfo>> = _appsLiveData
-
-    private val updateParams = MutableStateFlow(Triple(Pair("", listOf("")), Pair("", false), 0L))
+    private val updateParams = MutableStateFlow(Triple(Pair("", emptyList<String>()), Pair("", false), 0L))
+    val appsLiveData: LiveData<List<AppInfo>>
 
     init {
         refreshApps()
-        handleUpdateList()
+        appsLiveData = setupAppsLiveData()
+    }
+
+    private fun setupAppsLiveData(): LiveData<List<AppInfo>> {
+        return updateParams
+            .debounce(300L)
+            .distinctUntilChanged()
+            .flatMapLatest { (filter, params, _) ->
+                flow {
+                    val apps = when (type) {
+                        "user" -> appRepository.getInstalledApps(false)
+                        "system" -> appRepository.getInstalledApps(true)
+                        else -> emptyList()
+                    }.filter { type != "configured" || it.isEnable == 1 }
+                    
+                    val filteredSortedApps = appRepository.getFilteredAndSortedApps(
+                        apps = apps,
+                        filter = filter,
+                        keyword = params.first,
+                        isReverse = params.second
+                    )
+                    emit(filteredSortedApps)
+                }
+            }
+            .flowOn(Dispatchers.Default)
+            .asLiveData(viewModelScope.coroutineContext)
     }
 
     fun refreshApps() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val isSystem = when (type) {
-                "user" -> false
-                "system" -> true
-                else -> null
-            }
-            appList = appRepository.getInstalledApps(isSystem)
-            if (type == "configured") appList = appList.filter { it.isEnable == 1 }
-
-            val filterList = getFilterList()
-            updateList(Pair(PrefManager.order, filterList), "", PrefManager.isReverse)
-        }
-    }
-
-    private fun getFilterList(): List<String> {
-        return listOfNotNull(
+        val filterList = listOfNotNull(
             if (PrefManager.configured) "已配置" else null,
             if (PrefManager.updated) "最近更新" else null,
             if (PrefManager.disabled) "已禁用" else null
         )
-    }
-
-    private fun handleUpdateList() {
-        viewModelScope.launch {
-            updateParams
-                .debounce(300L)
-                .distinctUntilChanged()
-                .flatMapLatest { (filter, params, _) ->
-                    flow {
-                        emit(
-                            appRepository.getFilteredAndSortedApps(
-                                apps = appList,
-                                filter = filter,
-                                keyword = params.first,
-                                isReverse = params.second
-                            )
-                        )
-                    }
-                }
-                .flowOn(Dispatchers.Default)
-                .collect { updatedList ->
-                    _appsLiveData.postValue(updatedList)
-                }
-        }
+        updateParams.value = Triple(Pair(PrefManager.order, filterList), Pair("", PrefManager.isReverse), System.currentTimeMillis())
     }
 
     fun updateList(

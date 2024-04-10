@@ -63,11 +63,11 @@ class AppsAdapter(
                 appName.text = appInfo.appName
                 packageName.text = appInfo.packageName
                 appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
-                Glide.with(binding.appIcon.context)
+                Glide.with(appIcon.context)
                     .load(getAppIconNew(appInfo.packageName))
                     .apply(requestOptions)
                     .signature(ObjectKey("${appInfo.packageName}-${appInfo.versionCode}"))
-                    .into(binding.appIcon)
+                    .into(appIcon)
             }
         }
 
