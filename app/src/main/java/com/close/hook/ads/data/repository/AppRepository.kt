@@ -17,18 +17,24 @@ import java.io.File
 class AppRepository(private val packageManager: PackageManager) {
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
-        var allPackages = packageManager.getInstalledPackages(0)
-        isSystem?.let {
-            allPackages = allPackages.filter { packageInfo ->
-                isSystemApp(packageInfo.applicationInfo) == isSystem
+        packageManager.getInstalledPackages(0)
+            .asSequence()
+            .filter { packageInfo ->
+                isSystem == null || isSystemApp(packageInfo.applicationInfo) == isSystem
             }
-        }
-
-        allPackages.map { packageInfo ->
-            async {
-                getAppInfo(packageInfo)
+            .mapNotNull { packageInfo ->
+                async { 
+                    try {
+                        getAppInfo(packageInfo)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
             }
-        }.awaitAll().sortedBy { it.appName.lowercase() }
+            .toList()
+            .awaitAll()
+            .filterNotNull()
+            .sortedBy { it.appName.lowercase() }
     }
 
     suspend fun getFilteredAndSortedApps(
