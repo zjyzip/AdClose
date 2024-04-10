@@ -35,12 +35,14 @@ class AppsViewModel(
             .distinctUntilChanged()
             .flatMapLatest { (filter, params, _) ->
                 flow {
-                    val apps = when (type) {
-                        "user" -> appRepository.getInstalledApps(false)
-                        "system" -> appRepository.getInstalledApps(true)
-                        else -> emptyList()
-                    }.filter { type != "configured" || it.isEnable == 1 }
-                    
+                    val isSystem = when (type) {
+                        "user" -> false
+                        "system" -> true
+                        else -> null
+                    }
+                    val apps = appRepository.getInstalledApps(isSystem)
+                    .filter { type != "configured" || it.isEnable == 1 }
+
                     val filteredSortedApps = appRepository.getFilteredAndSortedApps(
                         apps = apps,
                         filter = filter,
