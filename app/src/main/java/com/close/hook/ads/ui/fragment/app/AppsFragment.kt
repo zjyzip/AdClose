@@ -24,7 +24,6 @@ import com.close.hook.ads.hook.preference.PreferencesHelper
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
-import com.close.hook.ads.ui.adapter.HeaderAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
@@ -39,6 +38,7 @@ import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.setSpaceFooterView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
@@ -67,7 +67,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         )
     }
     private lateinit var mAdapter: AppsAdapter
-    private val headerAdapter = HeaderAdapter()
     private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null
     private var appInfoDialog: BottomSheetDialog? = null
@@ -245,7 +244,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initView() {
         mAdapter = AppsAdapter(requireContext(), this)
         binding.recyclerView.apply {
-            adapter = ConcatAdapter(headerAdapter, mAdapter)
+            adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -263,17 +262,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         }
 
         binding.vfContainer.setOnDisplayedChildChangedListener {
-            val isNotAtBottom = (binding.recyclerView.layoutManager as LinearLayoutManager)
-                .findLastCompletelyVisibleItemPosition() < mAdapter.itemCount - 1
-
-            with(binding.recyclerView.adapter as ConcatAdapter) {
-                val hasFooter = adapters.contains(footerAdapter)
-                if (isNotAtBottom && hasFooter) {
-                    removeAdapter(footerAdapter)
-                } else if (!isNotAtBottom && !hasFooter) {
-                    addAdapter(footerAdapter)
-                }
-            }
+            binding.recyclerView.setSpaceFooterView(footerAdapter)
         }
     }
 
@@ -283,7 +272,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             binding.swipeRefresh.isRefreshing = false
             binding.progressBar.isVisible = false
             updateSearchHint(it.size)
-            binding.vfContainer.displayedChild = it.size
+            val adapter = binding.recyclerView.adapter as ConcatAdapter
+            if (it.isEmpty() && adapter.adapters.contains(footerAdapter)) {
+                adapter.removeAdapter(footerAdapter)
+            }
+            if (binding.vfContainer.displayedChild != it.size)
+                binding.vfContainer.displayedChild = it.size
         }
     }
 

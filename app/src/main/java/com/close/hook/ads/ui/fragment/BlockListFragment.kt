@@ -44,7 +44,6 @@ import com.close.hook.ads.databinding.ItemBlockListAddBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
-import com.close.hook.ads.ui.adapter.HeaderAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
@@ -52,6 +51,7 @@ import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.setSpaceFooterView
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -73,7 +73,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         UrlViewModelFactory(requireContext())
     }
     private lateinit var mAdapter: BlockListAdapter
-    private val headerAdapter = HeaderAdapter()
     private val footerAdapter = FooterAdapter()
     private var tracker: SelectionTracker<Url>? = null
     private var selectedItems: Selection<Url>? = null
@@ -98,7 +97,12 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         viewModel.blackListLiveData.observe(viewLifecycleOwner) {
             mAdapter.submitList(it)
             binding.progressBar.visibility = View.GONE
-            binding.vfContainer.displayedChild = it.size
+            val adapter = binding.recyclerView.adapter as ConcatAdapter
+            if (it.isEmpty() && adapter.adapters.contains(footerAdapter)) {
+                adapter.removeAdapter(footerAdapter)
+            }
+            if (binding.vfContainer.displayedChild != it.size)
+                binding.vfContainer.displayedChild = it.size
         }
     }
 
@@ -236,7 +240,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private fun initView() {
         mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
         binding.recyclerView.apply {
-            adapter = ConcatAdapter(headerAdapter, mAdapter)
+            adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -253,17 +257,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
 
         binding.vfContainer.setOnDisplayedChildChangedListener {
-            val isNotAtBottom = (binding.recyclerView.layoutManager as LinearLayoutManager)
-                .findLastCompletelyVisibleItemPosition() < mAdapter.itemCount - 1
-
-            with(binding.recyclerView.adapter as ConcatAdapter) {
-                val hasFooter = adapters.contains(footerAdapter)
-                if (isNotAtBottom && hasFooter) {
-                    removeAdapter(footerAdapter)
-                } else if (!isNotAtBottom && !hasFooter) {
-                    addAdapter(footerAdapter)
-                }
-            }
+            binding.recyclerView.setSpaceFooterView(footerAdapter)
         }
     }
 
@@ -518,14 +512,12 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     class CategoryItemKeyProvider(private val adapter: BlockListAdapter) :
         ItemKeyProvider<Url>(SCOPE_CACHED) {
         override fun getKey(position: Int): Url? {
-            return if (position in 1..adapter.currentList.size) {
-                adapter.currentList[position - 1]
-            } else null
+            return adapter.currentList.getOrNull(position)
         }
 
         override fun getPosition(key: Url): Int {
             val index = adapter.currentList.indexOfFirst { it == key }
-            return if (index >= 0) index + 1 else RecyclerView.NO_POSITION
+            return if (index >= 0) index else RecyclerView.NO_POSITION
         }
     }
 
@@ -543,6 +535,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     override fun onPause() {
         super.onPause()
         (activity as? OnBackPressContainer)?.backController = null
+        tracker?.clearSelection()
     }
 
     override fun onResume() {
