@@ -294,7 +294,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         configBinding.apply {
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
-            icon.setImageBitmap(AppUtils.getAppIconNew(appInfo.packageName))
+            icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName
@@ -318,7 +318,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     override fun onItemLongClick(appInfo: AppInfo) {
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            icon.setImageBitmap(AppUtils.getAppIconNew(appInfo.packageName))
+            icon.setImageDrawable(AppUtils.getAppIcon(appInfo.packageName))
             appName.text = appInfo.appName
             packageName.apply {
                 title.text = "APK包名"

@@ -14,11 +14,9 @@
             android:id="@+id/icon"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@color/searchBar"
             android:scaleType="centerCrop"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:shapeAppearance="@style/imageRadius10"
             tools:src="#000000" />
 
         <TextView

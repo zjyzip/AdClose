@@ -12,11 +12,9 @@
         android:id="@+id/appIcon"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@color/searchBar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:shapeAppearance="@style/imageRadius10"
         tools:src="#000000" />
 
     <LinearLayout

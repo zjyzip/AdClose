@@ -29,44 +29,6 @@ import java.util.Objects;
 
 public class AppUtils {
 
-    // https://stackoverflow.com/questions/46130594/android-get-apps-adaptive-icons-from-package-manager
-    public static Bitmap getAppIconNew(String packageName) {
-
-        try {
-            PackageManager mPackageManager = closeApp.getPackageManager();
-            Drawable drawable = mPackageManager.getApplicationIcon(packageName);
-
-            if (drawable instanceof BitmapDrawable) {
-                return ((BitmapDrawable) drawable).getBitmap();
-            } else if (drawable instanceof AdaptiveIconDrawable) {
-                Drawable backgroundDr = ((AdaptiveIconDrawable) drawable).getBackground();
-                Drawable foregroundDr = ((AdaptiveIconDrawable) drawable).getForeground();
-
-                Drawable[] drr = new Drawable[2];
-                drr[0] = backgroundDr;
-                drr[1] = foregroundDr;
-
-                LayerDrawable layerDrawable = new LayerDrawable(drr);
-
-                int width = layerDrawable.getIntrinsicWidth();
-                int height = layerDrawable.getIntrinsicHeight();
-
-                Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-
-                Canvas canvas = new Canvas(bitmap);
-
-                layerDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-                layerDrawable.draw(canvas);
-
-                return bitmap;
-            }
-        } catch (PackageManager.NameNotFoundException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
     private static final String[] KEYS = {"switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_", "switch_six_"};
 
     public static Drawable getAppIcon(String packageName) {
