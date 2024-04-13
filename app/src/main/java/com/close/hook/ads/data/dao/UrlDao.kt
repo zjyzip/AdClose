@@ -30,8 +30,8 @@ interface UrlDao {
     @Query("SELECT * FROM url_info ORDER BY id DESC")
     fun loadAllList(): Flow<List<Url>>
 
-    @Query("SELECT url FROM url_info ORDER BY id DESC")
-    fun getAllUrls(): List<String>
+    @Query("SELECT * FROM url_info ORDER BY id DESC")
+    fun getAllUrls(): List<Url>
 
     @Transaction
     @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' ORDER BY id DESC")
