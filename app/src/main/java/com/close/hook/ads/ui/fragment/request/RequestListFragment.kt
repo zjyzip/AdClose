@@ -21,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
 import androidx.recyclerview.selection.Selection
@@ -61,6 +62,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
@@ -151,7 +153,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
                 if (size > 0) {
                     if (mActionMode == null) {
-                        mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
+                        mActionMode =
+                            (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
                     }
                     mActionMode?.title = "Selected $size"
                 } else {
@@ -232,8 +235,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                         val safeAppInfoList = viewModel.requestList.ifEmpty { emptyList() }
                         emit(safeAppInfoList.filter { blockedRequest ->
                             blockedRequest.request.contains(query, ignoreCase = true) ||
-                            blockedRequest.packageName.contains(query, ignoreCase = true) ||
-                            blockedRequest.appName.contains(query, ignoreCase = true)
+                                    blockedRequest.packageName.contains(query, ignoreCase = true) ||
+                                    blockedRequest.appName.contains(query, ignoreCase = true)
                         })
                     }
                 }
@@ -316,37 +319,45 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
             }
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(requireContext(), "无法导出文件，未找到合适的应用来创建文件", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                requireContext(),
+                "无法导出文件，未找到合适的应用来创建文件",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
     override fun onBlock() {
         selectedItems?.let { selection ->
             if (selection.size() != 0) {
-                val currentList = viewModel.blackListLiveData.value?.toList() ?: emptyList()
-                val updateList = selection.toList().map {
-                    Url(
-                        if (it.appName.trim().endsWith("DNS")) "Domain" else "URL",
-                        it.request
-                    )
-                }.filter {
-                    it !in currentList
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val updateList = selection.toList().map {
+                        Url(
+                            if (it.appName.trim().endsWith("DNS")) "Domain" else "URL",
+                            it.request
+                        )
+                    }.filterNot {
+                        viewModel.dataSource.isExist(it.type, it.url)
+                    }
+                    viewModel.addListUrl(updateList)
+
+                    withContext(Dispatchers.Main){
+                        tracker?.clearSelection()
+                        val snackBar = Snackbar.make(
+                            requireParentFragment().requireView(),
+                            "已批量加入黑名单",
+                            Snackbar.LENGTH_SHORT
+                        )
+                        val lp = CoordinatorLayout.LayoutParams(
+                            CoordinatorLayout.LayoutParams.MATCH_PARENT,
+                            CoordinatorLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        lp.gravity = Gravity.BOTTOM
+                        lp.setMargins(10.dp, 0, 10.dp, 90.dp)
+                        snackBar.view.layoutParams = lp
+                        snackBar.show()
+                    }
                 }
-                viewModel.addListUrl(updateList)
-                tracker?.clearSelection()
-                val snackBar = Snackbar.make(
-                    requireParentFragment().requireView(),
-                    "已批量加入黑名单",
-                    Snackbar.LENGTH_SHORT
-                )
-                val lp = CoordinatorLayout.LayoutParams(
-                    CoordinatorLayout.LayoutParams.MATCH_PARENT,
-                    CoordinatorLayout.LayoutParams.WRAP_CONTENT
-                )
-                lp.gravity = Gravity.BOTTOM
-                lp.setMargins(10.dp, 0, 10.dp, 90.dp)
-                snackBar.view.layoutParams = lp
-                snackBar.show()
             }
         }
     }
@@ -354,7 +365,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     private fun onCopy() {
         selectedItems?.let { selection ->
             val selectedRequests = selection.map { item ->
-                val type = if (item.request.startsWith("http://") || item.request.startsWith("https://")) "URL" else item.blockType
+                val type =
+                    if (item.request.startsWith("http://") || item.request.startsWith("https://")) "URL" else item.blockType
                 "$type, ${item.request}"
             }
             val combinedText = selectedRequests.joinToString(separator = "\n")
