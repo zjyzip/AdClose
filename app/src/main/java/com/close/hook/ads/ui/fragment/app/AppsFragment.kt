@@ -395,16 +395,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     override fun onExport() {
-        val configuredList = viewModel.appsLiveData.value?.map {
+        val configuredList = viewModel.appsLiveData.value?.map { appInfo ->
             ConfiguredBean(
-                it.packageName,
-                prefsHelper.getBoolean(prefKeys[0] + it.packageName, false),
-                prefsHelper.getBoolean(prefKeys[1] + it.packageName, false),
-                prefsHelper.getBoolean(prefKeys[2] + it.packageName, false),
-                prefsHelper.getBoolean(prefKeys[3] + it.packageName, false),
-                prefsHelper.getBoolean(prefKeys[4] + it.packageName, false),
-                prefsHelper.getBoolean(prefKeys[5] + it.packageName, false)
-            )
+              appInfo.packageName, 
+              prefKeys.map { key ->
+                prefsHelper.getBoolean(key + appInfo.packageName, false)
+            })
         } ?: emptyList()
         try {
             val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
@@ -480,12 +476,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                             Array<ConfiguredBean>::class.java
                         ).toList()
                         dataList.forEach { bean ->
-                            prefsHelper.setBoolean(prefKeys[0] + bean.packageName, bean.switch1)
-                            prefsHelper.setBoolean(prefKeys[1] + bean.packageName, bean.switch2)
-                            prefsHelper.setBoolean(prefKeys[2] + bean.packageName, bean.switch3)
-                            prefsHelper.setBoolean(prefKeys[3] + bean.packageName, bean.switch4)
-                            prefsHelper.setBoolean(prefKeys[4] + bean.packageName, bean.switch5)
-                            prefsHelper.setBoolean(prefKeys[5] + bean.packageName, bean.switch6)
+                            bean.switchStates.forEachIndexed { index, state ->
+                                prefsHelper.setBoolean(prefKeys[index] + bean.packageName, state)
+                            }
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT).show()

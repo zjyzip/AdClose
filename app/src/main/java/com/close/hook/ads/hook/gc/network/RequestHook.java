@@ -10,7 +10,7 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.close.hook.ads.IMyAidlInterface;
+import com.close.hook.ads.IBlockedStatusProvider;
 import com.close.hook.ads.BlockedBean;
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
@@ -110,7 +110,7 @@ public class RequestHook {
                     null,
                     null);
             if (bundle != null) {
-                IMyAidlInterface mBinder = IMyAidlInterface.Stub.asInterface(bundle.getBinder("binder"));
+                IBlockedStatusProvider mBinder = IBlockedStatusProvider.Stub.asInterface(bundle.getBinder("binder"));
                 try {
                     BlockedBean blockedBean = mBinder.getData(
                             queryType

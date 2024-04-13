@@ -24,7 +24,7 @@
         android:theme="@style/AppTheme">
 
         <provider
-            android:name=".provider.MyContentProvider"
+            android:name=".provider.BinderProvider"
             android:authorities="com.close.hook.ads"
             android:enabled="true"
             android:exported="true" />

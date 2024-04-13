@@ -2,7 +2,7 @@ package com.close.hook.ads.data.database
 
 import android.content.Context
 import androidx.room.Database
-import androidx.room.Room.databaseBuilder
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -14,37 +14,29 @@ abstract class UrlDatabase : RoomDatabase() {
     abstract val urlDao: UrlDao
 
     companion object {
+        @Volatile
         private var instance: UrlDatabase? = null
 
-        private val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+        private val MIGRATION_1_3: Migration = object : Migration(1, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("CREATE TABLE url_info_new (id integer not null, url TEXT not null, PRIMARY KEY(id))")
-                db.execSQL("INSERT INTO url_info_new (id, url) SELECT id, url FROM url_info")
+                db.execSQL("CREATE TABLE url_info_new (id INTEGER NOT NULL, url TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'url', PRIMARY KEY(id))")
+                db.execSQL("INSERT INTO url_info_new (id, url, type) SELECT id, url, 'url' FROM url_info")
                 db.execSQL("DROP TABLE url_info")
                 db.execSQL("ALTER TABLE url_info_new RENAME TO url_info")
             }
         }
 
-        private val MIGRATION_2_3: Migration = object : Migration(2, 3) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE url_info ADD COLUMN type TEXT NOT NULL DEFAULT url")
-            }
-        }
-
-
-        @Synchronized
-        fun getDatabase(context: Context): UrlDatabase {
-            instance?.let {
-                return it
-            }
-            return databaseBuilder(
-                context.applicationContext,
-                UrlDatabase::class.java, "url_database"
-            )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-                .build().apply {
-                    instance = this
+        fun getDatabase(context: Context): UrlDatabase =
+            instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    UrlDatabase::class.java,
+                    "url_database"
+                )
+                .addMigrations(MIGRATION_1_3)
+                .build().also {
+                    instance = it
                 }
-        }
+            }
     }
 }
