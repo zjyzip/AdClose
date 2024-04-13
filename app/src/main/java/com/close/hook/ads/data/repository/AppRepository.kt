@@ -22,13 +22,9 @@ class AppRepository(private val packageManager: PackageManager) {
             .filter { packageInfo ->
                 isSystem == null || isSystemApp(packageInfo.applicationInfo) == isSystem
             }
-            .mapNotNull { packageInfo ->
+            .map { packageInfo ->
                 async { 
-                    try {
-                        getAppInfo(packageInfo)
-                    } catch (e: Exception) {
-                        null
-                    }
+                    getAppInfo(packageInfo)
                 }
             }
             .toList()

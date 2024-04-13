@@ -1,7 +1,7 @@
 package com.close.hook.ads.provider
 
 import android.net.Uri
-import com.close.hook.ads.IMyAidlInterface
+import com.close.hook.ads.IBlockedStatusProvider
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.BlockedBean
@@ -17,7 +17,7 @@ class DataManager private constructor() {
                 null,
                 null
             )
-            val mBinder = IMyAidlInterface.Stub.asInterface(bundle?.getBinder("binder"))
+            val mBinder = IBlockedStatusProvider.Stub.asInterface(bundle?.getBinder("binder"))
             mBinder.getData(type, value)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -35,12 +35,12 @@ class DataManager private constructor() {
             }
         }
         
-        private var mBinder: IMyAidlInterface.Stub? = null
+        private var mBinder: IBlockedStatusProvider.Stub? = null
 
         @JvmStatic
-        val serverStub: IMyAidlInterface.Stub?
+        val serverStub: IBlockedStatusProvider.Stub?
             get() = mBinder ?: synchronized(this) {
-                mBinder ?: object : IMyAidlInterface.Stub() {
+                mBinder ?: object : IBlockedStatusProvider.Stub() {
                     override fun getData(type: String, value: String): BlockedBean {
                         return DataSource(closeApp).checkIsBlocked(type, value)
                     }
