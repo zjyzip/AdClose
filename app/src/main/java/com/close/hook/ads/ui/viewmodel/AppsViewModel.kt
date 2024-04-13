@@ -10,11 +10,11 @@ import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 
 class AppsViewModel(
     val type: String,
@@ -33,7 +33,7 @@ class AppsViewModel(
         return updateParams
             .debounce(300L)
             .distinctUntilChanged()
-            .flatMapLatest { (filter, params, _) ->
+            .flatMapMerge { (filter, params, _) ->
                 flow {
                     val isSystem = when (type) {
                         "user" -> false
@@ -50,9 +50,8 @@ class AppsViewModel(
                         isReverse = params.second
                     )
                     emit(filteredSortedApps)
-                }
+                }.buffer(20)
             }
-            .flowOn(Dispatchers.Default)
             .asLiveData(viewModelScope.coroutineContext)
     }
 
