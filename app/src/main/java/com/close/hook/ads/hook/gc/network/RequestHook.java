@@ -109,24 +109,21 @@ public class RequestHook {
                     "getData",
                     null,
                     null);
-            IMyAidlInterface mBinder = IMyAidlInterface.Stub.asInterface(bundle.getBinder("binder"));
-            try {
-                /*Log.i(LOG_PREFIX, "queryContentProvider" + mBinder.getData(
-                        queryType
-                                .replace("host", "Domain")
-                                .replace("url", "URL"),
-                        queryValue));*/
-                BlockedBean blockedBean = mBinder.getData(
-                        queryType
-                                .replace("host", "Domain")
-                                .replace("url", "URL"),
-                        queryValue);
-                if (blockedBean.isBlocked()) {
-                    return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
+            if (bundle != null) {
+                IMyAidlInterface mBinder = IMyAidlInterface.Stub.asInterface(bundle.getBinder("binder"));
+                try {
+                    BlockedBean blockedBean = mBinder.getData(
+                            queryType
+                                    .replace("host", "Domain")
+                                    .replace("url", "URL"),
+                            queryValue);
+                    if (blockedBean.isBlocked()) {
+                        return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Log.i(LOG_PREFIX, "queryContentProvider" + e.getMessage());
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-                Log.i(LOG_PREFIX, "queryContentProvider" + e.getMessage());
             }
         }
         return new Triple<>(false, null, null);
