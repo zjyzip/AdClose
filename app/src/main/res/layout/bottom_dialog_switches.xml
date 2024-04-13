@@ -20,10 +20,8 @@
         android:layout_width="56dp"
         android:layout_height="56dp"
         android:layout_marginTop="24dp"
-        android:background="@color/searchBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/button_close"
-        app:shapeAppearance="@style/imageRadius10"
         tools:src="#000000" />
 
     <TextView

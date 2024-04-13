@@ -13,7 +13,6 @@ import com.bumptech.glide.signature.ObjectKey
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.databinding.InstallsItemAppBinding
-import com.close.hook.ads.util.AppUtils.getAppIconNew
 
 class AppsAdapter(
     context: Context,
@@ -64,7 +63,7 @@ class AppsAdapter(
                 packageName.text = appInfo.packageName
                 appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
                 Glide.with(appIcon.context)
-                    .load(getAppIconNew(appInfo.packageName))
+                    .load(appInfo.appIcon)
                     .apply(requestOptions)
                     .signature(ObjectKey("${appInfo.packageName}-${appInfo.versionCode}"))
                     .into(appIcon)
