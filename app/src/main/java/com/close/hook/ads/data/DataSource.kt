@@ -2,6 +2,9 @@ package com.close.hook.ads.data
 
 import android.content.Context
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.asLiveData
+import com.close.hook.ads.BlockedBean
+import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +66,41 @@ class DataSource(context: Context) {
 
     fun isExist(type: String, url: String): Boolean {
         return urlDao.isExist(type, url)
+    }
+
+    fun checkIsBlocked(type: String, value: String): BlockedBean {
+        var isBlocked = false
+        var blockedType: String? = null
+        var blockedValue: String? = null
+        run breaking@{
+            urlDao.getAllUrls().forEach {
+                when (it.type) {
+                    "KeyWord" -> {
+                        if (it.url in value) {
+                            isBlocked = true
+                            return@breaking
+                        }
+                    }
+
+                    "Domain" -> {
+                        if (type == "Domain" && value == it.url) {
+                            isBlocked = true
+                            return@breaking
+                        }
+                    }
+
+                    "URL" -> {
+                        if (type == "URL" && value == it.url) {
+                            isBlocked = true
+                            return@breaking
+                        }
+                    }
+                }
+                blockedType = it.type
+                blockedValue = it.url
+            }
+        }
+        return BlockedBean(isBlocked, blockedType, blockedValue)
     }
 
     companion object {

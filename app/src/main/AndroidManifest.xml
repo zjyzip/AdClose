@@ -2,17 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
     <permission
-        android:name="com.close.hook.ads.provider.READ_WRITE"
+        android:name="com.close.hook.ads.READ_WRITE"
         android:protectionLevel="normal" />
     <permission
-        android:name="com.close.hook.ads.provider.WRITE_DATABASE"
+        android:name="com.close.hook.ads.WRITE_DATABASE"
         android:protectionLevel="normal" />
 
     <application
@@ -24,8 +24,8 @@
         android:theme="@style/AppTheme">
 
         <provider
-            android:name=".provider.UrlContentProvider"
-            android:authorities="com.close.hook.ads.provider"
+            android:name=".provider.MyContentProvider"
+            android:authorities="com.close.hook.ads"
             android:enabled="true"
             android:exported="true" />
 

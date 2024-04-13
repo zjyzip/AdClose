@@ -1,24 +1,22 @@
 package com.close.hook.ads.hook.gc.network;
 
 import android.app.AndroidAppHelper;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.util.Log;
-import android.util.Pair;
 
 import androidx.annotation.Nullable;
 
+import com.close.hook.ads.IMyAidlInterface;
+import com.close.hook.ads.BlockedBean;
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
-import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
-import com.close.hook.ads.provider.UrlContentProvider;
 
 import org.luckypray.dexkit.result.MethodData;
 
@@ -28,18 +26,12 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 
-import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
 import kotlin.Triple;
-import okhttp3.Protocol;
-import okhttp3.Request;
-import okhttp3.Response;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
@@ -112,42 +104,32 @@ public class RequestHook {
     private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
-            ContentResolver contentResolver = context.getContentResolver();
-            Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
-            String[] projection = new String[]{Url.Companion.getURL_TYPE(), Url.Companion.getURL_ADDRESS()};
-            String selection = Url.Companion.getURL_TYPE() + " = ?";
-            String[] selectionArgs = new String[]{queryType};
-
-            try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, null)) {
-                if (cursor != null && cursor.moveToFirst()) {
-                    do {
-                        String urlType = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_TYPE()));
-                        String urlValue = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
-
-                        if (isQueryMatch(queryType, queryValue, urlType, urlValue)) {
-                            return new Triple<>(true, formatUrlType(urlType), urlValue);
-                        }
-                    } while (cursor.moveToNext());
+            Bundle bundle = context.getContentResolver().call(
+                    Uri.parse("content://com.close.hook.ads"),
+                    "getData",
+                    null,
+                    null);
+            IMyAidlInterface mBinder = IMyAidlInterface.Stub.asInterface(bundle.getBinder("binder"));
+            try {
+                /*Log.i(LOG_PREFIX, "queryContentProvider" + mBinder.getData(
+                        queryType
+                                .replace("host", "Domain")
+                                .replace("url", "URL"),
+                        queryValue));*/
+                BlockedBean blockedBean = mBinder.getData(
+                        queryType
+                                .replace("host", "Domain")
+                                .replace("url", "URL"),
+                        queryValue);
+                if (blockedBean.isBlocked()) {
+                    return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Log.i(LOG_PREFIX, "queryContentProvider" + e.getMessage());
             }
         }
         return new Triple<>(false, null, null);
-    }
-
-    private static boolean isQueryMatch(String queryType, String queryValue, String urlType, String urlValue) {
-        switch (queryType) {
-            case "host":
-                return urlValue.equals(queryValue);
-            case "url":
-            case "keyword":
-                return queryValue.contains(urlValue);
-            default:
-                return false;
-        }
-    }
-
-    private static String formatUrlType(String urlType) {
-        return urlType.replace("url", "URL").replace("keyword", "KeyWord");
     }
 
     private static void setupHttpRequestHook() {
@@ -234,7 +216,7 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-  //                XposedBridge.log("hook " + methodData);
+                    //                XposedBridge.log("hook " + methodData);
                     XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                         @Override
@@ -350,21 +332,21 @@ public class RequestHook {
             String stackTrace = details != null ? details.getStack() : null;
 
             blockedRequest = new BlockedRequest(
-                appName,
-                packageName,
-                request,
-                System.currentTimeMillis(),
-                type,
-                isBlocked,
-                url,
-                blockType,
-                method,
-                urlString,
-                requestHeaders,
-                responseCode,
-                responseMessage,
-                responseHeaders,
-                stackTrace
+                    appName,
+                    packageName,
+                    request,
+                    System.currentTimeMillis(),
+                    type,
+                    isBlocked,
+                    url,
+                    blockType,
+                    method,
+                    urlString,
+                    requestHeaders,
+                    responseCode,
+                    responseMessage,
+                    responseHeaders,
+                    stackTrace
             );
 
             intent.putExtra("request", blockedRequest);
