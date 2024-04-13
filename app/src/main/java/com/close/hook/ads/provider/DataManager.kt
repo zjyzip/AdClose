@@ -7,7 +7,7 @@ import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.BlockedBean
 
 // mod from https://github.com/King-i-Yu/ContentProviderDemo
-class DataManager {
+class DataManager private constructor() {
 
     fun getData(type: String, value: String): BlockedBean {
         return try {
@@ -17,43 +17,34 @@ class DataManager {
                 null,
                 null
             )
-            val mBinder: IMyAidlInterface =
-                IMyAidlInterface.Stub.asInterface(bundle?.getBinder("binder"))
+            val mBinder = IMyAidlInterface.Stub.asInterface(bundle?.getBinder("binder"))
             mBinder.getData(type, value)
         } catch (e: Exception) {
             e.printStackTrace()
-            throw RuntimeException(e)
+            BlockedBean(false, null, null)
         }
     }
 
     companion object {
-        var instance: DataManager? = null
-            get() {
-                if (field == null) {
-                    synchronized(DataManager::class.java) {
-                        if (field == null) {
-                            field = DataManager()
-                        }
-                    }
-                }
-                return field
+        @Volatile
+        private var instance: DataManager? = null
+        
+        fun getInstance(): DataManager {
+            return instance ?: synchronized(this) {
+                instance ?: DataManager().also { instance = it }
             }
-            private set
+        }
+        
         private var mBinder: IMyAidlInterface.Stub? = null
 
         @JvmStatic
         val serverStub: IMyAidlInterface.Stub?
-            get() {
-                if (mBinder == null) {
-                    mBinder = object : IMyAidlInterface.Stub() {
-
-                        override fun getData(type: String, value: String): BlockedBean {
-                            return DataSource(closeApp).checkIsBlocked(type, value)
-                        }
-
+            get() = mBinder ?: synchronized(this) {
+                mBinder ?: object : IMyAidlInterface.Stub() {
+                    override fun getData(type: String, value: String): BlockedBean {
+                        return DataSource(closeApp).checkIsBlocked(type, value)
                     }
-                }
-                return mBinder
+                }.also { mBinder = it }
             }
     }
 }

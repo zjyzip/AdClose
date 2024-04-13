@@ -69,38 +69,17 @@ class DataSource(context: Context) {
     }
 
     fun checkIsBlocked(type: String, value: String): BlockedBean {
-        var isBlocked = false
-        var blockedType: String? = null
-        var blockedValue: String? = null
-        run breaking@{
-            urlDao.getAllUrls().forEach {
-                when (it.type) {
-                    "KeyWord" -> {
-                        if (it.url in value) {
-                            isBlocked = true
-                            return@breaking
-                        }
-                    }
-
-                    "Domain" -> {
-                        if (type == "Domain" && value == it.url) {
-                            isBlocked = true
-                            return@breaking
-                        }
-                    }
-
-                    "URL" -> {
-                        if (type == "URL" && value == it.url) {
-                            isBlocked = true
-                            return@breaking
-                        }
-                    }
-                }
-                blockedType = it.type
-                blockedValue = it.url
+        val urls = urlDao.getAllUrls()
+        val blockedUrl = urls.find {
+            when (it.type) {
+                "KeyWord" -> it.url in value
+                "Domain", "URL" -> type == it.type && value == it.url
+                else -> false
             }
         }
-        return BlockedBean(isBlocked, blockedType, blockedValue)
+        return blockedUrl?.let {
+            BlockedBean(true, it.type, it.url)
+        } ?: BlockedBean(false, null, null)
     }
 
     companion object {
