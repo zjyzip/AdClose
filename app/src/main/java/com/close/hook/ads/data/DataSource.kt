@@ -1,16 +1,13 @@
 package com.close.hook.ads.data
 
 import android.content.Context
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.asLiveData
 import com.close.hook.ads.BlockedBean
-import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 
 class DataSource(context: Context) {
     private val urlDao = UrlDatabase.getDatabase(context).urlDao
@@ -73,13 +70,25 @@ class DataSource(context: Context) {
         val blockedUrl = urls.find {
             when (it.type) {
                 "KeyWord" -> it.url in value
-                "Domain", "URL" -> type == it.type && value == it.url
+
+                "Domain" -> type == it.type && getDomain(value) == it.url
+
+                "URL" -> type == it.type && value == it.url
+
                 else -> false
             }
         }
         return blockedUrl?.let {
             BlockedBean(true, it.type, it.url)
         } ?: BlockedBean(false, null, null)
+    }
+
+    private fun getDomain(url: String): String {
+        val replace = url.replace("https://", "").replace("http://", "")
+        with(replace.indexOfFirst { it == '/' }) {
+            return if (this == -1) replace
+            else replace.substring(0, this)
+        }
     }
 
     companion object {
