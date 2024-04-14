@@ -71,16 +71,14 @@ class DataSource(context: Context) {
             when (it.type) {
                 "KeyWord" -> it.url in value
 
-                "Domain" -> type == it.type && getDomain(value) == it.url
+                "Domain" -> it.url == getDomain(value)
 
-                "URL" -> type == it.type && value == it.url
+                "URL" -> it.url == value
 
                 else -> false
             }
         }
-        return blockedUrl?.let {
-            BlockedBean(true, it.type, it.url)
-        } ?: BlockedBean(false, null, null)
+        return BlockedBean(blockedUrl != null, blockedUrl?.type, blockedUrl?.url)
     }
 
     private fun getDomain(url: String): String {
