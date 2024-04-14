@@ -65,28 +65,18 @@ class DataSource(context: Context) {
         return urlDao.isExist(type, url)
     }
 
-    fun checkIsBlocked(type: String, value: String): BlockedBean {
-        val urls = urlDao.getAllUrls()
-        val blockedUrl = urls.find {
-            when (it.type) {
-                "KeyWord" -> it.url in value
-
-                "Domain" -> it.url == getDomain(value)
-
-                "URL" -> it.url == value
-
+    fun checkIsBlocked(queryType: String, queryValue: String): BlockedBean {
+        urlDao.getAllUrls().forEach { urlEntry ->
+            val isBlocked = when (queryType) {
+                "Domain" -> queryValue == urlEntry.url
+                "URL", "KeyWord" -> queryValue.contains(urlEntry.url)
                 else -> false
             }
+            if (isBlocked) {
+                return BlockedBean(true, urlEntry.type, urlEntry.url)
+            }
         }
-        return BlockedBean(blockedUrl != null, blockedUrl?.type, blockedUrl?.url)
-    }
-
-    private fun getDomain(url: String): String {
-        val replace = url.replace("https://", "").replace("http://", "")
-        with(replace.indexOfFirst { it == '/' }) {
-            return if (this == -1) replace
-            else replace.substring(0, this)
-        }
+        return BlockedBean(false, null, null)
     }
 
     companion object {

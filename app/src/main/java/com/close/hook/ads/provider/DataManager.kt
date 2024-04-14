@@ -1,15 +1,19 @@
 package com.close.hook.ads.provider
 
 import android.net.Uri
+import android.os.IBinder
 import com.close.hook.ads.IBlockedStatusProvider
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.BlockedBean
 
-// mod from https://github.com/King-i-Yu/ContentProviderDemo
 class DataManager private constructor() {
+    private var cachedBinder: IBinder? = null
 
-    fun getData(type: String, value: String): BlockedBean {
+    private fun getBinder(): IBlockedStatusProvider? {
+        if (cachedBinder != null) {
+            return IBlockedStatusProvider.Stub.asInterface(cachedBinder)
+        }
         return try {
             val bundle = closeApp.contentResolver.call(
                 Uri.parse("content://com.close.hook.ads"),
@@ -17,12 +21,17 @@ class DataManager private constructor() {
                 null,
                 null
             )
-            val mBinder = IBlockedStatusProvider.Stub.asInterface(bundle?.getBinder("binder"))
-            mBinder.getData(type, value)
+            cachedBinder = bundle?.getBinder("binder")
+            IBlockedStatusProvider.Stub.asInterface(cachedBinder)
         } catch (e: Exception) {
             e.printStackTrace()
-            BlockedBean(false, null, null)
+            null
         }
+    }
+
+    fun getData(type: String, value: String): BlockedBean {
+        val mBinder = getBinder()
+        return mBinder?.getData(type, value) ?: BlockedBean(false, null, null)
     }
 
     companion object {
