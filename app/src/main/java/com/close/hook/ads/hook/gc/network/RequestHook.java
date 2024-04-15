@@ -292,18 +292,7 @@ public class RequestHook {
             String type, @Nullable String requestType, @Nullable Boolean isBlocked,
             @Nullable String url, @Nullable String blockType, String request,
             RequestDetails details) {
-        Intent intent;
-        switch (type) {
-            case "all":
-                intent = new Intent("com.rikkati.ALL_REQUEST");
-                break;
-            case "block":
-                intent = new Intent("com.rikkati.BLOCKED_REQUEST");
-                break;
-            default:
-                intent = new Intent("com.rikkati.PASS_REQUEST");
-                break;
-        }
+        Intent intent = new Intent("com.rikkati.REQUEST");
 
         Context currentContext = AndroidAppHelper.currentApplication();
         if (currentContext != null) {
