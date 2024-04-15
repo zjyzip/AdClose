@@ -5,7 +5,6 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
-import android.text.TextUtils
 
 class BinderProvider : ContentProvider() {
 
@@ -44,6 +43,13 @@ class BinderProvider : ContentProvider() {
             "getData" -> {
                 val bundle = Bundle()
                 bundle.putBinder("binder", mBinderParcel.mProxy)
+                bundle
+            }
+            "getMemoryFileDescriptor" -> {
+                val bundle = Bundle()
+                DataManager.getInstance().getMemoryFileDescriptor()?.let {
+                    bundle.putParcelable("fd", it)
+                }
                 bundle
             }
             else -> super.call(method, arg, extras)
