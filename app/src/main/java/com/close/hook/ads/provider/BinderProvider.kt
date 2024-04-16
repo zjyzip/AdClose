@@ -29,12 +29,12 @@ class BinderProvider : ContentProvider() {
                     mBinderParcel.mProxy = extras?.getBinder("binder")
                     null
                 }
-                "getData" -> Bundle().apply {
-                    putBinder("binder", mBinderParcel.mProxy)
-                }
-                "getMemoryFileDescriptor" -> Bundle().apply {
-                    DataManager.getInstance().getMemoryFileDescriptor()?.let {
-                        putParcelable("fd", it)
+                "getData" -> {
+                    val type = extras?.getString("type")
+                    val value = extras?.getString("value")
+                    val fd = DataManager.getInstance().getData(type!!, value!!)
+                    Bundle().apply {
+                        putParcelable("fd", fd)
                     }
                 }
                 else -> super.call(method, arg, extras)

@@ -18,6 +18,7 @@ import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 
+import java.io.IOException;
 import org.luckypray.dexkit.result.MethodData;
 
 import java.lang.reflect.Method;
@@ -32,6 +33,10 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
 import kotlin.Triple;
+
+import android.os.ParcelFileDescriptor;
+import java.io.ObjectInputStream;
+import java.io.FileInputStream;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
@@ -104,25 +109,36 @@ public class RequestHook {
     private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
+            Bundle extras = new Bundle();
+            extras.putString("type", queryType.replace("host", "Domain").replace("url", "URL"));
+            extras.putString("value", queryValue);
+
             Bundle bundle = context.getContentResolver().call(
-                    Uri.parse("content://com.close.hook.ads"),
-                    "getData",
-                    null,
-                    null);
-            if (bundle != null) {
-                IBlockedStatusProvider mBinder = IBlockedStatusProvider.Stub.asInterface(bundle.getBinder("binder"));
-                try {
-                    BlockedBean blockedBean = mBinder.getData(
-                            queryType
-                                    .replace("host", "Domain")
-                                    .replace("url", "URL"),
-                            queryValue);
-                    if (blockedBean.isBlocked()) {
-                        return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
+                Uri.parse("content://com.close.hook.ads"),
+                "getData",
+                null,
+                extras);
+
+            if (bundle != null && bundle.containsKey("fd")) {
+                ParcelFileDescriptor pfd = bundle.getParcelable("fd");
+                if (pfd != null) {
+                    try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
+                         ObjectInputStream ois = new ObjectInputStream(fis)) {
+
+                        BlockedBean blockedBean = (BlockedBean) ois.readObject();
+                        if (blockedBean.isBlocked()) {
+                            return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Log.i(LOG_PREFIX, "Error reading data from memory file: " + e.getMessage());
+                    } finally {
+                        try {
+                            pfd.close();
+                        } catch (IOException e) {
+                            Log.i(LOG_PREFIX, "Error closing ParcelFileDescriptor: " + e.getMessage());
+                        }
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Log.i(LOG_PREFIX, "queryContentProvider" + e.getMessage());
                 }
             }
         }
