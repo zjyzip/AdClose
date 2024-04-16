@@ -149,4 +149,15 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
         requireContext().unregisterReceiver(receiver)
     }
 
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter("com.rikkati.REQUEST")
+        requireContext().registerReceiver(receiver, filter, getReceiverOptions())
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        requireContext().unregisterReceiver(receiver)
+    }
+
 }

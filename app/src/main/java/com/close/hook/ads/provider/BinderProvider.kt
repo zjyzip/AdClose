@@ -5,54 +5,43 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 
 class BinderProvider : ContentProvider() {
-
     private val mBinderParcel = BinderParcel()
 
-    override fun onCreate(): Boolean {
-        return true
-    }
+    override fun onCreate(): Boolean = true
 
-    override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor? {
-        return null
-    }
+    override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor? = null
 
-    override fun getType(uri: Uri): String? {
-        return null
-    }
+    override fun getType(uri: Uri): String? = null
 
-    override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        return null
-    }
+    override fun insert(uri: Uri, values: ContentValues?): Uri? = null
 
-    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {
-        return 0
-    }
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int = 0
 
-    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int {
-        return 0
-    }
+    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int = 0
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
-        return when (method) {
-            "getBinder" -> {
-                mBinderParcel.mProxy = extras?.getBinder("binder")
-                null
-            }
-            "getData" -> {
-                val bundle = Bundle()
-                bundle.putBinder("binder", mBinderParcel.mProxy)
-                bundle
-            }
-            "getMemoryFileDescriptor" -> {
-                val bundle = Bundle()
-                DataManager.getInstance().getMemoryFileDescriptor()?.let {
-                    bundle.putParcelable("fd", it)
+        try {
+            return when (method) {
+                "getBinder" -> {
+                    mBinderParcel.mProxy = extras?.getBinder("binder")
+                    null
                 }
-                bundle
+                "getData" -> Bundle().apply {
+                    putBinder("binder", mBinderParcel.mProxy)
+                }
+                "getMemoryFileDescriptor" -> Bundle().apply {
+                    DataManager.getInstance().getMemoryFileDescriptor()?.let {
+                        putParcelable("fd", it)
+                    }
+                }
+                else -> super.call(method, arg, extras)
             }
-            else -> super.call(method, arg, extras)
+        } catch (e: Exception) {
+            Log.e("BinderProvider", "Error handling $method call", e)
+            return null
         }
     }
 }
