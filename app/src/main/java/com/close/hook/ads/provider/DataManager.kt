@@ -18,28 +18,34 @@ class DataManager private constructor() {
     private var cachedBinder: IBinder? = null
 
     fun getData(type: String, value: String): ParcelFileDescriptor? {
-        val blockedBean = getBinder()?.getData(type, value) ?: BlockedBean(false, null, null)
-        return writeToMemoryFile(blockedBean)
+        val blockedBean = DataSource(closeApp).checkIsBlocked(type, value)
+        return writeToMemoryFile(blockedBean).also {
+            if (it == null) {
+                Log.e("DataManager", "Failed to create ParcelFileDescriptor for MemoryFile.")
+            }
+        }
     }
 
     private fun writeToMemoryFile(blockedBean: BlockedBean): ParcelFileDescriptor? {
         var memoryFile: MemoryFile? = null
         try {
-            memoryFile = MemoryFile("data_share", 1024 * 1024) // 1MB大小
+            memoryFile = MemoryFile("data_share", 1024 * 1024) // 1MB size
             memoryFile.allowPurging(false)
-            val baos = ByteArrayOutputStream()
-            val oos = ObjectOutputStream(baos)
-            oos.writeObject(blockedBean)
-            oos.flush()
-            val data = baos.toByteArray()
-            memoryFile.writeBytes(data, 0, 0, data.size)
+            ByteArrayOutputStream().use { baos ->
+                ObjectOutputStream(baos).use { oos ->
+                    oos.writeObject(blockedBean)
+                    oos.flush()
+                    val data = baos.toByteArray()
+                    memoryFile.writeBytes(data, 0, 0, data.size)
+                }
+            }
 
             val getFileDescriptorMethod = MemoryFile::class.java.getDeclaredMethod("getFileDescriptor")
             getFileDescriptorMethod.isAccessible = true
             val rawFileDescriptor = getFileDescriptorMethod.invoke(memoryFile) as FileDescriptor
             return ParcelFileDescriptor.dup(rawFileDescriptor)
         } catch (e: Exception) {
-            Log.e("DataManager", "Failed to write data to memory file", e)
+            Log.e("DataManager", "Error creating/writing MemoryFile", e)
             return null
         } finally {
             memoryFile?.close()
@@ -68,8 +74,10 @@ class DataManager private constructor() {
 
         val serverStub: IBlockedStatusProvider.Stub by lazy {
             object : IBlockedStatusProvider.Stub() {
-                override fun getData(type: String, value: String): BlockedBean =
-                    DataSource(closeApp).checkIsBlocked(type, value)
+                override fun getData(type: String, value: String): ParcelFileDescriptor {
+                    val blockedBean = DataSource(closeApp).checkIsBlocked(type, value)
+                    return DataManager.getInstance().writeToMemoryFile(blockedBean) ?: throw RuntimeException("Failed to write data to MemoryFile")
+                }
             }
         }
     }
