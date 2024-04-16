@@ -1,8 +1,8 @@
 // IBlockedStatusProvider.aidl
 package com.close.hook.ads;
 
-import com.close.hook.ads.BlockedBean;
+import android.os.ParcelFileDescriptor;
 
 interface IBlockedStatusProvider {
-    BlockedBean getData(String type, String value);
+    ParcelFileDescriptor getData(String type, String value);
 }
