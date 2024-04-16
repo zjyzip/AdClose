@@ -65,11 +65,11 @@ class DataSource(context: Context) {
         return urlDao.isExist(type, url)
     }
 
-    fun checkIsBlocked(queryType: String, queryValue: String): BlockedBean {
+    fun checkIsBlocked(type: String, url: String): BlockedBean {
         urlDao.getAllUrls().forEach { urlEntry ->
-            val isBlocked = when (queryType) {
-                "Domain" -> queryValue == urlEntry.url
-                "URL", "KeyWord" -> queryValue.contains(urlEntry.url)
+            val isBlocked = when (type) {
+                "Domain" -> url == urlEntry.url
+                "URL", "KeyWord" -> url.contains(urlEntry.url)
                 else -> false
             }
             if (isBlocked) {

@@ -10,6 +10,7 @@ import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.BlockedBean
 import java.io.FileDescriptor
 import java.lang.reflect.Method
+import android.util.Log
 
 class DataManager private constructor() {
     private var cachedBinder: IBinder? = null
@@ -17,17 +18,18 @@ class DataManager private constructor() {
     private var parcelFileDescriptor: ParcelFileDescriptor? = null
 
     init {
-        memoryFile = MemoryFile("data_share", 1024)
-        memoryFile?.allowPurging(false)
-        val getFileDescriptorMethod: Method = MemoryFile::class.java.getDeclaredMethod("getFileDescriptor")
-        val rawFileDescriptor: FileDescriptor = getFileDescriptorMethod.invoke(memoryFile) as FileDescriptor
-        parcelFileDescriptor = ParcelFileDescriptor.dup(rawFileDescriptor)
+        try {
+            memoryFile = MemoryFile("data_share", 1024).apply { allowPurging(false) }
+            val getFileDescriptorMethod = MemoryFile::class.java.getDeclaredMethod("getFileDescriptor")
+            val rawFileDescriptor = getFileDescriptorMethod.invoke(memoryFile) as FileDescriptor
+            parcelFileDescriptor = ParcelFileDescriptor.dup(rawFileDescriptor)
+        } catch (e: Exception) {
+            Log.e("DataManager", "Failed to create memory file or descriptor", e)
+        }
     }
 
     private fun getBinder(): IBlockedStatusProvider? {
-        if (cachedBinder != null) {
-            return IBlockedStatusProvider.Stub.asInterface(cachedBinder)
-        }
+        cachedBinder?.let { return IBlockedStatusProvider.Stub.asInterface(it) }
         val bundle = closeApp.contentResolver.call(
             Uri.parse("content://com.close.hook.ads"),
             "getBinder",
@@ -35,12 +37,11 @@ class DataManager private constructor() {
             null
         )
         cachedBinder = bundle?.getBinder("binder")
-        return IBlockedStatusProvider.Stub.asInterface(cachedBinder)
+        return cachedBinder?.let { IBlockedStatusProvider.Stub.asInterface(it) }
     }
 
     fun getData(type: String, value: String): BlockedBean {
-        val mBinder = getBinder()
-        return mBinder?.getData(type, value) ?: BlockedBean(false, null, null)
+        return getBinder()?.getData(type, value) ?: BlockedBean(false, null, null)
     }
 
     fun getMemoryFileDescriptor(): ParcelFileDescriptor? = parcelFileDescriptor
@@ -55,13 +56,11 @@ class DataManager private constructor() {
 
         val serverStub: IBlockedStatusProvider.Stub by lazy {
             object : IBlockedStatusProvider.Stub() {
-                override fun getData(type: String, value: String): BlockedBean {
-                    return DataSource(closeApp).checkIsBlocked(type, value)
-                }
+                override fun getData(type: String, value: String): BlockedBean =
+                    DataSource(closeApp).checkIsBlocked(type, value)
 
-                override fun getMemoryFileDescriptor(): ParcelFileDescriptor? {
-                    return instance?.getMemoryFileDescriptor()
-                }
+                override fun getMemoryFileDescriptor(): ParcelFileDescriptor? =
+                    getInstance().getMemoryFileDescriptor()
             }
         }
     }
