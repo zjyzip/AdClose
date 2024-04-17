@@ -163,5 +163,5 @@ dependencies {
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     implementation("com.microsoft.appcenter:appcenter-analytics:5.0.4")
     implementation("com.microsoft.appcenter:appcenter-crashes:5.0.4")
-
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.13")
 }
