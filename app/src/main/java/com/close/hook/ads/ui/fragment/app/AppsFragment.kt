@@ -16,7 +16,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.ConfiguredBean
-import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
@@ -26,7 +25,6 @@ import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
-import com.close.hook.ads.ui.viewmodel.AppsViewModelFactory
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.CacheDataManager.getFormatSize
 import com.close.hook.ads.util.INavContainer
@@ -60,12 +58,7 @@ import java.util.Locale
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
 
-    private val viewModel by viewModels<AppsViewModel> {
-        AppsViewModelFactory(
-            arguments?.getString("type") ?: "user",
-            AppRepository(requireContext().packageManager)
-        )
-    }
+    private val viewModel by viewModels<AppsViewModel>()
     private lateinit var mAdapter: AppsAdapter
     private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null
@@ -111,6 +104,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         super.onCreate(savedInstanceState)
         if (viewModel.type == "configured")
             (parentFragment as? IOnFabClickContainer)?.fabController = this
+        viewModel.type = arguments?.getString("type") ?: "user"
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -397,10 +391,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     override fun onExport() {
         val configuredList = viewModel.appsLiveData.value?.map { appInfo ->
             ConfiguredBean(
-              appInfo.packageName, 
-              prefKeys.map { key ->
-                prefsHelper.getBoolean(key + appInfo.packageName, false)
-            })
+                appInfo.packageName,
+                prefKeys.map { key ->
+                    prefsHelper.getBoolean(key + appInfo.packageName, false)
+                })
         } ?: emptyList()
         try {
             val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
