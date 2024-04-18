@@ -1,34 +1,33 @@
-package com.close.hook.ads.provider
+package com.close.hook.ads.service
 
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
 import android.os.MemoryFile
 import android.os.ParcelFileDescriptor
-import com.close.hook.ads.CloseApplication
-import com.close.hook.ads.data.DataSource
+import android.os.RemoteException
+import android.util.Log
 import com.close.hook.ads.BlockedBean
+import com.close.hook.ads.IBlockedStatusProvider
+import com.close.hook.ads.data.DataSource
 import java.io.ByteArrayOutputStream
 import java.io.FileDescriptor
 import java.io.ObjectOutputStream
-import android.util.Log
 
-class DataManager private constructor(private val app: CloseApplication) {
-    companion object {
-        private var instance: DataManager? = null
+class AidlService : Service() {
 
-        @Synchronized
-        fun initialize(app: CloseApplication) {
-            if (instance == null) {
-                instance = DataManager(app)
-            }
-        }
+    private val dataSource by lazy { DataSource(this) }
 
-        fun getInstance(): DataManager {
-            return instance ?: throw IllegalStateException("DataManager is not initialized")
+    private val mStub: IBlockedStatusProvider.Stub = object : IBlockedStatusProvider.Stub() {
+        @Throws(RemoteException::class)
+        override fun getData(type: String, value: String): ParcelFileDescriptor? {
+            val blockedBean = dataSource.checkIsBlocked(type, value)
+            return writeToMemoryFile(blockedBean)
         }
     }
 
-    fun getData(type: String, value: String): ParcelFileDescriptor? {
-        val blockedBean = DataSource(app).checkIsBlocked(type, value)
-        return writeToMemoryFile(blockedBean)
+    override fun onBind(intent: Intent): IBinder {
+        return mStub
     }
 
     private fun writeToMemoryFile(blockedBean: BlockedBean): ParcelFileDescriptor? {
@@ -45,7 +44,8 @@ class DataManager private constructor(private val app: CloseApplication) {
                 }
             }
 
-            val getFileDescriptorMethod = MemoryFile::class.java.getDeclaredMethod("getFileDescriptor")
+            val getFileDescriptorMethod =
+                MemoryFile::class.java.getDeclaredMethod("getFileDescriptor")
             getFileDescriptorMethod.isAccessible = true
             val rawFileDescriptor = getFileDescriptorMethod.invoke(memoryFile) as FileDescriptor
             return ParcelFileDescriptor.dup(rawFileDescriptor)
@@ -56,4 +56,5 @@ class DataManager private constructor(private val app: CloseApplication) {
             memoryFile?.close()
         }
     }
+
 }

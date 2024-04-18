@@ -1,11 +1,13 @@
 package com.close.hook.ads.hook.gc.network;
 
 import android.app.AndroidAppHelper;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Bundle;
+import android.os.IBinder;
+import android.os.RemoteException;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -19,6 +21,7 @@ import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 
 import java.io.IOException;
+
 import org.luckypray.dexkit.result.MethodData;
 
 import java.lang.reflect.Method;
@@ -35,11 +38,14 @@ import de.robv.android.xposed.XposedHelpers;
 import kotlin.Triple;
 
 import android.os.ParcelFileDescriptor;
+
 import java.io.ObjectInputStream;
 import java.io.FileInputStream;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
+
+    private static IBlockedStatusProvider mStub;
 
     public static void init() {
         try {
@@ -109,18 +115,14 @@ public class RequestHook {
     private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
-            Bundle extras = new Bundle();
-            extras.putString("type", queryType.replace("host", "Domain").replace("url", "URL"));
-            extras.putString("value", queryValue);
 
-            Bundle bundle = context.getContentResolver().call(
-                Uri.parse("content://com.close.hook.ads"),
-                "getData",
-                null,
-                extras);
+            bindService(context);
 
-            if (bundle != null && bundle.containsKey("fd")) {
-                ParcelFileDescriptor pfd = bundle.getParcelable("fd");
+            try {
+                ParcelFileDescriptor pfd = mStub.getData(
+                        queryType.replace("host", "Domain").replace("url", "URL"),
+                        queryValue
+                );
                 if (pfd != null) {
                     try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
                          ObjectInputStream ois = new ObjectInputStream(fis)) {
@@ -140,10 +142,45 @@ public class RequestHook {
                         }
                     }
                 }
+            } catch (RemoteException e) {
+                e.printStackTrace();
+                Log.i(LOG_PREFIX, e.getMessage());
             }
+
         }
         return new Triple<>(false, null, null);
     }
+
+    private static void bindService(Context context) {
+        if (mStub != null) {
+            return;
+        }
+        Intent intent = new Intent("com.close.hook.ads.service.AidlService");
+        intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
+
+        try {
+            boolean bindSucc = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+            if (bindSucc) {
+                Log.i(LOG_PREFIX, "bindService: bind success");
+            } else {
+                Log.i(LOG_PREFIX, "bindService: bind failed");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static final ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mStub = IBlockedStatusProvider.Stub.asInterface(service);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mStub = null;
+        }
+    };
 
     private static void setupHttpRequestHook() {
         try {
