@@ -23,11 +23,14 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <provider
-            android:name=".provider.BinderProvider"
-            android:authorities="com.close.hook.ads"
+        <service
+            android:name=".service.AidlService"
             android:enabled="true"
-            android:exported="true" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.close.hook.ads.service.AidlService" />
+            </intent-filter>
+        </service>
 
         <activity
             android:name=".ui.activity.RequestInfoActivity"

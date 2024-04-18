@@ -292,7 +292,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         }
 
         try {
-            val content = GsonBuilder().setPrettyPrinting().create().toJson(viewModel.requestList)
+            val content = GsonBuilder().setPrettyPrinting().create().toJson(viewModel.requestList.value)
             if (saveFile(content)) {
                 backupSAFLauncher.launch("${type}_request_list.json")
             } else {

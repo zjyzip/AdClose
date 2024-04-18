@@ -2,7 +2,6 @@ package com.close.hook.ads
 
 import android.app.Application
 import androidx.appcompat.app.AppCompatDelegate
-import com.close.hook.ads.provider.DataManager
 import com.close.hook.ads.util.PrefManager
 import com.close.hook.ads.util.PrefManager.darkTheme
 import com.microsoft.appcenter.AppCenter
@@ -19,8 +18,6 @@ class CloseApplication : Application() {
         super.onCreate()
 
         closeApp = this
-
-        DataManager.initialize(this)
 
         AppCenter.start(
             this, "621cdb49-4473-44d3-a8f8-e76f28ba43d7",
