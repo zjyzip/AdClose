@@ -119,26 +119,28 @@ public class RequestHook {
             bindService(context);
 
             try {
-                ParcelFileDescriptor pfd = mStub.getData(
-                        queryType.replace("host", "Domain").replace("url", "URL"),
-                        queryValue
-                );
-                if (pfd != null) {
-                    try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
-                         ObjectInputStream ois = new ObjectInputStream(fis)) {
-
-                        BlockedBean blockedBean = (BlockedBean) ois.readObject();
-                        if (blockedBean.isBlocked()) {
-                            return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        Log.i(LOG_PREFIX, "Error reading data from memory file: " + e.getMessage());
-                    } finally {
-                        try {
-                            pfd.close();
-                        } catch (IOException e) {
-                            Log.i(LOG_PREFIX, "Error closing ParcelFileDescriptor: " + e.getMessage());
+                if (mStub != null) {
+                    ParcelFileDescriptor pfd = mStub.getData(
+                            queryType.replace("host", "Domain").replace("url", "URL"),
+                            queryValue
+                    );
+                    if (pfd != null) {
+                        try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
+                             ObjectInputStream ois = new ObjectInputStream(fis)) {
+    
+                            BlockedBean blockedBean = (BlockedBean) ois.readObject();
+                            if (blockedBean.isBlocked()) {
+                                return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            Log.i(LOG_PREFIX, "Error reading data from memory file: " + e.getMessage());
+                        } finally {
+                            try {
+                                pfd.close();
+                            } catch (IOException e) {
+                                Log.i(LOG_PREFIX, "Error closing ParcelFileDescriptor: " + e.getMessage());
+                            }
                         }
                     }
                 }
