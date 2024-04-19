@@ -22,12 +22,11 @@ class AppsViewModel(
     var type: String = "user"
     private val updateParams =
         MutableStateFlow(Triple(Pair("", emptyList<String>()), Pair("", false), 0L))
-    val appsLiveData: LiveData<List<AppInfo>>
+    val appsLiveData: LiveData<List<AppInfo>> by lazy { setupAppsLiveData() }
     private val appRepository: AppRepository = AppRepository(application.packageManager)
 
     init {
         refreshApps()
-        appsLiveData = setupAppsLiveData()
     }
 
     private fun setupAppsLiveData(): LiveData<List<AppInfo>> {
@@ -57,15 +56,17 @@ class AppsViewModel(
     }
 
     fun refreshApps() {
-        val filterList = listOfNotNull(
+        updateParams.value = Triple(
+        Pair(PrefManager.order, getFilterList()),
+        Pair("", PrefManager.isReverse),
+        System.currentTimeMillis())
+    }
+
+    private fun getFilterList(): List<String> {
+        return listOfNotNull(
             if (PrefManager.configured) "已配置" else null,
             if (PrefManager.updated) "最近更新" else null,
             if (PrefManager.disabled) "已禁用" else null
-        )
-        updateParams.value = Triple(
-            Pair(PrefManager.order, filterList),
-            Pair("", PrefManager.isReverse),
-            System.currentTimeMillis()
         )
     }
 
