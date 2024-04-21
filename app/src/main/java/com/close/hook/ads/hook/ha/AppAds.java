@@ -14,7 +14,7 @@ public class AppAds {
         // 如果存在当前应用的 Hook 信息，进行 Hook 操作
         if (appHooks.containsKey(packageName)) {
             for (HookInfo hookInfo : appHooks.get(packageName)) {
-                HookUtil.hookMethods(classLoader, hookInfo.className, hookInfo.methodNames, hookInfo.returnValue);
+                HookUtil.hookMultipleMethods(classLoader, hookInfo.className, hookInfo.methodNames, hookInfo.returnValue);
             }
         }
 

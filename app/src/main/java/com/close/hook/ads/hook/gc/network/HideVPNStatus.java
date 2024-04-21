@@ -61,7 +61,7 @@ public class HideVPNStatus {
     }
 
     private static void bypassSystemProxyCheck() {
-        HookUtil.hookAllMethods(System.class, "getProperty", param -> {
+        HookUtil.hookAllMethods(System.class, "getProperty", "before", param -> {
             String propertyName = (String) param.args[0];
             if ("http.proxyHost".equals(propertyName)) {
                 param.setResult(EMPTY_STRING);
@@ -70,7 +70,7 @@ public class HideVPNStatus {
             }
         });
 
-        HookUtil.hookAllMethods(System.class, "setProperty", param -> {
+        HookUtil.hookAllMethods(System.class, "setProperty", "before", param -> {
             String propertyName = (String) param.args[0];
             if ("http.proxyHost".equals(propertyName) || "http.proxyPort".equals(propertyName)) {
                 param.setResult(EMPTY_STRING);
@@ -79,19 +79,19 @@ public class HideVPNStatus {
     }
 
     private static void modifyNetworkInfo() {
-        HookUtil.hookAllMethods(NetworkInfo.class, "getType", param -> 
+        HookUtil.hookAllMethods(NetworkInfo.class, "getType", "before", param -> 
             replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI)
         );
 
-        HookUtil.hookAllMethods(NetworkInfo.class, "getTypeName", param -> 
+        HookUtil.hookAllMethods(NetworkInfo.class, "getTypeName", "before", param -> 
             replaceResultIfEqualsIgnoreCase(param, "VPN", WIFI)
         );
 
-        HookUtil.hookAllMethods(NetworkInfo.class, "getSubtypeName", param -> 
+        HookUtil.hookAllMethods(NetworkInfo.class, "getSubtypeName", "before", param -> 
             replaceResultIfEqualsIgnoreCase(param, "VPN", WIFI)
         );
 
-        HookUtil.hookAllMethods(ConnectivityManager.class, "getNetworkInfo", param -> {
+        HookUtil.hookAllMethods(ConnectivityManager.class, "getNetworkInfo", "before", param -> {
             if (param.args.length > 0 && param.args[0].equals(ConnectivityManager.TYPE_VPN)) {
                 param.setResult(null);
             }
@@ -99,23 +99,23 @@ public class HideVPNStatus {
     }
 
     private static void modifyNetworkCapabilities() {
-        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasTransport", param -> {
+        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasTransport", "before", param -> {
             if (param.args[0].equals(NetworkCapabilities.TRANSPORT_VPN)) {
                 param.setResult(false);
             }
         });
 
-        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasCapability", param -> {
+        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasCapability", "before", param -> {
             if (param.args[0].equals(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
                 param.setResult(true);
             }
         });
 
-        HookUtil.hookAllMethods(NetworkInterface.class, "isVirtual", param -> 
+        HookUtil.hookAllMethods(NetworkInterface.class, "isVirtual", "before", param -> 
             param.setResult(false)
         );
 
-        HookUtil.hookAllMethods(NetworkInterface.class, "getName", param -> 
+        HookUtil.hookAllMethods(NetworkInterface.class, "getName", "before", param -> 
             replaceResultIfStartsWith(param, "tun", "ppp", "pptp")
         );
     }

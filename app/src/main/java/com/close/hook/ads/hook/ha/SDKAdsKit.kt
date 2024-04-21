@@ -44,6 +44,8 @@ object SDKAdsKit {
 
         foundMethodsForAds?.let { hookMethods(it, DexKitUtil.context.classLoader) }
 
+        handlePangolinSDK()
+
         blockFirebaseWithString()
         blockFirebaseWithString2()
 
@@ -52,6 +54,22 @@ object SDKAdsKit {
         blockAdsWithString()
 
         DexKitUtil.releaseBridge()
+    }
+
+    fun handlePangolinSDK() {
+        val packageName = DexKitUtil.context.packageName
+        val initializeMessage = "tt_sdk_settings_other"
+        val cacheKeyForString = "$packageName:handlePangolinSDK"
+
+        val foundMethodsForString = DexKitUtil.getCachedOrFindMethods(cacheKeyForString) {
+            DexKitUtil.getBridge().findMethod {
+                matcher {
+                    usingStrings = listOf(initializeMessage)
+                }
+            }?.toList()
+        }
+
+        foundMethodsForString?.let { hookMethods(it, DexKitUtil.context.classLoader) }
     }
 
     fun blockFirebaseWithString() {

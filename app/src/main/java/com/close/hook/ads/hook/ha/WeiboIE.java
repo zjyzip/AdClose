@@ -16,9 +16,9 @@ public class WeiboIE {
 	}
 
 	private static void blockAds(ClassLoader classLoader) {
-		HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinExtendKt", "isWeiboUVEAd", false);
-		HookUtil.hookMethod(classLoader, "com.weico.international.utility.KotlinUtilKt", "findUVEAd", null);
-		HookUtil.hookMethod(classLoader, "com.weico.international.activity.LogoActivity", "doWhatNext", "main");
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.utility.KotlinExtendKt", "isWeiboUVEAd", false);
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.utility.KotlinUtilKt", "findUVEAd", null);
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.LogoActivity", "doWhatNext", "main");
 	}
 
 	private static void modifySettings(ClassLoader classLoader) {
@@ -48,16 +48,16 @@ public class WeiboIE {
 			}
 		};
 
-		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadBoolean", settingBlocker);
-		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadInt", settingBlocker);
-		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadStringSet",
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadBoolean", settingBlocker);
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadInt", settingBlocker);
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadStringSet",
 				settingBlocker);
-		HookUtil.hookMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadString", settingBlocker);
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadString", settingBlocker);
 	}
 
 	private static void blockQueryUveAdRequest(ClassLoader classLoader) {
 		HookUtil.hookAllMethods(XposedHelpers.findClass("com.weico.international.api.RxApiKt", classLoader),
-				"queryUveAdRequest", param -> {
+				"queryUveAdRequest", "before", param -> {
 					Map<String, Object> map = (Map<String, Object>) param.args[0];
 					map.remove("ip");
 					map.remove("uid");
