@@ -102,9 +102,11 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (viewModel.type == "configured")
-            (parentFragment as? IOnFabClickContainer)?.fabController = this
-        viewModel.type = arguments?.getString("type") ?: "user"
+        with(arguments?.getString("type") ?: "user") {
+            viewModel.type = this
+            if (this == "configured")
+                (parentFragment as? IOnFabClickContainer)?.fabController = this@AppsFragment
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
