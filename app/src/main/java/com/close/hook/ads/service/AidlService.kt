@@ -7,6 +7,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.os.Build.VERSION.SDK_INT
+import android.os.Build.VERSION_CODES.Q
 import android.os.IBinder
 import android.os.MemoryFile
 import android.os.ParcelFileDescriptor
@@ -82,6 +84,10 @@ class AidlService : Service() {
             .setSmallIcon(R.drawable.notice_smallicon)
             .build()
 
-        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        if (SDK_INT >= Q) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(1, notification)
+        }
     }
 }
