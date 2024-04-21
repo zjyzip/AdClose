@@ -6,7 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo;
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.os.MemoryFile
 import android.os.ParcelFileDescriptor
@@ -48,6 +48,8 @@ class AidlService : Service() {
                 writeBytes(data, 0, 0, data.size)
             }
 
+            memoryFile.allowPurging(false)
+
             val getFileDescriptorMethod = MemoryFile::class.java.getDeclaredMethod("getFileDescriptor")
             getFileDescriptorMethod.isAccessible = true
             val rawFileDescriptor = getFileDescriptorMethod.invoke(memoryFile) as FileDescriptor
@@ -71,7 +73,7 @@ class AidlService : Service() {
     private fun startServiceForeground() {
         val channelID = "com.close.hook.ads.service"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(channelID, "AIDL Service Channel", NotificationManager.IMPORTANCE_LOW)
+        val channel = NotificationChannel(channelID, "AIDL Service Channel", NotificationManager.IMPORTANCE_HIGH)
         notificationManager.createNotificationChannel(channel)
 
         val notification = Notification.Builder(this, channelID)

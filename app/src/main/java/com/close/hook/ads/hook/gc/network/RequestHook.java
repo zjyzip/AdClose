@@ -157,19 +157,9 @@ public class RequestHook {
         if (mStub != null) {
             return;
         }
-        Intent intent = new Intent("com.close.hook.ads.service.AidlService");
+        Intent intent = new Intent();
         intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
-
-        try {
-            boolean bindSucc = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-            if (bindSucc) {
-                Log.i(LOG_PREFIX, "bindService: bind success");
-            } else {
-                Log.i(LOG_PREFIX, "bindService: bind failed");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
     }
 
     private static final ServiceConnection serviceConnection = new ServiceConnection() {
