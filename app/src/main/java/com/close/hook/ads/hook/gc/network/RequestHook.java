@@ -59,24 +59,32 @@ public class RequestHook {
     }
 
     private static void setupDNSRequestHook() {
-        XposedHelpers.findAndHookMethod(InetAddress.class, "getByName", String.class, InetAddressHook);
-        XposedHelpers.findAndHookMethod(InetAddress.class, "getAllByName", String.class, InetAddressHook);
-    }
-
-    private static final XC_MethodHook InetAddressHook = new XC_MethodHook() {
-        @Override
-        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-            String host = (String) param.args[0];
-            if (host != null && shouldBlockDnsRequest(host)) {
-                if ("getByName".equals(param.method.getName())) {
+        HookUtil.findAndHookMethod(
+            InetAddress.class,
+            "getByName",
+            "before",
+            param -> {
+                String host = (String) param.args[0];
+                if (host != null && shouldBlockDnsRequest(host)) {
                     param.setResult(null);
-                } else if ("getAllByName".equals(param.method.getName())) {
+                }
+            },
+            String.class
+        );
+
+        HookUtil.findAndHookMethod(
+            InetAddress.class,
+            "getAllByName",
+            "before",
+            param -> {
+                String host = (String) param.args[0];
+                if (host != null && shouldBlockDnsRequest(host)) {
                     param.setResult(new InetAddress[0]);
                 }
-                return;
-            }
-        }
-    };
+            },
+            String.class
+        );
+    }
 
     private static boolean shouldBlockDnsRequest(String host) {
         return checkShouldBlockRequest(host, null, " DNS", "host");
@@ -145,8 +153,6 @@ public class RequestHook {
                     }
                 }
             } catch (RemoteException e) {
-                e.printStackTrace();
-                Log.i(LOG_PREFIX, e.getMessage());
             }
 
         }
@@ -178,9 +184,8 @@ public class RequestHook {
         try {
             Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
 
-            XposedHelpers.findAndHookMethod(httpURLConnectionImpl, "getResponse", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            HookUtil.hookAllMethods(httpURLConnectionImpl, "getResponse", "after", param -> {
+                try {
                     Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
 
                     boolean isResponseAvailable = (boolean) XposedHelpers.callMethod(httpEngine, "hasResponse");
@@ -204,6 +209,8 @@ public class RequestHook {
                         userResponseField.setAccessible(true);
                         userResponseField.set(httpEngine, emptyResponse);
                     }
+                } catch (Exception e) {
+                    XposedBridge.log(LOG_PREFIX + "Exception in HTTP connection hook: " + e.getMessage());
                 }
             });
         } catch (Exception e) {
@@ -259,12 +266,9 @@ public class RequestHook {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
                     //                XposedBridge.log("hook " + methodData);
-                    XposedBridge.hookMethod(method, new XC_MethodHook() {
-
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    HookUtil.hookMethod(method, "after", param -> {
+                        try {
                             Object response = param.getResult();
-
                             if (response == null) {
                                 return;
                             }
@@ -274,17 +278,18 @@ public class RequestHook {
                             URL url = new URL(okhttpUrl.toString());
 
                             String stackTrace = HookUtil.getFormattedStackTrace();
-
                             RequestDetails details = processRequest(request, response, url, stackTrace);
+
                             if (details != null && shouldBlockOkHttpsRequest(url, details)) {
                                 Object emptyResponse = createEmptyResponseForOkHttp(response);
                                 param.setResult(emptyResponse);
-                                return;
                             }
+                        } catch (Exception e) {
+                            XposedBridge.log("Error processing method hook: " + methodData + ", " + e.getMessage());
                         }
                     });
                 } catch (Exception e) {
-                    XposedBridge.log("Error hooking method: " + methodData);
+                    XposedBridge.log("Error hooking method: " + methodData + ", " + e.getMessage());
                 }
             }
         }

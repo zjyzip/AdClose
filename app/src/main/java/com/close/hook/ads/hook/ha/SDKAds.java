@@ -24,7 +24,7 @@ public class SDKAds {
     public static void hookAds(ClassLoader classLoader) {
         for (HookInfo info : HOOK_INFOS) {
             // 遍历每个 HookInfo 来应用 hook，将方法的执行结果替换为指定的返回值。
-            HookUtil.hookMethods(classLoader, info.className, info.methodNames, info.returnValue);
+            HookUtil.hookMultipleMethods(classLoader, info.className, info.methodNames, info.returnValue);
         }
     }
 }
