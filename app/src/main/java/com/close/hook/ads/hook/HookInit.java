@@ -8,7 +8,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 
 import com.close.hook.ads.hook.util.HookUtil;
-import com.close.hook.ads.hook.util.HookUtil.HookInfo;
 
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
