@@ -182,9 +182,7 @@ public class RequestHook {
 
     private static void setupHttpRequestHook() {
         try {
-            Class<?> httpURLConnectionImpl = Class.forName("com.android.okhttp.internal.huc.HttpURLConnectionImpl");
-
-            HookUtil.hookAllMethods(httpURLConnectionImpl, "getResponse", "after", param -> {
+            HookUtil.hookAllMethods("com.android.okhttp.internal.huc.HttpURLConnectionImpl", "getResponse", "after", param -> {
                 try {
                     Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
 

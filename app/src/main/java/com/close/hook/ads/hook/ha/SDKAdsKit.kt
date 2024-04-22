@@ -5,6 +5,7 @@ import java.lang.reflect.Modifier
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import com.close.hook.ads.hook.util.DexKitUtil
+import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
 import org.luckypray.dexkit.result.MethodData
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
@@ -116,16 +117,19 @@ object SDKAdsKit {
     }
 
     fun blockAdsWithBaseBundle() {
-        XposedHelpers.findAndHookMethod(BaseBundle::class.java, "get", String::class.java, object : XC_MethodHook() {
-            override fun afterHookedMethod(param: MethodHookParam) {
+        findAndHookMethod(
+            BaseBundle::class.java,
+            "get",
+            "after",
+            { param ->
                 val key = param.args[0] as String
-
                 if ("com.google.android.gms.ads.APPLICATION_ID" == key) {
                     val newValue = "ca-app-pub-0000000000000000~0000000000"
                     param.result = newValue
                 }
-            }
-        })
+            },
+            String::class.java
+        )
     }
 
     fun blockAdsWithString() {

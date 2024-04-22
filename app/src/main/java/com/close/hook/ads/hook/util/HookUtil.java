@@ -64,19 +64,32 @@ public class HookUtil {
         });
     }
 
+    private static Class<?> getClass(Object clazz) throws ClassNotFoundException {
+        if (clazz instanceof Class<?>) {
+            return (Class<?>) clazz;
+        } else if (clazz instanceof String) {
+            return Class.forName((String) clazz);
+        } else {
+            throw new IllegalArgumentException("Class parameter must be a Class<?> instance or a full class name string");
+        }
+    }
+
     public static void findAndHookMethod(
-            Class<?> clazz,
+            Object clazz,
             String methodName,
             String hookType,
             Consumer<XC_MethodHook.MethodHookParam> action,
-            Class<?>... parameterTypes) {
+            Object... parameterTypes) {
         try {
-            if (parameterTypes == null || parameterTypes.length == 0) {
-                throw new IllegalArgumentException("Parameter types must either be specified as Class or String");
+            Class<?> actualClass = getClass(clazz);
+
+            Class<?>[] classParams = new Class<?>[parameterTypes.length];
+            for (int i = 0; i < parameterTypes.length; i++) {
+                classParams[i] = getClass(parameterTypes[i]);
             }
 
-            Object[] methodParams = new Object[parameterTypes.length + 1];
-            System.arraycopy(parameterTypes, 0, methodParams, 0, parameterTypes.length);
+            Object[] methodParams = new Object[classParams.length + 1];
+            System.arraycopy(classParams, 0, methodParams, 0, classParams.length);
             methodParams[methodParams.length - 1] = new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -93,9 +106,9 @@ public class HookUtil {
                 }
             };
 
-            XposedHelpers.findAndHookMethod(clazz, methodName, methodParams);
+            XposedHelpers.findAndHookMethod(actualClass, methodName, methodParams);
         } catch (Throwable e) {
-            XposedBridge.log("HookUtil - Error occurred while hooking method " + methodName + " of " + clazz.getSimpleName() + ": " + e.getMessage());
+            XposedBridge.log("HookUtil - Error occurred while hooking method " + methodName + ": " + e.getMessage());
         }
     }
 
@@ -123,8 +136,9 @@ public class HookUtil {
         }
     }
 
-    public static void hookAllMethods(Class<?> clazz, String methodName, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+    public static void hookAllMethods(Object clazz, String methodName, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
         try {
+            Class<?> actualClass = getClass(clazz);
             XC_MethodHook methodHook = new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -141,14 +155,15 @@ public class HookUtil {
                 }
             };
 
-            XposedBridge.hookAllMethods(clazz, methodName, methodHook);
+            XposedBridge.hookAllMethods(actualClass, methodName, methodHook);
         } catch (Throwable e) {
-            XposedBridge.log("HookUtil - Error occurred while hooking all methods of " + clazz.getSimpleName() + "." + methodName + ": " + e.getMessage());
+            XposedBridge.log("HookUtil - Error occurred while hooking all methods of " + methodName + ": " + e.getMessage());
         }
     }
 
-    public static void hookAllConstructors(Class<?> clazz, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+    public static void hookAllConstructors(Object clazz, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
         try {
+            Class<?> actualClass = getClass(clazz);
             XC_MethodHook methodHook = new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -165,12 +180,12 @@ public class HookUtil {
                 }
             };
 
-            Constructor<?>[] constructors = clazz.getDeclaredConstructors();
+            Constructor<?>[] constructors = actualClass.getDeclaredConstructors();
             for (Constructor<?> constructor : constructors) {
                 XposedBridge.hookMethod(constructor, methodHook);
             }
         } catch (Throwable e) {
-            XposedBridge.log("HookUtil - Error occurred while hooking all constructors of " + clazz.getSimpleName() + ": " + e.getMessage());
+            XposedBridge.log("HookUtil - Error occurred while hooking all constructors: " + e.getMessage());
         }
     }
 
