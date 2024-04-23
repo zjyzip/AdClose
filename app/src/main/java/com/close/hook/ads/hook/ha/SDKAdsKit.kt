@@ -6,6 +6,7 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
+import com.close.hook.ads.hook.util.HookUtil.hookMethod
 import org.luckypray.dexkit.result.MethodData
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
@@ -106,10 +107,8 @@ object SDKAdsKit {
         foundMethodsForString?.forEach { methodData ->
             try {
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.hookMethod(method, object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        param.result = null
-                    }
+                hookMethod(method, "after", { param ->
+                    param.result = null
                 })
             } catch (e: Throwable) {
             }
@@ -148,10 +147,8 @@ object SDKAdsKit {
         foundMethodsForString?.forEach { methodData ->
             try {
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.hookMethod(method, object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        param.result = true
-                    }
+                hookMethod(method, "after", { param ->
+                    param.result = true
                 })
             } catch (e: Throwable) {
             }
