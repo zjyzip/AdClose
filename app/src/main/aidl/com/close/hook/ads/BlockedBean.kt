@@ -16,7 +16,7 @@ data class BlockedBean(
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
-        parcel.writeInt(if (isBlocked) 1 else 0)
+        parcel.writeByte(if (isBlocked) 1 else 0)
         parcel.writeString(type)
         parcel.writeString(value)
     }

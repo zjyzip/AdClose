@@ -3,10 +3,17 @@ package com.close.hook.ads.data.model
 import android.os.Parcel
 import android.os.Parcelable
 import androidx.room.ColumnInfo
+import androidx.room.Index
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "url_info")
+@Entity(
+    tableName = "url_info",
+    indices = [
+        Index(value = ["url"]),
+        Index(value = ["type"])
+    ]
+)
 data class Url(
 
     @ColumnInfo(name = "type") // domain url keyword
