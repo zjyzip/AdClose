@@ -27,6 +27,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.asFlow
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
@@ -300,7 +301,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
                     if (query.isBlank()) {
-                        viewModel.dataSource.getUrlList()
+                        viewModel.blackListLiveData.asFlow()
                     } else {
                         viewModel.dataSource.search(query)
                             .catch { emit(emptyList<Url>()) }
