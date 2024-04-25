@@ -5,7 +5,6 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Update
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.flow.Flow
@@ -30,12 +29,13 @@ interface UrlDao {
     @Query("SELECT * FROM url_info ORDER BY id DESC")
     fun loadAllList(): Flow<List<Url>>
 
-    @Query("SELECT * FROM url_info ORDER BY id DESC")
-    fun getAllUrls(): List<Url>
-
-    @Transaction
-    @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' ORDER BY id DESC")
-    fun searchUrls(searchText: String): List<Url>
+    @Query("""
+        SELECT * FROM url_info 
+        WHERE (:type = 'Domain' AND url = :url) 
+           OR (:type IN ('URL', 'KeyWord') AND :url LIKE '%' || url || '%') 
+        LIMIT 1
+    """)
+    fun findMatchingUrl(type: String, url: String): Url?
 
     @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")
     fun isExist(url: String): Boolean
