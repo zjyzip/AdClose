@@ -12,7 +12,7 @@ public class DisableShakeAd {
                 android.hardware.Sensor sensor = (android.hardware.Sensor) param.args[1];
                 if (sensor.getType() == android.hardware.Sensor.TYPE_ACCELEROMETER) {
                     // 如果是加速度传感器，取消监听器的注册
-                    param.setResult(false);
+                    param.setResult(true);
                 }
             }
         });
