@@ -29,6 +29,9 @@ interface UrlDao {
     @Query("SELECT * FROM url_info ORDER BY id DESC")
     fun loadAllList(): Flow<List<Url>>
 
+    @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' ORDER BY id DESC")
+    fun searchUrls(searchText: String): Flow<List<Url>>
+
     @Query("""
         SELECT * FROM url_info 
         WHERE (:type = 'Domain' AND url = :url) 

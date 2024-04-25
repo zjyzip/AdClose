@@ -61,7 +61,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -303,7 +302,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     if (query.isBlank()) {
                         viewModel.dataSource.getUrlList()
                     } else {
-                        flow { emit(viewModel.dataSource.search(query)) }
+                        viewModel.dataSource.search(query)
                             .catch { emit(emptyList<Url>()) }
                             .flowOn(Dispatchers.IO)
                     }

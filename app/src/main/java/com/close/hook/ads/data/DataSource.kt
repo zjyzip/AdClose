@@ -57,9 +57,7 @@ class DataSource(context: Context) {
         }
     }
 
-    fun search(searchText: String): List<Url> {
-        return urlDao.searchUrls(searchText)
-    }
+    fun search(searchText: String): Flow<List<Url>> = urlDao.searchUrls(searchText)
 
     fun isExist(type: String, url: String): Boolean {
         return urlDao.isExist(type, url)
