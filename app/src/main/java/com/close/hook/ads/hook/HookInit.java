@@ -11,6 +11,7 @@ import com.close.hook.ads.hook.util.HookUtil;
 
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
+import com.close.hook.ads.hook.gc.DisableClipboard;
 import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
@@ -59,6 +60,10 @@ public class HookInit implements IXposedHookLoadPackage {
 	private void applySettings(SettingsManager settingsManager) {
 		if (settingsManager.isHideVPNStatusEnabled()) {
 			HideVPNStatus.proxy();
+		}
+
+		if (settingsManager.isDisableClipboard()) {
+			DisableClipboard.handle();
 		}
 
 		if (settingsManager.isDisableFlagSecureEnabled()) {

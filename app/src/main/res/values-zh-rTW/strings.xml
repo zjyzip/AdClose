@@ -31,7 +31,7 @@
 
     <string name="update_checkbox_status">保存开关配置</string>
     <string name="description_two">开启后可在Request页面管理网络广告请求屏蔽</string>
-    <string name="description_six">仅针对一般性的Root，Magisk和Xposed检测</string>
+    <string name="description_six">仅针对一般性的Root和虚拟机检测</string>
 
     <string name="handle_platform_ad">阻止SDK广告初始化</string>
     <string name="check_request">应用请求检查</string>
@@ -40,6 +40,7 @@
     <string name="remove_vpn_state">去除VPN与系统代理检测</string>
     <string name="remove_sensor_monitor">移除加速度传感器注册</string>
     <string name="remove_envi_detection">去除环境检测</string>
+    <string name="remove_clipboard">去除剪贴板读取写入</string>
 
     <string name="settings_theme">主题</string>
     <string name="settings_system_theme_color_summary">系统取色</string>

@@ -149,17 +149,26 @@
         app:layout_constraintBottom_toBottomOf="@id/switch_six"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_seven"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/remove_clipboard"
+        app:layout_constraintTop_toBottomOf="@id/desc_six" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/button_update"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="end"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
         android:text="@string/update_checkbox_status"
         android:theme="@style/Widget.MaterialComponents.Button"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/desc_six" />
-
+        app:layout_constraintTop_toBottomOf="@id/switch_seven" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

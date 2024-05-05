@@ -29,7 +29,7 @@ import java.util.Objects;
 
 public class AppUtils {
 
-    private static final String[] KEYS = {"switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_", "switch_six_"};
+    private static final String[] KEYS = {"switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_", "switch_six_", "switch_seven_"};
 
     public static Drawable getAppIcon(String packageName) {
         try {

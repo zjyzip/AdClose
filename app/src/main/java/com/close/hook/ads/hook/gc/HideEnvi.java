@@ -47,6 +47,7 @@ public class HideEnvi {
     public static void handle() {
         hideXposedMagiskPaths();
         hideXposedMagiskInExec();
+        AntiEmulatorDetection.handle();
     }
 
     private static void hideXposedMagiskPaths() {

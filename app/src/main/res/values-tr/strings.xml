@@ -31,7 +31,7 @@
 
     <string name="update_checkbox_status">Kaydet</string>
     <string name="description_two">İstek sayfasında web reklam isteği engellemeyi yönetmek için etkinleştirildi</string>
-    <string name="description_six">Sadece Genel Root, Magisk ve Xposed tespiti</string>
+    <string name="description_six">Yalnızca genel Kök ve sanal makine algılaması için</string>
 
     <string name="handle_platform_ad">Platform reklamı başlatmayı durdur</string>
     <string name="check_request">Uygulama isteği kontrolü</string>
@@ -40,6 +40,7 @@
     <string name="remove_vpn_state">VPN ve sistem proxy algılamasını kaldır</string>
     <string name="remove_sensor_monitor">Hızlanma sensörü kaydını çıkar</string>
     <string name="remove_envi_detection">Ortam Algılamayı Kaldır</string>
+    <string name="remove_clipboard">Pano okuma ve yazmayı kaldır</string>
 
     <string name="settings_theme">Tema</string>
     <string name="settings_system_theme_color_summary">Sistemdeki tema rengi</string>

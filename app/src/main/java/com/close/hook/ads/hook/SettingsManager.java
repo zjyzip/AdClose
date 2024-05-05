@@ -35,4 +35,8 @@ public class SettingsManager {
     public boolean isHideEnivEnabled() {
         return prefsHelper.getBoolean("switch_six_" + packageName, false);
     }
+
+    public boolean isDisableClipboard() {
+        return prefsHelper.getBoolean("switch_seven_" + packageName, false);
+    }
 }
