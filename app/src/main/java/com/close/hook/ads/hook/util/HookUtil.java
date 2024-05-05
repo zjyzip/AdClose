@@ -64,6 +64,14 @@ public class HookUtil {
         });
     }
 
+    public static void setStaticObjectField(Class<?> clazz, String fieldName, Object value) {
+        XposedHelpers.setStaticObjectField(clazz, fieldName, value);
+    }
+
+    public static void setIntField(Object obj, String fieldName, int value) {
+        XposedHelpers.setIntField(obj, fieldName, value);
+    }
+
     private static Class<?> getClass(Object clazz) throws ClassNotFoundException {
         if (clazz instanceof Class<?>) {
             return (Class<?>) clazz;

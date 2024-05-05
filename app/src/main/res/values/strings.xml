@@ -31,7 +31,7 @@
 
     <string name="update_checkbox_status">Save</string>
     <string name="description_two">Enabled to manage web ad request blocking on Request page</string>
-    <string name="description_six">General Root, Magisk and Xposed detection only</string>
+    <string name="description_six">Only for general Root and virtual machine detection</string>
 
     <string name="handle_platform_ad">Stop platform ad initialization</string>
     <string name="check_request">App request checking</string>
@@ -40,6 +40,7 @@
     <string name="remove_vpn_state">Remove VPN and system proxy detection</string>
     <string name="remove_sensor_monitor">Remove acceleration sensor registration</string>
     <string name="remove_envi_detection">Remove Environment Detection</string>
+    <string name="remove_clipboard">Remove clipboard reading and writing</string>
 
     <string name="settings_theme">Theme</string>
     <string name="settings_system_theme_color_summary">Theme color from system</string>

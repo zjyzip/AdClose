@@ -73,6 +73,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             configBinding.switchFour,
             configBinding.switchFive,
             configBinding.switchSix,
+            configBinding.switchSeven,
         )
     }
     private val prefKeys = listOf(
@@ -82,6 +83,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         "switch_four_",
         "switch_five_",
         "switch_six_",
+        "switch_seven_",
     )
     private val prefsHelper by lazy {
         PreferencesHelper(

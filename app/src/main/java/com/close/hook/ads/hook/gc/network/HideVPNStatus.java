@@ -5,49 +5,23 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 
 import java.net.NetworkInterface;
-import java.util.Arrays;
 import java.util.Random;
+import java.util.regex.Pattern;
 
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 import com.close.hook.ads.hook.util.HookUtil;
 
 public class HideVPNStatus {
     private static final String LOG_PREFIX = "[HideVPNStatus] ";
-    private static final String WIFI = "WIFI";
     private static final String EMPTY_STRING = "";
     private static final String DEFAULT_PROXY_PORT = "-1";
+    private static final Pattern VPN_INTERFACE = Pattern.compile("^(tun\\d*|ppp\\d*)");
 
     public static void proxy() {
         bypassSystemProxyCheck();
         modifyNetworkInfo();
         modifyNetworkCapabilities();
-    }
-
-    private static void replaceResultIfEquals(XC_MethodHook.MethodHookParam param, Object compareTo, Object newValue) {
-        if (param.getResult() != null && param.getResult().equals(compareTo)) {
-            param.setResult(newValue);
-        }
-    }
-
-    private static void replaceResultIfEqualsIgnoreCase(XC_MethodHook.MethodHookParam param, String compareTo, String newValue) {
-        if (param.getResult() instanceof String && ((String) param.getResult()).equalsIgnoreCase(compareTo)) {
-            param.setResult(newValue);
-        }
-    }
-
-    private static void replaceResultIfStartsWith(XC_MethodHook.MethodHookParam param, String... prefixes) {
-        if (param.getResult() instanceof String) {
-            String result = (String) param.getResult();
-            for (String prefix : prefixes) {
-                if (result.startsWith(prefix)) {
-                    param.setResult(getRandomString(result.length()));
-                    break;
-                }
-            }
-        }
     }
 
     private static String getRandomString(int length) {
@@ -79,17 +53,26 @@ public class HideVPNStatus {
     }
 
     private static void modifyNetworkInfo() {
-        HookUtil.hookAllMethods(NetworkInfo.class, "getType", "before", param -> 
-            replaceResultIfEquals(param, ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI)
-        );
+        HookUtil.hookAllMethods(NetworkInfo.class, "getType", "before", param -> {
+            Object result = param.getResult();
+            if (result != null && result.equals(ConnectivityManager.TYPE_VPN)) {
+                param.setResult(ConnectivityManager.TYPE_WIFI);
+            }
+        });
 
-        HookUtil.hookAllMethods(NetworkInfo.class, "getTypeName", "before", param -> 
-            replaceResultIfEqualsIgnoreCase(param, "VPN", WIFI)
-        );
+        HookUtil.hookAllMethods(NetworkInfo.class, "getTypeName", "before", param -> {
+            Object result = param.getResult();
+            if (result instanceof String && ((String) result).equalsIgnoreCase("VPN")) {
+                param.setResult("WIFI");
+            }
+        });
 
-        HookUtil.hookAllMethods(NetworkInfo.class, "getSubtypeName", "before", param -> 
-            replaceResultIfEqualsIgnoreCase(param, "VPN", WIFI)
-        );
+        HookUtil.hookAllMethods(NetworkInfo.class, "getSubtypeName", "before", param -> {
+            Object result = param.getResult();
+            if (result instanceof String && ((String) result).equalsIgnoreCase("VPN")) {
+                param.setResult("WIFI");
+            }
+        });
 
         HookUtil.hookAllMethods(ConnectivityManager.class, "getNetworkInfo", "before", param -> {
             if (param.args.length > 0 && param.args[0].equals(ConnectivityManager.TYPE_VPN)) {
@@ -100,13 +83,15 @@ public class HideVPNStatus {
 
     private static void modifyNetworkCapabilities() {
         HookUtil.hookAllMethods(NetworkCapabilities.class, "hasTransport", "before", param -> {
-            if (param.args[0].equals(NetworkCapabilities.TRANSPORT_VPN)) {
+            Object arg = param.args[0];
+            if (arg.equals(NetworkCapabilities.TRANSPORT_VPN)) {
                 param.setResult(false);
             }
         });
 
         HookUtil.hookAllMethods(NetworkCapabilities.class, "hasCapability", "before", param -> {
-            if (param.args[0].equals(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+            Object arg = param.args[0];
+            if (arg.equals(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
                 param.setResult(true);
             }
         });
@@ -115,8 +100,18 @@ public class HideVPNStatus {
             param.setResult(false)
         );
 
-        HookUtil.hookAllMethods(NetworkInterface.class, "getName", "before", param -> 
-            replaceResultIfStartsWith(param, "tun", "ppp", "pptp")
-        );
+        HookUtil.hookAllMethods(NetworkInterface.class, "isUp", "before", param -> {
+            NetworkInterface networkInterface = (NetworkInterface) param.thisObject;
+            if (VPN_INTERFACE.matcher(networkInterface.getName()).matches()) {
+                param.setResult(false);
+            }
+        });
+
+        HookUtil.hookAllMethods(NetworkInterface.class, "getName", "before", param -> {
+            String originalName = (String) param.getResult();
+            if (VPN_INTERFACE.matcher(originalName).matches()) {
+                param.setResult(getRandomString(originalName.length()));
+            }
+        });
     }
 }
