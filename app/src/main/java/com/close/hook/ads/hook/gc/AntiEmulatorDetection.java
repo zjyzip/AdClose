@@ -54,7 +54,7 @@ public class AntiEmulatorDetection {
             param.setResult(1);
         });
 
-        HookUtil.hookAllMethods(PackageManager.class, "hasSystemFeature", "before", param -> {
+        HookUtil.hookAllMethods("android.app.ApplicationPackageManager", "hasSystemFeature", "before", param -> {
             if ("android.hardware.telephony".equals(param.args[0])) {
                 param.setResult(true);
             }
