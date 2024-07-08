@@ -29,16 +29,10 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 
-import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
 import kotlin.Triple;
-
-import android.os.ParcelFileDescriptor;
-
-import java.io.ObjectInputStream;
-import java.io.FileInputStream;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
@@ -275,11 +269,15 @@ public class RequestHook {
             okhttp3.Response originalResponse = (okhttp3.Response) response;
             okhttp3.Request request = originalResponse.request();
 
+            okhttp3.MediaType JSON = okhttp3.MediaType.get("application/json; charset=utf-8");
+            okhttp3.ResponseBody emptyBody = okhttp3.ResponseBody.create("{}", JSON);
+
             return new okhttp3.Response.Builder()
                     .request(request)
                     .protocol(okhttp3.Protocol.HTTP_1_1)
-                    .code(204) // 204 No Content
-                    .message("No Content")
+                    .code(200) // 200 OK
+                    .message("OK")
+                    .body(emptyBody)
                     .build();
         }
         return null;

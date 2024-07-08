@@ -20,5 +20,6 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
+-keep class okhttp3.** { *; }
 -keep class com.aitsuki.swipe.** { *; }
 -keep class com.close.hook.ads.** { *; }
