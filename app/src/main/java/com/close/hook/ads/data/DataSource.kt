@@ -1,7 +1,6 @@
 package com.close.hook.ads.data
 
 import android.content.Context
-import com.close.hook.ads.BlockedBean
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.CoroutineScope
@@ -61,15 +60,6 @@ class DataSource(context: Context) {
 
     fun isExist(type: String, url: String): Boolean {
         return urlDao.isExist(type, url)
-    }
-
-    fun checkIsBlocked(type: String, url: String): BlockedBean {
-        val urlEntry = urlDao.findMatchingUrl(type, url)
-        return if (urlEntry != null) {
-            BlockedBean(true, urlEntry.type, urlEntry.url)
-        } else {
-            BlockedBean(false, null, null)
-        }
     }
 
     companion object {

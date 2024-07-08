@@ -1,26 +1,24 @@
 package com.close.hook.ads.hook.gc.network;
 
 import android.app.AndroidAppHelper;
-import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.os.IBinder;
-import android.os.RemoteException;
+import android.database.Cursor;
+import android.net.Uri;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.close.hook.ads.IBlockedStatusProvider;
-import com.close.hook.ads.BlockedBean;
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
+import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
-
-import java.io.IOException;
+import com.close.hook.ads.provider.UrlContentProvider;
 
 import org.luckypray.dexkit.result.MethodData;
 
@@ -44,8 +42,6 @@ import java.io.FileInputStream;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
-
-    private static IBlockedStatusProvider mStub;
 
     public static void init() {
         try {
@@ -123,62 +119,43 @@ public class RequestHook {
     private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         Context context = AndroidAppHelper.currentApplication();
         if (context != null) {
+            ContentResolver contentResolver = context.getContentResolver();
+            Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
+            String[] projection = new String[]{Url.Companion.getURL_TYPE(), Url.Companion.getURL_ADDRESS()};
+            String selection = Url.Companion.getURL_TYPE() + " = ?";
+            String[] selectionArgs = new String[]{queryType};
 
-            bindService(context);
+            try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    do {
+                        String urlType = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_TYPE()));
+                        String urlValue = cursor.getString(cursor.getColumnIndex(Url.Companion.getURL_ADDRESS()));
 
-            try {
-                if (mStub != null) {
-                    ParcelFileDescriptor pfd = mStub.getData(
-                            queryType.replace("host", "Domain").replace("url", "URL"),
-                            queryValue
-                    );
-                    if (pfd != null) {
-                        try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
-                             ObjectInputStream ois = new ObjectInputStream(fis)) {
-    
-                            BlockedBean blockedBean = (BlockedBean) ois.readObject();
-                            if (blockedBean.isBlocked()) {
-                                return new Triple<>(true, blockedBean.getType(), blockedBean.getValue());
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            Log.i(LOG_PREFIX, "Error reading data from memory file: " + e.getMessage());
-                        } finally {
-                            try {
-                                pfd.close();
-                            } catch (IOException e) {
-                                Log.i(LOG_PREFIX, "Error closing ParcelFileDescriptor: " + e.getMessage());
-                            }
+                        if (isQueryMatch(queryType, queryValue, urlType, urlValue)) {
+                            return new Triple<>(true, formatUrlType(urlType), urlValue);
                         }
-                    }
+                    } while (cursor.moveToNext());
                 }
-            } catch (RemoteException e) {
             }
-
         }
         return new Triple<>(false, null, null);
     }
 
-    private static void bindService(Context context) {
-        if (mStub != null) {
-            return;
+    private static boolean isQueryMatch(String queryType, String queryValue, String urlType, String urlValue) {
+        switch (queryType) {
+            case "host":
+                return urlValue.equals(queryValue);
+            case "url":
+            case "keyword":
+                return queryValue.contains(urlValue);
+            default:
+                return false;
         }
-        Intent intent = new Intent();
-        intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
-        context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
     }
 
-    private static final ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            mStub = IBlockedStatusProvider.Stub.asInterface(service);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            mStub = null;
-        }
-    };
+    private static String formatUrlType(String urlType) {
+        return urlType.replace("url", "URL").replace("keyword", "KeyWord");
+    }
 
     private static void setupHttpRequestHook() {
         try {
