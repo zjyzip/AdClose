@@ -61,6 +61,10 @@ public class HookInit implements IXposedHookLoadPackage {
             HideVPNStatus.proxy();
         }
 
+        if (settingsManager.isRequestHookEnabled()) {
+            RequestHook.init();
+        }
+
         if (settingsManager.isDisableClipboard()) {
             DisableClipboard.handle();
         }
@@ -86,10 +90,6 @@ public class HookInit implements IXposedHookLoadPackage {
 
             if (!TAG.equals(packageName)) {
                 XposedBridge.log("Application Name: " + appName);
-            }
-
-            if (settingsManager.isRequestHookEnabled()) {
-                RequestHook.init();
             }
 
             AppAds.progress(classLoader, packageName);

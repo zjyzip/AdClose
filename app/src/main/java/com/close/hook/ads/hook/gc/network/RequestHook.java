@@ -16,6 +16,7 @@ import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
 import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.hook.util.HookUtil;
+import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 import com.close.hook.ads.provider.UrlContentProvider;
@@ -181,7 +182,7 @@ public class RequestHook {
                 } catch (Exception e) {
                     XposedBridge.log(LOG_PREFIX + "Exception in HTTP connection hook: " + e.getMessage());
                 }
-            });
+            },ContextUtil.appContext.getClassLoader());  // 在字符串形式的类名时，可以使用类加载器，而在直接使用类时，不需要传递类加载器。不填写时，则默认使用反射加载类
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
         }

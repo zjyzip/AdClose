@@ -22,7 +22,7 @@ public class ContextUtil {
             param -> {
                 Application application = (Application) param.args[0];
                 instrumentationContext = application;
-                XposedBridge.log("Instrumentation context initialized: " + instrumentationContext);
+      //        XposedBridge.log("Instrumentation context initialized: " + instrumentationContext);
                 triggerContextInitialized();
             },
             Application.class
@@ -35,7 +35,7 @@ public class ContextUtil {
             param -> {
                 appContext = (Context) param.args[0];
                 ClassLoader classLoader = appContext.getClassLoader();
-                XposedBridge.log("App context initialized with classloader: " + classLoader.toString());
+      //        XposedBridge.log("App context initialized with classloader: " + classLoader.toString());
                 triggerContextInitialized();
             },
             Context.class
@@ -47,7 +47,7 @@ public class ContextUtil {
             "after",
             param -> {
                 contextWrapperContext = (Context) param.args[0];
-                XposedBridge.log("ContextWrapper context initialized: " + contextWrapperContext);
+      //        XposedBridge.log("ContextWrapper context initialized: " + contextWrapperContext);
                 triggerContextInitialized();
             },
             Context.class
