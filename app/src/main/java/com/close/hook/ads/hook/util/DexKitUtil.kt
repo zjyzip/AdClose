@@ -1,11 +1,11 @@
 package com.close.hook.ads.hook.util
 
-import android.content.Context
-import com.google.common.cache.CacheBuilder
-import com.close.hook.ads.hook.HookInit
-import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.MethodData
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeUnit;
+import android.content.Context;
+import com.google.common.cache.CacheBuilder;
+import org.luckypray.dexkit.DexKitBridge;
+import org.luckypray.dexkit.result.MethodData;
+import com.close.hook.ads.hook.util.ContextUtil;
 
 object DexKitUtil {
     @Volatile 
@@ -16,7 +16,7 @@ object DexKitUtil {
         .build<String, List<MethodData>>()
 
     val context: Context
-        get() = HookInit.globalContext
+        get() = ContextUtil.appContext
 
     init {
         System.loadLibrary("dexkit")
