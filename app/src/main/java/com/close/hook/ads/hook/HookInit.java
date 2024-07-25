@@ -1,131 +1,120 @@
 package com.close.hook.ads.hook;
 
-import android.util.Log;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.util.Log;
 
-import com.close.hook.ads.hook.util.HookUtil;
-
+import com.close.hook.ads.hook.gc.DisableClipboard;
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
 import com.close.hook.ads.hook.gc.DisableShakeAd;
-import com.close.hook.ads.hook.gc.DisableClipboard;
 import com.close.hook.ads.hook.gc.HideEnvi;
 import com.close.hook.ads.hook.gc.network.HideVPNStatus;
 import com.close.hook.ads.hook.gc.network.RequestHook;
 import com.close.hook.ads.hook.ha.AppAds;
 import com.close.hook.ads.hook.ha.SDKAds;
 import com.close.hook.ads.hook.ha.SDKAdsKit;
-
 import com.close.hook.ads.hook.preference.PreferencesHelper;
+import com.close.hook.ads.hook.util.ContextUtil;
+import com.close.hook.ads.hook.util.HookUtil;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookInit implements IXposedHookLoadPackage {
-	private static final String TAG = "com.close.hook.ads";
-	public static Context globalContext;
+    private static final String TAG = "com.close.hook.ads";
 
-	@SuppressLint("SuspiciousIndentation")
-	@Override
-	public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
-		if (shouldIgnorePackage(lpparam)) {
-			return;
-		}
+    @SuppressLint("SuspiciousIndentation")
+    @Override
+    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
+        if (shouldIgnorePackage(lpparam)) {
+            return;
+        }
 
-		performHooking(lpparam);
-	}
-
-    private void activateModule(XC_LoadPackage.LoadPackageParam lpparam) {
-		HookUtil.hookSingleMethod(lpparam.classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
+        ContextUtil.initialize();
+        ContextUtil.setOnAppContextInitialized(() -> {
+            XposedBridge.log(TAG + " App context is initialized. Proceeding with hooking...");
+            performHooking(lpparam);
+        });
     }
 
-	private void performHooking(XC_LoadPackage.LoadPackageParam lpparam) {
-		if (TAG.equals(lpparam.packageName)) {
-			activateModule(lpparam);
-		}
+    private void activateModule(XC_LoadPackage.LoadPackageParam lpparam) {
+        HookUtil.hookSingleMethod(lpparam.classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
+    }
 
-		PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
-		SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
+    private void performHooking(XC_LoadPackage.LoadPackageParam lpparam) {
+        if (TAG.equals(lpparam.packageName)) {
+            activateModule(lpparam);
+        }
 
-		applySettings(settingsManager);
-	}
+        PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
+        SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
-	private void applySettings(SettingsManager settingsManager) {
-		if (settingsManager.isHideVPNStatusEnabled()) {
-			HideVPNStatus.proxy();
-		}
+        applySettings(settingsManager);
+    }
 
-		if (settingsManager.isDisableClipboard()) {
-			DisableClipboard.handle();
-		}
+    private void applySettings(SettingsManager settingsManager) {
+        if (settingsManager.isHideVPNStatusEnabled()) {
+            HideVPNStatus.proxy();
+        }
 
-		if (settingsManager.isDisableFlagSecureEnabled()) {
-			DisableFlagSecure.process();
-		}
+        if (settingsManager.isDisableClipboard()) {
+            DisableClipboard.handle();
+        }
 
-		if (settingsManager.isHideEnivEnabled()) {
-			HideEnvi.handle();
-		}
+        if (settingsManager.isDisableFlagSecureEnabled()) {
+            DisableFlagSecure.process();
+        }
 
-		if (settingsManager.isDisableShakeAdEnabled()) {
-			DisableShakeAd.handle();
-		}
+        if (settingsManager.isHideEnivEnabled()) {
+            HideEnvi.handle();
+        }
+
+        if (settingsManager.isDisableShakeAdEnabled()) {
+            DisableShakeAd.handle();
+        }
 
         try {
-            HookUtil.findAndHookMethod(
-                Application.class,
-                "attach",
-                "after",
-                param -> {
+            Context appContext = ContextUtil.appContext;
+            ClassLoader classLoader = appContext.getClassLoader();
 
-                    globalContext = (Context) param.args[0];
-                    ClassLoader classLoader = globalContext.getClassLoader();
-    
-                    String packageName = globalContext.getPackageName();
-                    CharSequence appName = getAppName(globalContext, packageName);
-    
-                    if (!TAG.equals(packageName)) {
-                        XposedBridge.log("Application Name: " + appName);
-                    }
-    
-                    if (settingsManager.isRequestHookEnabled()) {
-                        RequestHook.init();
-                    }
-    
-                    AppAds.progress(classLoader, packageName);
-    
-                    if (settingsManager.isHandlePlatformAdEnabled()) {
-                        SDKAdsKit.INSTANCE.blockAds();
-                        SDKAds.hookAds(classLoader);
-                    }
-                },
-                Context.class
-            );
+            String packageName = appContext.getPackageName();
+            CharSequence appName = getAppName(appContext, packageName);
+
+            if (!TAG.equals(packageName)) {
+                XposedBridge.log("Application Name: " + appName);
+            }
+
+            if (settingsManager.isRequestHookEnabled()) {
+                RequestHook.init();
+            }
+
+            AppAds.progress(classLoader, packageName);
+
+            if (settingsManager.isHandlePlatformAdEnabled()) {
+                SDKAdsKit.INSTANCE.blockAds();
+                SDKAds.hookAds(classLoader);
+            }
         } catch (Exception e) {
             XposedBridge.log(TAG + " Exception in handleLoadPackage: " + Log.getStackTraceString(e));
         }
-	}
+    }
 
-	private boolean shouldIgnorePackage(XC_LoadPackage.LoadPackageParam lpparam) {
-		return lpparam.appInfo == null || !lpparam.isFirstApplication;
-	}
+    private boolean shouldIgnorePackage(XC_LoadPackage.LoadPackageParam lpparam) {
+        return lpparam.appInfo == null || !lpparam.isFirstApplication;
+    }
 
-	private CharSequence getAppName(Context context, String packageName) {
-		PackageManager packageManager = context.getPackageManager();
-		try {
-			ApplicationInfo appInfo = packageManager.getApplicationInfo(packageName, 0);
-			return packageManager.getApplicationLabel(appInfo);
-		} catch (PackageManager.NameNotFoundException e) {
-			XposedBridge.log("Application Name Not Found for package: " + packageName);
-			return null;
-		}
-	}
-
+    private CharSequence getAppName(Context context, String packageName) {
+        PackageManager packageManager = context.getPackageManager();
+        try {
+            ApplicationInfo appInfo = packageManager.getApplicationInfo(packageName, 0);
+            return packageManager.getApplicationLabel(appInfo);
+        } catch (PackageManager.NameNotFoundException e) {
+            XposedBridge.log("Application Name Not Found for package: " + packageName);
+            return null;
+        }
+    }
 }

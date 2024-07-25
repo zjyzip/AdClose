@@ -11,21 +11,21 @@ import de.robv.android.xposed.XC_MethodHook;
 
 public class HookUtil {
 
-	public static class HookInfo {
-		public String className;
-		public String[] methodNames;
-		public Object returnValue;
+    public static class HookInfo {
+        public String className;
+        public String[] methodNames;
+        public Object returnValue;
 
-		public HookInfo(String className, String[] methodNames, Object returnValue) {
-			this.className = className;
-			this.methodNames = methodNames;
-			this.returnValue = returnValue;
-		}
+        public HookInfo(String className, String[] methodNames, Object returnValue) {
+            this.className = className;
+            this.methodNames = methodNames;
+            this.returnValue = returnValue;
+        }
 
-		public HookInfo(String className, String methodName, Object returnValue) {
-			this(className, new String[] { methodName }, returnValue);
-		}
-	}
+        public HookInfo(String className, String methodName, Object returnValue) {
+            this(className, new String[] { methodName }, returnValue);
+        }
+    }
 
     public static void hookSingleMethod(ClassLoader classLoader, String className, String methodName, Object returnValue) {
         hookMultipleMethods(classLoader, className, new String[] { methodName }, returnValue);
@@ -36,7 +36,7 @@ public class HookUtil {
         try {
             clazz = Class.forName(className, false, classLoader);
         } catch (ClassNotFoundException e) {
-    //      XposedBridge.log("Class not found: " + className + ", " + e);
+            // XposedBridge.log("Class not found: " + className + ", " + e);
             return;
         }
 
@@ -64,19 +64,11 @@ public class HookUtil {
         });
     }
 
-    public static void setStaticObjectField(Class<?> clazz, String fieldName, Object value) {
-        XposedHelpers.setStaticObjectField(clazz, fieldName, value);
-    }
-
-    public static void setIntField(Object obj, String fieldName, int value) {
-        XposedHelpers.setIntField(obj, fieldName, value);
-    }
-
-    private static Class<?> getClass(Object clazz) throws ClassNotFoundException {
+    private static Class<?> getClass(Object clazz, ClassLoader classLoader) throws ClassNotFoundException {
         if (clazz instanceof Class<?>) {
             return (Class<?>) clazz;
         } else if (clazz instanceof String) {
-            return Class.forName((String) clazz);
+            return Class.forName((String) clazz, false, classLoader);
         } else {
             throw new IllegalArgumentException("Class parameter must be a Class<?> instance or a full class name string");
         }
@@ -88,12 +80,22 @@ public class HookUtil {
             String hookType,
             Consumer<XC_MethodHook.MethodHookParam> action,
             Object... parameterTypes) {
+        findAndHookMethod(clazz, methodName, hookType, action, null, parameterTypes);
+    }
+
+    public static void findAndHookMethod(
+            Object clazz,
+            String methodName,
+            String hookType,
+            Consumer<XC_MethodHook.MethodHookParam> action,
+            ClassLoader classLoader,
+            Object... parameterTypes) {
         try {
-            Class<?> actualClass = getClass(clazz);
+            Class<?> actualClass = getClass(clazz, classLoader);
 
             Class<?>[] classParams = new Class<?>[parameterTypes.length];
             for (int i = 0; i < parameterTypes.length; i++) {
-                classParams[i] = getClass(parameterTypes[i]);
+                classParams[i] = getClass(parameterTypes[i], classLoader);
             }
 
             Object[] methodParams = new Object[classParams.length + 1];
@@ -145,8 +147,12 @@ public class HookUtil {
     }
 
     public static void hookAllMethods(Object clazz, String methodName, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+        hookAllMethods(clazz, methodName, hookType, action, null);
+    }
+
+    public static void hookAllMethods(Object clazz, String methodName, String hookType, Consumer<XC_MethodHook.MethodHookParam> action, ClassLoader classLoader) {
         try {
-            Class<?> actualClass = getClass(clazz);
+            Class<?> actualClass = getClass(clazz, classLoader);
             XC_MethodHook methodHook = new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -170,8 +176,12 @@ public class HookUtil {
     }
 
     public static void hookAllConstructors(Object clazz, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+        hookAllConstructors(clazz, hookType, action, null);
+    }
+
+    public static void hookAllConstructors(Object clazz, String hookType, Consumer<XC_MethodHook.MethodHookParam> action, ClassLoader classLoader) {
         try {
-            Class<?> actualClass = getClass(clazz);
+            Class<?> actualClass = getClass(clazz, classLoader);
             XC_MethodHook methodHook = new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -197,13 +207,20 @@ public class HookUtil {
         }
     }
 
-	public static String getFormattedStackTrace() {
-		StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-		StringBuilder sb = new StringBuilder();
-		for (StackTraceElement element : stackTrace) {
-			sb.append("\tat ").append(element.toString()).append("\n");
-		}
-		return sb.toString();
-	}
+    public static void setStaticObjectField(Class<?> clazz, String fieldName, Object value) {
+        XposedHelpers.setStaticObjectField(clazz, fieldName, value);
+    }
 
+    public static void setIntField(Object obj, String fieldName, int value) {
+        XposedHelpers.setIntField(obj, fieldName, value);
+    }
+
+    public static String getFormattedStackTrace() {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        StringBuilder sb = new StringBuilder();
+        for (StackTraceElement element : stackTrace) {
+            sb.append("\tat ").append(element.toString()).append("\n");
+        }
+        return sb.toString();
+    }
 }
