@@ -2,64 +2,32 @@ package com.close.hook.ads.hook.ha
 
 import android.os.BaseBundle
 import java.lang.reflect.Modifier
+import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
 import com.close.hook.ads.hook.util.HookUtil.hookMethod
 import org.luckypray.dexkit.result.MethodData
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XC_MethodReplacement
 
 object SDKAdsKit {
+
+    private val packageName: String by lazy { DexKitUtil.context.packageName }
 
     fun blockAds() {
         DexKitUtil.initializeDexKitBridge()
 
-        val packageName = DexKitUtil.context.packageName
-        val adPackages = listOf(
-            "com.applovin",
-            "com.facebook.ads",
-            "com.fyber.inneractive.sdk",
-            "com.google.android.gms.ads",
-            "com.mbridge.msdk",
-            "com.inmobi.ads",
-            "com.miniclip.ads",
-            "com.smaato.sdk",
-            "com.tp.adx",
-            "com.tradplus.ads",
-            "com.unity3d.services",
-            "com.unity3d.ads",
-            "com.vungle.warren"
-        )
-
-        val cacheKeyForAds = "$packageName:blockAds"
-        val foundMethodsForAds = DexKitUtil.getCachedOrFindMethods(cacheKeyForAds) {
-            DexKitUtil.getBridge().findMethod {
-                searchPackages(adPackages)
-                matcher {
-                    modifiers = Modifier.PUBLIC
-                    returnType(Void.TYPE)
-                }
-            }?.filter { isValidAdMethod(it) }?.toList()
-        }
-
-        foundMethodsForAds?.let { hookMethods(it, DexKitUtil.context.classLoader) }
-
         handlePangolinSDK()
-
+        handleAnyThinkSDK()
         blockFirebaseWithString()
         blockFirebaseWithString2()
-
         blockAdsWithBaseBundle()
-
         blockAdsWithString()
+        blockAdsWithPackageName()
 
         DexKitUtil.releaseBridge()
     }
 
     fun handlePangolinSDK() {
-        val packageName = DexKitUtil.context.packageName
         val initializeMessage = "tt_sdk_settings_other"
         val cacheKeyForString = "$packageName:handlePangolinSDK"
 
@@ -74,8 +42,23 @@ object SDKAdsKit {
         foundMethodsForString?.let { hookMethods(it, DexKitUtil.context.classLoader) }
     }
 
+    fun handleAnyThinkSDK() {
+        val initializeMessage = "anythink_sdk"
+        val cacheKeyForString = "$packageName:handleAnyThinkSDK"
+
+        val foundMethodsForString = DexKitUtil.getCachedOrFindMethods(cacheKeyForString) {
+            DexKitUtil.getBridge().findMethod {
+                matcher {
+                    returnType = "boolean"
+                    usingStrings = listOf(initializeMessage)
+                }
+            }?.toList()
+        }
+
+        foundMethodsForString?.let { hookMethods(it, DexKitUtil.context.classLoader) }
+    }
+
     fun blockFirebaseWithString() {
-        val packageName = DexKitUtil.context.packageName
         val initializeMessage = "Device unlocked: initializing all Firebase APIs for app "
         val cacheKeyForString = "$packageName:blockFirebaseWithString"
 
@@ -91,7 +74,6 @@ object SDKAdsKit {
     }
 
     fun blockFirebaseWithString2() {
-        val packageName = DexKitUtil.context.packageName
         val initializeMessage = "[DEFAULT]"
         val cacheKeyForString = "$packageName:blockFirebaseWithString2"
 
@@ -111,6 +93,7 @@ object SDKAdsKit {
                     param.result = null
                 })
             } catch (e: Throwable) {
+                XposedBridge.log("Error hooking method: ${methodData.methodName}")
             }
         }
     }
@@ -132,7 +115,6 @@ object SDKAdsKit {
     }
 
     fun blockAdsWithString() {
-        val packageName = DexKitUtil.context.packageName
         val warningMessage = "Flags.initialize() was not called!"
         val cacheKeyForString = "$packageName:blockAdsWithString"
 
@@ -151,8 +133,41 @@ object SDKAdsKit {
                     param.result = true
                 })
             } catch (e: Throwable) {
+                XposedBridge.log("Error hooking method: ${methodData.methodName}")
             }
         }
+    }
+
+    fun blockAdsWithPackageName() {
+        val adPackages = listOf(
+            "com.applovin",
+            "com.facebook.ads",
+            "com.fyber.inneractive.sdk",
+            "com.google.android.gms.ads",
+            "com.mbridge.msdk",
+            "com.inmobi.ads",
+            "com.miniclip.ads",
+            "com.smaato.sdk",
+            "com.tp.adx",
+            "com.tradplus.ads",
+            "com.unity3d.services",
+            "com.unity3d.ads",
+            "com.vungle.warren"
+        )
+
+        val cacheKeyForAds = "$packageName:blockAdsWithPackageName"
+        val foundMethodsForAds = DexKitUtil.getCachedOrFindMethods(cacheKeyForAds) {
+            DexKitUtil.getBridge().findMethod {
+                searchPackages(adPackages)
+                matcher {
+                    modifiers = Modifier.PUBLIC
+                    returnType(Void.TYPE)
+                }
+            }?.filter { isValidAdMethod(it) }?.toList()
+        }
+
+        foundMethodsForAds?.let { hookMethods(it, DexKitUtil.context.classLoader) }
+
     }
 
     private fun isValidAdMethod(methodData: MethodData): Boolean {
@@ -167,6 +182,7 @@ object SDKAdsKit {
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
   //            XposedBridge.log("hook $methodData")
             } catch (e: NoClassDefFoundError) {
+                XposedBridge.log("Error hooking method: ${methodData.methodName}")
             }
         }
     }
