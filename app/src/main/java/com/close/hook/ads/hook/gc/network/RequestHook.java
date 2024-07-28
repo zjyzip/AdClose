@@ -23,6 +23,8 @@ import com.close.hook.ads.provider.UrlContentProvider;
 
 import org.luckypray.dexkit.result.MethodData;
 
+import java.io.IOException;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Field;
 import java.net.InetAddress;
@@ -43,7 +45,6 @@ public class RequestHook {
             setupDNSRequestHook();
             setupHttpRequestHook();
             setupOkHttpRequestHook();
-            setupOkHttp2RequestHook();
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
@@ -221,9 +222,6 @@ public class RequestHook {
 
     public static void setupOkHttpRequestHook() {
         hookMethod("setupOkHttpRequestHook", "Already Executed", "execute");  // okhttp3.Call.execute -overload method
-    }
-
-    public static void setupOkHttp2RequestHook() {
         hookMethod("setupOkHttp2RequestHook", "Canceled", "intercept");  // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
     }
 
@@ -235,7 +233,7 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    //                XposedBridge.log("hook " + methodData);
+                //  XposedBridge.log("hook " + methodData);
                     HookUtil.hookMethod(method, "after", param -> {
                         try {
                             Object response = param.getResult();
@@ -243,6 +241,7 @@ public class RequestHook {
                                 return;
                             }
 
+                        //  Object call = param.thisObject;
                             Object request = XposedHelpers.callMethod(response, "request");
                             Object okhttpUrl = XposedHelpers.callMethod(request, "url");
                             URL url = new URL(okhttpUrl.toString());
@@ -251,9 +250,11 @@ public class RequestHook {
                             RequestDetails details = processRequest(request, response, url, stackTrace);
 
                             if (details != null && shouldBlockOkHttpsRequest(url, details)) {
-                                Object emptyResponse = createEmptyResponseForOkHttp(response);
-                                param.setResult(emptyResponse);
+                        //      cancelCall(call);
+                                throw new IOException("Request blocked");
                             }
+                        } catch (IOException e) {
+                            param.setThrowable(e);
                         } catch (Exception e) {
                             XposedBridge.log("Error processing method hook: " + methodData + ", " + e.getMessage());
                         }
@@ -265,24 +266,12 @@ public class RequestHook {
         }
     }
 
-    private static Object createEmptyResponseForOkHttp(Object response) throws Exception {
-        if (response instanceof okhttp3.Response) {
-            okhttp3.Response originalResponse = (okhttp3.Response) response;
-            okhttp3.Request request = originalResponse.request();
-
-            okhttp3.MediaType JSON = okhttp3.MediaType.get("application/json; charset=utf-8");
-            okhttp3.ResponseBody emptyBody = okhttp3.ResponseBody.create("{}", JSON);
-
-            return new okhttp3.Response.Builder()
-                    .request(request)
-                    .protocol(okhttp3.Protocol.HTTP_1_1)
-                    .code(200) // 200 OK
-                    .message("OK")
-                    .body(emptyBody)
-                    .build();
-        }
-        return null;
+/*
+    private static void cancelCall(Object call) throws Exception {
+        Method cancelMethod = call.getClass().getDeclaredMethod("cancel");
+        cancelMethod.invoke(call);
     }
+*/
 
     private static RequestDetails processRequest(Object request, Object response, URL url, String stack) {
         try {
