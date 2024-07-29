@@ -1,7 +1,6 @@
 package com.close.hook.ads.hook;
 
 import android.annotation.SuppressLint;
-import android.app.Application;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -34,10 +33,13 @@ public class HookInit implements IXposedHookLoadPackage {
             return;
         }
 
-        ContextUtil.initialize();
-        ContextUtil.setOnAppContextInitialized(() -> {
+        ContextUtil.initialize(() -> {
             XposedBridge.log(TAG + " App context is initialized. Proceeding with hooking...");
-            performHooking(lpparam);
+
+            PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
+            SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
+
+            performHooking(lpparam, settingsManager);
         });
     }
 
@@ -45,18 +47,17 @@ public class HookInit implements IXposedHookLoadPackage {
         HookUtil.hookSingleMethod(lpparam.classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
     }
 
-    private void performHooking(XC_LoadPackage.LoadPackageParam lpparam) {
+    private void performHooking(XC_LoadPackage.LoadPackageParam lpparam, SettingsManager settingsManager) {
         if (TAG.equals(lpparam.packageName)) {
             activateModule(lpparam);
         }
-
-        PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
-        SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
         applySettings(settingsManager);
     }
 
     private void applySettings(SettingsManager settingsManager) {
+        XposedBridge.log("HookInit: Applying settings...");
+
         if (settingsManager.isHideVPNStatusEnabled()) {
             HideVPNStatus.proxy();
         }

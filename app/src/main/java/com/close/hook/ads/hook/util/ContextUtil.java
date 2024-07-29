@@ -5,24 +5,33 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.app.Instrumentation;
 
-import de.robv.android.xposed.XposedBridge;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ContextUtil {
 
     public static volatile Context instrumentationContext;
     public static volatile Context appContext;
     public static volatile Context contextWrapperContext;
-    private static Runnable onAppContextInitialized;
+    private static final List<WeakReference<Runnable>> contextInitializedCallbacks = new ArrayList<>();
+    private static boolean isContextInitialized = false;
 
-    public static void initialize() {
+    public static void initialize(Runnable initialCallback) {
+        if (initialCallback != null) {
+            addOnAppContextInitializedCallback(initialCallback);
+        }
+
+        hookContextMethods();
+    }
+
+    private static void hookContextMethods() {
         HookUtil.findAndHookMethod(
             Instrumentation.class,
             "callApplicationOnCreate",
             "after",
             param -> {
-                Application application = (Application) param.args[0];
-                instrumentationContext = application;
-      //        XposedBridge.log("Instrumentation context initialized: " + instrumentationContext);
+                instrumentationContext = (Application) param.args[0];
                 triggerContextInitialized();
             },
             Application.class
@@ -34,8 +43,6 @@ public class ContextUtil {
             "after",
             param -> {
                 appContext = (Context) param.args[0];
-                ClassLoader classLoader = appContext.getClassLoader();
-      //        XposedBridge.log("App context initialized with classloader: " + classLoader.toString());
                 triggerContextInitialized();
             },
             Context.class
@@ -47,24 +54,41 @@ public class ContextUtil {
             "after",
             param -> {
                 contextWrapperContext = (Context) param.args[0];
-      //        XposedBridge.log("ContextWrapper context initialized: " + contextWrapperContext);
                 triggerContextInitialized();
             },
             Context.class
         );
     }
 
-    private static synchronized void triggerContextInitialized() {
-        if (appContext != null && instrumentationContext != null && contextWrapperContext != null) {
-            if (onAppContextInitialized != null) {
-                onAppContextInitialized.run();
-                onAppContextInitialized = null;
+    private static void triggerContextInitialized() {
+        if (!isContextInitialized && appContext != null && instrumentationContext != null && contextWrapperContext != null) {
+            isContextInitialized = true;
+            List<WeakReference<Runnable>> callbacksToRun;
+            synchronized (ContextUtil.class) {
+                callbacksToRun = new ArrayList<>(contextInitializedCallbacks);
+                contextInitializedCallbacks.clear();
+            }
+            for (WeakReference<Runnable> weakRef : callbacksToRun) {
+                Runnable callback = weakRef.get();
+                if (callback != null) {
+                    callback.run();
+                }
             }
         }
     }
 
-    public static void setOnAppContextInitialized(Runnable onAppContextInitialized) {
-        ContextUtil.onAppContextInitialized = onAppContextInitialized;
-        triggerContextInitialized();
+    public static void addOnAppContextInitializedCallback(Runnable callback) {
+        if (isContextInitialized) {
+            callback.run();
+        } else {
+            synchronized (ContextUtil.class) {
+                if (isContextInitialized) {
+                    callback.run();
+                } else {
+                    contextInitializedCallbacks.add(new WeakReference<>(callback));
+                }
+            }
+        }
     }
+
 }
