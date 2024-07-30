@@ -4,15 +4,18 @@
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
     <permission
-        android:name="com.close.hook.ads.provider.READ_WRITE"
+        android:name="com.close.hook.ads.READ_WRITE"
         android:protectionLevel="normal" />
     <permission
-        android:name="com.close.hook.ads.provider.WRITE_DATABASE"
+        android:name="com.close.hook.ads.WRITE_DATABASE"
         android:protectionLevel="normal" />
 
     <application
@@ -23,11 +26,15 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <provider
-            android:name=".provider.UrlContentProvider"
-            android:authorities="com.close.hook.ads.provider"
+        <service
+            android:name=".service.AidlService"
             android:enabled="true"
-            android:exported="true" />
+            android:exported="true"
+            android:foregroundServiceType="dataSync">
+            <intent-filter>
+                <action android:name="com.close.hook.ads.service.AidlService" />
+            </intent-filter>
+        </service>
 
         <activity
             android:name=".ui.activity.RequestInfoActivity"
