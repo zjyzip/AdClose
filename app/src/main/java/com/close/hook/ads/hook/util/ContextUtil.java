@@ -5,23 +5,21 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.app.Instrumentation;
 
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ContextUtil {
 
     public static volatile Context instrumentationContext;
     public static volatile Context appContext;
     public static volatile Context contextWrapperContext;
-    private static final List<WeakReference<Runnable>> contextInitializedCallbacks = new ArrayList<>();
-    private static boolean isContextInitialized = false;
+    private static final List<Runnable> contextInitializedCallbacks = new CopyOnWriteArrayList<>();
+    private static volatile boolean isContextInitialized = false;
 
     public static void initialize(Runnable initialCallback) {
         if (initialCallback != null) {
             addOnAppContextInitializedCallback(initialCallback);
         }
-
         hookContextMethods();
     }
 
@@ -32,7 +30,7 @@ public class ContextUtil {
             "after",
             param -> {
                 instrumentationContext = (Application) param.args[0];
-                triggerContextInitialized();
+                checkAndTriggerContextInitialized();
             },
             Application.class
         );
@@ -43,7 +41,7 @@ public class ContextUtil {
             "after",
             param -> {
                 appContext = (Context) param.args[0];
-                triggerContextInitialized();
+                checkAndTriggerContextInitialized();
             },
             Context.class
         );
@@ -54,24 +52,21 @@ public class ContextUtil {
             "after",
             param -> {
                 contextWrapperContext = (Context) param.args[0];
-                triggerContextInitialized();
+                checkAndTriggerContextInitialized();
             },
             Context.class
         );
     }
 
-    private static void triggerContextInitialized() {
-        if (!isContextInitialized && appContext != null && instrumentationContext != null && contextWrapperContext != null) {
-            isContextInitialized = true;
-            List<WeakReference<Runnable>> callbacksToRun;
+    private static void checkAndTriggerContextInitialized() {
+        if (appContext != null && !isContextInitialized) {
             synchronized (ContextUtil.class) {
-                callbacksToRun = new ArrayList<>(contextInitializedCallbacks);
-                contextInitializedCallbacks.clear();
-            }
-            for (WeakReference<Runnable> weakRef : callbacksToRun) {
-                Runnable callback = weakRef.get();
-                if (callback != null) {
-                    callback.run();
+                if (!isContextInitialized) {
+                    isContextInitialized = true;
+                    for (Runnable callback : contextInitializedCallbacks) {
+                        callback.run();
+                    }
+                    contextInitializedCallbacks.clear();
                 }
             }
         }
@@ -85,10 +80,9 @@ public class ContextUtil {
                 if (isContextInitialized) {
                     callback.run();
                 } else {
-                    contextInitializedCallbacks.add(new WeakReference<>(callback));
+                    contextInitializedCallbacks.add(callback);
                 }
             }
         }
     }
-
 }
