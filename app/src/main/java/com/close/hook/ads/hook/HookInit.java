@@ -33,13 +33,14 @@ public class HookInit implements IXposedHookLoadPackage {
             return;
         }
 
+        PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
+        SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
+
+        performHooking(lpparam, settingsManager);
+
         ContextUtil.initialize(() -> {
             XposedBridge.log(TAG + " App context is initialized. Proceeding with hooking...");
-
-            PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
-            SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
-
-            performHooking(lpparam, settingsManager);
+            earlyHookComponents(ContextUtil.appContext, settingsManager);
         });
     }
 
@@ -56,14 +57,8 @@ public class HookInit implements IXposedHookLoadPackage {
     }
 
     private void applySettings(SettingsManager settingsManager) {
-        XposedBridge.log("HookInit: Applying settings...");
-
         if (settingsManager.isHideVPNStatusEnabled()) {
             HideVPNStatus.proxy();
-        }
-
-        if (settingsManager.isRequestHookEnabled()) {
-            RequestHook.init();
         }
 
         if (settingsManager.isDisableClipboard()) {
@@ -81,16 +76,20 @@ public class HookInit implements IXposedHookLoadPackage {
         if (settingsManager.isDisableShakeAdEnabled()) {
             DisableShakeAd.handle();
         }
+    }
 
+    private void earlyHookComponents(Context appContext, SettingsManager settingsManager) {
         try {
-            Context appContext = ContextUtil.appContext;
             ClassLoader classLoader = appContext.getClassLoader();
-
             String packageName = appContext.getPackageName();
             CharSequence appName = getAppName(appContext, packageName);
 
             if (!TAG.equals(packageName)) {
                 XposedBridge.log("Application Name: " + appName);
+            }
+
+            if (settingsManager.isRequestHookEnabled()) {
+                RequestHook.init();
             }
 
             AppAds.progress(classLoader, packageName);
@@ -118,4 +117,5 @@ public class HookInit implements IXposedHookLoadPackage {
             return null;
         }
     }
+
 }
