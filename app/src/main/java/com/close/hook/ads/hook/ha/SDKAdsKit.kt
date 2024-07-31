@@ -4,8 +4,10 @@ import android.os.BaseBundle
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
+import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
+import com.close.hook.ads.hook.util.HookUtil.hookAllMethods
 import com.close.hook.ads.hook.util.HookUtil.hookMethod
 import org.luckypray.dexkit.result.MethodData
 
@@ -17,6 +19,7 @@ object SDKAdsKit {
         DexKitUtil.initializeDexKitBridge()
 
         handlePangolinSDK()
+        handlePangolinInit()
         handleAnyThinkSDK()
         blockFirebaseWithString()
         blockFirebaseWithString2()
@@ -40,6 +43,27 @@ object SDKAdsKit {
         }
 
         foundMethodsForString?.let { hookMethods(it, DexKitUtil.context.classLoader) }
+    }
+
+    fun handlePangolinInit() {
+        hookAllMethods(
+            "com.bytedance.sdk.openadsdk.TTAdSdk",
+            "init",
+            "after",
+            { param ->
+                val method = param.method as java.lang.reflect.Method
+                val returnType = method.returnType
+
+                if (returnType == Void.TYPE) {
+                    param.result = null
+                } else if (returnType == java.lang.Boolean.TYPE) {
+                    param.result = false
+                } else {
+                    param.result = null
+                }
+            },
+            ContextUtil.appContext.classLoader
+        )
     }
 
     fun handleAnyThinkSDK() {
