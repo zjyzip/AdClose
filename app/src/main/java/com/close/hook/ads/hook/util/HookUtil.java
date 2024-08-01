@@ -100,21 +100,7 @@ public class HookUtil {
 
             Object[] methodParams = new Object[classParams.length + 1];
             System.arraycopy(classParams, 0, methodParams, 0, classParams.length);
-            methodParams[methodParams.length - 1] = new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("before".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
-
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("after".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
-            };
+            methodParams[methodParams.length - 1] = createMethodHook(hookType, action);
 
             XposedHelpers.findAndHookMethod(actualClass, methodName, methodParams);
         } catch (Throwable e) {
@@ -124,22 +110,7 @@ public class HookUtil {
 
     public static void hookMethod(Method method, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
         try {
-            XC_MethodHook methodHook = new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("before".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
-
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("after".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
-            };
-
+            XC_MethodHook methodHook = createMethodHook(hookType, action);
             XposedBridge.hookMethod(method, methodHook);
         } catch (Throwable e) {
             XposedBridge.log("HookUtil - Error occurred while hooking method " + method.getName() + ": " + e.getMessage());
@@ -153,22 +124,8 @@ public class HookUtil {
     public static void hookAllMethods(Object clazz, String methodName, String hookType, Consumer<XC_MethodHook.MethodHookParam> action, ClassLoader classLoader) {
         try {
             Class<?> actualClass = getClass(clazz, classLoader);
-            XC_MethodHook methodHook = new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("before".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
 
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("after".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
-            };
-
+            XC_MethodHook methodHook = createMethodHook(hookType, action);
             XposedBridge.hookAllMethods(actualClass, methodName, methodHook);
         } catch (Throwable e) {
             XposedBridge.log("HookUtil - Error occurred while hooking all methods of " + methodName + ": " + e.getMessage());
@@ -182,22 +139,8 @@ public class HookUtil {
     public static void hookAllConstructors(Object clazz, String hookType, Consumer<XC_MethodHook.MethodHookParam> action, ClassLoader classLoader) {
         try {
             Class<?> actualClass = getClass(clazz, classLoader);
-            XC_MethodHook methodHook = new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("before".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
 
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if ("after".equals(hookType) && action != null) {
-                        action.accept(param);
-                    }
-                }
-            };
-
+            XC_MethodHook methodHook = createMethodHook(hookType, action);
             Constructor<?>[] constructors = actualClass.getDeclaredConstructors();
             for (Constructor<?> constructor : constructors) {
                 XposedBridge.hookMethod(constructor, methodHook);
@@ -205,6 +148,24 @@ public class HookUtil {
         } catch (Throwable e) {
             XposedBridge.log("HookUtil - Error occurred while hooking all constructors: " + e.getMessage());
         }
+    }
+
+    private static XC_MethodHook createMethodHook(String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+        return new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                if ("before".equals(hookType) && action != null) {
+                    action.accept(param);
+                }
+            }
+
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                if ("after".equals(hookType) && action != null) {
+                    action.accept(param);
+                }
+            }
+        };
     }
 
     public static void setStaticObjectField(Class<?> clazz, String fieldName, Object value) {

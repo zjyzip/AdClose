@@ -20,11 +20,19 @@ import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-public class HookInit implements IXposedHookLoadPackage {
+public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String TAG = "com.close.hook.ads";
+
+    @Override
+    public void initZygote(StartupParam startupParam) throws Throwable {
+        ContextUtil.initialize(() -> {
+            XposedBridge.log("ContextUtil initialized");
+        });
+    }
 
     @SuppressLint("SuspiciousIndentation")
     @Override
@@ -38,9 +46,12 @@ public class HookInit implements IXposedHookLoadPackage {
 
         performHooking(lpparam, settingsManager);
 
-        ContextUtil.initialize(() -> {
-            XposedBridge.log(TAG + " App context is initialized. Proceeding with hooking...");
+        ContextUtil.addOnAppContextInitializedCallback(() -> {
             earlyHookComponents(ContextUtil.appContext, settingsManager);
+        });
+        ContextUtil.addOnInstrumentationContextInitializedCallback(() -> {
+        });
+        ContextUtil.addOnContextWrapperContextInitializedCallback(() -> {
         });
     }
 
@@ -99,7 +110,7 @@ public class HookInit implements IXposedHookLoadPackage {
                 SDKAds.hookAds(classLoader);
             }
         } catch (Exception e) {
-            XposedBridge.log(TAG + " Exception in handleLoadPackage: " + Log.getStackTraceString(e));
+            XposedBridge.log(TAG + " Exception in earlyHookComponents: " + Log.getStackTraceString(e));
         }
     }
 
@@ -117,5 +128,4 @@ public class HookInit implements IXposedHookLoadPackage {
             return null;
         }
     }
-
 }
