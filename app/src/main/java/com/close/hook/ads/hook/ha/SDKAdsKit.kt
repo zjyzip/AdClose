@@ -4,7 +4,6 @@ import android.os.BaseBundle
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
-import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
 import com.close.hook.ads.hook.util.HookUtil.hookAllMethods
@@ -54,15 +53,13 @@ object SDKAdsKit {
                 val method = param.method as java.lang.reflect.Method
                 val returnType = method.returnType
 
-                if (returnType == Void.TYPE) {
-                    param.result = null
-                } else if (returnType == java.lang.Boolean.TYPE) {
-                    param.result = false
-                } else {
-                    param.result = null
+                when (returnType) {
+                    Void.TYPE -> param.result = null
+                    java.lang.Boolean.TYPE -> param.result = false
+                    else -> param.result = null
                 }
             },
-            ContextUtil.appContext.classLoader
+            DexKitUtil.context.classLoader
         )
     }
 
