@@ -106,17 +106,19 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun initObserve() {
-        viewModel.requestList.observe(viewLifecycleOwner) {
-            it?.let {
-                when (type) {
-                    "all" -> mAdapter.submitList(it)
-
-                    "block" -> mAdapter.submitList(it.filter { it.isBlocked == true })
-
-                    "pass" -> mAdapter.submitList(it.filter { it.isBlocked == false })
+        viewModel.requestList.observe(viewLifecycleOwner) { requests ->
+            requests?.let {
+                val filteredList = when (type) {
+                    "all" -> it
+                    "block" -> it.filter { request -> request.isBlocked == true }
+                    "pass" -> it.filter { request -> request.isBlocked == false }
+                    else -> emptyList()
                 }
-                if (binding.vfContainer.displayedChild != it.size)
-                    binding.vfContainer.displayedChild = it.size
+                mAdapter.submitList(filteredList)
+
+                if (binding.vfContainer.displayedChild != filteredList.size) {
+                    binding.vfContainer.displayedChild = filteredList.size
+                }
             }
         }
     }

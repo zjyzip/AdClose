@@ -167,26 +167,19 @@ class BlockedRequestsAdapter(
             Toast.makeText(itemView.context, "已复制: $text", Toast.LENGTH_SHORT).show()
         }
 
-        private fun toggleBlockStatus(request: BlockedRequest) = CoroutineScope(Dispatchers.IO).launch {
-            val position = bindingAdapterPosition
-            if (position == RecyclerView.NO_POSITION) return@launch
-
-            val updatedList = currentList.toMutableList()
-
-            if (request.isBlocked == true) {
-                dataSource.removeUrlString(type, url)
-                request.isBlocked = false
-            } else {
-                dataSource.addUrl(Url(type, url))
-                request.isBlocked = true
+        private fun toggleBlockStatus(request: BlockedRequest) =
+            CoroutineScope(Dispatchers.IO).launch {
+                if (request.isBlocked == true) {
+                    dataSource.removeUrlString(type, url)
+                    request.isBlocked = false
+                } else {
+                    dataSource.addUrl(Url(type, url))
+                    request.isBlocked = true
+                }
+                withContext(Dispatchers.Main) {
+                    checkBlockStatus(request.isBlocked)
+                }
             }
-
-            updatedList.removeAt(position)
-
-            withContext(Dispatchers.Main) {
-                submitList(updatedList)
-            }
-        }
 
         @SuppressLint("RestrictedApi")
         private fun checkBlockStatus(isBlocked: Boolean?) {

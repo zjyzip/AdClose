@@ -119,13 +119,12 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     private CharSequence getAppName(Context context, String packageName) {
-        PackageManager packageManager = context.getPackageManager();
         try {
-            ApplicationInfo appInfo = packageManager.getApplicationInfo(packageName, 0);
-            return packageManager.getApplicationLabel(appInfo);
+            ApplicationInfo appInfo = context.getPackageManager().getApplicationInfo(packageName, 0);
+            return context.getPackageManager().getApplicationLabel(appInfo);
         } catch (PackageManager.NameNotFoundException e) {
             XposedBridge.log("Application Name Not Found for package: " + packageName);
-            return null;
+            return packageName;
         }
     }
 }

@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
-import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -24,9 +23,7 @@ import com.close.hook.ads.hook.util.StringFinderKit;
 
 import org.luckypray.dexkit.result.MethodData;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
@@ -127,23 +124,8 @@ public class RequestHook {
 
         try {
             if (mStub != null) {
-                ParcelFileDescriptor pfd = mStub.getData(queryType.replace("host", "Domain").replace("url", "URL"), queryValue);
-                if (pfd != null) {
-                    try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
-                         ObjectInputStream ois = new ObjectInputStream(fis)) {
-
-                        BlockedBean blockedBean = (BlockedBean) ois.readObject();
-                        return new Triple<>(blockedBean.isBlocked(), blockedBean.getType(), blockedBean.getValue());
-                    } catch (Exception e) {
-                        Log.e(LOG_PREFIX, "Error reading data from memory file", e);
-                    } finally {
-                        try {
-                            pfd.close();
-                        } catch (IOException e) {
-                            Log.e(LOG_PREFIX, "Error closing ParcelFileDescriptor", e);
-                        }
-                    }
-                }
+                BlockedBean blockedBean = mStub.getData(queryType.replace("host", "Domain").replace("url", "URL"), queryValue);
+                return new Triple<>(blockedBean.isBlocked(), blockedBean.getType(), blockedBean.getValue());
             }
         } catch (RemoteException e) {
             Log.e(LOG_PREFIX, "RemoteException during service communication", e);
