@@ -45,22 +45,34 @@ object SDKAdsKit {
     }
 
     fun handlePangolinInit() {
-        hookAllMethods(
-            "com.bytedance.sdk.openadsdk.TTAdSdk",
-            "init",
-            "after",
-            { param ->
-                val method = param.method as java.lang.reflect.Method
-                val returnType = method.returnType
+        try {
+            val ttAdSdkClass = Class.forName("com.bytedance.sdk.openadsdk.TTAdSdk", false, DexKitUtil.context.classLoader)
 
-                when (returnType) {
-                    Void.TYPE -> param.result = null
-                    java.lang.Boolean.TYPE -> param.result = false
-                    else -> param.result = null
-                }
-            },
-            DexKitUtil.context.classLoader
-        )
+            val methods = ttAdSdkClass.declaredMethods
+            val initMethodExists = methods.any { it.name == "init" }
+
+            if (!initMethodExists) {
+                return
+            }
+
+            hookAllMethods(
+                "com.bytedance.sdk.openadsdk.TTAdSdk",
+                "init",
+                "after",
+                { param ->
+                    val method = param.method as java.lang.reflect.Method
+                    val returnType = method.returnType
+
+                    when (returnType) {
+                        Void.TYPE -> param.result = null
+                        java.lang.Boolean.TYPE -> param.result = false
+                        else -> param.result = null
+                    }
+                },
+                DexKitUtil.context.classLoader
+            )
+        } catch (e: ClassNotFoundException) {
+        }
     }
 
     fun handleAnyThinkSDK() {
