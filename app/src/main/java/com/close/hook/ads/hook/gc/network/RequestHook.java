@@ -21,6 +21,9 @@ import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
 import org.luckypray.dexkit.result.MethodData;
 
 import java.io.IOException;
@@ -30,6 +33,8 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
@@ -41,6 +46,14 @@ public class RequestHook {
 
     private static IBlockedStatusProvider mStub;
     private static boolean isBound = false;
+
+    private static final Cache<String, Triple<Boolean, String, String>> cache = CacheBuilder.newBuilder()
+            .maximumSize(5000)
+            .expireAfterAccess(30, TimeUnit.MINUTES)
+            .build();
+
+    private static final Object lock = new Object();
+    private static final ConcurrentHashMap<String, Boolean> queryInProgress = new ConcurrentHashMap<>();
 
     public static void init() {
         try {
@@ -54,64 +67,97 @@ public class RequestHook {
 
     private static void setupDNSRequestHook() {
         HookUtil.findAndHookMethod(
-            InetAddress.class,
-            "getByName",
-            "before",
-            param -> {
-                String host = (String) param.args[0];
-                if (host != null && shouldBlockDnsRequest(host)) {
-                    param.setResult(null);
-                }
-            },
-            String.class
+                InetAddress.class,
+                "getByName",
+                "before",
+                param -> {
+                    String host = (String) param.args[0];
+                    if (host != null && shouldBlockDnsRequest(host)) {
+                        param.setResult(null);
+                    }
+                },
+                String.class
         );
 
         HookUtil.findAndHookMethod(
-            InetAddress.class,
-            "getAllByName",
-            "before",
-            param -> {
-                String host = (String) param.args[0];
-                if (host != null && shouldBlockDnsRequest(host)) {
-                    param.setResult(new InetAddress[0]);
-                }
-            },
-            String.class
+                InetAddress.class,
+                "getAllByName",
+                "before",
+                param -> {
+                    String host = (String) param.args[0];
+                    if (host != null && shouldBlockDnsRequest(host)) {
+                        param.setResult(new InetAddress[0]);
+                    }
+                },
+                String.class
         );
     }
 
     private static boolean shouldBlockDnsRequest(String host) {
-        return checkShouldBlockRequest(host, null, " DNS", "host");
+        return checkShouldBlockRequest(host, null, "DNS", "host");
     }
 
     private static boolean shouldBlockHttpsRequest(final URL url, final RequestDetails details) {
         String formattedUrl = formatUrlWithoutQuery(url);
-        return checkShouldBlockRequest(formattedUrl, details, " HTTP", "url");
+        return checkShouldBlockRequest(formattedUrl, details, "HTTP", "url");
     }
 
     private static boolean shouldBlockOkHttpsRequest(final URL url, final RequestDetails details) {
         String formattedUrl = formatUrlWithoutQuery(url);
-        return checkShouldBlockRequest(formattedUrl, details, " OKHTTP", "url");
+        return checkShouldBlockRequest(formattedUrl, details, "OKHTTP", "url");
     }
 
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
-        Triple<Boolean, String, String> triple = queryContentProvider(queryType, queryValue);
-        boolean shouldBlock = triple.getFirst();
-        String blockType = triple.getSecond();
-        String url = triple.getThird();
+        String cacheKey = queryType + ":" + queryValue;
 
-        sendBroadcast(requestType, shouldBlock, blockType, url, queryValue, details);
-        return shouldBlock;
-    }
-
-    private static String formatUrlWithoutQuery(URL url) {
-        try {
-            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath());
-            return formattedUrl.toExternalForm();
-        } catch (MalformedURLException e) {
-            XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
-            return null;
+        Triple<Boolean, String, String> cachedResult = cache.getIfPresent(cacheKey);
+        if (cachedResult != null) {
+            sendBroadcast(requestType, cachedResult.getFirst(), cachedResult.getSecond(), cachedResult.getThird(), queryValue, details);
+            return cachedResult.getFirst();
         }
+
+        boolean isFirstQuery = false;
+        synchronized (lock) {
+            if (queryInProgress.putIfAbsent(cacheKey, Boolean.TRUE) == null) {
+                isFirstQuery = true;
+            }
+        }
+
+        if (isFirstQuery) {
+            try {
+                Triple<Boolean, String, String> result = queryContentProvider(queryType, queryValue);
+                if (result != null) {
+                    cache.put(cacheKey, result);
+                    sendBroadcast(requestType, result.getFirst(), result.getSecond(), result.getThird(), queryValue, details);
+                    return result.getFirst();
+                }
+            } finally {
+                synchronized (lock) {
+                    queryInProgress.remove(cacheKey);
+                    lock.notifyAll();
+                }
+            }
+        } else {
+            synchronized (lock) {
+                while (queryInProgress.containsKey(cacheKey)) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        XposedBridge.log(LOG_PREFIX + "InterruptedException while waiting for ongoing query: " + e.getMessage());
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                }
+            }
+
+            cachedResult = cache.getIfPresent(cacheKey);
+            if (cachedResult != null) {
+                sendBroadcast(requestType, cachedResult.getFirst(), cachedResult.getSecond(), cachedResult.getThird(), queryValue, details);
+                return cachedResult.getFirst();
+            }
+        }
+
+        return false;
     }
 
     public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
@@ -172,7 +218,6 @@ public class RequestHook {
                     URL url = new URL(httpUrl.toString());
 
                     String stackTrace = HookUtil.getFormattedStackTrace();
-
                     RequestDetails details = processRequest(request, response, url, stackTrace);
 
                     if (details != null && shouldBlockHttpsRequest(url, details)) {
@@ -185,46 +230,15 @@ public class RequestHook {
                 } catch (Exception e) {
                     XposedBridge.log(LOG_PREFIX + "Exception in HTTP connection hook: " + e.getMessage());
                 }
-            },ContextUtil.appContext.getClassLoader());  // 在字符串形式的类名时，可以使用类加载器，而在直接使用类时，不需要传递类加载器。不填写时，则默认使用反射加载类
+            }, ContextUtil.appContext.getClassLoader());
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
         }
     }
 
-    private static Object createEmptyResponseForHttp(Object response) throws Exception {
-        if (response.getClass().getName().equals("com.android.okhttp.Response")) {
-            Class<?> responseClass = response.getClass();
-
-            Class<?> builderClass = Class.forName("com.android.okhttp.Response$Builder");
-            Class<?> requestClass = Class.forName("com.android.okhttp.Request");
-            Class<?> protocolClass = Class.forName("com.android.okhttp.Protocol");
-            Class<?> responseBodyClass = Class.forName("com.android.okhttp.ResponseBody");
-
-            Object request = XposedHelpers.callMethod(response, "request");
-
-            Object builder = builderClass.newInstance();
-
-            builderClass.getMethod("request", requestClass).invoke(builder, request);
-
-            Object protocolHTTP11 = protocolClass.getField("HTTP_1_1").get(null);
-            builderClass.getMethod("protocol", protocolClass).invoke(builder, protocolHTTP11);
-
-            builderClass.getMethod("code", int.class).invoke(builder, 204); // 204 No Content
-            builderClass.getMethod("message", String.class).invoke(builder, "No Content");
-
-            Method createMethod = responseBodyClass.getMethod("create", Class.forName("com.android.okhttp.MediaType"), String.class);
-            Object emptyResponseBody = createMethod.invoke(null, null, "");
-
-            builderClass.getMethod("body", responseBodyClass).invoke(builder, emptyResponseBody);
-
-            return builderClass.getMethod("build").invoke(builder);
-        }
-        return null;
-    }
-
-    public static void setupOkHttpRequestHook() {
-        hookMethod("setupOkHttpRequestHook", "Already Executed", "execute");  // okhttp3.Call.execute -overload method
-        hookMethod("setupOkHttp2RequestHook", "Canceled", "intercept");  // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
+    private static void setupOkHttpRequestHook() {
+        hookMethod("setupOkHttpRequestHook", "Already Executed", "execute");
+        hookMethod("setupOkHttp2RequestHook", "Canceled", "intercept");
     }
 
     private static void hookMethod(String cacheKeySuffix, String methodDescription, String methodName) {
@@ -235,7 +249,6 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                //  XposedBridge.log("hook " + methodData);
                     HookUtil.hookMethod(method, "after", param -> {
                         try {
                             Object response = param.getResult();
@@ -243,7 +256,6 @@ public class RequestHook {
                                 return;
                             }
 
-                        //  Object call = param.thisObject;
                             Object request = XposedHelpers.callMethod(response, "request");
                             Object okhttpUrl = XposedHelpers.callMethod(request, "url");
                             URL url = new URL(okhttpUrl.toString());
@@ -252,7 +264,6 @@ public class RequestHook {
                             RequestDetails details = processRequest(request, response, url, stackTrace);
 
                             if (details != null && shouldBlockOkHttpsRequest(url, details)) {
-                        //      cancelCall(call);
                                 throw new IOException("Request blocked");
                             }
                         } catch (IOException e) {
@@ -268,12 +279,42 @@ public class RequestHook {
         }
     }
 
-/*
-    private static void cancelCall(Object call) throws Exception {
-        Method cancelMethod = call.getClass().getDeclaredMethod("cancel");
-        cancelMethod.invoke(call);
+    private static String formatUrlWithoutQuery(URL url) {
+        try {
+            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath());
+            return formattedUrl.toExternalForm();
+        } catch (MalformedURLException e) {
+            XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
+            return null;
+        }
     }
-*/
+
+    private static Object createEmptyResponseForHttp(Object response) throws Exception {
+        if (response.getClass().getName().equals("com.android.okhttp.Response")) {
+            Class<?> responseClass = response.getClass();
+
+            Class<?> builderClass = Class.forName("com.android.okhttp.Response$Builder");
+            Class<?> requestClass = Class.forName("com.android.okhttp.Request");
+            Class<?> protocolClass = Class.forName("com.android.okhttp.Protocol");
+            Class<?> responseBodyClass = Class.forName("com.android.okhttp.ResponseBody");
+
+            Object request = XposedHelpers.callMethod(response, "request");
+            Object builder = builderClass.newInstance();
+
+            builderClass.getMethod("request", requestClass).invoke(builder, request);
+            Object protocolHTTP11 = protocolClass.getField("HTTP_1_1").get(null);
+            builderClass.getMethod("protocol", protocolClass).invoke(builder, protocolHTTP11);
+            builderClass.getMethod("code", int.class).invoke(builder, 204); // 204 No Content
+            builderClass.getMethod("message", String.class).invoke(builder, "No Content");
+
+            Method createMethod = responseBodyClass.getMethod("create", Class.forName("com.android.okhttp.MediaType"), String.class);
+            Object emptyResponseBody = createMethod.invoke(null, null, "");
+            builderClass.getMethod("body", responseBodyClass).invoke(builder, emptyResponseBody);
+
+            return builderClass.getMethod("build").invoke(builder);
+        }
+        return null;
+    }
 
     private static RequestDetails processRequest(Object request, Object response, URL url, String stack) {
         try {
@@ -292,9 +333,7 @@ public class RequestHook {
         }
     }
 
-    private static void sendBroadcast(
-            String requestType, boolean shouldBlock, String blockType, String ruleUrl,
-            String url, RequestDetails details) {
+    private static void sendBroadcast(String requestType, boolean shouldBlock, String blockType, String ruleUrl, String url, RequestDetails details) {
         sendBlockedRequestBroadcast("all", requestType, shouldBlock, ruleUrl, blockType, url, details);
         if (shouldBlock) {
             sendBlockedRequestBroadcast("block", requestType, true, ruleUrl, blockType, url, details);
@@ -303,10 +342,7 @@ public class RequestHook {
         }
     }
 
-    private static void sendBlockedRequestBroadcast(
-            String type, @Nullable String requestType, @Nullable Boolean isBlocked,
-            @Nullable String url, @Nullable String blockType, String request,
-            RequestDetails details) {
+    private static void sendBlockedRequestBroadcast(String type, @Nullable String requestType, @Nullable Boolean isBlocked, @Nullable String url, @Nullable String blockType, String request, RequestDetails details) {
         Intent intent = new Intent("com.rikkati.REQUEST");
 
         Context currentContext = AndroidAppHelper.currentApplication();
@@ -314,9 +350,7 @@ public class RequestHook {
             PackageManager pm = currentContext.getPackageManager();
             String appName;
             try {
-                appName = pm.getApplicationLabel(
-                                pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA))
-                        .toString();
+                appName = pm.getApplicationLabel(pm.getApplicationInfo(currentContext.getPackageName(), PackageManager.GET_META_DATA)).toString();
             } catch (PackageManager.NameNotFoundException e) {
                 appName = currentContext.getPackageName();
             }
@@ -356,5 +390,4 @@ public class RequestHook {
             Log.w("RequestHook", "sendBlockedRequestBroadcast: currentContext is null");
         }
     }
-
 }

@@ -49,10 +49,6 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         ContextUtil.addOnAppContextInitializedCallback(() -> {
             earlyHookComponents(ContextUtil.appContext, settingsManager);
         });
-        ContextUtil.addOnInstrumentationContextInitializedCallback(() -> {
-        });
-        ContextUtil.addOnContextWrapperContextInitializedCallback(() -> {
-        });
     }
 
     private void activateModule(XC_LoadPackage.LoadPackageParam lpparam) {
