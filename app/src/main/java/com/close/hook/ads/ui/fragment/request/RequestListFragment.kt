@@ -125,20 +125,24 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun initView() {
         mAdapter = BlockedRequestsAdapter(viewModel.dataSource)
+
         binding.recyclerView.apply {
             adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
+
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
+
                     val navContainer = activity as? INavContainer
-                    if (dy > 0) {
+                    if (dy > 20) {
                         navContainer?.hideNavigation()
-                    } else if (dy < 0) {
+                    } else if (dy < -20) {
                         navContainer?.showNavigation()
                     }
                 }
             })
+
             FastScrollerBuilder(this).useMd2Style().build()
         }
 
@@ -212,15 +216,17 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     override fun search(keyword: String) {
-        viewModel.searchQuery.value = keyword
+        lifecycleScope.launch {
+            viewModel.searchQuery.value = keyword
 
-        CoroutineScope(Dispatchers.Main).launch {
             viewModel.searchQuery
                 .debounce(300)
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
                     flow {
-                        val safeAppInfoList = viewModel.requestList.value?.ifEmpty { emptyList() }
+                        val safeAppInfoList = withContext(Dispatchers.IO) {
+                            viewModel.requestList.value?.ifEmpty { emptyList() }
+                        }
                         emit(safeAppInfoList?.filter { blockedRequest ->
                             blockedRequest.request.contains(query, ignoreCase = true) ||
                                     blockedRequest.packageName.contains(query, ignoreCase = true) ||
@@ -229,7 +235,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     }
                 }
                 .catch { throwable ->
-                    Log.e("AppsFragment", "Error in searchKeyword", throwable)
+                    Log.e("RequestListFragment", "Error in searchKeyword", throwable)
                 }
                 .collect { filteredList ->
                     mAdapter.submitList(filteredList)
@@ -270,16 +276,13 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             if (!dir.exists())
                 dir.mkdir()
             val file = File("${requireContext().cacheDir}/request_list.json")
-            if (!file.exists())
+            if (!file.exists()) {
                 file.createNewFile()
-            else {
+            } else {
                 file.delete()
                 file.createNewFile()
             }
-            val fileOutputStream = FileOutputStream(file)
-            fileOutputStream.write(content.toByteArray())
-            fileOutputStream.flush()
-            fileOutputStream.close()
+            FileOutputStream(file).use { it.write(content.toByteArray()) }
             true
         } catch (e: IOException) {
             e.printStackTrace()
@@ -325,23 +328,27 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
                     withContext(Dispatchers.Main) {
                         tracker?.clearSelection()
-                        val snackBar = Snackbar.make(
-                            requireParentFragment().requireView(),
-                            "已批量加入黑名单",
-                            Snackbar.LENGTH_SHORT
-                        )
-                        val lp = CoordinatorLayout.LayoutParams(
-                            CoordinatorLayout.LayoutParams.MATCH_PARENT,
-                            CoordinatorLayout.LayoutParams.WRAP_CONTENT
-                        )
-                        lp.gravity = Gravity.BOTTOM
-                        lp.setMargins(10.dp, 0, 10.dp, 90.dp)
-                        snackBar.view.layoutParams = lp
-                        snackBar.show()
+                        showSnackbar("已批量加入黑名单")
                     }
                 }
             }
         }
+    }
+
+    private fun showSnackbar(message: String) {
+        val snackBar = Snackbar.make(
+            requireParentFragment().requireView(),
+            message,
+            Snackbar.LENGTH_SHORT
+        )
+        val lp = CoordinatorLayout.LayoutParams(
+            CoordinatorLayout.LayoutParams.MATCH_PARENT,
+            CoordinatorLayout.LayoutParams.WRAP_CONTENT
+        )
+        lp.gravity = Gravity.BOTTOM
+        lp.setMargins(10.dp, 0, 10.dp, 90.dp)
+        snackBar.view.layoutParams = lp
+        snackBar.show()
     }
 
     private fun onCopy() {

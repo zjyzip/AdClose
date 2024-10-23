@@ -248,9 +248,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
                     val navContainer = activity as? INavContainer
-                    if (dy > 0) {
+                    if (dy > 20) {
                         navContainer?.hideNavigation()
-                    } else if (dy < 0) {
+                    } else if (dy < -20) {
                         navContainer?.showNavigation()
                     }
                 }
