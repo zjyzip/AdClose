@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class DataSource(context: Context) {
     private val urlDao = UrlDatabase.getDatabase(context).urlDao
@@ -63,12 +64,11 @@ class DataSource(context: Context) {
         return urlDao.isExist(type, url)
     }
 
-    fun checkIsBlocked(type: String, url: String): BlockedBean {
-        val urlEntry = urlDao.findMatchingUrl(type, url)
-        return if (urlEntry != null) {
-            BlockedBean(true, urlEntry.type, urlEntry.url)
-        } else {
-            BlockedBean(false, null, null)
+    suspend fun checkIsBlocked(type: String, url: String): BlockedBean {
+        return withContext(Dispatchers.IO) {
+            urlDao.findMatchingUrl(type, url)?.let {
+                BlockedBean(true, it.type, it.url)
+            } ?: BlockedBean(false, null, null)
         }
     }
 

@@ -33,6 +33,7 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -52,8 +53,7 @@ public class RequestHook {
             .expireAfterAccess(30, TimeUnit.MINUTES)
             .build();
 
-    private static final Object lock = new Object();
-    private static final ConcurrentHashMap<String, Boolean> queryInProgress = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, CompletableFuture<Triple<Boolean, String, String>>> queryInProgress = new ConcurrentHashMap<>();
 
     public static void init() {
         try {
@@ -112,52 +112,51 @@ public class RequestHook {
 
         Triple<Boolean, String, String> cachedResult = cache.getIfPresent(cacheKey);
         if (cachedResult != null) {
-            sendBroadcast(requestType, cachedResult.getFirst(), cachedResult.getSecond(), cachedResult.getThird(), queryValue, details);
-            return cachedResult.getFirst();
+            boolean shouldBlock = cachedResult.getFirst();
+            String blockType = cachedResult.getSecond();
+            String ruleUrl = cachedResult.getThird();
+
+            sendBroadcast(requestType, shouldBlock, blockType, ruleUrl, queryValue, details);
+            return shouldBlock;
         }
 
-        boolean isFirstQuery = false;
-        synchronized (lock) {
-            if (queryInProgress.putIfAbsent(cacheKey, Boolean.TRUE) == null) {
-                isFirstQuery = true;
-            }
-        }
-
-        if (isFirstQuery) {
+        CompletableFuture<Triple<Boolean, String, String>> futureResult = queryInProgress.get(cacheKey);
+        if (futureResult != null) {
             try {
-                Triple<Boolean, String, String> result = queryContentProvider(queryType, queryValue);
-                if (result != null) {
-                    cache.put(cacheKey, result);
-                    sendBroadcast(requestType, result.getFirst(), result.getSecond(), result.getThird(), queryValue, details);
-                    return result.getFirst();
-                }
-            } finally {
-                synchronized (lock) {
-                    queryInProgress.remove(cacheKey);
-                    lock.notifyAll();
-                }
-            }
-        } else {
-            synchronized (lock) {
-                while (queryInProgress.containsKey(cacheKey)) {
-                    try {
-                        lock.wait();
-                    } catch (InterruptedException e) {
-                        XposedBridge.log(LOG_PREFIX + "InterruptedException while waiting for ongoing query: " + e.getMessage());
-                        Thread.currentThread().interrupt();
-                        return false;
-                    }
-                }
-            }
+                Triple<Boolean, String, String> result = futureResult.get();
+                boolean shouldBlock = result.getFirst();
+                String blockType = result.getSecond();
+                String ruleUrl = result.getThird();
 
-            cachedResult = cache.getIfPresent(cacheKey);
-            if (cachedResult != null) {
-                sendBroadcast(requestType, cachedResult.getFirst(), cachedResult.getSecond(), cachedResult.getThird(), queryValue, details);
-                return cachedResult.getFirst();
+                sendBroadcast(requestType, shouldBlock, blockType, ruleUrl, queryValue, details);
+                return shouldBlock;
+            } catch (Exception e) {
+                XposedBridge.log(LOG_PREFIX + "Exception while waiting for ongoing query: " + e.getMessage());
+                Thread.currentThread().interrupt();
+                return false;
             }
         }
 
-        return false;
+        CompletableFuture<Triple<Boolean, String, String>> newFuture = CompletableFuture.supplyAsync(() -> queryContentProvider(queryType, queryValue));
+        queryInProgress.put(cacheKey, newFuture);
+
+        try {
+            Triple<Boolean, String, String> result = newFuture.get();
+            boolean shouldBlock = result.getFirst();
+            String blockType = result.getSecond();
+            String ruleUrl = result.getThird();
+
+            cache.put(cacheKey, result);
+
+            queryInProgress.remove(cacheKey);
+
+            sendBroadcast(requestType, shouldBlock, blockType, ruleUrl, queryValue, details);
+            return shouldBlock;
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Exception during query execution: " + e.getMessage());
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
