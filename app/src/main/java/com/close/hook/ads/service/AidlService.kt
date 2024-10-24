@@ -6,6 +6,7 @@ import android.os.IBinder
 import com.close.hook.ads.BlockedBean
 import com.close.hook.ads.IBlockedStatusProvider
 import com.close.hook.ads.data.DataSource
+import kotlinx.coroutines.runBlocking
 
 class AidlService : Service() {
 
@@ -13,7 +14,9 @@ class AidlService : Service() {
 
     private val mStub = object : IBlockedStatusProvider.Stub() {
         override fun getData(type: String, value: String): BlockedBean {
-            return dataSource.checkIsBlocked(type, value)
+            return runBlocking {
+                dataSource.checkIsBlocked(type, value)
+            }
         }
     }
 

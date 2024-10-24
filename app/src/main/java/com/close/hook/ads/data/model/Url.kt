@@ -16,7 +16,7 @@ import androidx.room.PrimaryKey
 )
 data class Url(
 
-    @ColumnInfo(name = "type") // domain url keyword
+    @ColumnInfo(name = "type") // domain, url, keyword
     var type: String,
 
     @ColumnInfo(name = "url")
@@ -27,16 +27,30 @@ data class Url(
     @PrimaryKey(autoGenerate = true)
     var id: Long = 0
 
-    companion object {
-        var URL_TYPE = "type"
-        var URL_ADDRESS = "url"
+    companion object CREATOR : Parcelable.Creator<Url> {
+        override fun createFromParcel(parcel: Parcel): Url {
+            return Url(parcel)
+        }
+
+        override fun newArray(size: Int): Array<Url?> {
+            return arrayOfNulls(size)
+        }
+    }
+
+    constructor(parcel: Parcel) : this(
+        parcel.readString() ?: "",
+        parcel.readString() ?: ""
+    ) {
+        id = parcel.readLong()
     }
 
     override fun describeContents(): Int {
-        TODO("Not yet implemented")
+        return 0
     }
 
     override fun writeToParcel(dest: Parcel, flags: Int) {
-        TODO("Not yet implemented")
+        dest.writeString(type)
+        dest.writeString(url)
+        dest.writeLong(id)
     }
 }

@@ -2,13 +2,12 @@ package com.close.hook.ads
 
 import android.os.Parcel
 import android.os.Parcelable
-import java.io.Serializable
 
 data class BlockedBean(
     val isBlocked: Boolean,
     val type: String?,
     val value: String?
-) : Parcelable, Serializable {
+) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readByte() != 0.toByte(),
         parcel.readString(),
