@@ -224,9 +224,15 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 .flatMapLatest { query ->
                     flow {
                         val safeAppInfoList = withContext(Dispatchers.IO) {
-                            viewModel.requestList.value?.ifEmpty { emptyList() }
+                            val allRequests = viewModel.requestList.value?.ifEmpty { emptyList() } ?: emptyList()
+                            when (type) {
+                                "all" -> allRequests
+                                "block" -> allRequests.filter { it.isBlocked == true }
+                                "pass" -> allRequests.filter { it.isBlocked == false }
+                                else -> emptyList()
+                            }
                         }
-                        emit(safeAppInfoList?.filter { blockedRequest ->
+                        emit(safeAppInfoList.filter { blockedRequest ->
                             blockedRequest.request.contains(query, ignoreCase = true) ||
                                     blockedRequest.packageName.contains(query, ignoreCase = true) ||
                                     blockedRequest.appName.contains(query, ignoreCase = true)
@@ -427,5 +433,4 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         }
         return binding.recyclerView.closeMenus()
     }
-
 }
