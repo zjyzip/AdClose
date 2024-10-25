@@ -10,10 +10,11 @@ import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 
 class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
 
-    private val _requestList = MutableLiveData<List<BlockedRequest>>()
+    private val _requestList = MutableLiveData<List<BlockedRequest>>(emptyList())
     val requestList: LiveData<List<BlockedRequest>> = _requestList
 
     val blackListLiveData = dataSource.getUrlList().asLiveData()
@@ -25,7 +26,9 @@ class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
     }
 
     fun removeList(list: List<Url>) {
-        dataSource.removeList(list)
+        if (list.isNotEmpty()) {
+            dataSource.removeList(list)
+        }
     }
 
     fun removeUrl(url: Url) {
@@ -37,7 +40,9 @@ class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
     }
 
     fun addListUrl(list: List<Url>) {
-        dataSource.addListUrl(list)
+        if (list.isNotEmpty()) {
+            dataSource.addListUrl(list)
+        }
     }
 
     fun updateUrl(url: Url) {
@@ -49,18 +54,18 @@ class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
     }
 
     fun updateRequestList(item: BlockedRequest) {
-        val checkItem = _requestList.value?.find {
-            it.request == item.request
-        }
-        if (checkItem == null) {
-            _requestList.value = listOf(item) + (_requestList.value ?: emptyList())
+        _requestList.value = _requestList.value.orEmpty().toMutableList().apply {
+            if (none { it.request == item.request }) {
+                add(0, item)
+            }
         }
     }
 
     fun onClearAll() {
-        _requestList.value = emptyList()
+        if (_requestList.value?.isNotEmpty() == true) {
+            _requestList.value = emptyList()
+        }
     }
-
 }
 
 class UrlViewModelFactory(private val context: Context) : ViewModelProvider.Factory {

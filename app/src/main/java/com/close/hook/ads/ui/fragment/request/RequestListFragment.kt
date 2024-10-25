@@ -135,10 +135,9 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     super.onScrolled(recyclerView, dx, dy)
 
                     val navContainer = activity as? INavContainer
-                    if (dy > 20) {
-                        navContainer?.hideNavigation()
-                    } else if (dy < -20) {
-                        navContainer?.showNavigation()
+                    when {
+                        dy > 20 -> navContainer?.hideNavigation()
+                        dy < -20 -> navContainer?.showNavigation()
                     }
                 }
             })

@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapMerge
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 
 class AppsViewModel(
@@ -33,7 +33,7 @@ class AppsViewModel(
         return updateParams
             .debounce(300L)
             .distinctUntilChanged()
-            .flatMapMerge { (filter, params, _) ->
+            .flatMapLatest { (filter, params, _) ->
                 flow {
                     val isSystem = when (type) {
                         "user" -> false
@@ -50,16 +50,17 @@ class AppsViewModel(
                         isReverse = params.second
                     )
                     emit(filteredSortedApps)
-                }.buffer(20)
+                }.buffer()
             }
             .asLiveData(viewModelScope.coroutineContext)
     }
 
     fun refreshApps() {
         updateParams.value = Triple(
-        Pair(PrefManager.order, getFilterList()),
-        Pair("", PrefManager.isReverse),
-        System.currentTimeMillis())
+            Pair(PrefManager.order, getFilterList()),
+            Pair("", PrefManager.isReverse),
+            System.currentTimeMillis()
+        )
     }
 
     private fun getFilterList(): List<String> {
@@ -75,6 +76,8 @@ class AppsViewModel(
         keyWord: String,
         isReverse: Boolean
     ) {
-        updateParams.value = Triple(filter, Pair(keyWord, isReverse), System.currentTimeMillis())
+        if (updateParams.value != Triple(filter, Pair(keyWord, isReverse), System.currentTimeMillis())) {
+            updateParams.value = Triple(filter, Pair(keyWord, isReverse), System.currentTimeMillis())
+        }
     }
 }

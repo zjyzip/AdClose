@@ -17,7 +17,7 @@ import java.io.File
 class AppRepository(private val packageManager: PackageManager) {
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
-        packageManager.getInstalledPackages(0)
+        packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
             .asSequence()
             .filter { packageInfo ->
                 isSystem == null || isSystemApp(packageInfo.applicationInfo) == isSystem
@@ -29,7 +29,6 @@ class AppRepository(private val packageManager: PackageManager) {
             }
             .toList()
             .awaitAll()
-            .filterNotNull()
             .sortedBy { it.appName.lowercase() }
     }
 
@@ -41,18 +40,21 @@ class AppRepository(private val packageManager: PackageManager) {
     ): List<AppInfo> = withContext(Dispatchers.Default) {
         val comparator = getComparator(filter.first, isReverse)
 
-        apps.filter { app ->
-            (keyword.isBlank() || app.appName.lowercase().contains(keyword.lowercase()) ||
-            app.packageName.lowercase().contains(keyword.lowercase())) &&
-            filter.second.all { filterCriteria ->
-                when (filterCriteria) {
-                    "已配置" -> app.isEnable == 1
-                    "最近更新" -> System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
-                    "已禁用" -> app.isAppEnable == 0
-                    else -> true
+        apps.asSequence()
+            .filter { app ->
+                (keyword.isBlank() || app.appName.contains(keyword, ignoreCase = true) ||
+                app.packageName.contains(keyword, ignoreCase = true)) &&
+                filter.second.all { filterCriteria ->
+                    when (filterCriteria) {
+                        "已配置" -> app.isEnable == 1
+                        "最近更新" -> System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
+                        "已禁用" -> app.isAppEnable == 0
+                        else -> true
+                    }
                 }
             }
-        }.sortedWith(comparator)
+            .sortedWith(comparator)
+            .toList()
     }
 
     fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {

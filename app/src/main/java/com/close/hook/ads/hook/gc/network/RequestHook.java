@@ -35,6 +35,8 @@ import java.net.URL;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
 
 import de.robv.android.xposed.XposedBridge;
@@ -112,71 +114,100 @@ public class RequestHook {
 
         Triple<Boolean, String, String> cachedResult = cache.getIfPresent(cacheKey);
         if (cachedResult != null) {
-            boolean shouldBlock = cachedResult.getFirst();
-            String blockType = cachedResult.getSecond();
-            String ruleUrl = cachedResult.getThird();
-
-            sendBroadcast(requestType, shouldBlock, blockType, ruleUrl, queryValue, details);
-            return shouldBlock;
+            return processCachedResult(cachedResult, cacheKey, requestType, queryValue, details);
         }
 
         CompletableFuture<Triple<Boolean, String, String>> futureResult = queryInProgress.get(cacheKey);
         if (futureResult != null) {
-            try {
-                Triple<Boolean, String, String> result = futureResult.get();
-                boolean shouldBlock = result.getFirst();
-                String blockType = result.getSecond();
-                String ruleUrl = result.getThird();
-
-                sendBroadcast(requestType, shouldBlock, blockType, ruleUrl, queryValue, details);
-                return shouldBlock;
-            } catch (Exception e) {
-                XposedBridge.log(LOG_PREFIX + "Exception while waiting for ongoing query: " + e.getMessage());
-                Thread.currentThread().interrupt();
-                return false;
-            }
+            return getResultFromFuture(futureResult, cacheKey, requestType, queryValue, details);
         }
 
-        CompletableFuture<Triple<Boolean, String, String>> newFuture = CompletableFuture.supplyAsync(() -> queryContentProvider(queryType, queryValue));
+        CompletableFuture<Triple<Boolean, String, String>> newFuture = CompletableFuture.supplyAsync(() -> {
+            ensureServiceBound();
+            return queryContentProvider(queryType, queryValue);
+        });
         queryInProgress.put(cacheKey, newFuture);
 
+        boolean shouldBlock = getResultFromFuture(newFuture, cacheKey, requestType, queryValue, details);
+        queryInProgress.remove(cacheKey);
+        return shouldBlock;
+    }
+
+    private static boolean getResultFromFuture(CompletableFuture<Triple<Boolean, String, String>> future, String cacheKey, String requestType, String queryValue, RequestDetails details) {
         try {
-            Triple<Boolean, String, String> result = newFuture.get();
-            boolean shouldBlock = result.getFirst();
-            String blockType = result.getSecond();
-            String ruleUrl = result.getThird();
+            Triple<Boolean, String, String> result = future.get(5, TimeUnit.SECONDS);
+            if (result == null) {
+                XposedBridge.log(LOG_PREFIX + "Null result from future for key: " + cacheKey);
+                return false;
+            }
 
             cache.put(cacheKey, result);
 
-            queryInProgress.remove(cacheKey);
-
-            sendBroadcast(requestType, shouldBlock, blockType, ruleUrl, queryValue, details);
-            return shouldBlock;
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception during query execution: " + e.getMessage());
+            return processCachedResult(result, cacheKey, requestType, queryValue, details);
+        } catch (TimeoutException e) {
+            XposedBridge.log(LOG_PREFIX + "Timeout while waiting for query result for key: " + cacheKey);
+            future.cancel(true);
+            return false;
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            XposedBridge.log(LOG_PREFIX + "Query interrupted for key: " + cacheKey);
+            return false;
+        } catch (ExecutionException e) {
+            XposedBridge.log(LOG_PREFIX + "Exception during query execution for key: " + cacheKey + ", cause: " + e.getCause());
             return false;
         }
     }
 
+    private static boolean processCachedResult(Triple<Boolean, String, String> result, String cacheKey, String requestType, String queryValue, RequestDetails details) {
+        boolean shouldBlock = result.getFirst();
+        String blockType = result.getSecond();
+        String ruleUrl = result.getThird();
+
+        sendBroadcast(requestType, shouldBlock, blockType, ruleUrl, queryValue, details);
+        return shouldBlock;
+    }
+
     public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
+        ensureServiceBound();
+        try {
+            if (mStub != null) {
+                BlockedBean blockedBean = mStub.getData(queryType.replace("host", "Domain").replace("url", "URL"), queryValue);
+                if (blockedBean != null) {
+                    return new Triple<>(blockedBean.isBlocked(), blockedBean.getType(), blockedBean.getValue());
+                } else {
+                    XposedBridge.log(LOG_PREFIX + "BlockedBean is null for key: " + queryValue);
+                }
+            }
+        } catch (RemoteException e) {
+            XposedBridge.log(LOG_PREFIX + "RemoteException during service communication for key: " + queryValue + ", cause: " + e.getMessage());
+        }
+
+        return new Triple<>(false, null, null);
+    }
+
+    private static void ensureServiceBound() {
         if (mStub == null) {
             Context context = AndroidAppHelper.currentApplication();
             if (context != null) {
                 bindService(context);
             }
-        }
 
-        try {
-            if (mStub != null) {
-                BlockedBean blockedBean = mStub.getData(queryType.replace("host", "Domain").replace("url", "URL"), queryValue);
-                return new Triple<>(blockedBean.isBlocked(), blockedBean.getType(), blockedBean.getValue());
+            int retryCount = 0;
+            while (mStub == null && retryCount < 5) {
+                try {
+                    Thread.sleep(500);
+                    retryCount++;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    XposedBridge.log(LOG_PREFIX + "Service binding interrupted");
+                    return;
+                }
             }
-        } catch (RemoteException e) {
-            Log.e(LOG_PREFIX, "RemoteException during service communication", e);
-        }
 
-        return new Triple<>(false, null, null);
+            if (mStub == null) {
+                XposedBridge.log(LOG_PREFIX + "Failed to bind service after retries");
+            }
+        }
     }
 
     private static void bindService(Context context) {
@@ -191,6 +222,7 @@ public class RequestHook {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             mStub = IBlockedStatusProvider.Stub.asInterface(service);
+            isBound = true;
         }
 
         @Override

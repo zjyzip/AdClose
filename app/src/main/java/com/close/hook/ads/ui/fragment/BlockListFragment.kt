@@ -246,10 +246,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
                     val navContainer = activity as? INavContainer
-                    if (dy > 0) {
-                        navContainer?.hideNavigation()
-                    } else if (dy < 0) {
-                        navContainer?.showNavigation()
+                    when {
+                        dy > 20 -> navContainer?.hideNavigation()
+                        dy < -20 -> navContainer?.showNavigation()
                     }
                 }
             })
