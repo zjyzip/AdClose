@@ -27,7 +27,7 @@ class BlockListAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding =
             ItemBlockListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ViewHolder(binding, context, onRemoveUrl, onEditUrl)
+        return ViewHolder(binding, onRemoveUrl, onEditUrl)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -38,7 +38,6 @@ class BlockListAdapter(
 
     inner class ViewHolder(
         private val binding: ItemBlockListBinding,
-        private val context: Context,
         private val onRemoveUrl: (Url) -> Unit,
         private val onEditUrl: (Url) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
@@ -46,18 +45,24 @@ class BlockListAdapter(
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<Url> =
             object : ItemDetailsLookup.ItemDetails<Url>() {
                 override fun getPosition(): Int = bindingAdapterPosition
-                override fun getSelectionKey(): Url = getItem(bindingAdapterPosition)
+                override fun getSelectionKey(): Url? = getItem(bindingAdapterPosition)
             }
 
         init {
             binding.edit.setOnClickListener {
-                onEditUrl(currentList[bindingAdapterPosition])
+                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
+                    onEditUrl(currentList[it])
+                }
             }
             binding.delete.setOnClickListener {
-                onRemoveUrl(currentList[bindingAdapterPosition])
+                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
+                    onRemoveUrl(currentList[it])
+                }
             }
             binding.cardView.setOnClickListener {
-                copyToClipboard(binding.type.text.toString(), binding.url.text.toString())
+                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
+                    copyToClipboard(binding.type.text.toString(), binding.url.text.toString())
+                }
             }
         }
 
@@ -87,6 +92,8 @@ class BlockListAdapter(
                 oldItem.url == newItem.url && oldItem.type == newItem.type
 
             override fun areContentsTheSame(oldItem: Url, newItem: Url): Boolean =
+                oldItem.url == newItem.url &&
+                oldItem.type == newItem.type &&
                 oldItem == newItem
         }
     }

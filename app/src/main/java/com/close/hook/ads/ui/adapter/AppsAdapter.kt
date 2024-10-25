@@ -43,13 +43,19 @@ class AppsAdapter(
         private val requestOptions: RequestOptions
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        lateinit var appInfo: AppInfo
+        private lateinit var appInfo: AppInfo
 
         init {
             with(binding.root) {
-                setOnClickListener { onItemClickListener.onItemClick(appInfo) }
+                setOnClickListener { 
+                    if (::appInfo.isInitialized) {
+                        onItemClickListener.onItemClick(appInfo) 
+                    }
+                }
                 setOnLongClickListener {
-                    onItemClickListener.onItemLongClick(appInfo)
+                    if (::appInfo.isInitialized) {
+                        onItemClickListener.onItemLongClick(appInfo)
+                    }
                     true
                 }
             }
@@ -84,7 +90,10 @@ class AppsAdapter(
                 oldItem.packageName == newItem.packageName
 
             override fun areContentsTheSame(oldItem: AppInfo, newItem: AppInfo): Boolean =
-                oldItem == newItem
+                oldItem.versionCode == newItem.versionCode &&
+                oldItem.appName == newItem.appName &&
+                oldItem.versionName == newItem.versionName &&
+                oldItem.appIcon == newItem.appIcon
         }
     }
 }

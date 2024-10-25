@@ -48,12 +48,14 @@ class BlockedRequestsAdapter(
                 ): Boolean =
                     oldItem.timestamp == newItem.timestamp
 
-                @SuppressLint("DiffUtilEquals")
                 override fun areContentsTheSame(
                     oldItem: BlockedRequest,
                     newItem: BlockedRequest
                 ): Boolean =
-                    oldItem == newItem
+                    oldItem.request == newItem.request &&
+                    oldItem.isBlocked == newItem.isBlocked &&
+                    oldItem.packageName == newItem.packageName &&
+                    oldItem.blockType == newItem.blockType
             }
     }
 
@@ -74,15 +76,14 @@ class BlockedRequestsAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         private var currentRequest: BlockedRequest? = null
+        private var type: String = "URL"
+        private var url: String = ""
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
             object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
                 override fun getPosition(): Int = bindingAdapterPosition
                 override fun getSelectionKey(): BlockedRequest? = getItem(bindingAdapterPosition)
             }
-
-        private var type: String = "URL"
-        private var url: String = ""
 
         init {
             binding.parent.addListener(object : SwipeLayout.Listener {
@@ -122,7 +123,9 @@ class BlockedRequestsAdapter(
                 }
                 block.setOnClickListener {
                     currentRequest?.let { request ->
-                        toggleBlockStatus(request)
+                        CoroutineScope(Dispatchers.IO).launch {
+                            toggleBlockStatus(request)
+                        }
                     }
                 }
             }
@@ -132,16 +135,13 @@ class BlockedRequestsAdapter(
         fun bind(request: BlockedRequest) = with(binding) {
             currentRequest = request
 
-            type =
-                request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
+            type = request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
             url = request.url ?: request.request
-            appName.text =
-                "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
+            appName.text = "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
             icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
-            blockType.visibility =
-                if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
+            blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
             blockType.text = request.blockType
 
             val textColor = ThemeUtils.getThemeAttrColor(
@@ -167,19 +167,18 @@ class BlockedRequestsAdapter(
             Toast.makeText(itemView.context, "已复制: $text", Toast.LENGTH_SHORT).show()
         }
 
-        private fun toggleBlockStatus(request: BlockedRequest) =
-            CoroutineScope(Dispatchers.IO).launch {
-                if (request.isBlocked == true) {
-                    dataSource.removeUrlString(type, url)
-                    request.isBlocked = false
-                } else {
-                    dataSource.addUrl(Url(type, url))
-                    request.isBlocked = true
-                }
-                withContext(Dispatchers.Main) {
-                    checkBlockStatus(request.isBlocked)
-                }
+        private suspend fun toggleBlockStatus(request: BlockedRequest) {
+            if (request.isBlocked == true) {
+                dataSource.removeUrlString(type, url)
+                request.isBlocked = false
+            } else {
+                dataSource.addUrl(Url(type, url))
+                request.isBlocked = true
             }
+            withContext(Dispatchers.Main) {
+                checkBlockStatus(request.isBlocked)
+            }
+        }
 
         @SuppressLint("RestrictedApi")
         private fun checkBlockStatus(isBlocked: Boolean?) {
@@ -194,5 +193,4 @@ class BlockedRequestsAdapter(
             binding.request.setTextColor(textColor)
         }
     }
-
 }
