@@ -62,6 +62,7 @@ public class RequestHook {
             setupDNSRequestHook();
             setupHttpRequestHook();
             setupOkHttpRequestHook();
+            bindServiceIfNeeded();
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
@@ -109,6 +110,32 @@ public class RequestHook {
         return checkShouldBlockRequest(formattedUrl, details, "OKHTTP", "url");
     }
 
+    private static void bindServiceIfNeeded() {
+        Context context = AndroidAppHelper.currentApplication();
+        if (context != null && !isBound) {
+            Intent intent = new Intent();
+            intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
+            context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        }
+    }
+
+    private static final ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mStub = IBlockedStatusProvider.Stub.asInterface(service);
+            isBound = true;
+            synchronized (serviceConnection) {
+                serviceConnection.notifyAll();
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mStub = null;
+            isBound = false;
+        }
+    };
+
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
         String cacheKey = queryType + ":" + queryValue;
 
@@ -117,19 +144,15 @@ public class RequestHook {
             return processCachedResult(cachedResult, cacheKey, requestType, queryValue, details);
         }
 
-        CompletableFuture<Triple<Boolean, String, String>> futureResult = queryInProgress.get(cacheKey);
-        if (futureResult != null) {
-            return getResultFromFuture(futureResult, cacheKey, requestType, queryValue, details);
-        }
-
-        CompletableFuture<Triple<Boolean, String, String>> newFuture = CompletableFuture.supplyAsync(() -> {
-            ensureServiceBound();
+        CompletableFuture<Triple<Boolean, String, String>> futureResult = queryInProgress.computeIfAbsent(cacheKey, key -> CompletableFuture.supplyAsync(() -> {
+            waitForServiceConnection();
             return queryContentProvider(queryType, queryValue);
-        });
-        queryInProgress.put(cacheKey, newFuture);
+        }));
 
-        boolean shouldBlock = getResultFromFuture(newFuture, cacheKey, requestType, queryValue, details);
-        queryInProgress.remove(cacheKey);
+        boolean shouldBlock = getResultFromFuture(futureResult, cacheKey, requestType, queryValue, details);
+        if (futureResult.isDone()) {
+            queryInProgress.remove(cacheKey);
+        }
         return shouldBlock;
     }
 
@@ -167,8 +190,24 @@ public class RequestHook {
         return shouldBlock;
     }
 
+    private static void waitForServiceConnection() {
+        if (mStub == null) {
+            bindServiceIfNeeded();
+            synchronized (serviceConnection) {
+                try {
+                    serviceConnection.wait(5000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    XposedBridge.log(LOG_PREFIX + "Service connection wait interrupted");
+                }
+            }
+            if (mStub == null) {
+                XposedBridge.log(LOG_PREFIX + "Service connection failed after waiting");
+            }
+        }
+    }
+
     public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
-        ensureServiceBound();
         try {
             if (mStub != null) {
                 BlockedBean blockedBean = mStub.getData(queryType.replace("host", "Domain").replace("url", "URL"), queryValue);
@@ -184,53 +223,6 @@ public class RequestHook {
 
         return new Triple<>(false, null, null);
     }
-
-    private static void ensureServiceBound() {
-        if (mStub == null) {
-            Context context = AndroidAppHelper.currentApplication();
-            if (context != null) {
-                bindService(context);
-            }
-
-            int retryCount = 0;
-            while (mStub == null && retryCount < 5) {
-                try {
-                    Thread.sleep(500);
-                    retryCount++;
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    XposedBridge.log(LOG_PREFIX + "Service binding interrupted");
-                    return;
-                }
-            }
-
-            if (mStub == null) {
-                XposedBridge.log(LOG_PREFIX + "Failed to bind service after retries");
-            }
-        }
-    }
-
-    private static void bindService(Context context) {
-        if (!isBound) {
-            Intent intent = new Intent();
-            intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
-            isBound = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-        }
-    }
-
-    private static final ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            mStub = IBlockedStatusProvider.Stub.asInterface(service);
-            isBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            mStub = null;
-            isBound = false;
-        }
-    };
 
     private static void setupHttpRequestHook() {
         try {
