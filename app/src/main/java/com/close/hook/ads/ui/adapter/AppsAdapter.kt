@@ -1,5 +1,6 @@
 package com.close.hook.ads.ui.adapter
 
+import android.app.Activity
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -33,12 +34,15 @@ class AppsAdapter(
     }
 
     override fun onViewRecycled(holder: AppViewHolder) {
+        val context = holder.binding.appIcon.context
+        if (context !is Activity || !context.isDestroyed) {
+            holder.clearImage()
+        }
         super.onViewRecycled(holder)
-        holder.clearImage()
     }
 
     class AppViewHolder(
-        private val binding: InstallsItemAppBinding,
+        val binding: InstallsItemAppBinding,
         private val onItemClickListener: OnItemClickListener,
         private val requestOptions: RequestOptions
     ) : RecyclerView.ViewHolder(binding.root) {
@@ -75,7 +79,11 @@ class AppsAdapter(
         }
 
         fun clearImage() {
-            Glide.with(binding.appIcon.context).clear(binding.appIcon)
+            val context = binding.appIcon.context
+            if (context is Activity && context.isDestroyed) {
+                return
+            }
+            Glide.with(context).clear(binding.appIcon)
         }
     }
 
