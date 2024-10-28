@@ -8,7 +8,6 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.os.DeadObjectException;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -22,13 +21,9 @@ import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
-
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import org.luckypray.dexkit.result.MethodData;
 
 import java.io.IOException;
@@ -38,13 +33,15 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
@@ -120,13 +117,18 @@ public class RequestHook {
     }
 
     private static void bindServiceIfNeeded() {
+        if (isBound.get()) {
+            return;
+        }
+
         Context context = AndroidAppHelper.currentApplication();
-        if (context != null && !isBound.get()) {
+        if (context != null && isBound.compareAndSet(false, true)) {
             Intent intent = new Intent();
             intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
             boolean bindResult = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
             if (!bindResult) {
                 XposedBridge.log(LOG_PREFIX + "Failed to bind to AidlService");
+                isBound.set(false);
             }
         }
     }
@@ -159,27 +161,33 @@ public class RequestHook {
             return processCachedResult(cachedResult, cacheKey, requestType, queryValue, details);
         }
 
-        CompletableFuture<Triple<Boolean, String, String>> futureResult = queryInProgress.computeIfAbsent(cacheKey, key -> {
-            CompletableFuture<Triple<Boolean, String, String>> future = new CompletableFuture<>();
-            if (isBound.get()) {
-                queryContentProviderAsync(queryType, queryValue, future, 3);
-                scheduleTimeout(future, cacheKey);
-            } else {
-                synchronized (onServiceConnectedCallbacks) {
-                    onServiceConnectedCallbacks.add(() -> {
-                        queryContentProviderAsync(queryType, queryValue, future, 3);
-                        scheduleTimeout(future, cacheKey);
-                    });
-                }
-                bindServiceIfNeeded();
+        CompletableFuture<Triple<Boolean, String, String>> futureResult = new CompletableFuture<>();
+        CompletableFuture<Triple<Boolean, String, String>> existingFuture = queryInProgress.putIfAbsent(cacheKey, futureResult);
+        if (existingFuture != null) {
+            try {
+                Triple<Boolean, String, String> result = existingFuture.get();
+                return processCachedResult(result, cacheKey, requestType, queryValue, details);
+            } catch (InterruptedException | ExecutionException e) {
+                XposedBridge.log(LOG_PREFIX + "Exception during query execution for key: " + cacheKey + ", cause: " + e.getCause());
+                return false;
             }
-            return future;
-        });
+        }
+
+        if (isBound.get()) {
+            queryContentProviderAsync(queryType, queryValue, futureResult, 3);
+            scheduleTimeout(futureResult, cacheKey);
+        } else {
+            synchronized (onServiceConnectedCallbacks) {
+                onServiceConnectedCallbacks.add(() -> {
+                    queryContentProviderAsync(queryType, queryValue, futureResult, 3);
+                    scheduleTimeout(futureResult, cacheKey);
+                });
+            }
+            bindServiceIfNeeded();
+        }
 
         boolean shouldBlock = getResultFromFuture(futureResult, cacheKey, requestType, queryValue, details);
-        if (futureResult.isDone() || futureResult.isCancelled()) {
-            queryInProgress.remove(cacheKey);
-        }
+        queryInProgress.remove(cacheKey);
         return shouldBlock;
     }
 
@@ -233,7 +241,7 @@ public class RequestHook {
                     }
                 });
             } else {
-                XposedBridge.log(LOG_PREFIX + "mStub is null, cannot query for key: " + queryValue);
+          //    XposedBridge.log(LOG_PREFIX + "mStub is null, cannot query for key: " + queryValue);
                 retryQuery(queryType, queryValue, future, retries - 1);
             }
         } catch (RemoteException e) {
@@ -244,7 +252,7 @@ public class RequestHook {
 
     private static void retryQuery(String queryType, String queryValue, CompletableFuture<Triple<Boolean, String, String>> future, int retries) {
         executorService.execute(() -> {
-            XposedBridge.log(LOG_PREFIX + "Retrying for key: " + queryValue + ", attempts left: " + retries);
+      //    XposedBridge.log(LOG_PREFIX + "Retrying for key: " + queryValue + ", attempts left: " + retries);
             queryContentProviderAsync(queryType, queryValue, future, retries);
         });
     }
