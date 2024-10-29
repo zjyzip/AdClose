@@ -1,7 +1,7 @@
 package com.close.hook.ads;
 
-import com.close.hook.ads.IBlockedStatusCallback;
+import com.close.hook.ads.BlockedBean;
 
 interface IBlockedStatusProvider {
-    void getDataAsync(String type, String value, IBlockedStatusCallback callback);
+    BlockedBean getData(String type, String value);
 }
