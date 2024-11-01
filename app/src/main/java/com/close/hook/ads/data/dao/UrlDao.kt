@@ -32,13 +32,11 @@ interface UrlDao {
     @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' ORDER BY id DESC")
     fun searchUrls(searchText: String): Flow<List<Url>>
 
-    @Query("""
-        SELECT * FROM url_info 
-        WHERE (:type = 'Domain' AND url = :url) 
-           OR (:type IN ('URL', 'KeyWord') AND :url LIKE '%' || url || '%') 
-        LIMIT 1
-    """)
-    fun findMatchingUrl(type: String, url: String): Url?
+    @Query("SELECT * FROM url_info WHERE url = :url LIMIT 1")
+    fun findExactMatch(url: String): Url?
+
+    @Query("SELECT * FROM url_info WHERE :url LIKE '%' || url || '%' LIMIT 1")
+    fun findPartialMatch(url: String): Url?
 
     @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")
     fun isExist(url: String): Boolean
