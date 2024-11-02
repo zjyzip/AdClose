@@ -31,7 +31,7 @@ class AppsViewModel(
 
     private fun setupAppsLiveData(): LiveData<List<AppInfo>> {
         return updateParams
-            .debounce(300L)
+            .debounce(500L)
             .distinctUntilChanged()
             .flatMapLatest { (filter, params, _) ->
                 flow {
@@ -76,8 +76,9 @@ class AppsViewModel(
         keyWord: String,
         isReverse: Boolean
     ) {
-        if (updateParams.value != Triple(filter, Pair(keyWord, isReverse), System.currentTimeMillis())) {
-            updateParams.value = Triple(filter, Pair(keyWord, isReverse), System.currentTimeMillis())
+        val newParams = Triple(filter, Pair(keyWord, isReverse), System.currentTimeMillis())
+        if (newParams != updateParams.value) {
+            updateParams.value = newParams
         }
     }
 }
