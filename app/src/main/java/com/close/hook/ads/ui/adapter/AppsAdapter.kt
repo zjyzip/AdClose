@@ -20,7 +20,8 @@ class AppsAdapter(
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
 
     private val requestOptions = RequestOptions()
-        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+        .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+        .skipMemoryCache(true)
         .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
@@ -30,12 +31,12 @@ class AppsAdapter(
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), position, this)
     }
 
     override fun onViewRecycled(holder: AppViewHolder) {
         val context = holder.binding.appIcon.context
-        if (context !is Activity || !context.isDestroyed) {
+        if (context is Activity && !context.isDestroyed) {
             holder.clearImage()
         }
         super.onViewRecycled(holder)
@@ -51,9 +52,9 @@ class AppsAdapter(
 
         init {
             with(binding.root) {
-                setOnClickListener { 
+                setOnClickListener {
                     if (::appInfo.isInitialized) {
-                        onItemClickListener.onItemClick(appInfo) 
+                        onItemClickListener.onItemClick(appInfo)
                     }
                 }
                 setOnLongClickListener {
@@ -65,25 +66,46 @@ class AppsAdapter(
             }
         }
 
-        fun bind(appInfo: AppInfo) {
+        fun bind(appInfo: AppInfo, position: Int, adapter: AppsAdapter) {
             this.appInfo = appInfo
             with(binding) {
                 appName.text = appInfo.appName
                 packageName.text = appInfo.packageName
                 appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
+
                 Glide.with(appIcon.context)
                     .load(appInfo.appIcon)
                     .apply(requestOptions)
                     .into(appIcon)
+
+                preloadImages(position, adapter)
+            }
+        }
+
+        private fun preloadImages(position: Int, adapter: AppsAdapter) {
+            val nextIndex = position + 1
+            val nextNextIndex = position + 2
+
+            if (nextIndex < adapter.itemCount) {
+                Glide.with(binding.appIcon.context)
+                    .load(adapter.getItem(nextIndex).appIcon)
+                    .apply(requestOptions)
+                    .preload()
+            }
+
+            if (nextNextIndex < adapter.itemCount) {
+                Glide.with(binding.appIcon.context)
+                    .load(adapter.getItem(nextNextIndex).appIcon)
+                    .apply(requestOptions)
+                    .preload()
             }
         }
 
         fun clearImage() {
             val context = binding.appIcon.context
-            if (context is Activity && context.isDestroyed) {
-                return
+            if (context is Activity && !context.isDestroyed) {
+                Glide.with(context).clear(binding.appIcon)
             }
-            Glide.with(context).clear(binding.appIcon)
         }
     }
 
@@ -98,10 +120,10 @@ class AppsAdapter(
                 oldItem.packageName == newItem.packageName
 
             override fun areContentsTheSame(oldItem: AppInfo, newItem: AppInfo): Boolean =
+                oldItem.packageName == newItem.packageName &&
                 oldItem.versionCode == newItem.versionCode &&
                 oldItem.appName == newItem.appName &&
-                oldItem.versionName == newItem.versionName &&
-                oldItem.appIcon == newItem.appIcon
+                oldItem.versionName == newItem.versionName
         }
     }
 }
