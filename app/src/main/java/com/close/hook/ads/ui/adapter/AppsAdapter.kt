@@ -21,7 +21,6 @@ class AppsAdapter(
 
     private val requestOptions = RequestOptions()
         .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-        .skipMemoryCache(true)
         .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
@@ -31,7 +30,7 @@ class AppsAdapter(
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
-        holder.bind(getItem(position), position, this)
+        holder.bind(getItem(position))
     }
 
     override fun onViewRecycled(holder: AppViewHolder) {
@@ -66,7 +65,7 @@ class AppsAdapter(
             }
         }
 
-        fun bind(appInfo: AppInfo, position: Int, adapter: AppsAdapter) {
+        fun bind(appInfo: AppInfo) {
             this.appInfo = appInfo
             with(binding) {
                 appName.text = appInfo.appName
@@ -77,27 +76,6 @@ class AppsAdapter(
                     .load(appInfo.appIcon)
                     .apply(requestOptions)
                     .into(appIcon)
-
-                preloadImages(position, adapter)
-            }
-        }
-
-        private fun preloadImages(position: Int, adapter: AppsAdapter) {
-            val nextIndex = position + 1
-            val nextNextIndex = position + 2
-
-            if (nextIndex < adapter.itemCount) {
-                Glide.with(binding.appIcon.context)
-                    .load(adapter.getItem(nextIndex).appIcon)
-                    .apply(requestOptions)
-                    .preload()
-            }
-
-            if (nextNextIndex < adapter.itemCount) {
-                Glide.with(binding.appIcon.context)
-                    .load(adapter.getItem(nextNextIndex).appIcon)
-                    .apply(requestOptions)
-                    .preload()
             }
         }
 

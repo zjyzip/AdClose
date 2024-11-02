@@ -35,12 +35,31 @@ public class AppUtils {
         try {
             PackageManager pm = closeApp.getPackageManager();
             ApplicationInfo info = pm.getApplicationInfo(packageName, 0);
-            return info.loadIcon(pm);
+            Drawable drawable = info.loadIcon(pm);
+
+            Bitmap bitmap = drawableToBitmap(drawable);
+
+            int newWidth = 100;
+            int newHeight = 100;
+            Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, false);
+
+            return new BitmapDrawable(closeApp.getResources(), scaledBitmap);
         } catch (Exception e) {
             e.printStackTrace();
-
         }
         return null;
+    }
+
+    private static Bitmap drawableToBitmap(Drawable drawable) {
+        if (drawable instanceof BitmapDrawable) {
+            return ((BitmapDrawable) drawable).getBitmap();
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
     }
 
     public static int isAppEnabled(String packageName) {

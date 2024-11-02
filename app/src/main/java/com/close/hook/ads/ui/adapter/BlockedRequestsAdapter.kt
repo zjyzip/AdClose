@@ -140,7 +140,14 @@ class BlockedRequestsAdapter(
             appName.text = "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
-            icon.setImageDrawable(AppUtils.getAppIcon(request.packageName))
+
+            CoroutineScope(Dispatchers.IO).launch {
+                val drawable = AppUtils.getAppIcon(request.packageName)
+                withContext(Dispatchers.Main) {
+                    binding.icon.setImageDrawable(drawable)
+                }
+            }
+
             blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
             blockType.text = request.blockType
 
