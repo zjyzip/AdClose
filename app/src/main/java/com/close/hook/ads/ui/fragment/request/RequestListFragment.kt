@@ -114,10 +114,11 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     "pass" -> it.filter { request -> request.isBlocked == false }
                     else -> emptyList()
                 }
-                mAdapter.submitList(filteredList)
 
-                if (binding.vfContainer.displayedChild != filteredList.size) {
-                    binding.vfContainer.displayedChild = filteredList.size
+                mAdapter.submitList(filteredList) {
+                    if (binding.vfContainer.displayedChild != filteredList.size) {
+                        binding.vfContainer.displayedChild = filteredList.size
+                    }
                 }
             }
         }
@@ -131,13 +132,19 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             layoutManager = LinearLayoutManager(requireContext())
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                private var totalDy = 0
+                private val scrollThreshold = 20
+
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
-
+                    totalDy += dy
                     val navContainer = activity as? INavContainer
-                    when {
-                        dy > 20 -> navContainer?.hideNavigation()
-                        dy < -20 -> navContainer?.showNavigation()
+                    if (totalDy > scrollThreshold) {
+                        navContainer?.hideNavigation()
+                        totalDy = 0
+                    } else if (totalDy < -scrollThreshold) {
+                        navContainer?.showNavigation()
+                        totalDy = 0
                     }
                 }
             })

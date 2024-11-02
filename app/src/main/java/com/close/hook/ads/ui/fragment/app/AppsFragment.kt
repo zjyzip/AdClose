@@ -242,18 +242,28 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initView() {
         mAdapter = AppsAdapter(requireContext(), this)
         binding.recyclerView.apply {
+            setHasFixedSize(true)
             adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
+
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                private var totalDy = 0
+                private val scrollThreshold = 20
+
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
+                    totalDy += dy
                     val navContainer = activity as? INavContainer
-                    when {
-                        dy > 20 -> navContainer?.hideNavigation()
-                        dy < -20 -> navContainer?.showNavigation()
+                    if (totalDy > scrollThreshold) {
+                        navContainer?.hideNavigation()
+                        totalDy = 0
+                    } else if (totalDy < -scrollThreshold) {
+                        navContainer?.showNavigation()
+                        totalDy = 0
                     }
                 }
             })
+
             addItemDecoration(LinearItemDecoration(4.dp))
             FastScrollerBuilder(this).useMd2Style().build()
         }
@@ -264,17 +274,27 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     private fun initObserve() {
-        viewModel.appsLiveData.observe(viewLifecycleOwner) {
-            mAdapter.submitList(it)
-            binding.swipeRefresh.isRefreshing = false
-            binding.progressBar.isVisible = false
-            updateSearchHint(it.size)
-            val adapter = binding.recyclerView.adapter as ConcatAdapter
-            if (it.isEmpty() && adapter.adapters.contains(footerAdapter)) {
-                adapter.removeAdapter(footerAdapter)
+        viewModel.appsLiveData.observe(viewLifecycleOwner) { list ->
+            mAdapter.submitList(list) {
+                binding.swipeRefresh.isRefreshing = false
+                binding.progressBar.isVisible = false
+                updateSearchHint(list.size)
+
+                val adapter = binding.recyclerView.adapter as ConcatAdapter
+                if (list.isEmpty()) {
+                    if (adapter.adapters.contains(footerAdapter)) {
+                        adapter.removeAdapter(footerAdapter)
+                    }
+                } else {
+                    if (!adapter.adapters.contains(footerAdapter)) {
+                        adapter.addAdapter(footerAdapter)
+                    }
+                }
+
+                if (binding.vfContainer.displayedChild != list.size) {
+                    binding.vfContainer.displayedChild = list.size
+                }
             }
-            if (binding.vfContainer.displayedChild != it.size)
-                binding.vfContainer.displayedChild = it.size
         }
     }
 

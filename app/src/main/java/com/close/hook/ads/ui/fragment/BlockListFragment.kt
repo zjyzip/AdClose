@@ -94,15 +94,23 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initObserve() {
-        viewModel.blackListLiveData.observe(viewLifecycleOwner) {
-            mAdapter.submitList(it)
-            binding.progressBar.visibility = View.GONE
-            val adapter = binding.recyclerView.adapter as ConcatAdapter
-            if (it.isEmpty() && adapter.adapters.contains(footerAdapter)) {
-                adapter.removeAdapter(footerAdapter)
+        viewModel.blackListLiveData.observe(viewLifecycleOwner) { blackList ->
+            mAdapter.submitList(blackList) {
+                binding.progressBar.visibility = View.GONE
+
+                val adapter = binding.recyclerView.adapter as? ConcatAdapter
+                if (blackList.isEmpty()) {
+                    if (adapter?.adapters?.contains(footerAdapter) == true) {
+                        adapter.removeAdapter(footerAdapter)
+                    }
+                } else if (adapter != null && !adapter.adapters.contains(footerAdapter)) {
+                    adapter.addAdapter(footerAdapter)
+                }
+
+                if (binding.vfContainer.displayedChild != blackList.size) {
+                    binding.vfContainer.displayedChild = blackList.size
+                }
             }
-            if (binding.vfContainer.displayedChild != it.size)
-                binding.vfContainer.displayedChild = it.size
         }
     }
 
@@ -239,19 +247,30 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun initView() {
         mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
+
         binding.recyclerView.apply {
             adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
+
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                private var totalDy = 0
+                private val scrollThreshold = 20
+
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
+                    totalDy += dy
+
                     val navContainer = activity as? INavContainer
-                    when {
-                        dy > 20 -> navContainer?.hideNavigation()
-                        dy < -20 -> navContainer?.showNavigation()
+                    if (totalDy > scrollThreshold) {
+                        navContainer?.hideNavigation()
+                        totalDy = 0
+                    } else if (totalDy < -scrollThreshold) {
+                        navContainer?.showNavigation()
+                        totalDy = 0
                     }
                 }
             })
+
             FastScrollerBuilder(this).useMd2Style().build()
         }
 
