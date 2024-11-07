@@ -338,10 +338,6 @@ public class RequestHook {
         Intent intent = new Intent("com.rikkati.REQUEST");
 
         try {
-            AppInfo appInfo = new AppInfo("AppName", APP_CONTEXT.getPackageName(), null, "1.0", 1, 0L, 0L, 0L, 0, 0, 1, 1);
-            String appName = appInfo.getAppName() + requestType;
-            String packageName = appInfo.getPackageName();
-
             BlockedRequest blockedRequest;
 
             String method = details != null ? details.getMethod() : null;
@@ -353,8 +349,8 @@ public class RequestHook {
             String stackTrace = details != null ? details.getStack() : null;
 
             blockedRequest = new BlockedRequest(
-                appName,
-                packageName,
+                APP_CONTEXT.getApplicationInfo().loadLabel(APP_CONTEXT.getPackageManager()).toString(),
+                APP_CONTEXT.getPackageName(),
                 request,
                 System.currentTimeMillis(),
                 type,

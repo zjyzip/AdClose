@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -32,6 +33,7 @@ import java.util.Date
 
 class BlockedRequestsAdapter(
     private val dataSource: DataSource,
+    private val onGetAppIcon: (String) -> Drawable?,
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<BlockedRequest>? = null
@@ -141,11 +143,8 @@ class BlockedRequestsAdapter(
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
 
-            CoroutineScope(Dispatchers.IO).launch {
-                val drawable = AppUtils.getAppIcon(request.packageName)
-                withContext(Dispatchers.Main) {
-                    binding.icon.setImageDrawable(drawable)
-                }
+            onGetAppIcon(request.packageName)?.let {
+                binding.icon.setImageDrawable(it)
             }
 
             blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
