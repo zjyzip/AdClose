@@ -19,6 +19,9 @@ import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
 import org.luckypray.dexkit.result.MethodData;
 
 import java.io.IOException;
@@ -28,6 +31,9 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import kotlin.Triple;
 
@@ -36,12 +42,19 @@ import de.robv.android.xposed.XposedHelpers;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
-
+    private static final Context APP_CONTEXT = ContextUtil.appContext;
     private static IBlockedStatusProvider mStub;
-    private static boolean isBound = false;
+    private static final AtomicBoolean isBound = new AtomicBoolean(false);
+    private static final CountDownLatch serviceConnectedLatch = new CountDownLatch(1);
+
+    private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
+        .maximumSize(12948)
+        .expireAfterWrite(12, TimeUnit.HOURS)
+        .build();
 
     public static void init() {
         try {
+            bindService(APP_CONTEXT);
             setupDNSRequestHook();
             setupHttpRequestHook();
             setupOkHttpRequestHook();
@@ -52,29 +65,29 @@ public class RequestHook {
 
     private static void setupDNSRequestHook() {
         HookUtil.findAndHookMethod(
-                InetAddress.class,
-                "getByName",
-                "before",
-                param -> {
-                    String host = (String) param.args[0];
-                    if (host != null && shouldBlockDnsRequest(host)) {
-                        param.setResult(null);
-                    }
-                },
-                String.class
+            InetAddress.class,
+            "getByName",
+            "before",
+            param -> {
+                String host = (String) param.args[0];
+                if (host != null && shouldBlockDnsRequest(host)) {
+                    param.setResult(null);
+                }
+            },
+            String.class
         );
 
         HookUtil.findAndHookMethod(
-                InetAddress.class,
-                "getAllByName",
-                "before",
-                param -> {
-                    String host = (String) param.args[0];
-                    if (host != null && shouldBlockDnsRequest(host)) {
-                        param.setResult(new InetAddress[0]);
-                    }
-                },
-                String.class
+            InetAddress.class,
+            "getAllByName",
+            "before",
+            param -> {
+                String host = (String) param.args[0];
+                if (host != null && shouldBlockDnsRequest(host)) {
+                    param.setResult(new InetAddress[0]);
+                }
+            },
+            String.class
         );
     }
 
@@ -113,30 +126,54 @@ public class RequestHook {
     }
 
     public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
-        if (mStub == null) {
-            Context context = ContextUtil.appContext;
-            if (context != null) {
-                bindService(context);
-            }
+        String cacheKey = queryType + ":" + queryValue;
+
+        Triple<Boolean, String, String> cachedResult = queryCache.getIfPresent(cacheKey);
+        if (cachedResult != null) {
+            return cachedResult;
         }
 
         try {
+            if (mStub == null && !awaitServiceConnection()) {
+                Log.e(LOG_PREFIX, "Service is not connected, returning default value.");
+                return new Triple<>(false, null, null);
+            }
+
             if (mStub != null) {
                 BlockedBean blockedBean = mStub.getData(queryType.replace("host", "Domain").replace("url", "URL"), queryValue);
-                return new Triple<>(blockedBean.isBlocked(), blockedBean.getType(), blockedBean.getValue());
+                Triple<Boolean, String, String> result = new Triple<>(blockedBean.isBlocked(), blockedBean.getType(), blockedBean.getValue());
+
+                queryCache.put(cacheKey, result);
+
+                return result;
+            } else {
+                Log.e(LOG_PREFIX, "mStub is still null after waiting for service connection.");
             }
         } catch (RemoteException e) {
             Log.e(LOG_PREFIX, "RemoteException during service communication", e);
+        } catch (InterruptedException e) {
+            Log.e(LOG_PREFIX, "InterruptedException during service connection wait", e);
+            Thread.currentThread().interrupt();
         }
 
         return new Triple<>(false, null, null);
     }
 
     private static void bindService(Context context) {
-        if (!isBound) {
+        if (isBound.compareAndSet(false, true)) {
             Intent intent = new Intent();
             intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
-            isBound = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+            boolean successful = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+            if (!successful) {
+                isBound.set(false);
+            }
+        }
+    }
+
+    public static void unbindService(Context context) {
+        if (isBound.compareAndSet(true, false)) {
+            context.unbindService(serviceConnection);
+            mStub = null;
         }
     }
 
@@ -144,14 +181,21 @@ public class RequestHook {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             mStub = IBlockedStatusProvider.Stub.asInterface(service);
+            isBound.set(true);
+            serviceConnectedLatch.countDown();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             mStub = null;
-            isBound = false;
+            isBound.set(false);
+            serviceConnectedLatch.countDown();
         }
     };
+
+    private static boolean awaitServiceConnection() throws InterruptedException {
+        return serviceConnectedLatch.await(5, TimeUnit.SECONDS);
+    }
 
     private static void setupHttpRequestHook() {
         try {
@@ -281,25 +325,20 @@ public class RequestHook {
     }
 
     private static void sendBroadcast(
-            String requestType, boolean shouldBlock, String blockType, String ruleUrl,
-            String url, RequestDetails details) {
+        String requestType, boolean shouldBlock, String blockType, String ruleUrl,
+        String url, RequestDetails details) {
         sendBlockedRequestBroadcast("all", requestType, shouldBlock, ruleUrl, blockType, url, details);
-        if (shouldBlock) {
-            sendBlockedRequestBroadcast("block", requestType, true, ruleUrl, blockType, url, details);
-        } else {
-            sendBlockedRequestBroadcast("pass", requestType, false, ruleUrl, blockType, url, details);
-        }
+        sendBlockedRequestBroadcast(shouldBlock ? "block" : "pass", requestType, shouldBlock, ruleUrl, blockType, url, details);
     }
 
     private static void sendBlockedRequestBroadcast(
-            String type, @Nullable String requestType, @Nullable Boolean isBlocked,
-            @Nullable String url, @Nullable String blockType, String request,
-            RequestDetails details) {
+        String type, @Nullable String requestType, @Nullable Boolean isBlocked,
+        @Nullable String url, @Nullable String blockType, String request,
+        RequestDetails details) {
         Intent intent = new Intent("com.rikkati.REQUEST");
 
-        Context currentContext = ContextUtil.appContext;
-        if (currentContext != null) {
-            AppInfo appInfo = new AppInfo("AppName", currentContext.getPackageName(), null, "1.0", 1, 0L, 0L, 0L, 0, 0, 1, 1);
+        try {
+            AppInfo appInfo = new AppInfo("AppName", APP_CONTEXT.getPackageName(), null, "1.0", 1, 0L, 0L, 0L, 0, 0, 1, 1);
             String appName = appInfo.getAppName() + requestType;
             String packageName = appInfo.getPackageName();
 
@@ -314,27 +353,27 @@ public class RequestHook {
             String stackTrace = details != null ? details.getStack() : null;
 
             blockedRequest = new BlockedRequest(
-                    appName,
-                    packageName,
-                    request,
-                    System.currentTimeMillis(),
-                    type,
-                    isBlocked,
-                    url,
-                    blockType,
-                    method,
-                    urlString,
-                    requestHeaders,
-                    responseCode,
-                    responseMessage,
-                    responseHeaders,
-                    stackTrace
+                appName,
+                packageName,
+                request,
+                System.currentTimeMillis(),
+                type,
+                isBlocked,
+                url,
+                blockType,
+                method,
+                urlString,
+                requestHeaders,
+                responseCode,
+                responseMessage,
+                responseHeaders,
+                stackTrace
             );
 
             intent.putExtra("request", blockedRequest);
-            currentContext.sendBroadcast(intent);
-        } else {
-            Log.w("RequestHook", "sendBlockedRequestBroadcast: currentContext is null");
+            APP_CONTEXT.sendBroadcast(intent);
+        } catch (Exception e) {
+            Log.w("RequestHook", "sendBlockedRequestBroadcast: Error broadcasting request", e);
         }
     }
 }
