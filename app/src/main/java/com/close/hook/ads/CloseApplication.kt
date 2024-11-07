@@ -2,6 +2,7 @@ package com.close.hook.ads
 
 import android.app.Application
 import androidx.appcompat.app.AppCompatDelegate
+import com.close.hook.ads.hook.gc.network.RequestHook
 import com.close.hook.ads.util.PrefManager
 import com.close.hook.ads.util.PrefManager.darkTheme
 import com.microsoft.appcenter.AppCenter
@@ -26,11 +27,12 @@ class CloseApplication : Application() {
 
         AppCompatDelegate.setDefaultNightMode(darkTheme)
 
-        LocaleDelegate.defaultLocale = getLocale(PrefManager.language)
-        val config = resources.configuration
-        config.setLocale(LocaleDelegate.defaultLocale)
-        createConfigurationContext(config)
+        applyLocale(PrefManager.language)
+    }
 
+    override fun onTerminate() {
+        super.onTerminate()
+        RequestHook.unbindService(this)
     }
 
     fun getLocale(tag: String): Locale {
@@ -38,5 +40,10 @@ class CloseApplication : Application() {
         else Locale.forLanguageTag(tag)
     }
 
-
+    private fun applyLocale(languageTag: String) {
+        LocaleDelegate.defaultLocale = getLocale(languageTag)
+        val config = resources.configuration
+        config.setLocale(LocaleDelegate.defaultLocale)
+        createConfigurationContext(config)
+    }
 }
