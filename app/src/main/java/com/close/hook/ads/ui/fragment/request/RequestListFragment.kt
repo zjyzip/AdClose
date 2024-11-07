@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
@@ -34,6 +35,7 @@ import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
+import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
@@ -73,6 +75,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             factory = UrlViewModelFactory(requireContext())
         )[BlockListViewModel::class.java]
     }
+    private val appsViewModel by viewModels<AppsViewModel>(ownerProducer = { requireActivity() })
     private lateinit var mAdapter: BlockedRequestsAdapter
     private val footerAdapter = FooterAdapter()
     private lateinit var type: String
@@ -125,7 +128,9 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun initView() {
-        mAdapter = BlockedRequestsAdapter(viewModel.dataSource)
+        mAdapter = BlockedRequestsAdapter(viewModel.dataSource) { packageName ->
+            appsViewModel.appsLiveData.value?.find { it.packageName == packageName }?.appIcon
+        }
 
         binding.recyclerView.apply {
             adapter = ConcatAdapter(mAdapter)
