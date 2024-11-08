@@ -135,6 +135,7 @@ object SDKAdsKit {
         findAndHookMethod(
             BaseBundle::class.java,
             "get",
+            arrayOf(String::class.java),
             "after",
             { param ->
                 val key = param.args[0] as String
@@ -142,8 +143,7 @@ object SDKAdsKit {
                     val newValue = "ca-app-pub-0000000000000000~0000000000"
                     param.result = newValue
                 }
-            },
-            String::class.java
+            }
         )
     }
 
