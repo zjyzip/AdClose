@@ -72,12 +72,11 @@ public class RequestHook {
         }
 
         Completable.fromAction(() -> {
-                bindService(APP_CONTEXT); 
+                bindService(APP_CONTEXT);
                 if (!awaitServiceConnection() && !isBound.get()) {
-                    XposedBridge.log(LOG_PREFIX + "Initial connection attempt failed, waiting briefly to retry.");
-                    Thread.sleep(2000);
-                    if (!awaitServiceConnection()) { 
-                        throw new IllegalStateException("Service connection timed out.");
+                    XposedBridge.log(LOG_PREFIX + "Initial connection attempt timed out, retrying connection.");
+                    if (!awaitServiceConnection()) {
+                        throw new IllegalStateException("Service connection timed out after retry.");
                     }
                 }
             })
@@ -87,6 +86,10 @@ public class RequestHook {
                 () -> XposedBridge.log(LOG_PREFIX + "Service connected successfully"),
                 throwable -> XposedBridge.log(LOG_PREFIX + "Error connecting service: " + throwable.getMessage())
             );
+    }
+
+    private static boolean awaitServiceConnection() throws InterruptedException {
+        return serviceConnectedLatch.await(5, TimeUnit.SECONDS);
     }
 
     private static void setupDNSRequestHook() {
@@ -149,10 +152,6 @@ public class RequestHook {
             XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
             return null;
         }
-    }
-
-    private static boolean awaitServiceConnection() throws InterruptedException {
-        return serviceConnectedLatch.await(5, TimeUnit.SECONDS);
     }
 
     public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
