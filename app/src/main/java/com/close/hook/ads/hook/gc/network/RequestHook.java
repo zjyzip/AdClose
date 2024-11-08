@@ -12,7 +12,6 @@ import androidx.annotation.Nullable;
 
 import com.close.hook.ads.BlockedBean;
 import com.close.hook.ads.IBlockedStatusProvider;
-import com.close.hook.ads.data.model.AppInfo;
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
 import com.close.hook.ads.hook.util.ContextUtil;
@@ -40,6 +39,9 @@ import kotlin.Triple;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
+
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
     private static final Context APP_CONTEXT = ContextUtil.appContext;
@@ -54,7 +56,7 @@ public class RequestHook {
 
     public static void init() {
         try {
-            bindService(APP_CONTEXT);
+            bindServiceWithRxJava();
             setupDNSRequestHook();
             setupHttpRequestHook();
             setupOkHttpRequestHook();
@@ -63,31 +65,54 @@ public class RequestHook {
         }
     }
 
+    private static void bindServiceWithRxJava() {
+        if (isBound.get()) {
+            XposedBridge.log(LOG_PREFIX + "Service already bound, skipping bindServiceWithRxJava.");
+            return;
+        }
+    
+        Completable.fromAction(() -> {
+                bindService(APP_CONTEXT);
+                if (!awaitServiceConnection()) {
+                    throw new IllegalStateException("Service connection timed out.");
+                }
+            })
+            .retryWhen(errors -> 
+                errors.take(3).delay(2, TimeUnit.SECONDS) // 尝试重试绑定，最多重试3次，每次间隔2秒
+            )
+            .subscribeOn(Schedulers.io())
+            .observeOn(Schedulers.io())
+            .subscribe(
+                () -> XposedBridge.log(LOG_PREFIX + "Service connected successfully"),
+                throwable -> XposedBridge.log(LOG_PREFIX + "Error connecting service after retries: " + throwable.getMessage())
+            );
+    }
+
     private static void setupDNSRequestHook() {
         HookUtil.findAndHookMethod(
             InetAddress.class,
             "getByName",
+            new Object[]{String.class},
             "before",
             param -> {
                 String host = (String) param.args[0];
                 if (host != null && shouldBlockDnsRequest(host)) {
                     param.setResult(null);
                 }
-            },
-            String.class
+            }
         );
 
         HookUtil.findAndHookMethod(
             InetAddress.class,
             "getAllByName",
+            new Object[]{String.class},
             "before",
             param -> {
                 String host = (String) param.args[0];
                 if (host != null && shouldBlockDnsRequest(host)) {
                     param.setResult(new InetAddress[0]);
                 }
-            },
-            String.class
+            }
         );
     }
 
@@ -123,6 +148,10 @@ public class RequestHook {
             XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
             return null;
         }
+    }
+
+    private static boolean awaitServiceConnection() throws InterruptedException {
+        return serviceConnectedLatch.await(5, TimeUnit.SECONDS);
     }
 
     public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
@@ -192,10 +221,6 @@ public class RequestHook {
             serviceConnectedLatch.countDown();
         }
     };
-
-    private static boolean awaitServiceConnection() throws InterruptedException {
-        return serviceConnectedLatch.await(5, TimeUnit.SECONDS);
-    }
 
     private static void setupHttpRequestHook() {
         try {
@@ -338,6 +363,10 @@ public class RequestHook {
         Intent intent = new Intent("com.rikkati.REQUEST");
 
         try {
+
+            String appName =APP_CONTEXT.getApplicationInfo().loadLabel(APP_CONTEXT.getPackageManager()).toString() + requestType;
+            String packageName = APP_CONTEXT.getPackageName();
+
             BlockedRequest blockedRequest;
 
             String method = details != null ? details.getMethod() : null;
@@ -349,8 +378,8 @@ public class RequestHook {
             String stackTrace = details != null ? details.getStack() : null;
 
             blockedRequest = new BlockedRequest(
-                APP_CONTEXT.getApplicationInfo().loadLabel(APP_CONTEXT.getPackageManager()).toString(),
-                APP_CONTEXT.getPackageName(),
+                appName,
+                packageName,
                 request,
                 System.currentTimeMillis(),
                 type,

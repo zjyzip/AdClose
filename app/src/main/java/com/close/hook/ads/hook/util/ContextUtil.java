@@ -68,34 +68,34 @@ public class ContextUtil {
         HookUtil.findAndHookMethod(
             Application.class,
             "attach",
+            new Object[]{Context.class},
             "after",
             param -> {
                 appContext = (Context) param.args[0];
                 triggerCallbacksIfInitialized(appContext, isAppContextInitialized, appContextCallbacks);
-            },
-            Context.class
+            }
         );
 
         HookUtil.findAndHookMethod(
             Instrumentation.class,
             "callApplicationOnCreate",
+            new Object[]{Application.class},
             "after",
             param -> {
                 instrumentationContext = (Application) param.args[0];
                 triggerCallbacksIfInitialized(instrumentationContext, isInstrumentationContextInitialized, instrumentationContextCallbacks);
-            },
-            Application.class
+            }
         );
 
         HookUtil.findAndHookMethod(
             ContextWrapper.class,
             "attachBaseContext",
+            new Object[]{Context.class},
             "after",
             param -> {
                 contextWrapperContext = (Context) param.args[0];
                 triggerCallbacksIfInitialized(contextWrapperContext, isContextWrapperContextInitialized, contextWrapperContextCallbacks);
-            },
-            Context.class
+            }
         );
     }
 

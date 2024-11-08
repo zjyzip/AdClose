@@ -54,6 +54,7 @@ materialThemeBuilder {
 android {
     namespace = "com.close.hook.ads"
     compileSdk = 34
+    buildToolsVersion = "34.0.4"
 
     signingConfigs {
         create("keyStore") {
@@ -71,7 +72,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = calculateVersionCode()
-        versionName = "1.0.0"
+        versionName = "2.1.2"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -94,7 +95,7 @@ android {
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -136,30 +137,30 @@ configurations.configureEach {
 }
 
 dependencies {
-    compileOnly("de.robv.android.xposed:api:82")
-    implementation("org.luckypray:dexkit:2.0.2")
+    compileOnly(libs.xposedApi)
+    implementation(libs.dexkit)
 
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.recyclerview:recyclerview-selection:1.1.0")
-    implementation("androidx.room:room-runtime:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    runtimeOnly("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
-    implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation(libs.appcompat)
+    implementation(libs.preferenceKtx)
+    implementation(libs.constraintLayout)
+    implementation(libs.recyclerviewSelection)
+    implementation(libs.roomRuntime)
+    ksp(libs.roomCompiler)
+    implementation(libs.roomKtx)
+    runtimeOnly(libs.lifecycleLiveDataKtx)
+    implementation(libs.fragmentKtx)
 
-    implementation("com.google.android.material:material:1.10.0")
-    implementation("com.drakeet.about:about:2.5.2")
-    implementation("me.zhanghai.android.fastscroll:library:1.3.0")
-    implementation("dev.rikka.rikkax.material:material:2.7.0")
-    implementation("dev.rikka.rikkax.material:material-preference:2.0.0")
+    implementation(libs.material)
+    implementation(libs.about)
+    implementation(libs.fastscroll)
+    implementation(libs.rikkaMaterial)
+    implementation(libs.rikkaMaterialPreference)
 
-    implementation("com.google.code.gson:gson:2.10.1")
-    implementation("com.google.guava:guava:33.1.0-jre")
-    implementation("com.github.bumptech.glide:glide:4.16.0")
-    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
-    implementation("com.microsoft.appcenter:appcenter-analytics:5.0.4")
-    implementation("com.microsoft.appcenter:appcenter-crashes:5.0.4")
-    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.13")
+    implementation(libs.rxjava3)
+    implementation(libs.gson)
+    implementation(libs.guava)
+    implementation(libs.glide)
+    annotationProcessor(libs.glideCompiler)
+    implementation(libs.appcenterAnalytics)
+    implementation(libs.appcenterCrashes)
 }
