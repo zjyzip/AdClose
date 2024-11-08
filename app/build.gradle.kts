@@ -54,7 +54,6 @@ materialThemeBuilder {
 android {
     namespace = "com.close.hook.ads"
     compileSdk = 34
-    buildToolsVersion = "34.0.4"
 
     signingConfigs {
         create("keyStore") {
@@ -72,7 +71,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = calculateVersionCode()
-        versionName = "2.1.2"
+        versionName = "1.0.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -95,7 +94,7 @@ android {
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
