@@ -70,21 +70,22 @@ public class RequestHook {
             XposedBridge.log(LOG_PREFIX + "Service already bound, skipping bindServiceWithRxJava.");
             return;
         }
-    
+
         Completable.fromAction(() -> {
-                bindService(APP_CONTEXT);
-                if (!awaitServiceConnection()) {
-                    throw new IllegalStateException("Service connection timed out.");
+                bindService(APP_CONTEXT); 
+                if (!awaitServiceConnection() && !isBound.get()) {
+                    XposedBridge.log(LOG_PREFIX + "Initial connection attempt failed, waiting briefly to retry.");
+                    Thread.sleep(2000);
+                    if (!awaitServiceConnection()) { 
+                        throw new IllegalStateException("Service connection timed out.");
+                    }
                 }
             })
-            .retryWhen(errors -> 
-                errors.take(3).delay(2, TimeUnit.SECONDS) // 尝试重试绑定，最多重试3次，每次间隔2秒
-            )
             .subscribeOn(Schedulers.io())
             .observeOn(Schedulers.io())
             .subscribe(
                 () -> XposedBridge.log(LOG_PREFIX + "Service connected successfully"),
-                throwable -> XposedBridge.log(LOG_PREFIX + "Error connecting service after retries: " + throwable.getMessage())
+                throwable -> XposedBridge.log(LOG_PREFIX + "Error connecting service: " + throwable.getMessage())
             );
     }
 
@@ -178,6 +179,8 @@ public class RequestHook {
             } else {
                 Log.e(LOG_PREFIX, "mStub is still null after waiting for service connection.");
             }
+        } catch (SecurityException e) {
+            Log.e(LOG_PREFIX, "SecurityException: Permission issue with URI - " + e.getMessage());
         } catch (RemoteException e) {
             Log.e(LOG_PREFIX, "RemoteException during service communication", e);
         } catch (InterruptedException e) {
