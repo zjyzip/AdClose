@@ -41,15 +41,7 @@ class AidlService : Service() {
 
     private fun startServiceForeground() {
         val channelID = "com.close.hook.ads.service"
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelID,
-                "AIDL Service Channel",
-                NotificationManager.IMPORTANCE_HIGH
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
+        createNotificationChannel(channelID)
 
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -67,18 +59,23 @@ class AidlService : Service() {
             .setAutoCancel(false)
             .build()
 
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                ContextCompat.startForegroundService(this, Intent(this, AidlService::class.java))
-                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-            }
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-            }
-            else -> {
-                startForeground(1, notification)
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.startForegroundService(this, Intent(this, AidlService::class.java))
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(1, notification)
+        }
+    }
+
+    private fun createNotificationChannel(channelID: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = NotificationChannel(
+                channelID,
+                "AIDL Service Channel",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            notificationManager.createNotificationChannel(channel)
         }
     }
 }
-
