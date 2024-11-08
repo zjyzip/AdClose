@@ -102,14 +102,15 @@ public class HideVPNStatus {
 
         HookUtil.hookAllMethods(NetworkInterface.class, "isUp", "before", param -> {
             NetworkInterface networkInterface = (NetworkInterface) param.thisObject;
-            if (VPN_INTERFACE.matcher(networkInterface.getName()).matches()) {
+            String interfaceName = networkInterface.getName();
+            if (interfaceName != null && VPN_INTERFACE.matcher(interfaceName).matches()) {
                 param.setResult(false);
             }
         });
 
         HookUtil.hookAllMethods(NetworkInterface.class, "getName", "before", param -> {
             String originalName = (String) param.getResult();
-            if (VPN_INTERFACE.matcher(originalName).matches()) {
+            if (originalName != null && VPN_INTERFACE.matcher(originalName).matches()) {
                 param.setResult(getRandomString(originalName.length()));
             }
         });
