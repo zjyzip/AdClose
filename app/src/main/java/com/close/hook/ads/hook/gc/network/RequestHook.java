@@ -47,7 +47,7 @@ public class RequestHook {
     private static final Context APP_CONTEXT = ContextUtil.appContext;
     private static IBlockedStatusProvider mStub;
     private static final AtomicBoolean isBound = new AtomicBoolean(false);
-    private static final CountDownLatch serviceConnectedLatch = new CountDownLatch(1);
+    private static volatile CountDownLatch serviceConnectedLatch = createNewLatch();
 
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
         .maximumSize(12948)
@@ -67,17 +67,16 @@ public class RequestHook {
 
     private static void bindServiceWithRxJava() {
         if (isBound.get()) {
-            XposedBridge.log(LOG_PREFIX + "Service already bound, skipping bindServiceWithRxJava.");
+            XposedBridge.log(LOG_PREFIX + "Service already bound, skipping bindServiceWithRetry.");
             return;
         }
 
+        resetLatchIfNeeded();
+
         Completable.fromAction(() -> {
                 bindService(APP_CONTEXT);
-                if (!awaitServiceConnection() && !isBound.get()) {
-                    XposedBridge.log(LOG_PREFIX + "Initial connection attempt timed out, retrying connection.");
-                    if (!awaitServiceConnection()) {
-                        throw new IllegalStateException("Service connection timed out after retry.");
-                    }
+                if (!awaitServiceConnection()) {
+                    retryBindService();
                 }
             })
             .subscribeOn(Schedulers.io())
@@ -86,6 +85,34 @@ public class RequestHook {
                 () -> XposedBridge.log(LOG_PREFIX + "Service connected successfully"),
                 throwable -> XposedBridge.log(LOG_PREFIX + "Error connecting service: " + throwable.getMessage())
             );
+    }
+
+    private static void retryBindService() {
+        Completable.timer(2, TimeUnit.SECONDS, Schedulers.io())
+            .andThen(Completable.fromAction(() -> {
+                resetLatchIfNeeded();
+                bindService(APP_CONTEXT);
+                if (!awaitServiceConnection()) {
+                    XposedBridge.log(LOG_PREFIX + "Retrying service connection...");
+                }
+            }))
+            .retry(3)
+            .subscribe(
+                () -> XposedBridge.log(LOG_PREFIX + "Service reconnected successfully"),
+                throwable -> XposedBridge.log(LOG_PREFIX + "Error reconnecting service: " + throwable.getMessage())
+            );
+    }
+
+    private static void resetLatchIfNeeded() {
+        synchronized (RequestHook.class) {
+            if (serviceConnectedLatch.getCount() == 0) {
+                serviceConnectedLatch = createNewLatch();
+            }
+        }
+    }
+
+    private static CountDownLatch createNewLatch() {
+        return new CountDownLatch(1);
     }
 
     private static boolean awaitServiceConnection() throws InterruptedException {
@@ -197,6 +224,7 @@ public class RequestHook {
             boolean successful = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
             if (!successful) {
                 isBound.set(false);
+                XposedBridge.log(LOG_PREFIX + "Service binding failed.");
             }
         }
     }
@@ -205,6 +233,7 @@ public class RequestHook {
         if (isBound.compareAndSet(true, false)) {
             context.unbindService(serviceConnection);
             mStub = null;
+            resetLatchIfNeeded();
         }
     }
 
@@ -220,7 +249,8 @@ public class RequestHook {
         public void onServiceDisconnected(ComponentName name) {
             mStub = null;
             isBound.set(false);
-            serviceConnectedLatch.countDown();
+            resetLatchIfNeeded();
+            XposedBridge.log(LOG_PREFIX + "Service disconnected.");
         }
     };
 
