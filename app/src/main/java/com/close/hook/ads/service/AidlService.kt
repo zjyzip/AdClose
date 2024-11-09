@@ -10,7 +10,6 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import com.close.hook.ads.R
 import com.close.hook.ads.BlockedBean
 import com.close.hook.ads.IBlockedStatusProvider
@@ -31,7 +30,17 @@ class AidlService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        val serviceIntent = Intent(this, AidlService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startServiceForeground()
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -60,7 +69,6 @@ class AidlService : Service() {
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ContextCompat.startForegroundService(this, Intent(this, AidlService::class.java))
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
             startForeground(1, notification)
