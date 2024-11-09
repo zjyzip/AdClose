@@ -1,22 +1,21 @@
 package com.close.hook.ads.hook.gc.network;
 
-import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
-import android.os.IBinder;
-import android.os.RemoteException;
+import android.database.Cursor;
+import android.net.Uri;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.close.hook.ads.BlockedBean;
-import com.close.hook.ads.IBlockedStatusProvider;
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
+import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
+import com.close.hook.ads.provider.UrlContentProvider;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -30,24 +29,16 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import kotlin.Triple;
 
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
-import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.schedulers.Schedulers;
-
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
     private static final Context APP_CONTEXT = ContextUtil.appContext;
-    private static IBlockedStatusProvider mStub;
-    private static final AtomicBoolean isBound = new AtomicBoolean(false);
-    private static volatile CountDownLatch serviceConnectedLatch = createNewLatch();
 
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
         .maximumSize(12948)
@@ -56,67 +47,12 @@ public class RequestHook {
 
     public static void init() {
         try {
-            bindServiceWithRxJava();
             setupDNSRequestHook();
             setupHttpRequestHook();
             setupOkHttpRequestHook();
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
-    }
-
-    private static void bindServiceWithRxJava() {
-        if (isBound.get()) {
-            XposedBridge.log(LOG_PREFIX + "Service already bound, skipping bindServiceWithRetry.");
-            return;
-        }
-
-        resetLatchIfNeeded();
-
-        Completable.fromAction(() -> {
-                bindService(APP_CONTEXT);
-                if (!awaitServiceConnection()) {
-                    retryBindService();
-                }
-            })
-            .subscribeOn(Schedulers.io())
-            .observeOn(Schedulers.io())
-            .subscribe(
-                () -> XposedBridge.log(LOG_PREFIX + "Service connected successfully"),
-                throwable -> XposedBridge.log(LOG_PREFIX + "Error connecting service: " + throwable.getMessage())
-            );
-    }
-
-    private static void retryBindService() {
-        Completable.timer(2, TimeUnit.SECONDS, Schedulers.io())
-            .andThen(Completable.fromAction(() -> {
-                resetLatchIfNeeded();
-                bindService(APP_CONTEXT);
-                if (!awaitServiceConnection()) {
-                    XposedBridge.log(LOG_PREFIX + "Retrying service connection...");
-                }
-            }))
-            .retry(3)
-            .subscribe(
-                () -> XposedBridge.log(LOG_PREFIX + "Service reconnected successfully"),
-                throwable -> XposedBridge.log(LOG_PREFIX + "Error reconnecting service: " + throwable.getMessage())
-            );
-    }
-
-    private static void resetLatchIfNeeded() {
-        synchronized (RequestHook.class) {
-            if (serviceConnectedLatch.getCount() == 0) {
-                serviceConnectedLatch = createNewLatch();
-            }
-        }
-    }
-
-    private static CountDownLatch createNewLatch() {
-        return new CountDownLatch(1);
-    }
-
-    private static boolean awaitServiceConnection() throws InterruptedException {
-        return serviceConnectedLatch.await(5, TimeUnit.SECONDS);
     }
 
     private static void setupDNSRequestHook() {
@@ -181,78 +117,35 @@ public class RequestHook {
         }
     }
 
-    public static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
+    private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         String cacheKey = queryType + ":" + queryValue;
-
-        Triple<Boolean, String, String> cachedResult = queryCache.getIfPresent(cacheKey);
-        if (cachedResult != null) {
-            return cachedResult;
+        Triple<Boolean, String, String> result = queryCache.getIfPresent(cacheKey);
+        if (result != null) {
+            return result;
         }
 
-        try {
-            if (mStub == null && !awaitServiceConnection()) {
-                Log.e(LOG_PREFIX, "Service is not connected, returning default value.");
-                return new Triple<>(false, null, null);
-            }
+        ContentResolver contentResolver = APP_CONTEXT.getContentResolver();
+        Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
+        String[] projection = {Url.URL_TYPE, Url.URL_ADDRESS};
+        String[] selectionArgs = {queryType, queryValue};
 
-            if (mStub != null) {
-                BlockedBean blockedBean = mStub.getData(queryType.replace("host", "Domain").replace("url", "URL"), queryValue);
-                Triple<Boolean, String, String> result = new Triple<>(blockedBean.isBlocked(), blockedBean.getType(), blockedBean.getValue());
+        try (Cursor cursor = contentResolver.query(uri, projection, null, selectionArgs, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                String urlType = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_TYPE));
+                String urlValue = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_ADDRESS));
 
+                result = new Triple<>(true, urlType, urlValue);
                 queryCache.put(cacheKey, result);
-
                 return result;
-            } else {
-                Log.e(LOG_PREFIX, "mStub is still null after waiting for service connection.");
             }
-        } catch (SecurityException e) {
-            Log.e(LOG_PREFIX, "SecurityException: Permission issue with URI - " + e.getMessage());
-        } catch (RemoteException e) {
-            Log.e(LOG_PREFIX, "RemoteException during service communication", e);
-        } catch (InterruptedException e) {
-            Log.e(LOG_PREFIX, "InterruptedException during service connection wait", e);
-            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        return new Triple<>(false, null, null);
+        result = new Triple<>(false, null, null);
+        queryCache.put(cacheKey, result);
+        return result;
     }
-
-    private static void bindService(Context context) {
-        if (isBound.compareAndSet(false, true)) {
-            Intent intent = new Intent();
-            intent.setClassName("com.close.hook.ads", "com.close.hook.ads.service.AidlService");
-            boolean successful = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-            if (!successful) {
-                isBound.set(false);
-                XposedBridge.log(LOG_PREFIX + "Service binding failed.");
-            }
-        }
-    }
-
-    public static void unbindService(Context context) {
-        if (isBound.compareAndSet(true, false)) {
-            context.unbindService(serviceConnection);
-            mStub = null;
-            resetLatchIfNeeded();
-        }
-    }
-
-    private static final ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            mStub = IBlockedStatusProvider.Stub.asInterface(service);
-            isBound.set(true);
-            serviceConnectedLatch.countDown();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            mStub = null;
-            isBound.set(false);
-            resetLatchIfNeeded();
-            XposedBridge.log(LOG_PREFIX + "Service disconnected.");
-        }
-    };
 
     private static void setupHttpRequestHook() {
         try {

@@ -1,11 +1,10 @@
 package com.close.hook.ads.ui.adapter
 
-import android.app.Activity
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -13,36 +12,47 @@ import com.bumptech.glide.request.RequestOptions
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.databinding.InstallsItemAppBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class AppsAdapter(
-    context: Context,
+    private val context: Context,
     private val onItemClickListener: OnItemClickListener
-) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
+) : RecyclerView.Adapter<AppsAdapter.AppViewHolder>() {
+
+    private val differ = AsyncListDiffer(this, DIFF_CALLBACK)
 
     private val requestOptions = RequestOptions()
         .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
         .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
 
+    fun submitList(list: List<AppInfo>) {
+        differ.submitList(list)
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
-        val binding =
-            InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return AppViewHolder(binding, onItemClickListener, requestOptions)
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val appInfo = differ.currentList[position]
+        holder.bind(appInfo)
+
+        if (position < differ.currentList.size - 1) {
+            Glide.with(context)
+                .load(differ.currentList[position + 1].appIcon)
+                .apply(requestOptions)
+                .preload()
+        }
     }
 
-    override fun onViewRecycled(holder: AppViewHolder) {
-        val context = holder.binding.appIcon.context
-        if (context is Activity && !context.isDestroyed) {
-            holder.clearImage()
-        }
-        super.onViewRecycled(holder)
-    }
+    override fun getItemCount(): Int = differ.currentList.size
 
     class AppViewHolder(
-        val binding: InstallsItemAppBinding,
+        private val binding: InstallsItemAppBinding,
         private val onItemClickListener: OnItemClickListener,
         private val requestOptions: RequestOptions
     ) : RecyclerView.ViewHolder(binding.root) {
@@ -50,39 +60,31 @@ class AppsAdapter(
         private lateinit var appInfo: AppInfo
 
         init {
-            with(binding.root) {
-                setOnClickListener {
-                    if (::appInfo.isInitialized) {
-                        onItemClickListener.onItemClick(appInfo)
-                    }
-                }
-                setOnLongClickListener {
-                    if (::appInfo.isInitialized) {
-                        onItemClickListener.onItemLongClick(appInfo)
-                    }
-                    true
-                }
+            binding.root.setOnClickListener {
+                if (::appInfo.isInitialized) onItemClickListener.onItemClick(appInfo)
+            }
+            binding.root.setOnLongClickListener {
+                if (::appInfo.isInitialized) onItemClickListener.onItemLongClick(appInfo)
+                true
             }
         }
 
         fun bind(appInfo: AppInfo) {
             this.appInfo = appInfo
-            with(binding) {
-                appName.text = appInfo.appName
-                packageName.text = appInfo.packageName
-                appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
+            binding.appName.text = appInfo.appName
+            binding.packageName.text = appInfo.packageName
+            binding.appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
 
-                Glide.with(appIcon.context)
+            CoroutineScope(Dispatchers.IO).launch {
+                val drawable = Glide.with(binding.appIcon.context)
                     .load(appInfo.appIcon)
                     .apply(requestOptions)
-                    .into(appIcon)
-            }
-        }
+                    .submit()
+                    .get()
 
-        fun clearImage() {
-            val context = binding.appIcon.context
-            if (context is Activity && !context.isDestroyed) {
-                Glide.with(context).clear(binding.appIcon)
+                withContext(Dispatchers.Main) {
+                    binding.appIcon.setImageDrawable(drawable)
+                }
             }
         }
     }
@@ -98,10 +100,7 @@ class AppsAdapter(
                 oldItem.packageName == newItem.packageName
 
             override fun areContentsTheSame(oldItem: AppInfo, newItem: AppInfo): Boolean =
-                oldItem.packageName == newItem.packageName &&
-                oldItem.versionCode == newItem.versionCode &&
-                oldItem.appName == newItem.appName &&
-                oldItem.versionName == newItem.versionName
+                oldItem == newItem
         }
     }
 }

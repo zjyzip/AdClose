@@ -107,17 +107,7 @@ android {
         }
     }
 
-    sourceSets {
-        getByName("main") {
-            java.srcDirs("src/main/java", "src/main/aidl")
-            aidl.srcDirs("src/main/aidl")
-            assets.srcDirs("src/main/assets")
-            res.srcDirs("src/main/res")
-        }
-    }
-
     buildFeatures {
-        aidl = true
         viewBinding = true
         buildConfig = true
     }
@@ -155,7 +145,6 @@ dependencies {
     implementation(libs.rikkaMaterial)
     implementation(libs.rikkaMaterialPreference)
 
-    implementation(libs.rxjava3)
     implementation(libs.gson)
     implementation(libs.guava)
     implementation(libs.glide)

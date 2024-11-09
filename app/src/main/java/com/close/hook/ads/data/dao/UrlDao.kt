@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.flow.Flow
+
 @Dao
 interface UrlDao {
 
@@ -33,10 +34,10 @@ interface UrlDao {
     fun searchUrls(searchText: String): Flow<List<Url>>
 
     @Query("SELECT * FROM url_info WHERE url = :url LIMIT 1")
-    fun findExactMatch(url: String): Url?
+    fun findExactMatchCursor(url: String): Cursor
 
     @Query("SELECT * FROM url_info WHERE :url LIKE '%' || url || '%' LIMIT 1")
-    fun findPartialMatch(url: String): Url?
+    fun findPartialMatchCursor(url: String): Cursor
 
     @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")
     fun isExist(url: String): Boolean
@@ -45,15 +46,14 @@ interface UrlDao {
     fun isExist(type: String, url:String): Boolean
 
     @Delete
-    fun deleteList(list:List<Url>)
+    fun deleteList(list: List<Url>)
 
     @Delete
     fun deleteUrl(url: Url)
 
     @Query("DELETE FROM url_info WHERE type = :type AND url = :url")
-    fun deleteUrlString(type: String, url:String)
+    fun deleteUrlString(type: String, url: String)
 
     @Query("DELETE FROM url_info")
     fun deleteAll()
-
 }
