@@ -3,8 +3,8 @@ package com.close.hook.ads.data.model
 import android.os.Parcel
 import android.os.Parcelable
 import androidx.room.ColumnInfo
-import androidx.room.Index
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
@@ -15,7 +15,6 @@ import androidx.room.PrimaryKey
     ]
 )
 data class Url(
-
     @ColumnInfo(name = "type") // domain, url, keyword
     var type: String,
 
@@ -26,16 +25,6 @@ data class Url(
 
     @PrimaryKey(autoGenerate = true)
     var id: Long = 0
-
-    companion object CREATOR : Parcelable.Creator<Url> {
-        override fun createFromParcel(parcel: Parcel): Url {
-            return Url(parcel)
-        }
-
-        override fun newArray(size: Int): Array<Url?> {
-            return arrayOfNulls(size)
-        }
-    }
 
     constructor(parcel: Parcel) : this(
         parcel.readString() ?: "",
@@ -52,5 +41,21 @@ data class Url(
         dest.writeString(type)
         dest.writeString(url)
         dest.writeLong(id)
+    }
+
+    companion object {
+        const val URL_TYPE = "type"
+        const val URL_ADDRESS = "url"
+        
+        @JvmField
+        val CREATOR = object : Parcelable.Creator<Url> {
+            override fun createFromParcel(parcel: Parcel): Url {
+                return Url(parcel)
+            }
+
+            override fun newArray(size: Int): Array<Url?> {
+                return arrayOfNulls(size)
+            }
+        }
     }
 }

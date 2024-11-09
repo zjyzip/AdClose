@@ -243,7 +243,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         mAdapter = AppsAdapter(requireContext(), this)
         binding.recyclerView.apply {
             setHasFixedSize(true)
-            setItemViewCacheSize(20)
+            setItemViewCacheSize(30)
             adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
 
@@ -276,25 +276,25 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private fun initObserve() {
         viewModel.appsLiveData.observe(viewLifecycleOwner) { list ->
-            mAdapter.submitList(list) {
-                binding.swipeRefresh.isRefreshing = false
-                binding.progressBar.isVisible = false
-                updateSearchHint(list.size)
+            mAdapter.submitList(list)
 
-                val adapter = binding.recyclerView.adapter as ConcatAdapter
-                if (list.isEmpty()) {
-                    if (adapter.adapters.contains(footerAdapter)) {
-                        adapter.removeAdapter(footerAdapter)
-                    }
-                } else {
-                    if (!adapter.adapters.contains(footerAdapter)) {
-                        adapter.addAdapter(footerAdapter)
-                    }
-                }
+            binding.swipeRefresh.isRefreshing = false
+            binding.progressBar.isVisible = false
+            updateSearchHint(list.size)
 
-                if (binding.vfContainer.displayedChild != list.size) {
-                    binding.vfContainer.displayedChild = list.size
+            val adapter = binding.recyclerView.adapter as ConcatAdapter
+            if (list.isEmpty()) {
+                if (adapter.adapters.contains(footerAdapter)) {
+                    adapter.removeAdapter(footerAdapter)
                 }
+            } else {
+                if (!adapter.adapters.contains(footerAdapter)) {
+                    adapter.addAdapter(footerAdapter)
+                }
+            }
+
+            if (binding.vfContainer.displayedChild != list.size) {
+                binding.vfContainer.displayedChild = list.size
             }
         }
     }

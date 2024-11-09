@@ -2,17 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-    <uses-permission
-        android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
 
     <permission
         android:name="com.close.hook.ads.READ_WRITE"
@@ -29,15 +22,11 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <service
-            android:name=".service.AidlService"
+        <provider
+            android:name=".provider.UrlContentProvider"
+            android:authorities="com.close.hook.ads.provider"
             android:enabled="true"
-            android:exported="true"
-            android:foregroundServiceType="dataSync">
-            <intent-filter>
-                <action android:name="com.close.hook.ads.service.AidlService" />
-            </intent-filter>
-        </service>
+            android:exported="true" />
 
         <activity
             android:name=".ui.activity.RequestInfoActivity"
@@ -47,13 +36,13 @@
             android:name=".ui.activity.AboutActivity"
             android:exported="false"
             android:theme="@style/AppTheme.About" />
+
         <activity
             android:name=".ui.activity.MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
         </activity>
@@ -65,14 +54,14 @@
             android:targetActivity=".ui.activity.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
 
         <activity
             android:name=".crash.activity.DefaultErrorActivity"
-            android:process=":error_activity" />
+            android:process=":error_activity"
+            android:exported="false" />
 
         <provider
             android:name=".crash.provider.CrashInitProvider"
