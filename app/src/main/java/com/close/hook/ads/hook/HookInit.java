@@ -37,30 +37,30 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     @SuppressLint("SuspiciousIndentation")
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
-        if (shouldIgnorePackage(lpparam)) {
-            return;
+        try {
+            if (shouldIgnorePackage(lpparam)) {
+                return;
+            }
+
+            if (TAG.equals(lpparam.packageName)) {
+                activateModule(lpparam);
+            }
+
+            PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
+            SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
+
+            applySettings(settingsManager);
+
+            ContextUtil.addOnAppContextInitializedCallback(() -> {
+                earlyHookComponents(ContextUtil.appContext, settingsManager);
+            });
+        } catch (Exception e) {
+            XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
         }
-
-        PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
-        SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
-
-        performHooking(lpparam, settingsManager);
-
-        ContextUtil.addOnAppContextInitializedCallback(() -> {
-            earlyHookComponents(ContextUtil.appContext, settingsManager);
-        });
     }
 
     private void activateModule(XC_LoadPackage.LoadPackageParam lpparam) {
         HookUtil.hookSingleMethod(lpparam.classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
-    }
-
-    private void performHooking(XC_LoadPackage.LoadPackageParam lpparam, SettingsManager settingsManager) {
-        if (TAG.equals(lpparam.packageName)) {
-            activateModule(lpparam);
-        }
-
-        applySettings(settingsManager);
     }
 
     private void applySettings(SettingsManager settingsManager) {
