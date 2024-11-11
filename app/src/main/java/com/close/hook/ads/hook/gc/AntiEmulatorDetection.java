@@ -6,9 +6,7 @@ import android.hardware.SensorManager;
 import android.os.Build;
 import android.telephony.TelephonyManager;
 import android.content.pm.PackageManager;
-import androidx.core.content.ContextCompat;
 import java.io.File;
-
 import java.lang.reflect.Constructor;
 
 import com.close.hook.ads.hook.util.HookUtil;
@@ -60,8 +58,9 @@ public class AntiEmulatorDetection {
             }
         });
 
-        HookUtil.hookAllMethods(ContextCompat.class, "checkSelfPermission", "before", param -> {
-            if ("android.permission.READ_PHONE_STATE".equals(param.args[0])) {
+        HookUtil.hookAllMethods("android.app.ApplicationPackageManager", "checkPermission", "before", param -> {
+            String permName = (String) param.args[0];
+            if ("android.permission.READ_PHONE_STATE".equals(permName)) {
                 param.setResult(PackageManager.PERMISSION_GRANTED);
             }
         });
