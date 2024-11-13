@@ -24,7 +24,6 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
 
         initToolBar()
         initInfo()
-
     }
 
     @SuppressLint("SetTextI18n", "RestrictedApi", "HardwareIds")
@@ -46,8 +45,8 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
             )
             statusIcon.setImageDrawable(statusIconDrawable)
 
-            statusTitle.text = if (isActivated) "已激活" else "未激活"
-            statusSummary.text = "版本: ${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})"
+            statusTitle.text = getString(if (isActivated) R.string.activated else R.string.not_activated)
+            statusSummary.text = getString(R.string.version_format, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
 
             androidVersionValue.text = Build.VERSION.RELEASE
             sdkVersionValue.text = Build.VERSION.SDK_INT.toString()
@@ -85,10 +84,8 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
                         )
                     )
                 }
-
                 return@setOnMenuItemClickListener true
             }
         }
     }
-
 }

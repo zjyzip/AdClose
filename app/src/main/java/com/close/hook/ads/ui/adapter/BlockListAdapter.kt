@@ -11,6 +11,7 @@ import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockListBinding
 import com.close.hook.ads.util.dp
@@ -19,8 +20,7 @@ class BlockListAdapter(
     private val context: Context,
     private val onRemoveUrl: (Url) -> Unit,
     private val onEditUrl: (Url) -> Unit
-) :
-    ListAdapter<Url, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
+) : ListAdapter<Url, BlockListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<Url>? = null
 
@@ -49,19 +49,25 @@ class BlockListAdapter(
             }
 
         init {
-            binding.edit.setOnClickListener {
-                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
-                    onEditUrl(currentList[it])
+            setupListeners()
+        }
+
+        private fun setupListeners() {
+            binding.apply {
+                edit.setOnClickListener {
+                    bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
+                        onEditUrl(currentList[it])
+                    }
                 }
-            }
-            binding.delete.setOnClickListener {
-                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
-                    onRemoveUrl(currentList[it])
+                delete.setOnClickListener {
+                    bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
+                        onRemoveUrl(currentList[it])
+                    }
                 }
-            }
-            binding.cardView.setOnClickListener {
-                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
-                    copyToClipboard(binding.type.text.toString(), binding.url.text.toString())
+                cardView.setOnClickListener {
+                    bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
+                        copyToClipboard(binding.type.text.toString(), binding.url.text.toString())
+                    }
                 }
             }
         }
@@ -69,21 +75,19 @@ class BlockListAdapter(
         fun bind(item: Url, isSelected: Boolean) {
             with(binding) {
                 url.text = item.url
-                type.text =
-                    item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                type.text = item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                 cardView.isChecked = isSelected
                 container.setPadding(16.dp, 12.dp, if (isSelected) 35.dp else 16.dp, 12.dp)
             }
         }
 
         private fun copyToClipboard(type: String, url: String) {
-            val clipboardManager =
-                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val context = itemView.context
+            val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clipData = ClipData.newPlainText(type, url)
             clipboardManager.setPrimaryClip(clipData)
-            Toast.makeText(context, "已复制: $url", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, url), Toast.LENGTH_SHORT).show()
         }
-
     }
 
     companion object {
@@ -92,8 +96,6 @@ class BlockListAdapter(
                 oldItem.url == newItem.url && oldItem.type == newItem.type
 
             override fun areContentsTheSame(oldItem: Url, newItem: Url): Boolean =
-                oldItem.url == newItem.url &&
-                oldItem.type == newItem.type &&
                 oldItem == newItem
         }
     }

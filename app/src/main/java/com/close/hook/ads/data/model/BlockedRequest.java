@@ -31,12 +31,19 @@ public class BlockedRequest implements Parcelable {
     public String stack;
     @Nullable
     public String url;
+    @Nullable
+    public String dnsHost;
+    @Nullable
+    public String dnsCidr;
+    @Nullable
+    public String fullAddress;
 
     public BlockedRequest(String appName, String packageName, String request, long timestamp,
                           @Nullable String requestType, @Nullable Boolean isBlocked, @Nullable String url,
                           @Nullable String blockType, @Nullable String method, @Nullable String urlString,
                           @Nullable String requestHeaders, int responseCode, @Nullable String responseMessage,
-                          @Nullable String responseHeaders, @Nullable String stack) {
+                          @Nullable String responseHeaders, @Nullable String stack, @Nullable String dnsHost,
+                          @Nullable String dnsCidr, @Nullable String fullAddress) {
         this.appName = appName;
         this.packageName = packageName;
         this.request = request;
@@ -52,6 +59,9 @@ public class BlockedRequest implements Parcelable {
         this.responseMessage = responseMessage;
         this.responseHeaders = responseHeaders;
         this.stack = stack;
+        this.dnsHost = dnsHost;
+        this.dnsCidr = dnsCidr;
+        this.fullAddress = fullAddress;
     }
 
     protected BlockedRequest(Parcel in) {
@@ -71,6 +81,9 @@ public class BlockedRequest implements Parcelable {
         responseMessage = in.readString();
         responseHeaders = in.readString();
         stack = in.readString();
+        dnsHost = in.readString();
+        dnsCidr = in.readString();
+        fullAddress = in.readString();
     }
 
     @Override
@@ -90,6 +103,9 @@ public class BlockedRequest implements Parcelable {
         dest.writeString(responseMessage);
         dest.writeString(responseHeaders);
         dest.writeString(stack);
+        dest.writeString(dnsHost);
+        dest.writeString(dnsCidr);
+        dest.writeString(fullAddress);
     }
 
     @Override

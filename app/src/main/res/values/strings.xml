@@ -3,24 +3,22 @@
 
     <string name="error_title">An unexpected error occurred.\nSorry for the inconvenience.</string>
 
-
     <string name="bottom_item_1">Apps</string>
     <string name="bottom_item_2">Request</string>
     <string name="bottom_item_3">Setting</string>
 
     <string name="search_hint">Search</string>
+    <string name="search_hint_with_count">Search %1$d apps</string>
 
-    <string name="sort_filter">sort and filter</string>
+    <string name="sort_filter">Sort and Filter</string>
     <string name="reset">reset</string>
     <string name="sort_by">Sort By</string>
     <string name="reverse">Reverse</string>
     <string name="filter">Filter</string>
 
-
     <string name="tab_user_apps">User Apps</string>
     <string name="tab_configured_apps">Configured Apps</string>
     <string name="tab_system_apps">System Apps</string>
-
 
     <string name="tab_domain_list">Request List</string>
     <string name="tab_host_list">Block List</string>
@@ -32,7 +30,6 @@
     <string name="update_checkbox_status">Save</string>
     <string name="description_two">Enabled to manage web ad request blocking on Request page</string>
     <string name="description_six">Only for general Root and virtual machine detection</string>
-
     <string name="handle_platform_ad">Stop platform ad initialization</string>
     <string name="check_request">App request checking</string>
 
@@ -108,4 +105,48 @@
     <string name="support">Support</string>
     <string name="join_telegram_channel"><![CDATA[Join %1$s Channel]]></string>
     <string name="default_page">Default Page</string>
+    <string name="activated">Activated</string>
+    <string name="not_activated">Not activated</string>
+    <string name="version_format">Version: %1$s(%2$d)</string>
+    <string name="export_empty_request_list">The request list is empty and cannot be exported</string>
+    <string name="export_failed">Export failed</string>
+    <string name="export_no_app_found">Cannot export file, no suitable application was found to create the file</string>
+    <string name="add_to_blocklist_success">Has been added to the blacklist in batches</string>
+    <string name="import_success">Import successful</string>
+    <string name="import_failed">Import failed</string>
+    <string name="export_success">Export successful</string>
+    <string name="crash_log">Crash log</string>
+    <string name="clear_block_list_confirm">Are you sure you want to clear all blacklists? </string>
+    <string name="batch_remove_success">Batch removed from blacklist</string>
+    <string name="batch_copy_to_clipboard">Batch copied to clipboard</string>
+    <string name="add_rule">Add rule</string>
+    <string name="edit_rule">Edit rule</string>
+    <string name="value_empty_error">Value cannot be empty</string>
+    <string name="rule_exists">Rule already exists</string>
+    <string name="open_app_details_failed">Cannot open application details</string>
+    <string name="launch_app_failed">Open failed</string>
+    <string name="module_not_activated">The module has not been activated</string>
+    <string name="save_success">Save successfully</string>
+    <string name="apk_package_name">APK package name</string>
+    <string name="apk_size">APK size</string>
+    <string name="version_name">Version name</string>
+    <string name="version_code">Version number</string>
+    <string name="target_sdk">TargetSDK</string>
+    <string name="min_sdk">MinSDK</string>
+    <string name="install_time">Installation time</string>
+    <string name="update_time">Update time</string>
+    <string name="sort_by_app_name">Application name</string>
+    <string name="sort_by_app_size">App size</string>
+    <string name="sort_by_last_update">Last update time</string>
+    <string name="sort_by_install_date">Installation date</string>
+    <string name="sort_by_target_version">Target version</string>
+    <string name="filter_configured">Configured</string>
+    <string name="filter_recent_update">Recent update</string>
+    <string name="updated">Updated</string>
+    <string name="open">Open</string>
+    <string name="details">Details</string>
+    <string name="remove_from_blocklist">Remove blacklist</string>
+    <string name="add_to_blocklist">Add to blacklist</string>
+    <string name="copied_to_clipboard_single">Copied: %1$s</string>
+    <string name="copied_to_clipboard_batch">Batch copied to clipboard</string>
 </resources>
