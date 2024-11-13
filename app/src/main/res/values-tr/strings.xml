@@ -79,8 +79,7 @@
     <string name="cache_clean">Önbelleği Temizle</string>
     <string name="select_all">Hepsini Seç</string>
     <string name="hide_icon">Simgeyi Gizle</string>
-    <string name="filter_enabled">Filtre varsayılan olarak etkinleştirildi</string>
-    <string name="filter_disabled">Filtre devre dışı bırakıldı</string>
+    <string name="filter_disabled">Engelli</string>
     <string name="sort_by_default">Varsayılan sıralama yöntemi değiştirildi:</string>
     <string name="about_view_source_code"><![CDATA[Kodları %1$s adresinde görüntüle]]></string>
     <string name="block">Engelle</string>
@@ -147,4 +146,7 @@
     <string name="add_to_blocklist">Engelleme Listesine Ekle</string>
     <string name="copied_to_clipboard_single">Kopyalandı: %1$s</string>
     <string name="copied_to_clipboard_batch">Toplu olarak panoya kopyalandı</string>
+    <string name="confirm_clear_cache_title">Önbelleği temizlemek istediğinizden emin misiniz?</string>
+    <string name="confirm_clear_cache_message">Geçerli önbellek %1$s</string>
+    <string name="cache_cleared_recently">Az önce temizlendi</string>
 </resources>

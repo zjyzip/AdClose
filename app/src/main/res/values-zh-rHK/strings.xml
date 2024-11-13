@@ -79,8 +79,7 @@
     <string name="cache_clean">缓存清理</string>
     <string name="select_all">全选</string>
     <string name="hide_icon">隐藏桌面图标</string>
-    <string name="filter_enabled">已默认启用过滤器</string>
-    <string name="filter_disabled">已取消启用过滤器</string>
+    <string name="filter_disabled">已禁用</string>
     <string name="sort_by_default">默认排序方式已切换为</string>
     <string name="about_view_source_code"><![CDATA[在 %1$s 查看源码]]></string>
     <string name="block">加入黑名单</string>
@@ -147,4 +146,7 @@
     <string name="add_to_blocklist">加入黑名单</string>
     <string name="copied_to_clipboard_single">已复制: %1$s</string>
     <string name="copied_to_clipboard_batch">已批量复制到剪贴板</string>
+    <string name="confirm_clear_cache_title">确定清除缓存吗？</string>
+    <string name="confirm_clear_cache_message">当前缓存 %1$s</string>
+    <string name="cache_cleared_recently">刚刚清理</string>
 </resources>

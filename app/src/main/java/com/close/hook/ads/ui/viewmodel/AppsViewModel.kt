@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
+import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.util.PrefManager
@@ -23,7 +24,10 @@ class AppsViewModel(
     private val updateParams =
         MutableStateFlow(Triple(Pair("", emptyList<String>()), Pair("", false), 0L))
     val appsLiveData: LiveData<List<AppInfo>> by lazy { setupAppsLiveData() }
-    private val appRepository: AppRepository = AppRepository(application.packageManager)
+    private val appRepository: AppRepository = AppRepository(
+        packageManager = application.packageManager,
+        context = application
+    )
 
     init {
         refreshApps()
@@ -64,10 +68,11 @@ class AppsViewModel(
     }
 
     private fun getFilterList(): List<String> {
+        val context = getApplication<Application>()
         return listOfNotNull(
-            if (PrefManager.configured) "已配置" else null,
-            if (PrefManager.updated) "最近更新" else null,
-            if (PrefManager.disabled) "已禁用" else null
+            if (PrefManager.configured) context.getString(R.string.filter_configured) else null,
+            if (PrefManager.updated) context.getString(R.string.filter_recent_update) else null,
+            if (PrefManager.disabled) context.getString(R.string.filter_disabled) else null
         )
     }
 

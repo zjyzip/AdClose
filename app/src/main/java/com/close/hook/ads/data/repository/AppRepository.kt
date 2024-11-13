@@ -1,9 +1,11 @@
 package com.close.hook.ads.data.repository
 
+import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.PackageInfo
 import android.os.Build
+import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.util.AppUtils
@@ -14,7 +16,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import java.io.File
 
-class AppRepository(private val packageManager: PackageManager) {
+class AppRepository(
+    private val packageManager: PackageManager,
+    private val context: Context
+) {
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
         packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
@@ -46,9 +51,10 @@ class AppRepository(private val packageManager: PackageManager) {
                 app.packageName.contains(keyword, ignoreCase = true)) &&
                 filter.second.all { filterCriteria ->
                     when (filterCriteria) {
-                        "已配置" -> app.isEnable == 1
-                        "最近更新" -> System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
-                        "已禁用" -> app.isAppEnable == 0
+                        context.getString(R.string.filter_configured) -> app.isEnable == 1
+                        context.getString(R.string.filter_recent_update) -> 
+                            System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
+                        context.getString(R.string.filter_disabled) -> app.isAppEnable == 0
                         else -> true
                     }
                 }
@@ -59,10 +65,10 @@ class AppRepository(private val packageManager: PackageManager) {
 
     fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {
         val comparator = when (sortBy) {
-            "应用大小" -> compareBy<AppInfo> { it.size }
-            "最近更新时间" -> compareBy { it.lastUpdateTime }
-            "安装日期" -> compareBy { it.firstInstallTime }
-            "Target 版本" -> compareBy { it.targetSdk }
+            context.getString(R.string.sort_by_app_size) -> compareBy<AppInfo> { it.size }
+            context.getString(R.string.sort_by_last_update) -> compareBy { it.lastUpdateTime }
+            context.getString(R.string.sort_by_install_date) -> compareBy { it.firstInstallTime }
+            context.getString(R.string.sort_by_target_version) -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
         return if (isReverse) comparator.reversed() else comparator
