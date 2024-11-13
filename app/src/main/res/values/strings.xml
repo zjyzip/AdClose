@@ -79,8 +79,7 @@
     <string name="cache_clean">Cache Clean</string>
     <string name="select_all">Select All</string>
     <string name="hide_icon">Hide Icon</string>
-    <string name="filter_enabled">Filter enabled by default</string>
-    <string name="filter_disabled">Filter disabled</string>
+    <string name="filter_disabled">Disabled</string>
     <string name="sort_by_default">The default sorting method has been switched to</string>
     <string name="about_view_source_code"><![CDATA[View source code at %1$s]]></string>
     <string name="block">block</string>
@@ -149,4 +148,7 @@
     <string name="add_to_blocklist">Add to blacklist</string>
     <string name="copied_to_clipboard_single">Copied: %1$s</string>
     <string name="copied_to_clipboard_batch">Batch copied to clipboard</string>
+    <string name="confirm_clear_cache_title">Are you sure you want to clear the cache? </string>
+    <string name="confirm_clear_cache_message">Current cache %1$s</string>
+    <string name="cache_cleared_recently">Just cleared</string>
 </resources>

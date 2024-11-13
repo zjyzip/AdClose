@@ -174,12 +174,12 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             summary = CacheDataManager.getTotalCacheSize(requireContext())
             setOnPreferenceClickListener {
                 MaterialAlertDialogBuilder(requireContext()).apply {
-                    setTitle("确定清除缓存吗？")
-                    setMessage("当前缓存${CacheDataManager.getTotalCacheSize(requireContext())}")
+                    setTitle(getString(R.string.confirm_clear_cache_title))
+                    setMessage(getString(R.string.confirm_clear_cache_message, CacheDataManager.getTotalCacheSize(requireContext())))
                     setNegativeButton(android.R.string.cancel, null)
                     setPositiveButton(android.R.string.ok) { _, _ ->
                         CacheDataManager.clearAllCache(requireContext())
-                        findPreference<Preference>("clean")?.summary = "刚刚清理"
+                        findPreference<Preference>("clean")?.summary = getString(R.string.cache_cleared_recently)
                     }
                     show()
                 }
