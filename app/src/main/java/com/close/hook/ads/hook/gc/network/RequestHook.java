@@ -27,9 +27,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
+import java.net.UnknownHostException;
 import java.net.URL;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 
 import kotlin.Triple;
 
@@ -39,6 +41,9 @@ import de.robv.android.xposed.XposedHelpers;
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
     private static final Context APP_CONTEXT = ContextUtil.appContext;
+
+    private static final ConcurrentHashMap<String, Boolean> dnsHostCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Boolean> urlStringCache = new ConcurrentHashMap<>();
 
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
         .maximumSize(12948)
@@ -60,11 +65,25 @@ public class RequestHook {
             InetAddress.class,
             "getByName",
             new Object[]{String.class},
-            "before",
+            "after",
             param -> {
-                String host = (String) param.args[0];
-                if (host != null && shouldBlockDnsRequest(host)) {
-                    param.setResult(null);
+                try {
+                    String host = (String) param.args[0];
+                    InetAddress inetAddress = (InetAddress) param.getResult();
+
+                    if (host == null || inetAddress == null) return;
+
+                    String cidr = calculateCidrNotation(inetAddress);
+                    String fullAddress = inetAddress.getHostAddress();
+                    String stackTrace = HookUtil.getFormattedStackTrace();
+
+                    RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
+
+                    if (shouldBlockDnsRequest(host, details)) {
+                        param.setResult(null);
+                    }
+                } catch (Exception e) {
+                    XposedBridge.log(LOG_PREFIX + "Error in getByName hook: " + e.getMessage());
                 }
             }
         );
@@ -73,18 +92,58 @@ public class RequestHook {
             InetAddress.class,
             "getAllByName",
             new Object[]{String.class},
-            "before",
+            "after",
             param -> {
-                String host = (String) param.args[0];
-                if (host != null && shouldBlockDnsRequest(host)) {
-                    param.setResult(new InetAddress[0]);
+                try {
+                    String host = (String) param.args[0];
+                    InetAddress[] inetAddresses = (InetAddress[]) param.getResult();
+
+                    if (host == null || inetAddresses == null || inetAddresses.length == 0) return;
+
+                    StringBuilder cidrBuilder = new StringBuilder();
+                    StringBuilder fullAddressBuilder = new StringBuilder();
+
+                    for (InetAddress inetAddress : inetAddresses) {
+                        String cidr = calculateCidrNotation(inetAddress);
+                        String addr = inetAddress.getHostAddress();
+
+                        if (cidrBuilder.length() > 0) {
+                            cidrBuilder.append(", ");
+                            fullAddressBuilder.append(", ");
+                        }
+                        cidrBuilder.append(cidr);
+                        fullAddressBuilder.append(addr);
+                    }
+
+                    String cidr = cidrBuilder.toString();
+                    String fullAddress = fullAddressBuilder.toString();
+                    String stackTrace = HookUtil.getFormattedStackTrace();
+
+                    RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
+
+                    if (shouldBlockDnsRequest(host, details)) {
+                        param.setResult(new InetAddress[0]);
+                    }
+                } catch (Exception e) {
+                    XposedBridge.log(LOG_PREFIX + "Error in getAllByName hook: " + e.getMessage());
                 }
             }
         );
     }
 
-    private static boolean shouldBlockDnsRequest(String host) {
-        return checkShouldBlockRequest(host, null, " DNS", "host");
+    private static String calculateCidrNotation(InetAddress inetAddress) {
+        byte[] addressBytes = inetAddress.getAddress();
+        int prefixLength = 0;
+
+        for (byte b : addressBytes) {
+            prefixLength += Integer.bitCount(b & 0xFF);
+        }
+
+        return inetAddress.getHostAddress() + "/" + prefixLength;
+    }
+
+    private static boolean shouldBlockDnsRequest(final String host, final RequestDetails details) {
+        return checkShouldBlockRequest(host, details, " DNS", "host");
     }
 
     private static boolean shouldBlockHttpsRequest(final URL url, final RequestDetails details) {
@@ -125,7 +184,12 @@ public class RequestHook {
         }
 
         ContentResolver contentResolver = APP_CONTEXT.getContentResolver();
-        Uri uri = Uri.parse("content://" + UrlContentProvider.AUTHORITY + "/" + UrlContentProvider.URL_TABLE_NAME);
+        Uri uri = new Uri.Builder()
+            .scheme("content")
+            .authority(UrlContentProvider.AUTHORITY)
+            .appendPath(UrlContentProvider.URL_TABLE_NAME)
+            .build();
+
         String[] projection = {Url.URL_TYPE, Url.URL_ADDRESS};
         String[] selectionArgs = {queryType, queryValue};
 
@@ -285,24 +349,35 @@ public class RequestHook {
         String type, @Nullable String requestType, @Nullable Boolean isBlocked,
         @Nullable String url, @Nullable String blockType, String request,
         RequestDetails details) {
+        if (details == null) return;
+
+        String dnsHost = details.getDnsHost();
+        String urlString = details.getUrlString();
+
+        if (dnsHost != null && dnsHostCache.putIfAbsent(dnsHost, true) != null) {
+            return;
+        }
+
+        if (urlString != null && urlStringCache.putIfAbsent(urlString, true) != null) {
+            return;
+        }
+
         Intent intent = new Intent("com.rikkati.REQUEST");
 
         try {
-
-            String appName =APP_CONTEXT.getApplicationInfo().loadLabel(APP_CONTEXT.getPackageManager()).toString() + requestType;
+            String appName = APP_CONTEXT.getApplicationInfo().loadLabel(APP_CONTEXT.getPackageManager()).toString() + requestType;
             String packageName = APP_CONTEXT.getPackageName();
 
-            BlockedRequest blockedRequest;
+            String method = details.getMethod();
+            String requestHeaders = details.getRequestHeaders() != null ? details.getRequestHeaders().toString() : null;
+            int responseCode = details.getResponseCode();
+            String responseMessage = details.getResponseMessage();
+            String responseHeaders = details.getResponseHeaders() != null ? details.getResponseHeaders().toString() : null;
+            String stackTrace = details.getStack();
+            String dnsCidr = details.getDnsCidr();
+            String fullAddress = details.getFullAddress();
 
-            String method = details != null ? details.getMethod() : null;
-            String urlString = details != null ? details.getUrlString() : null;
-            String requestHeaders = details != null && details.getRequestHeaders() != null ? details.getRequestHeaders().toString() : null;
-            int responseCode = details != null ? details.getResponseCode() : -1;
-            String responseMessage = details != null ? details.getResponseMessage() : null;
-            String responseHeaders = details != null && details.getResponseHeaders() != null ? details.getResponseHeaders().toString() : null;
-            String stackTrace = details != null ? details.getStack() : null;
-
-            blockedRequest = new BlockedRequest(
+            BlockedRequest blockedRequest = new BlockedRequest(
                 appName,
                 packageName,
                 request,
@@ -317,7 +392,10 @@ public class RequestHook {
                 responseCode,
                 responseMessage,
                 responseHeaders,
-                stackTrace
+                stackTrace,
+                dnsHost,
+                dnsCidr,
+                fullAddress
             );
 
             intent.putExtra("request", blockedRequest);

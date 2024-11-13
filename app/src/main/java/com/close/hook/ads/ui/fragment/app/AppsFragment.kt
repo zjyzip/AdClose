@@ -14,6 +14,7 @@ import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.ConfiguredBean
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
@@ -206,21 +207,20 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         try {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            AppUtils.showToast(requireContext(), "无法打开应用详情")
+            AppUtils.showToast(requireContext(), getString(R.string.open_app_details_failed))
         }
     }
 
     private fun launchApp(packageName: String) {
-        val intent =
-            requireContext().packageManager.getLaunchIntentForPackage(packageName)
+        val intent = requireContext().packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             try {
                 startActivity(intent)
             } catch (e: ActivityNotFoundException) {
-                AppUtils.showToast(requireContext(), "打开失败")
+                AppUtils.showToast(requireContext(), getString(R.string.launch_app_failed))
             }
         } else {
-            AppUtils.showToast(requireContext(), "打开失败")
+            AppUtils.showToast(requireContext(), getString(R.string.launch_app_failed))
         }
     }
 
@@ -306,7 +306,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onItemClick(appInfo: AppInfo) {
         if (!MainActivity.isModuleActivated()) {
-            AppUtils.showToast(requireContext(), "模块尚未被激活")
+            AppUtils.showToast(requireContext(), getString(R.string.module_not_activated))
             return
         }
         configBinding.apply {
@@ -325,10 +325,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     val key = prefKeys[index] + appInfo.packageName
                     prefsHelper.setBoolean(key, checkBox.isChecked)
                 }
-                AppUtils.showToast(requireContext(), "保存成功")
+                AppUtils.showToast(requireContext(), getString(R.string.save_success))
                 appConfigDialog?.dismiss()
             }
-
         }
         appConfigDialog?.show()
     }
@@ -342,35 +341,35 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
             appName.text = appInfo.appName
             packageName.apply {
-                title.text = "APK包名"
+                title.text = getString(R.string.apk_package_name)
                 value.text = appInfo.packageName
             }
             appSize.apply {
-                title.text = "APK大小"
+                title.text = getString(R.string.apk_size)
                 value.text = getFormatSize(appInfo.size)
             }
             versionName.apply {
-                title.text = "版本名称"
+                title.text = getString(R.string.version_name)
                 value.text = appInfo.versionName
             }
             versionCode.apply {
-                title.text = "版本号"
+                title.text = getString(R.string.version_code)
                 value.text = appInfo.versionCode.toString()
             }
             targetSdk.apply {
-                title.text = "TargetSDK"
+                title.text = getString(R.string.target_sdk)
                 value.text = appInfo.targetSdk.toString()
             }
             minSdk.apply {
-                title.text = "MinSDK"
+                title.text = getString(R.string.min_sdk)
                 value.text = appInfo.minSdk.toString()
             }
             installTime.apply {
-                title.text = "安装时间"
+                title.text = getString(R.string.install_time)
                 value.text = dateFormat.format(Date(appInfo.firstInstallTime))
             }
             updateTime.apply {
-                title.text = "更新时间"
+                title.text = getString(R.string.update_time)
                 value.text = dateFormat.format(Date(appInfo.lastUpdateTime))
             }
         }
@@ -428,12 +427,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             if (saveFile(content)) {
                 backupSAFLauncher.launch("configured_list.json")
             } else {
-                Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
             }
         } catch (e: ActivityNotFoundException) {
             Toast.makeText(
                 requireContext(),
-                "无法导出文件，未找到合适的应用来创建文件",
+                getString(R.string.export_no_app_found),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -469,10 +468,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 File("${requireContext().cacheDir}/configured_list.json").inputStream()
                     .use { input ->
                         requireContext().contentResolver.openOutputStream(uri).use { output ->
-                            if (output == null)
-                                Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT)
+                            if (output == null) {
+                                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT)
                                     .show()
-                            else input.copyTo(output)
+                            } else {
+                                input.copyTo(output)
+                                Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT)
+                                    .show()
+                            }
                         }
                     }
             } catch (e: IOException) {
@@ -502,17 +505,17 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                             }
                         }
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(requireContext(), getString(R.string.import_success), Toast.LENGTH_SHORT).show()
                         }
                     }.onFailure { e ->
                         withContext(Dispatchers.Main) {
                             MaterialAlertDialogBuilder(requireContext())
-                                .setTitle("导入失败")
+                                .setTitle(getString(R.string.import_failed))
                                 .setMessage(e.message ?: "Unknown error")
                                 .setPositiveButton(android.R.string.ok, null)
-                                .setNegativeButton("Crash Log") { _, _ ->
+                                .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
                                     MaterialAlertDialogBuilder(requireContext())
-                                        .setTitle("Crash Log")
+                                        .setTitle(getString(R.string.crash_log))
                                         .setMessage(e.stackTraceToString())
                                         .setPositiveButton(android.R.string.ok, null)
                                         .show()

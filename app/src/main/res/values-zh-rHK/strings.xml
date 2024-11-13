@@ -3,12 +3,12 @@
 
     <string name="error_title">An unexpected error occurred.\nSorry for the inconvenience.</string>
 
-
     <string name="bottom_item_1">Apps</string>
     <string name="bottom_item_2">Request</string>
     <string name="bottom_item_3">Setting</string>
 
     <string name="search_hint">搜索</string>
+    <string name="search_hint_with_count">搜索 %1$d 个应用</string>
 
     <string name="sort_filter">排序和过滤</string>
     <string name="reset">重置</string>
@@ -16,11 +16,9 @@
     <string name="reverse">反转</string>
     <string name="filter">过滤器</string>
 
-
     <string name="tab_user_apps">用户应用</string>
     <string name="tab_configured_apps">已配置应用</string>
     <string name="tab_system_apps">系统应用</string>
-
 
     <string name="tab_domain_list">请求列表</string>
     <string name="tab_host_list">拦截列表</string>
@@ -35,7 +33,6 @@
 
     <string name="handle_platform_ad">阻止SDK广告初始化</string>
     <string name="check_request">应用请求检查</string>
-
     <string name="remove_flag_secure">移除截图录屏限制</string>
     <string name="remove_vpn_state">去除VPN与系统代理检测</string>
     <string name="remove_sensor_monitor">移除加速度传感器注册</string>
@@ -75,6 +72,7 @@
     <string name="color_deep_orange">深橙</string>
     <string name="color_brown">棕色</string>
     <string name="color_blue_grey">灰蓝</string>
+
     <string name="others">其他</string>
     <string name="about">关于</string>
     <string name="feedback">反馈</string>
@@ -105,4 +103,48 @@
     <string name="support">支持</string>
     <string name="join_telegram_channel"><![CDATA[加入我们的 %1$s 频道]]></string>
     <string name="default_page">默认打开页面</string>
+    <string name="activated">已激活</string>
+    <string name="not_activated">未激活</string>
+    <string name="version_format">版本: %1$s(%2$d)</string>
+    <string name="export_empty_request_list">请求列表为空，无法导出</string>
+    <string name="export_failed">导出失败</string>
+    <string name="export_no_app_found">无法导出文件，未找到合适的应用来创建文件</string>
+    <string name="add_to_blocklist_success">已批量加入黑名单</string>
+    <string name="import_success">导入成功</string>
+    <string name="import_failed">导入失败</string>
+    <string name="export_success">导出成功</string>
+    <string name="crash_log">崩溃日志</string>
+    <string name="clear_block_list_confirm">确定清除全部黑名单？</string>
+    <string name="batch_remove_success">已批量移出黑名单</string>
+    <string name="batch_copy_to_clipboard">已批量复制到剪贴板</string>
+    <string name="add_rule">添加规则</string>
+    <string name="edit_rule">编辑规则</string>
+    <string name="value_empty_error">Value不能为空</string>
+    <string name="rule_exists">规则已存在</string>
+    <string name="open_app_details_failed">无法打开应用详情</string>
+    <string name="launch_app_failed">打开失败</string>
+    <string name="module_not_activated">模块尚未被激活</string>
+    <string name="save_success">保存成功</string>
+    <string name="apk_package_name">APK包名</string>
+    <string name="apk_size">APK大小</string>
+    <string name="version_name">版本名称</string>
+    <string name="version_code">版本号</string>
+    <string name="target_sdk">TargetSDK</string>
+    <string name="min_sdk">MinSDK</string>
+    <string name="install_time">安装时间</string>
+    <string name="update_time">更新时间</string>
+    <string name="sort_by_app_name">应用名称</string>
+    <string name="sort_by_app_size">应用大小</string>
+    <string name="sort_by_last_update">最近更新时间</string>
+    <string name="sort_by_install_date">安装日期</string>
+    <string name="sort_by_target_version">Target 版本</string>
+    <string name="filter_configured">已配置</string>
+    <string name="filter_recent_update">最近更新</string>
+    <string name="updated">已更新</string>
+    <string name="open">打开</string>
+    <string name="details">详情</string>
+    <string name="remove_from_blocklist">移除黑名单</string>
+    <string name="add_to_blocklist">加入黑名单</string>
+    <string name="copied_to_clipboard_single">已复制: %1$s</string>
+    <string name="copied_to_clipboard_batch">已批量复制到剪贴板</string>
 </resources>

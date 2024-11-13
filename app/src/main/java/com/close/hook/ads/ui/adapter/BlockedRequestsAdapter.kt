@@ -23,7 +23,6 @@ import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockedRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
-import com.close.hook.ads.util.AppUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,23 +41,13 @@ class BlockedRequestsAdapter(
         @SuppressLint("SimpleDateFormat")
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
-        private val DIFF_CALLBACK: DiffUtil.ItemCallback<BlockedRequest> =
-            object : DiffUtil.ItemCallback<BlockedRequest>() {
-                override fun areItemsTheSame(
-                    oldItem: BlockedRequest,
-                    newItem: BlockedRequest
-                ): Boolean =
-                    oldItem.timestamp == newItem.timestamp
+        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<BlockedRequest>() {
+            override fun areItemsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
+                oldItem.timestamp == newItem.timestamp
 
-                override fun areContentsTheSame(
-                    oldItem: BlockedRequest,
-                    newItem: BlockedRequest
-                ): Boolean =
-                    oldItem.request == newItem.request &&
-                    oldItem.isBlocked == newItem.isBlocked &&
-                    oldItem.packageName == newItem.packageName &&
-                    oldItem.blockType == newItem.blockType
-            }
+            override fun areContentsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
+                oldItem == newItem
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
@@ -78,8 +67,6 @@ class BlockedRequestsAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         private var currentRequest: BlockedRequest? = null
-        private var type: String = "URL"
-        private var url: String = ""
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
             object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
@@ -88,109 +75,96 @@ class BlockedRequestsAdapter(
             }
 
         init {
-            binding.parent.addListener(object : SwipeLayout.Listener {
-                override fun onMenuOpened(menuView: View) {
-                    super.onMenuOpened(menuView)
-                    if (menuView.id == R.id.block) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val isExist = dataSource.isExist(type, url)
-                            currentList[bindingAdapterPosition].isBlocked = isExist
-                            withContext(Dispatchers.Main) {
-                                checkBlockStatus(isExist)
-                            }
-                        }
-                    }
-                }
-            })
-            binding.apply {
-                cardView.setOnClickListener {
-                    currentRequest?.takeUnless { it.urlString.isNullOrEmpty() }?.let { request ->
-                        val intent =
-                            Intent(itemView.context, RequestInfoActivity::class.java).apply {
-                                putExtra("method", request.method)
-                                putExtra("urlString", request.urlString)
-                                putExtra("requestHeaders", request.requestHeaders)
-                                putExtra("responseCode", request.responseCode)
-                                putExtra("responseMessage", request.responseMessage)
-                                putExtra("responseHeaders", request.responseHeaders)
-                                putExtra("stack", request.stack)
-                            }
-                        itemView.context.startActivity(intent)
-                    }
-                }
-                copy.setOnClickListener {
-                    currentRequest?.request?.let { text ->
-                        copyToClipboard(text)
-                    }
-                }
-                block.setOnClickListener {
-                    currentRequest?.let { request ->
-                        CoroutineScope(Dispatchers.IO).launch {
-                            toggleBlockStatus(request)
-                        }
-                    }
-                }
-            }
+            setupListeners()
         }
 
         @SuppressLint("SetTextI18n", "RestrictedApi")
         fun bind(request: BlockedRequest) = with(binding) {
             currentRequest = request
 
-            type = request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
-            url = request.url ?: request.request
-            appName.text = "${request.appName} ${if (request.urlString.isNullOrEmpty()) "" else " LOG"}"
+            val type = request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
+            val url = request.url ?: request.request
+            appName.text = "${request.appName} ${if (request.stack.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
 
-            onGetAppIcon(request.packageName)?.let {
-                binding.icon.setImageDrawable(it)
-            }
+            onGetAppIcon(request.packageName)?.let { icon.setImageDrawable(it) }
 
             blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
             blockType.text = request.blockType
 
-            val textColor = ThemeUtils.getThemeAttrColor(
-                itemView.context, if (request.isBlocked == true) {
-                    com.google.android.material.R.attr.colorError
-                } else {
-                    com.google.android.material.R.attr.colorControlNormal
+            updateBlockStatusUI(request.isBlocked)
+
+            tracker?.let { cardView.isChecked = it.isSelected(request) }
+        }
+
+        private fun setupListeners() {
+            binding.apply {
+                cardView.setOnClickListener {
+                    currentRequest?.let { openRequestInfoActivity(it) }
                 }
-            )
-            this.request.setTextColor(textColor)
-
-            tracker?.let {
-                cardView.isChecked = it.isSelected(request)
+                copy.setOnClickListener {
+                    currentRequest?.request?.let { copyToClipboard(it) }
+                }
+                block.setOnClickListener {
+                    currentRequest?.let { toggleBlockStatus(it) }
+                }
             }
+        }
 
-            checkBlockStatus(request.isBlocked)
+        private fun openRequestInfoActivity(request: BlockedRequest) {
+            val context = itemView.context
+            Intent(context, RequestInfoActivity::class.java).apply {
+                putExtra("method", request.method)
+                putExtra("urlString", request.urlString)
+                putExtra("requestHeaders", request.requestHeaders)
+                putExtra("responseCode", request.responseCode)
+                putExtra("responseMessage", request.responseMessage)
+                putExtra("responseHeaders", request.responseHeaders)
+                putExtra("stack", request.stack)
+                putExtra("dnsHost", request.dnsHost)
+                putExtra("dnsCidr", request.dnsCidr)
+                putExtra("fullAddress", request.fullAddress)
+            }.also {
+                context.startActivity(it)
+            }
         }
 
         private fun copyToClipboard(text: String) {
-            (itemView.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
-                ClipData.newPlainText("request", text)
-            )
-            Toast.makeText(itemView.context, "已复制: $text", Toast.LENGTH_SHORT).show()
+            val context = itemView.context
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("request", text))
+            Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, text), Toast.LENGTH_SHORT).show()
         }
 
-        private suspend fun toggleBlockStatus(request: BlockedRequest) {
-            if (request.isBlocked == true) {
-                dataSource.removeUrlString(type, url)
-                request.isBlocked = false
-            } else {
-                dataSource.addUrl(Url(type, url))
-                request.isBlocked = true
-            }
-            withContext(Dispatchers.Main) {
-                checkBlockStatus(request.isBlocked)
+        private fun toggleBlockStatus(request: BlockedRequest) {
+            CoroutineScope(Dispatchers.IO).launch {
+                val type = request.blockType ?: "URL"
+                val url = request.url ?: request.request
+                if (request.isBlocked == true) {
+                    dataSource.removeUrlString(type, url)
+                    request.isBlocked = false
+                } else {
+                    dataSource.addUrl(Url(type, url))
+                    request.isBlocked = true
+                }
+                withContext(Dispatchers.Main) {
+                    updateBlockStatusUI(request.isBlocked)
+                }
             }
         }
 
         @SuppressLint("RestrictedApi")
-        private fun checkBlockStatus(isBlocked: Boolean?) {
-            binding.block.text = if (isBlocked == true) "移除黑名单" else "加入黑名单"
+        private fun updateBlockStatusUI(isBlocked: Boolean?) {
+            val context = itemView.context
+            binding.block.text = if (isBlocked == true) {
+                context.getString(R.string.remove_from_blocklist)
+            } else {
+                context.getString(R.string.add_to_blocklist)
+            }
+
             val textColor = ThemeUtils.getThemeAttrColor(
-                itemView.context, if (isBlocked == true) {
+                context, if (isBlocked == true) {
                     com.google.android.material.R.attr.colorError
                 } else {
                     com.google.android.material.R.attr.colorControlNormal

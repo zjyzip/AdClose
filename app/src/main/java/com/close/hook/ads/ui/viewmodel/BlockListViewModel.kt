@@ -55,9 +55,7 @@ class BlockListViewModel(val dataSource: DataSource) : ViewModel() {
 
     fun updateRequestList(item: BlockedRequest) {
         _requestList.value = _requestList.value.orEmpty().toMutableList().apply {
-            if (none { it.request == item.request }) {
-                add(0, item)
-            }
+            add(0, item)
         }
     }
 

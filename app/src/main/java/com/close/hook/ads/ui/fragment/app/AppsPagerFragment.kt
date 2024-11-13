@@ -151,8 +151,18 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
             }
         }
 
-        val sortByTitles = listOf("应用名称", "应用大小", "最近更新时间", "安装日期", "Target 版本")
-        val filterTitles = listOf("已配置", "最近更新", "已禁用")
+        val sortByTitles = listOf(
+            getString(R.string.sort_by_app_name),
+            getString(R.string.sort_by_app_size),
+            getString(R.string.sort_by_last_update),
+            getString(R.string.sort_by_install_date),
+            getString(R.string.sort_by_target_version)
+        )
+        val filterTitles = listOf(
+            getString(R.string.filter_configured),
+            getString(R.string.filter_recent_update),
+            getString(R.string.filter_disabled)
+        )
 
         setupChipGroup(filerBinding.sortBy, sortByTitles, true)
         setupChipGroup(filerBinding.filter, filterTitles, false)
@@ -160,9 +170,9 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun updateSortAndFilters() {
         val filters = listOfNotNull(
-            "已配置".takeIf { PrefManager.configured },
-            "最近更新".takeIf { PrefManager.updated },
-            "已禁用".takeIf { PrefManager.disabled }
+            getString(R.string.filter_configured).takeIf { PrefManager.configured },
+            getString(R.string.filter_recent_update).takeIf { PrefManager.updated },
+            getString(R.string.filter_disabled).takeIf { PrefManager.disabled }
         )
         controller?.updateSortList(
             Pair(PrefManager.order, filters),
@@ -179,11 +189,11 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         }
 
         PrefManager.isReverse = false
-        PrefManager.order = "应用名称"
+        PrefManager.order = getString(R.string.sort_by_app_name)
         PrefManager.configured = false
         PrefManager.updated = false
         PrefManager.disabled = false
-
+    
         updateSortAndFilters()
     }
 
@@ -195,9 +205,9 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
                 isCheckable = true
                 isClickable = true
                 isChecked = if (isSortBy) title == PrefManager.order else when (title) {
-                    "已配置" -> PrefManager.configured
-                    "最近更新" -> PrefManager.updated
-                    "已禁用" -> PrefManager.disabled
+                    getString(R.string.filter_configured) -> PrefManager.configured
+                    getString(R.string.filter_recent_update) -> PrefManager.updated
+                    getString(R.string.filter_disabled) -> PrefManager.disabled
                     else -> false
                 }
                 setOnClickListener { handleChipClick(this, title, isSortBy) }
@@ -207,8 +217,8 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     }
 
     private fun handleChipClick(chip: Chip, title: String, isSortBy: Boolean) {
-        if (!isSortBy && title == "已配置" && !MainActivity.isModuleActivated()) {
-            Snackbar.make(filerBinding.root, "模块尚未被激活", Snackbar.LENGTH_SHORT).show()
+        if (!isSortBy && title == getString(R.string.filter_configured) && !MainActivity.isModuleActivated()) {
+            Snackbar.make(filerBinding.root, getString(R.string.module_not_activated), Snackbar.LENGTH_SHORT).show()
             chip.isChecked = false
             return
         }
@@ -217,14 +227,14 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
             PrefManager.order = title
         } else {
             when (title) {
-                "已配置" -> PrefManager.configured = chip.isChecked
-                "最近更新" -> PrefManager.updated = chip.isChecked
-                "已禁用" -> PrefManager.disabled = chip.isChecked
+                getString(R.string.filter_configured) -> PrefManager.configured = chip.isChecked
+                getString(R.string.filter_recent_update) -> PrefManager.updated = chip.isChecked
+                getString(R.string.filter_disabled) -> PrefManager.disabled = chip.isChecked
             }
         }
 
         val message =
-            if (isSortBy) "${requireContext().getString(R.string.sort_by_default)}: $title" else "$title 已更新"
+            if (isSortBy) "${getString(R.string.sort_by_default)}: $title" else "$title ${getString(R.string.updated)}"
         Snackbar.make(filerBinding.root, message, Snackbar.LENGTH_SHORT).show()
         updateSortAndFilters()
     }
@@ -242,8 +252,11 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         }
 
     fun setHint(totalApp: Int) {
-        binding.editText.hint = if (totalApp != 0) "搜索 ${totalApp}个应用"
-        else "搜索"
+        binding.editText.hint = if (totalApp != 0) {
+            getString(R.string.search_hint_with_count, totalApp)
+        } else {
+            getString(R.string.search_hint)
+        }
     }
 
     override fun onDestroyView() {

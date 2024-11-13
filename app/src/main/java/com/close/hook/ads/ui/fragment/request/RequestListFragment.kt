@@ -231,28 +231,33 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             viewModel.searchQuery.value = keyword
 
             viewModel.searchQuery
-                .debounce(300)
+                .debounce(500L)
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
                     flow {
-                        val safeAppInfoList = withContext(Dispatchers.IO) {
-                            val allRequests = viewModel.requestList.value?.ifEmpty { emptyList() } ?: emptyList()
-                            when (type) {
+                        val allRequests = withContext(Dispatchers.IO) {
+                            viewModel.requestList.value.orEmpty()
+                        }
+
+                        val filteredRequests = withContext(Dispatchers.IO) {
+                            val filteredByType = when (type) {
                                 "all" -> allRequests
                                 "block" -> allRequests.filter { it.isBlocked == true }
                                 "pass" -> allRequests.filter { it.isBlocked == false }
                                 else -> emptyList()
                             }
+                            filteredByType.filter { blockedRequest ->
+                                blockedRequest.request.contains(query, ignoreCase = true) ||
+                                blockedRequest.packageName.contains(query, ignoreCase = true) ||
+                                blockedRequest.appName.contains(query, ignoreCase = true)
+                            }
                         }
-                        emit(safeAppInfoList.filter { blockedRequest ->
-                            blockedRequest.request.contains(query, ignoreCase = true) ||
-                                    blockedRequest.packageName.contains(query, ignoreCase = true) ||
-                                    blockedRequest.appName.contains(query, ignoreCase = true)
-                        })
+
+                        emit(filteredRequests)
                     }
                 }
                 .catch { throwable ->
-                    Log.e("RequestListFragment", "Error in searchKeyword", throwable)
+                    Log.e("RequestListFragment", "Error during search for keyword: $keyword", throwable)
                 }
                 .collect { filteredList ->
                     mAdapter.submitList(filteredList)
@@ -309,7 +314,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     override fun onExport() {
         if (viewModel.requestList.value.isNullOrEmpty()) {
-            Toast.makeText(requireContext(), "请求列表为空，无法导出", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.export_empty_request_list), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -318,12 +323,12 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             if (saveFile(content)) {
                 backupSAFLauncher.launch("${type}_request_list.json")
             } else {
-                Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
             }
         } catch (e: ActivityNotFoundException) {
             Toast.makeText(
                 requireContext(),
-                "无法导出文件，未找到合适的应用来创建文件",
+                getString(R.string.export_no_app_found),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -345,7 +350,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
                     withContext(Dispatchers.Main) {
                         tracker?.clearSelection()
-                        showSnackbar("已批量加入黑名单")
+                        showSnackbar(getString(R.string.add_to_blocklist_success))
                     }
                 }
             }
@@ -383,7 +388,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             tracker?.clearSelection()
             val snackBar = Snackbar.make(
                 requireParentFragment().requireView(),
-                "已批量复制到剪贴板",
+                getString(R.string.copied_to_clipboard_batch),
                 Snackbar.LENGTH_SHORT
             )
             val lp = CoordinatorLayout.LayoutParams(
@@ -404,7 +409,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 File("${requireContext().cacheDir}/request_list.json").inputStream().use { input ->
                     requireContext().contentResolver.openOutputStream(uri).use { output ->
                         if (output == null)
-                            Toast.makeText(requireContext(), "导出失败", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
                         else input.copyTo(output)
                     }
                 }

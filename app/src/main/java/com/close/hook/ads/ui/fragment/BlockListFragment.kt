@@ -205,7 +205,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         selectedItems?.let {
             if (it.size() != 0) {
                 viewModel.removeList(it.toList())
-                Toast.makeText(requireContext(), "已批量移出黑名单", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), getString(R.string.batch_remove_success), Toast.LENGTH_SHORT).show()
                 tracker?.clearSelection()
                 (activity as? MainActivity)?.showNavigation()
             }
@@ -225,7 +225,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 val clip = ClipData.newPlainText("copied_type_urls", uniqueTypeUrls)
                 clipboard.setPrimaryClip(clip)
 
-                Toast.makeText(requireContext(), "已批量复制到剪贴板", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), getString(R.string.batch_copy_to_clipboard), Toast.LENGTH_SHORT).show()
             }
 
             tracker?.clearSelection()
@@ -373,7 +373,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             )
         )
 
-        val title = if (url == null) "Add Rule" else "Edit Rule"
+        val title = if (url == null) getString(R.string.add_rule) else getString(R.string.edit_rule)
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(title)
@@ -384,7 +384,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 val newUrl = binding.editText.text.toString().trim()
 
                 if (newUrl.isEmpty()) {
-                    Toast.makeText(requireContext(), "Value不能为空", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.value_empty_error), Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
 
@@ -396,7 +396,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     if (!isExist) {
                         viewModel.addUrl(newItem)
                     } else {
-                        Toast.makeText(requireContext(), "规则已存在", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), getString(R.string.rule_exists), Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     viewModel.updateUrl(newItem)
@@ -413,7 +413,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private fun onEditUrl(url: Url) = showRuleDialog(url)
 
     private fun clearBlockList() {
-        MaterialAlertDialogBuilder(requireContext()).setTitle("确定清除全部黑名单？")
+        MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.clear_block_list_confirm))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 viewModel.removeAll()
@@ -434,42 +434,33 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             uri?.let { uri ->
                 CoroutineScope(Dispatchers.IO).launch {
                     runCatching {
-                        val currentList: List<Url> =
-                            viewModel.blackListLiveData.value ?: emptyList()
+                        val currentList: List<Url> = viewModel.blackListLiveData.value ?: emptyList()
                         val inputStream = requireContext().contentResolver.openInputStream(uri)
                         val newList: List<Url> = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
-                                val parts: List<String> = line.split(",\\s*".toRegex()).map {
-                                    it.trim()
-                                }
-                                if (parts.size == 2) Url(parts[0], parts[1])
-                                else null
+                                val parts: List<String> = line.split(",\\s*".toRegex()).map { it.trim() }
+                                if (parts.size == 2) Url(parts[0], parts[1]) else null
                             }.toList()
                         } ?: listOf()
 
-                        val updateList =
-                            if (currentList.isEmpty()) newList
-                            else newList.filter {
-                                it !in currentList
-                            }
+                        val updateList = if (currentList.isEmpty()) newList else newList.filter { it !in currentList }
 
                         if (updateList.isNotEmpty()) {
                             viewModel.addListUrl(updateList)
                         }
 
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), "导入成功", Toast.LENGTH_SHORT)
-                                .show()
+                            Toast.makeText(requireContext(), getString(R.string.import_success), Toast.LENGTH_SHORT).show()
                         }
                     }.onFailure {
                         withContext(Dispatchers.Main) {
                             MaterialAlertDialogBuilder(requireContext())
-                                .setTitle("导入失败")
+                                .setTitle(getString(R.string.import_failed))
                                 .setMessage(it.message)
                                 .setPositiveButton(android.R.string.ok, null)
-                                .setNegativeButton("Crash Log") { _, _ ->
+                                .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
                                     MaterialAlertDialogBuilder(requireContext())
-                                        .setTitle("Crash Log")
+                                        .setTitle(getString(R.string.crash_log))
                                         .setMessage(it.stackTraceToString())
                                         .setPositiveButton(android.R.string.ok, null)
                                         .show()
@@ -486,25 +477,23 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             uri?.let {
                 CoroutineScope(Dispatchers.IO).launch {
                     runCatching {
-                        requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter()
-                            .use { writer ->
-                                prepareDataForExport().forEach { line ->
-                                    writer?.write("$line\n")
-                                }
+                        requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
+                            prepareDataForExport().forEach { line ->
+                                writer?.write("$line\n")
                             }
+                        }
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), "导出成功", Toast.LENGTH_SHORT)
-                                .show()
+                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
                         }
                     }.onFailure {
                         withContext(Dispatchers.Main) {
                             MaterialAlertDialogBuilder(requireContext())
-                                .setTitle("导出失败")
+                                .setTitle(getString(R.string.export_failed))
                                 .setMessage(it.message)
                                 .setPositiveButton(android.R.string.ok, null)
-                                .setNegativeButton("Crash Log") { _, _ ->
+                                .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
                                     MaterialAlertDialogBuilder(requireContext())
-                                        .setTitle("Crash Log")
+                                        .setTitle(getString(R.string.crash_log))
                                         .setMessage(it.stackTraceToString())
                                         .setPositiveButton(android.R.string.ok, null)
                                         .show()
