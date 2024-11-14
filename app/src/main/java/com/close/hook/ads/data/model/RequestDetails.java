@@ -12,7 +12,7 @@ public class RequestDetails {
     private final String dnsCidr;
     private final String fullAddress;
 
-    // HTTP/HTTPS 请求构造函数
+    // WebView | HTTP/HTTPS 请求构造函数
     public RequestDetails(String method, String urlString, Object requestHeaders, int responseCode, String responseMessage, Object responseHeaders, String stack) {
         this.method = method;
         this.urlString = urlString;
