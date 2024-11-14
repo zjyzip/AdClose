@@ -18,14 +18,14 @@ interface UrlDao {
     @Query("SELECT * FROM url_info")
     fun findAll(): Cursor
 
-    @Query("DELETE FROM url_info WHERE id = :id ")
+    @Query("DELETE FROM url_info WHERE id = :id")
     fun deleteById(id: Long): Int
 
     @Update
     fun update(url: Url): Int
 
     @Insert
-    fun insertAll(urls: List<Url>)
+    fun insertAll(urls: List<Url>): List<Long>
 
     @Query("SELECT * FROM url_info ORDER BY id DESC")
     fun loadAllList(): Flow<List<Url>>
@@ -39,21 +39,21 @@ interface UrlDao {
     @Query("SELECT * FROM url_info WHERE :url LIKE '%' || url || '%' LIMIT 1")
     fun findPartialMatchCursor(url: String): Cursor
 
-    @Query("SELECT 1 FROM url_info WHERE url = :url LIMIT 1")
+    @Query("SELECT COUNT(*) FROM url_info WHERE url = :url LIMIT 1")
     fun isExist(url: String): Boolean
 
-    @Query("SELECT 1 FROM url_info WHERE type = :type AND url = :url LIMIT 1")
-    fun isExist(type: String, url:String): Boolean
+    @Query("SELECT COUNT(*) FROM url_info WHERE type = :type AND url = :url LIMIT 1")
+    fun isExist(type: String, url: String): Boolean
 
     @Delete
-    fun deleteList(list: List<Url>)
+    fun deleteList(list: List<Url>): Int
 
     @Delete
-    fun deleteUrl(url: Url)
+    fun deleteUrl(url: Url): Int
 
     @Query("DELETE FROM url_info WHERE type = :type AND url = :url")
-    fun deleteUrlString(type: String, url: String)
+    fun deleteUrlString(type: String, url: String): Int
 
     @Query("DELETE FROM url_info")
-    fun deleteAll()
+    fun deleteAll(): Int
 }
