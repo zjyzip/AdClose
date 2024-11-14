@@ -149,4 +149,5 @@
     <string name="confirm_clear_cache_title">确定清除缓存吗？</string>
     <string name="confirm_clear_cache_message">当前缓存 %1$s</string>
     <string name="cache_cleared_recently">刚刚清理</string>
+    <string name="invalid_file_format">文件格式无效，请选择以 .rule 结尾的文件</string>
 </resources>

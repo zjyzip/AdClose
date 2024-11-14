@@ -408,9 +408,12 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             try {
                 File("${requireContext().cacheDir}/request_list.json").inputStream().use { input ->
                     requireContext().contentResolver.openOutputStream(uri).use { output ->
-                        if (output == null)
+                        if (output == null) {
                             Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-                        else input.copyTo(output)
+                        } else {
+                            input.copyTo(output)
+                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             } catch (e: IOException) {
