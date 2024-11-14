@@ -27,9 +27,11 @@ import org.luckypray.dexkit.result.MethodData;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,10 +77,11 @@ public class RequestHook {
 
     private static String formatUrlWithoutQuery(URL url) {
         try {
-            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath());
+            String decodedPath = URLDecoder.decode(url.getPath(), StandardCharsets.UTF_8.name());
+            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), decodedPath);
             return formattedUrl.toExternalForm();
-        } catch (MalformedURLException e) {
-            XposedBridge.log(LOG_PREFIX + "Malformed URL: " + e.getMessage());
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Error formatting URL: " + e.getMessage());
             return null;
         }
     }
@@ -98,7 +101,14 @@ public class RequestHook {
     }
 
     private static boolean shouldBlockWebRequest(final String url, final RequestDetails details) {
-        return checkShouldBlockRequest(url, details, " Web", "url");
+        try {
+            URL parsedUrl = new URL(url);
+            String formattedUrl = formatUrlWithoutQuery(parsedUrl);
+            return checkShouldBlockRequest(formattedUrl, details, " Web", "url");
+        } catch (MalformedURLException e) {
+            XposedBridge.log(LOG_PREFIX + "Invalid URL in shouldBlockWebRequest: " + e.getMessage());
+        }
+        return false;
     }
 
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
