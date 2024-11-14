@@ -17,13 +17,21 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.Locale
-
 
 class AppRepository(
     private val packageManager: PackageManager,
     private val context: Context
 ) {
+
+    private val localizedContext: Context by lazy {
+        val config = Configuration(context.resources.configuration)
+        config.setLocale(closeApp.getLocale(PrefManager.language))
+        context.createConfigurationContext(config)
+    }
+
+    private fun getLocalizedString(resId: Int): String {
+        return localizedContext.getString(resId)
+    }
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
         packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
@@ -55,10 +63,10 @@ class AppRepository(
                 app.packageName.contains(keyword, ignoreCase = true)) &&
                 filter.second.all { filterCriteria ->
                     when (filterCriteria) {
-                        getLocalizedString(context, R.string.filter_configured) -> app.isEnable == 1
-                        getLocalizedString(context, R.string.filter_recent_update) ->
+                        getLocalizedString(R.string.filter_configured) -> app.isEnable == 1
+                        getLocalizedString(R.string.filter_recent_update) ->
                             System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
-                        getLocalizedString(context, R.string.filter_disabled) -> app.isAppEnable == 0
+                        getLocalizedString(R.string.filter_disabled) -> app.isAppEnable == 0
                         else -> true
                     }
                 }
@@ -69,20 +77,13 @@ class AppRepository(
 
     private fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {
         val comparator = when (sortBy) {
-            getLocalizedString(context, R.string.sort_by_app_size) -> compareBy<AppInfo> { it.size }
-            getLocalizedString(context, R.string.sort_by_last_update) -> compareBy { it.lastUpdateTime }
-            getLocalizedString(context, R.string.sort_by_install_date) -> compareBy { it.firstInstallTime }
-            getLocalizedString(context, R.string.sort_by_target_version) -> compareBy { it.targetSdk }
+            getLocalizedString(R.string.sort_by_app_size) -> compareBy<AppInfo> { it.size }
+            getLocalizedString(R.string.sort_by_last_update) -> compareBy { it.lastUpdateTime }
+            getLocalizedString(R.string.sort_by_install_date) -> compareBy { it.firstInstallTime }
+            getLocalizedString(R.string.sort_by_target_version) -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
         return if (isReverse) comparator.reversed() else comparator
-    }
-
-    private fun getLocalizedString(context: Context, resId: Int): String {
-        val config = Configuration(context.resources.configuration)
-        config.setLocale(closeApp.getLocale(PrefManager.language))
-        val localizedContext = context.createConfigurationContext(config)
-        return localizedContext.getString(resId)
     }
 
     private fun getAppInfo(packageInfo: PackageInfo): AppInfo {
