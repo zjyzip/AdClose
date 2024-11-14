@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      cron: "0 0 * * 6"
+    versioning-strategy: "increase"
+    commit-message:
+      prefix: "deps"
