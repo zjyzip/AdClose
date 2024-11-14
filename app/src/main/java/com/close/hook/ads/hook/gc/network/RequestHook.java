@@ -361,8 +361,6 @@ public class RequestHook {
                     }
                 }
             );
-
-            XposedBridge.log(LOG_PREFIX + " - Hooks applied successfully.");
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient methods: " + e.getMessage());
         }
@@ -405,7 +403,12 @@ public class RequestHook {
                         );
 
                         if (shouldBlockWebRequest(urlString, details)) {
-                            param.setResult(null);
+                            try {
+                                Object emptyResponse = createEmptyWebResourceResponse();
+                                param.setResult(emptyResponse);
+                            } catch (Exception e) {
+                                XposedBridge.log(LOG_PREFIX + "Error creating empty WebResourceResponse: " + e.getMessage());
+                            }
                         }
                     }
                 }, ContextUtil.appContext.getClassLoader()
@@ -413,6 +416,16 @@ public class RequestHook {
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient methods: " + e.getMessage());
         }
+    }
+
+    private static Object createEmptyWebResourceResponse() throws Exception {
+        Class<?> webResourceResponseClass = Class.forName("android.webkit.WebResourceResponse");
+
+        Object emptyResponse = webResourceResponseClass
+                .getConstructor(String.class, String.class, int.class, String.class, java.util.Map.class, java.io.InputStream.class)
+                .newInstance("text/plain", "UTF-8", 204, "No Content", null, null);
+
+        return emptyResponse;
     }
 
     private static void sendBroadcast(

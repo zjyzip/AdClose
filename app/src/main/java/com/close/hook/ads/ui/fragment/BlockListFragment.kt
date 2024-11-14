@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -435,11 +436,21 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 CoroutineScope(Dispatchers.IO).launch {
                     runCatching {
                         val currentList: List<Url> = viewModel.blackListLiveData.value ?: emptyList()
-                        val inputStream = requireContext().contentResolver.openInputStream(uri)
+                        val contentResolver = requireContext().contentResolver
+
+                        val fileName = contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
+                        }
+                        if (fileName == null || !fileName.matches(Regex(".*\\.rule( \\(\\d+\\))?"))) {
+                            throw IllegalArgumentException(getString(R.string.invalid_file_format))
+                        }
+
+                        val inputStream = contentResolver.openInputStream(uri)
                         val newList: List<Url> = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
                                 val parts: List<String> = line.split(",\\s*".toRegex()).map { it.trim() }
-                                if (parts.size == 2) Url(parts[0], parts[1]) else null
+                                if (parts.size == 2 && parts[0] in listOf("Domain", "URL", "KeyWord")) Url(parts[0], parts[1]) else null
                             }.toList()
                         } ?: listOf()
 

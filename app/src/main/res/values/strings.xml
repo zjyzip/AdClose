@@ -151,4 +151,5 @@
     <string name="confirm_clear_cache_title">Are you sure you want to clear the cache? </string>
     <string name="confirm_clear_cache_message">Current cache %1$s</string>
     <string name="cache_cleared_recently">Just cleared</string>
+    <string name="invalid_file_format">The file format is invalid, please select a file ending with .rule</string>
 </resources>
