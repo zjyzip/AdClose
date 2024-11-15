@@ -414,10 +414,27 @@ public class RequestHook {
 
                         if (shouldBlockWebRequest(urlString, details)) {
                             try {
-                                Object emptyResponse = createEmptyWebResourceResponse();
-                                param.setResult(emptyResponse);
+                                if (isJavaScriptRequest(urlString)) {
+                                    Object emptyJsResponse = createEmptyWebResourceResponse("application/javascript", "console.log('Blocked by AdBlock');");
+                                    param.setResult(emptyJsResponse);
+                                } else if (isCssRequest(urlString)) {
+                                    Object emptyCssResponse = createEmptyWebResourceResponse("text/css", "/* Blocked by AdBlock */");
+                                    param.setResult(emptyCssResponse);
+                                } else if (isImageRequest(urlString)) {
+                                    Object emptyImageResponse = createEmptyWebResourceResponse("image/png", "");
+                                    param.setResult(emptyImageResponse);
+                                } else if (isJsonRequest(urlString)) {
+                                    Object emptyJsonResponse = createEmptyWebResourceResponse("application/json", "{}");
+                                    param.setResult(emptyJsonResponse);
+                                } else if (isFontRequest(urlString)) {
+                                    Object emptyFontResponse = createEmptyWebResourceResponse("application/font-woff", "");
+                                    param.setResult(emptyFontResponse);
+                                } else {
+                                    Object emptyResponse = createEmptyWebResourceResponse();
+                                    param.setResult(emptyResponse);
+                                }
                             } catch (Exception e) {
-                                XposedBridge.log(LOG_PREFIX + "Error creating empty WebResourceResponse: " + e.getMessage());
+                                XposedBridge.log(LOG_PREFIX + "Error creating WebResourceResponse: " + e.getMessage());
                             }
                         }
                     }
@@ -428,13 +445,45 @@ public class RequestHook {
         }
     }
 
+    private static boolean isJavaScriptRequest(String url) {
+        return url.endsWith(".js");
+    }
+
+    private static boolean isCssRequest(String url) {
+        return url.endsWith(".css");
+    }
+
+    private static boolean isImageRequest(String url) {
+        return url.endsWith(".png") || url.endsWith(".jpg") || url.endsWith(".jpeg") || url.endsWith(".gif") || url.endsWith(".webp");
+    }
+
+    private static boolean isJsonRequest(String url) {
+        return url.endsWith(".json");
+    }
+
+    private static boolean isFontRequest(String url) {
+        return url.endsWith(".woff") || url.endsWith(".woff2") || url.endsWith(".ttf");
+    }
+
     private static Object createEmptyWebResourceResponse() throws Exception {
         Class<?> webResourceResponseClass = Class.forName("android.webkit.WebResourceResponse");
 
         Object emptyResponse = webResourceResponseClass
                 .getConstructor(String.class, String.class, int.class, String.class, java.util.Map.class, java.io.InputStream.class)
                 .newInstance("text/plain", "UTF-8", 204, "No Content", null, null);
+    
+        return emptyResponse;
+    }
 
+    private static Object createEmptyWebResourceResponse(String mimeType, String content) throws Exception {
+        Class<?> webResourceResponseClass = Class.forName("android.webkit.WebResourceResponse");
+
+        java.io.InputStream inputStream = new java.io.ByteArrayInputStream(content.getBytes("UTF-8"));
+
+        Object emptyResponse = webResourceResponseClass
+                .getConstructor(String.class, String.class, java.io.InputStream.class)
+                .newInstance(mimeType, "UTF-8", inputStream);
+    
         return emptyResponse;
     }
 
