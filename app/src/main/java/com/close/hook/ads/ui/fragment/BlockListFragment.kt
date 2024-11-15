@@ -450,7 +450,12 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                         val newList: List<Url> = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
                                 val parts: List<String> = line.split(",\\s*".toRegex()).map { it.trim() }
-                                if (parts.size == 2 && parts[0] in listOf("Domain", "URL", "KeyWord")) Url(parts[0], parts[1]) else null
+                                if (parts.size == 2 && parts[0].equals("Domain", ignoreCase = true) ||
+                                    parts[0].equals("URL", ignoreCase = true) ||
+                                    parts[0].equals("KeyWord", ignoreCase = true)
+                                ) {
+                                    Url(parts[0], parts[1])
+                                } else null
                             }.toList()
                         } ?: listOf()
 

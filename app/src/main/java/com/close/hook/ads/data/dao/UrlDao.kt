@@ -30,7 +30,7 @@ interface UrlDao {
     @Query("SELECT * FROM url_info ORDER BY id DESC")
     fun loadAllList(): Flow<List<Url>>
 
-    @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' ORDER BY id DESC")
+    @Query("SELECT * FROM url_info WHERE url LIKE :searchText || '%' ORDER BY id DESC")
     fun searchUrls(searchText: String): Flow<List<Url>>
 
     @Query("SELECT * FROM url_info WHERE url = :url LIMIT 1")
@@ -39,10 +39,10 @@ interface UrlDao {
     @Query("SELECT * FROM url_info WHERE :url LIKE '%' || url || '%' LIMIT 1")
     fun findPartialMatchCursor(url: String): Cursor
 
-    @Query("SELECT COUNT(*) FROM url_info WHERE url = :url LIMIT 1")
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE url = :url")
     fun isExist(url: String): Boolean
 
-    @Query("SELECT COUNT(*) FROM url_info WHERE type = :type AND url = :url LIMIT 1")
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = :type AND url = :url")
     fun isExist(type: String, url: String): Boolean
 
     @Delete
