@@ -18,6 +18,7 @@ import com.close.hook.ads.hook.ha.SDKAdsKit;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.HookUtil;
+import com.close.hook.ads.hook.util.DexDumpUtil;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
@@ -26,6 +27,8 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String TAG = "com.close.hook.ads";
+
+    private static final boolean ENABLE_DEX_DUMP = false;
 
     @Override
     public void initZygote(StartupParam startupParam) throws Throwable {
@@ -52,7 +55,7 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             applySettings(settingsManager);
 
             ContextUtil.addOnAppContextInitializedCallback(() -> {
-                earlyHookComponents(ContextUtil.appContext, settingsManager);
+                setupApplicationHooks(ContextUtil.appContext, settingsManager);
             });
         } catch (Exception e) {
             XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
@@ -85,13 +88,16 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private void earlyHookComponents(Context appContext, SettingsManager settingsManager) {
+    private void setupApplicationHooks(Context appContext, SettingsManager settingsManager) {
         try {
             ClassLoader classLoader = appContext.getClassLoader();
             String packageName = appContext.getPackageName();
             CharSequence appName = getAppName(appContext, packageName);
 
             if (!TAG.equals(packageName)) {
+                if (ENABLE_DEX_DUMP) {
+                    DexDumpUtil.INSTANCE.dumpDexFiles();
+                }
                 XposedBridge.log("Application Name: " + appName);
             }
 

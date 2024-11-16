@@ -14,7 +14,6 @@ import de.robv.android.xposed.XposedHelpers;
 public class HookUtil {
 
     private static final Map<String, Class<?>> classCache = new ConcurrentHashMap<>();
-    private static final Map<String, Method> methodCache = new ConcurrentHashMap<>();
 
     public static class HookInfo {
         public String className;
@@ -75,18 +74,6 @@ public class HookUtil {
                 return Class.forName(key, false, classLoader);
             } catch (ClassNotFoundException e) {
                 XposedBridge.log("Class not found: " + key + ", " + e);
-                return null;
-            }
-        });
-    }
-
-    private static Method getCachedMethod(Class<?> clazz, String methodName) {
-        String key = clazz.getName() + "#" + methodName;
-        return methodCache.computeIfAbsent(key, k -> {
-            try {
-                return clazz.getDeclaredMethod(methodName);
-            } catch (NoSuchMethodException e) {
-                XposedBridge.log("Method not found: " + methodName + " in class " + clazz.getName() + ", " + e);
                 return null;
             }
         });
