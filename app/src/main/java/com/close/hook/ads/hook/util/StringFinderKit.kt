@@ -1,23 +1,28 @@
 package com.close.hook.ads.hook.util
 
+import de.robv.android.xposed.XposedBridge
 import org.luckypray.dexkit.result.MethodData
 
 object StringFinderKit {
 
     fun findMethodsWithString(key: String, searchString: String, methodName: String): List<MethodData>? {
-        DexKitUtil.initializeDexKitBridge()
-
-        val foundMethods = DexKitUtil.getCachedOrFindMethods(key) {
-            DexKitUtil.getBridge().findMethod {
-            excludePackages(listOf("com"))
-                matcher {
-                    usingStrings = listOf(searchString)
-                    name = methodName
+        return try {
+            DexKitUtil.initializeDexKitBridge()
+            DexKitUtil.getCachedOrFindMethods(key) {
+                DexKitUtil.getBridge().findMethod {
+                    excludePackages(listOf("com"))
+                    matcher {
+                        usingStrings = listOf(searchString)
+                        name = methodName
+                    }
                 }
-            }?.toList()
+            }
+        } catch (e: Throwable) {
+            XposedBridge.log("Error in findMethodsWithString: ${e.message}")
+            XposedBridge.log(e)
+            null
+        } finally {
+            DexKitUtil.releaseBridge()
         }
-
-        DexKitUtil.releaseBridge()
-        return foundMethods
     }
 }
