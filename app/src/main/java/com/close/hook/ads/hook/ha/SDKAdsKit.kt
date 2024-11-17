@@ -6,6 +6,7 @@ import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
+import com.close.hook.ads.hook.util.HookUtil.hookAllMethods
 import com.close.hook.ads.hook.util.HookUtil.hookMethod
 import org.luckypray.dexkit.result.MethodData
 
@@ -66,12 +67,23 @@ object SDKAdsKit {
                 return
             }
 
-            methods.filter { it.name == "init" }.forEach { method ->
-                XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-                XposedBridge.log("Hooked init method in TTAdSdk")
-            }
+            hookAllMethods(
+                "com.bytedance.sdk.openadsdk.TTAdSdk",
+                "init",
+                "after",
+                { param ->
+                    val method = param.method as java.lang.reflect.Method
+                    val returnType = method.returnType
+
+                    when (returnType) {
+                        Void.TYPE -> param.result = null
+                        java.lang.Boolean.TYPE -> param.result = false
+                        else -> param.result = null
+                    }
+                },
+                DexKitUtil.context.classLoader
+            )
         } catch (e: ClassNotFoundException) {
-            XposedBridge.log("Class not found: com.bytedance.sdk.openadsdk.TTAdSdk")
         }
     }
 
@@ -136,8 +148,10 @@ object SDKAdsKit {
         }?.forEach { methodData ->
             try {
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
                 XposedBridge.log("Hooked method: ${methodData}")
+                hookMethod(method, "after", { param ->
+                    param.result = null
+                })
             } catch (e: Throwable) {
                 XposedBridge.log("Error hooking method: ${methodData.methodName}")
             }
@@ -151,7 +165,7 @@ object SDKAdsKit {
             arrayOf(String::class.java),
             "after",
             { param ->
-                val key = param.args[0] as String
+                val key = param.args[0] as? String
                 if ("com.google.android.gms.ads.APPLICATION_ID" == key) {
                     param.result = "ca-app-pub-0000000000000000~0000000000"
                 }
@@ -165,15 +179,15 @@ object SDKAdsKit {
 
         DexKitUtil.getCachedOrFindMethods(cacheKeyForString) {
             DexKitUtil.getBridge().findMethod {
-                matcher {
-                    usingStrings = listOf(warningMessage)
-                }
+                matcher { usingStrings = listOf(warningMessage) }
             }
         }?.forEach { methodData ->
             try {
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
                 XposedBridge.log("Hooked method: ${methodData}")
+                hookMethod(method, "after", { param ->
+                    param.result = true
+                })
             } catch (e: Throwable) {
                 XposedBridge.log("Error hooking method: ${methodData.methodName}")
             }
@@ -205,7 +219,7 @@ object SDKAdsKit {
                     modifiers = Modifier.PUBLIC
                     returnType(Void.TYPE)
                 }
-            }?.filter { isValidAdMethod(it) }
+            }?.filter(::isValidAdMethod)
         }?.forEach { methodData ->
             try {
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
