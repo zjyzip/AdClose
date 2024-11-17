@@ -104,10 +104,12 @@ public class ContextUtil {
      */
     private static void triggerCallbacksIfInitialized(Context context, AtomicBoolean isInitialized, List<Runnable> callbacks) {
         if (context != null && isInitialized.compareAndSet(false, true)) {
-            for (Runnable callback : callbacks) {
-                callback.run();
+            synchronized (callbacks) {
+                for (Runnable callback : callbacks) {
+                    callback.run();
+                }
+                callbacks.clear(); // 清空回调，防止重复触发
             }
-            callbacks.clear(); // 清空回调，防止重复触发
         }
     }
 
@@ -143,16 +145,18 @@ public class ContextUtil {
      * 添加回调到指定的回调列表中，且在初始化时立即触发
      */
     private static void addCallback(Runnable callback, AtomicBoolean isInitialized, List<Runnable> callbacks) {
-        if (isInitialized.get()) {
-            // 如果已经初始化，则立即执行回调
-            callback.run();
-        } else {
-            // 否则加入回调列表，并检查 race condition
-            callbacks.add(callback);
+        synchronized (callbacks) {
             if (isInitialized.get()) {
-                // 这里再次检查是否已初始化，防止在添加过程中上下文已经初始化
-                callbacks.remove(callback);
+                // 如果已经初始化，则立即执行回调
                 callback.run();
+            } else {
+                // 否则加入回调列表，并检查 race condition
+                callbacks.add(callback);
+                if (isInitialized.get()) {
+                    // 这里再次检查是否已初始化，防止在添加过程中上下文已经初始化
+                    callbacks.remove(callback);
+                    callback.run();
+                }
             }
         }
     }
