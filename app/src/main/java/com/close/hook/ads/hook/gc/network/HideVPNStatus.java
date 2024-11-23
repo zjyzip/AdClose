@@ -8,8 +8,6 @@ import java.net.NetworkInterface;
 import java.util.Random;
 import java.util.regex.Pattern;
 
-import de.robv.android.xposed.XC_MethodHook;
-
 import com.close.hook.ads.hook.util.HookUtil;
 
 public class HideVPNStatus {
@@ -55,27 +53,27 @@ public class HideVPNStatus {
     private static void modifyNetworkInfo() {
         HookUtil.hookAllMethods(NetworkInfo.class, "getType", "before", param -> {
             Object result = param.getResult();
-            if (result != null && result.equals(ConnectivityManager.TYPE_VPN)) {
+            if (result instanceof Integer && (int) result == ConnectivityManager.TYPE_VPN) {
                 param.setResult(ConnectivityManager.TYPE_WIFI);
             }
         });
 
         HookUtil.hookAllMethods(NetworkInfo.class, "getTypeName", "before", param -> {
             Object result = param.getResult();
-            if (result instanceof String && ((String) result).equalsIgnoreCase("VPN")) {
+            if (result instanceof String && "VPN".equalsIgnoreCase((String) result)) {
                 param.setResult("WIFI");
             }
         });
 
         HookUtil.hookAllMethods(NetworkInfo.class, "getSubtypeName", "before", param -> {
             Object result = param.getResult();
-            if (result instanceof String && ((String) result).equalsIgnoreCase("VPN")) {
+            if (result instanceof String && "VPN".equalsIgnoreCase((String) result)) {
                 param.setResult("WIFI");
             }
         });
 
         HookUtil.hookAllMethods(ConnectivityManager.class, "getNetworkInfo", "before", param -> {
-            if (param.args.length > 0 && param.args[0].equals(ConnectivityManager.TYPE_VPN)) {
+            if (param.args.length > 0 && param.args[0] instanceof Integer && (int) param.args[0] == ConnectivityManager.TYPE_VPN) {
                 param.setResult(null);
             }
         });
@@ -84,14 +82,14 @@ public class HideVPNStatus {
     private static void modifyNetworkCapabilities() {
         HookUtil.hookAllMethods(NetworkCapabilities.class, "hasTransport", "before", param -> {
             Object arg = param.args[0];
-            if (arg.equals(NetworkCapabilities.TRANSPORT_VPN)) {
+            if (arg instanceof Integer && (int) arg == NetworkCapabilities.TRANSPORT_VPN) {
                 param.setResult(false);
             }
         });
 
         HookUtil.hookAllMethods(NetworkCapabilities.class, "hasCapability", "before", param -> {
             Object arg = param.args[0];
-            if (arg.equals(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+            if (arg instanceof Integer && (int) arg == NetworkCapabilities.NET_CAPABILITY_NOT_VPN) {
                 param.setResult(true);
             }
         });

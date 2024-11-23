@@ -50,7 +50,7 @@ object SDKAdsKit {
                     XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
                     XposedBridge.log("Hooked method: ${methodData}")
                 } catch (e: Throwable) {
-                    XposedBridge.log("Error hooking method: ${methodData.methodName}")
+                    XposedBridge.log("Error hooking method: ${methodData.methodName} - ${e.message}")
                 }
             }
         }
@@ -94,7 +94,6 @@ object SDKAdsKit {
         DexKitUtil.getCachedOrFindMethods(cacheKeyForString) {
             DexKitUtil.getBridge().findMethod {
                 matcher {
-                    returnType = "boolean"
                     usingStrings = listOf(initializeMessage)
                 }
             }
@@ -102,10 +101,19 @@ object SDKAdsKit {
             methods.forEach { methodData ->
                 try {
                     val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                    XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-                    XposedBridge.log("Hooked method: ${methodData}")
+
+                    val replacement = when (method.returnType.name) {
+                        "void" -> XC_MethodReplacement.DO_NOTHING
+                        "boolean" -> XC_MethodReplacement.returnConstant(false)
+                        else -> null
+                    }
+
+                    replacement?.let {
+                        XposedBridge.hookMethod(method, it)
+                        XposedBridge.log("Hooked method: ${methodData}")
+                    }
                 } catch (e: Throwable) {
-                    XposedBridge.log("Error hooking method: ${methodData.methodName}")
+                    XposedBridge.log("Error hooking method: ${methodData.methodName} - ${e.message}")
                 }
             }
         }
@@ -128,7 +136,7 @@ object SDKAdsKit {
                     XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
                     XposedBridge.log("Hooked method: ${methodData}")
                 } catch (e: Throwable) {
-                    XposedBridge.log("Error hooking method: ${methodData.methodName}")
+                    XposedBridge.log("Error hooking method: ${methodData.methodName} - ${e.message}")
                 }
             }
         }
@@ -153,7 +161,7 @@ object SDKAdsKit {
                     param.result = null
                 })
             } catch (e: Throwable) {
-                XposedBridge.log("Error hooking method: ${methodData.methodName}")
+                XposedBridge.log("Error hooking method: ${methodData.methodName} - ${e.message}")
             }
         }
     }
@@ -189,7 +197,7 @@ object SDKAdsKit {
                     param.result = true
                 })
             } catch (e: Throwable) {
-                XposedBridge.log("Error hooking method: ${methodData.methodName}")
+                XposedBridge.log("Error hooking method: ${methodData.methodName} - ${e.message}")
             }
         }
     }
@@ -226,7 +234,7 @@ object SDKAdsKit {
                 XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
                 XposedBridge.log("Hooked method: ${methodData}")
             } catch (e: Throwable) {
-                XposedBridge.log("Error hooking method: ${methodData.methodName}")
+                XposedBridge.log("Error hooking method: ${methodData.methodName} - ${e.message}")
             }
         }
     }
