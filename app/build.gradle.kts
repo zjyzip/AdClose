@@ -54,7 +54,6 @@ materialThemeBuilder {
 android {
     namespace = "com.close.hook.ads"
     compileSdk = 34
-    buildToolsVersion = "34.0.4"
 
     signingConfigs {
         create("keyStore") {
