@@ -9,7 +9,6 @@
         android:id="@+id/button_close"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_close"
         app:layout_constraintStart_toStartOf="parent"
@@ -34,8 +33,7 @@
         app:layout_constraintBottom_toTopOf="@id/version"
         app:layout_constraintEnd_toStartOf="@id/select_title"
         app:layout_constraintStart_toEndOf="@id/icon"
-        app:layout_constraintTop_toTopOf="@id/icon"
-        tools:text="appName" />
+        app:layout_constraintTop_toTopOf="@id/icon"/>
 
     <TextView
         android:id="@+id/version"
@@ -47,8 +45,7 @@
         app:layout_constraintBottom_toBottomOf="@id/icon"
         app:layout_constraintEnd_toStartOf="@id/select_title"
         app:layout_constraintStart_toEndOf="@id/icon"
-        app:layout_constraintTop_toBottomOf="@id/sheet_app_name"
-        tools:text="appVersion" />
+        app:layout_constraintTop_toBottomOf="@id/sheet_app_name"/>
 
     <TextView
         android:id="@+id/select_title"
@@ -63,23 +60,39 @@
         android:id="@+id/select_all"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="end"
         android:minWidth="0dp"
         android:minHeight="0dp"
         app:layout_constraintBottom_toBottomOf="@id/version"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@id/sheet_app_name" />
 
+    <View
+        android:id="@+id/divider_one"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:layout_marginTop="16dp"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/version" />
+
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_one"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
         android:background="@null"
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/handle_platform_ad"
-        app:layout_constraintTop_toBottomOf="@id/version" />
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintBottom_toTopOf="@+id/divider_two"
+        app:layout_constraintTop_toBottomOf="@id/divider_one"
+        app:layout_constraintVertical_bias="0.5" />
+
+    <View
+        android:id="@+id/divider_two"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/switch_one" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_two"
@@ -89,16 +102,26 @@
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/check_request"
-        app:layout_constraintTop_toBottomOf="@id/switch_one" />
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintBottom_toTopOf="@+id/divider_three"
+        app:layout_constraintTop_toBottomOf="@id/divider_two"
+        app:layout_constraintVertical_bias="0.5" />
 
     <TextView
         android:id="@+id/description_two"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/description_two"
-        android:textSize="10sp"
+        android:textAppearance="?attr/textAppearanceBodySmall"
         app:layout_constraintBottom_toBottomOf="@id/switch_two"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <View
+        android:id="@+id/divider_three"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/switch_two" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_three"
@@ -108,7 +131,17 @@
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/remove_vpn_state"
-        app:layout_constraintTop_toBottomOf="@id/description_two" />
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintBottom_toTopOf="@+id/divider_four"
+        app:layout_constraintTop_toBottomOf="@id/divider_three"
+        app:layout_constraintVertical_bias="0.5" />
+
+    <View
+        android:id="@+id/divider_four"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/switch_three" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_four"
@@ -118,7 +151,17 @@
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/remove_flag_secure"
-        app:layout_constraintTop_toBottomOf="@id/switch_three" />
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintBottom_toTopOf="@+id/divider_five"
+        app:layout_constraintTop_toBottomOf="@id/divider_four"
+        app:layout_constraintVertical_bias="0.5" />
+
+    <View
+        android:id="@+id/divider_five"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/switch_four" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_five"
@@ -128,7 +171,17 @@
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/remove_sensor_monitor"
-        app:layout_constraintTop_toBottomOf="@id/switch_four" />
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintBottom_toTopOf="@+id/divider_six"
+        app:layout_constraintTop_toBottomOf="@id/divider_five"
+        app:layout_constraintVertical_bias="0.5" />
+
+    <View
+        android:id="@+id/divider_six"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/switch_five" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_six"
@@ -138,16 +191,27 @@
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/remove_envi_detection"
-        app:layout_constraintTop_toBottomOf="@id/switch_five" />
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintBottom_toTopOf="@+id/divider_seven"
+        app:layout_constraintTop_toBottomOf="@id/divider_six"
+        app:layout_constraintVertical_bias="0.5" />
 
     <TextView
         android:id="@+id/desc_six"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/description_six"
+        android:textAppearance="?attr/textAppearanceBodySmall"
         android:textSize="10sp"
         app:layout_constraintBottom_toBottomOf="@id/switch_six"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <View
+        android:id="@+id/divider_seven"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/switch_six" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_seven"
@@ -157,16 +221,15 @@
         android:button="@null"
         android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
         android:text="@string/remove_clipboard"
-        app:layout_constraintTop_toBottomOf="@id/desc_six" />
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintTop_toBottomOf="@id/divider_seven" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/button_update"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="end"
         android:layout_marginTop="16dp"
         android:text="@string/update_checkbox_status"
-        android:theme="@style/Widget.MaterialComponents.Button"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/switch_seven" />

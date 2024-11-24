@@ -12,9 +12,10 @@
         android:id="@+id/appIcon"
         android:layout_width="50dp"
         android:layout_height="50dp"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.5"
         tools:src="#000000" />
 
     <LinearLayout
@@ -23,32 +24,36 @@
         android:layout_marginStart="10dp"
         android:layout_marginEnd="10dp"
         android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="@id/appIcon"
+        app:layout_constraintBottom_toBottomOf="@id/appIcon"
         app:layout_constraintStart_toEndOf="@id/appIcon"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
             android:id="@+id/appName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="16sp"
-            tools:text="appName" />
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:ellipsize="end"
+            android:maxLines="1"/>
 
         <TextView
             android:id="@+id/packageName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@android:color/darker_gray"
-            android:textSize="14sp"
-            tools:text="packageName" />
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurfaceVariant"/>
 
         <TextView
             android:id="@+id/appVersion"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@android:color/darker_gray"
-            android:textSize="12sp"
-            tools:text="appVersion" />
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurfaceVariant"/>
 
     </LinearLayout>
 
