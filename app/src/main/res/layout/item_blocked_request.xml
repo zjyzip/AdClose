@@ -14,22 +14,26 @@
         android:layout_width="100dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:background="@color/blue500"
+        android:background="?attr/colorPrimary"
         android:gravity="center"
         android:text="@string/copy"
-        android:textColor="@color/white"
-        android:textSize="16sp" />
+        android:textColor="?attr/colorOnPrimary"
+        android:textAppearance="?attr/textAppearanceButton"
+        android:textSize="14sp"
+        android:foreground="?attr/selectableItemBackground" />
 
     <TextView
         android:id="@+id/block"
         android:layout_width="100dp"
         android:layout_height="match_parent"
         android:layout_gravity="end"
-        android:background="@color/red500"
+        android:background="?attr/colorError"
         android:gravity="center"
         android:text="@string/block"
-        android:textColor="@color/white"
-        android:textSize="16sp" />
+        android:textColor="?attr/colorOnError"
+        android:textAppearance="?attr/textAppearanceButton"
+        android:textSize="14sp"
+        android:foreground="?attr/selectableItemBackground" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardView"
@@ -39,6 +43,7 @@
         android:clickable="true"
         android:elevation="0dp"
         android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
         app:cardCornerRadius="0dp"
         app:strokeWidth="0dp">
 
@@ -55,7 +60,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                tools:src="#000000" />
+                tools:srcCompat="?attr/colorPrimary" />
 
             <LinearLayout
                 android:id="@+id/infoLayout"
@@ -73,28 +78,28 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
-                    android:lines="1"
                     android:maxLines="1"
                     android:singleLine="true"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textAppearance="?attr/textAppearanceHeadline6"
+                    android:textSize="16sp" />
 
                 <TextView
                     android:id="@+id/request"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp" />
+                    android:textAppearance="?attr/textAppearanceBody2"
+                    android:textSize="14sp" />
 
                 <TextView
                     android:id="@+id/timestamp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
-                    android:lines="1"
                     android:maxLines="1"
                     android:singleLine="true"
-                    android:textColor="@android:color/darker_gray"
-                    android:textSize="13sp" />
+                    android:textAppearance="?attr/textAppearanceCaption"
+                    android:textColor="?attr/colorOutline"
+                    android:textSize="12sp" />
 
             </LinearLayout>
 
@@ -105,7 +110,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
                 android:layout_marginEnd="16dp"
-                app:cardBackgroundColor="?colorSecondaryContainer"
+                app:cardBackgroundColor="?attr/colorSecondaryContainer"
                 app:cardCornerRadius="3dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -121,9 +126,10 @@
                     android:paddingEnd="6dp"
                     android:paddingBottom="3dp"
                     android:textAllCaps="true"
-                    android:textColor="?colorOnSecondaryContainer"
+                    android:textColor="?attr/colorOnSecondaryContainer"
                     android:textFontWeight="600"
-                    android:textSize="10sp"
+                    android:textAppearance="?attr/textAppearanceOverline"
+                    android:textSize="12sp"
                     tools:targetApi="p"
                     tools:text="Host" />
 
