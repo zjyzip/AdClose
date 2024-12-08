@@ -77,11 +77,26 @@ public class RequestHook {
         return inetAddress.getHostAddress() + "/" + prefixLength;
     }
 
-    private static String formatUrlWithoutQuery(URL url) {
+    private static String formatUrlWithoutQuery(Object urlObject) {
         try {
-            String decodedPath = URLDecoder.decode(url.getPath(), StandardCharsets.UTF_8.name());
-            URL formattedUrl = new URL(url.getProtocol(), url.getHost(), url.getPort(), decodedPath);
-            return formattedUrl.toExternalForm();
+            String formattedUrl = null;
+            if (urlObject instanceof URL) {
+                URL url = (URL) urlObject;
+                String decodedPath = URLDecoder.decode(url.getPath(), StandardCharsets.UTF_8.name());
+                URL formattedUrlObj = new URL(url.getProtocol(), url.getHost(), url.getPort(), decodedPath);
+                formattedUrl = formattedUrlObj.toExternalForm();
+            } else if (urlObject instanceof Uri) {
+                Uri uri = (Uri) urlObject;
+                String path = uri.getPath();
+                String decodedPath = URLDecoder.decode(path, StandardCharsets.UTF_8.name());
+                formattedUrl = new Uri.Builder()
+                        .scheme(uri.getScheme())
+                        .authority(uri.getAuthority())
+                        .path(decodedPath)
+                        .build()
+                        .toString();
+            }
+            return formattedUrl;
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error formatting URL: " + e.getMessage());
             return null;
@@ -103,14 +118,9 @@ public class RequestHook {
     }
 
     private static boolean shouldBlockWebRequest(final String url, final RequestDetails details) {
-        try {
-            URL parsedUrl = new URL(url);
-            String formattedUrl = formatUrlWithoutQuery(parsedUrl);
-            return checkShouldBlockRequest(formattedUrl, details, " Web", "url");
-        } catch (MalformedURLException e) {
-            XposedBridge.log(LOG_PREFIX + "Invalid URL in shouldBlockWebRequest: " + e.getMessage());
-        }
-        return false;
+        Uri parsedUri = Uri.parse(url);
+        String formattedUrl = formatUrlWithoutQuery(parsedUri);
+        return checkShouldBlockRequest(formattedUrl, details, " Web", "url");
     }
 
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {

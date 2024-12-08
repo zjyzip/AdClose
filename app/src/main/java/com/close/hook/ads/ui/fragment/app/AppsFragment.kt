@@ -59,7 +59,7 @@ import java.util.Locale
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
 
-    private val viewModel by viewModels<AppsViewModel>(ownerProducer = { if (arguments?.getString("type") == "configured") requireActivity() else this })
+    private val viewModel by viewModels<AppsViewModel>()
     private lateinit var mAdapter: AppsAdapter
     private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null
@@ -394,8 +394,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         (parentFragment as? OnCLearCLickContainer)?.controller = null
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onDestroyView() {
+        super.onDestroyView()
         appConfigDialog?.dismiss()
         appInfoDialog?.dismiss()
         appConfigDialog = null

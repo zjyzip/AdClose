@@ -23,13 +23,10 @@ class AppRepository(
     private val context: Context
 ) {
 
-    private val localizedContext: Context by lazy {
+    private fun getLocalizedString(resId: Int): String {
         val config = Configuration(context.resources.configuration)
         config.setLocale(closeApp.getLocale(PrefManager.language))
-        context.createConfigurationContext(config)
-    }
-
-    private fun getLocalizedString(resId: Int): String {
+        val localizedContext = context.createConfigurationContext(config)
         return localizedContext.getString(resId)
     }
 

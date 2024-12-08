@@ -15,7 +15,6 @@ import com.close.hook.ads.databinding.InstallsItemAppBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class AppsAdapter(
     private val context: Context,
@@ -27,6 +26,8 @@ class AppsAdapter(
     private val requestOptions = RequestOptions()
         .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
         .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
+
+    private val preloadDistance = 3
 
     fun submitList(list: List<AppInfo>) {
         differ.submitList(list)
@@ -41,15 +42,25 @@ class AppsAdapter(
         val appInfo = differ.currentList[position]
         holder.bind(appInfo)
 
-        if (position < differ.currentList.size - 1) {
-            Glide.with(context)
-                .load(differ.currentList[position + 1].appIcon)
-                .apply(requestOptions)
-                .preload()
-        }
+        preloadImages(position)
     }
 
     override fun getItemCount(): Int = differ.currentList.size
+
+    private fun preloadImages(currentPosition: Int) {
+        val start = (currentPosition - preloadDistance).coerceAtLeast(0)
+        val end = (currentPosition + preloadDistance).coerceAtMost(differ.currentList.size - 1)
+
+        CoroutineScope(Dispatchers.Main).launch {
+            for (i in start..end) {
+                val appInfo = differ.currentList[i]
+                Glide.with(context)
+                    .load(appInfo.appIcon)
+                    .apply(requestOptions)
+                    .preload()
+            }
+        }
+    }
 
     class AppViewHolder(
         private val binding: InstallsItemAppBinding,
@@ -75,17 +86,10 @@ class AppsAdapter(
             binding.packageName.text = appInfo.packageName
             binding.appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
 
-            CoroutineScope(Dispatchers.IO).launch {
-                val drawable = Glide.with(binding.appIcon.context)
-                    .load(appInfo.appIcon)
-                    .apply(requestOptions)
-                    .submit()
-                    .get()
-
-                withContext(Dispatchers.Main) {
-                    binding.appIcon.setImageDrawable(drawable)
-                }
-            }
+            Glide.with(binding.appIcon.context)
+                .load(appInfo.appIcon)
+                .apply(requestOptions)
+                .into(binding.appIcon)
         }
     }
 
