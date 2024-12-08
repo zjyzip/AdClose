@@ -30,8 +30,8 @@ interface UrlDao {
     @Query("SELECT * FROM url_info ORDER BY id DESC")
     fun loadAllList(): Flow<List<Url>>
 
-    @Query("SELECT * FROM url_info WHERE url LIKE :searchText || '%' ORDER BY id DESC")
-    fun searchUrls(searchText: String): Flow<List<Url>>
+    @Query("SELECT * FROM url_info WHERE url LIKE :searchText || '%' ORDER BY id DESC LIMIT :limit OFFSET :offset")
+    fun searchUrls(searchText: String, offset: Int, limit: Int): Flow<List<Url>>
 
     @Query("SELECT * FROM url_info WHERE url = :url LIMIT 1")
     fun findExactMatchCursor(url: String): Cursor

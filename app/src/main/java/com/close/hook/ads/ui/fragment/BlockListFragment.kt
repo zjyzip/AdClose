@@ -305,6 +305,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initEditText() {
+        var page = 0
+        val pageSize = 20
+
         binding.editText.onFocusChangeListener =
             View.OnFocusChangeListener { _, hasFocus ->
                 setIconAndFocus(
@@ -322,15 +325,19 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     if (query.isBlank()) {
                         viewModel.blackListLiveData.asFlow()
                     } else {
-                        viewModel.dataSource.search(query)
+                        viewModel.dataSource.search(query, page * pageSize, pageSize)
                             .catch { emit(emptyList<Url>()) }
                             .flowOn(Dispatchers.IO)
                     }
                 }
                 .flowOn(Dispatchers.Default)
                 .collect { list: List<Url> ->
-                    mAdapter.submitList(list)
-                    binding.vfContainer.displayedChild = if (list.isEmpty()) 0 else 1
+                    if (list.isEmpty()) {
+                        binding.vfContainer.displayedChild = 0
+                    } else {
+                        mAdapter.submitList(list)
+                        binding.vfContainer.displayedChild = 1
+                    }
                 }
         }
     }

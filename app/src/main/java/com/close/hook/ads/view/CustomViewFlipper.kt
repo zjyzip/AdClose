@@ -3,7 +3,7 @@ package com.close.hook.ads.view
 import android.content.Context
 import android.util.AttributeSet
 import android.widget.ViewFlipper
-import androidx.fragment.app.findFragment
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import kotlinx.coroutines.Dispatchers
@@ -11,10 +11,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * From LibChecker
- */
 class CustomViewFlipper : ViewFlipper {
+
     constructor(context: Context) : super(context)
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs)
 
@@ -22,10 +20,11 @@ class CustomViewFlipper : ViewFlipper {
 
     override fun setDisplayedChild(whichChild: Int) {
         super.setDisplayedChild(whichChild)
-        findFragment<BaseFragment<*>>().lifecycleScope.launch(Dispatchers.IO) {
-            delay(250)
-            withContext(Dispatchers.Main) {
-                mOnDisplayedChildChangedListener?.onChanged(whichChild)
+        (context as? FragmentActivity)?.supportFragmentManager?.findFragmentById(id)?.let {
+            (it as? BaseFragment<*>)?.lifecycleScope?.launch {
+                withContext(Dispatchers.Main) {
+                    mOnDisplayedChildChangedListener?.onChanged(whichChild)
+                }
             }
         }
     }
@@ -39,7 +38,7 @@ class CustomViewFlipper : ViewFlipper {
     fun setOnDisplayedChildChangedListener(onChanged: OnDisplayedChildChangedListener.() -> Unit) {
         mOnDisplayedChildChangedListener = object : OnDisplayedChildChangedListener {
             override fun onChanged(whichChild: Int) {
-                onChanged()
+                onChanged(whichChild)
             }
         }
     }

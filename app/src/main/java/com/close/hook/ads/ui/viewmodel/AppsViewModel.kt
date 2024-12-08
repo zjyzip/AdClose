@@ -26,7 +26,7 @@ class AppsViewModel(
     val appsLiveData: LiveData<List<AppInfo>> by lazy { setupAppsLiveData() }
     private val appRepository: AppRepository = AppRepository(
         packageManager = application.packageManager,
-        context = application
+        context = application.applicationContext
     )
 
     init {
