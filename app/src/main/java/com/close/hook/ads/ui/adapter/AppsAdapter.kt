@@ -3,6 +3,8 @@ package com.close.hook.ads.ui.adapter
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -12,7 +14,6 @@ import com.bumptech.glide.request.RequestOptions
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.databinding.InstallsItemAppBinding
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -35,37 +36,23 @@ class AppsAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
         val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return AppViewHolder(binding, onItemClickListener, requestOptions)
+        return AppViewHolder(binding, onItemClickListener, requestOptions, preloadDistance, differ)
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
         val appInfo = differ.currentList[position]
         holder.bind(appInfo)
-
-        preloadImages(position)
+        holder.preloadImages(position)
     }
 
     override fun getItemCount(): Int = differ.currentList.size
 
-    private fun preloadImages(currentPosition: Int) {
-        val start = (currentPosition - preloadDistance).coerceAtLeast(0)
-        val end = (currentPosition + preloadDistance).coerceAtMost(differ.currentList.size - 1)
-
-        CoroutineScope(Dispatchers.Main).launch {
-            for (i in start..end) {
-                val appInfo = differ.currentList[i]
-                Glide.with(context)
-                    .load(appInfo.appIcon)
-                    .apply(requestOptions)
-                    .preload()
-            }
-        }
-    }
-
     class AppViewHolder(
         private val binding: InstallsItemAppBinding,
         private val onItemClickListener: OnItemClickListener,
-        private val requestOptions: RequestOptions
+        private val requestOptions: RequestOptions,
+        private val preloadDistance: Int,
+        private val differ: AsyncListDiffer<AppInfo>
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private lateinit var appInfo: AppInfo
@@ -90,6 +77,23 @@ class AppsAdapter(
                 .load(appInfo.appIcon)
                 .apply(requestOptions)
                 .into(binding.appIcon)
+        }
+
+        fun preloadImages(currentPosition: Int) {
+            val start = (currentPosition - preloadDistance).coerceAtLeast(0)
+            val end = (currentPosition + preloadDistance).coerceAtMost(differ.currentList.size - 1)
+
+            if (binding.root.context is LifecycleOwner) {
+                (binding.root.context as LifecycleOwner).lifecycleScope.launch(Dispatchers.Main) {
+                    for (i in start..end) {
+                        val appInfo = differ.currentList[i]
+                        Glide.with(binding.appIcon.context)
+                            .load(appInfo.appIcon)
+                            .apply(requestOptions)
+                            .preload()
+                    }
+                }
+            }
         }
     }
 

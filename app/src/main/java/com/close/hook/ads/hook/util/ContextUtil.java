@@ -4,12 +4,10 @@ import android.app.Application;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.app.Instrumentation;
-
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.XposedBridge;
 
 public class ContextUtil {
 
@@ -18,15 +16,17 @@ public class ContextUtil {
     public static volatile Context instrumentationContext;
     public static volatile Context contextWrapperContext;
 
-    private static final List<Runnable> activityThreadContextCallbacks = new CopyOnWriteArrayList<>();
-    private static final List<Runnable> appContextCallbacks = new CopyOnWriteArrayList<>();
-    private static final List<Runnable> instrumentationContextCallbacks = new CopyOnWriteArrayList<>();
-    private static final List<Runnable> contextWrapperContextCallbacks = new CopyOnWriteArrayList<>();
+    private static final ConcurrentLinkedQueue<Runnable> activityThreadContextCallbacks = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Runnable> appContextCallbacks = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Runnable> instrumentationContextCallbacks = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Runnable> contextWrapperContextCallbacks = new ConcurrentLinkedQueue<>();
 
     private static final AtomicBoolean isActivityThreadContextInitialized = new AtomicBoolean(false);
     private static final AtomicBoolean isAppContextInitialized = new AtomicBoolean(false);
     private static final AtomicBoolean isInstrumentationContextInitialized = new AtomicBoolean(false);
     private static final AtomicBoolean isContextWrapperContextInitialized = new AtomicBoolean(false);
+
+    private static final String TAG = "ContextUtil";
 
     /**
      * 初始化 ContextUtil，并注册回调
@@ -102,13 +102,12 @@ public class ContextUtil {
     /**
      * 根据上下文初始化状态，触发对应的回调
      */
-    private static void triggerCallbacksIfInitialized(Context context, AtomicBoolean isInitialized, List<Runnable> callbacks) {
+    private static void triggerCallbacksIfInitialized(Context context, AtomicBoolean isInitialized, ConcurrentLinkedQueue<Runnable> callbacks) {
         if (context != null && isInitialized.compareAndSet(false, true)) {
-            synchronized (callbacks) {
-                for (Runnable callback : callbacks) {
-                    callback.run();
-                }
-                callbacks.clear(); // 清空回调，防止重复触发
+            XposedBridge.log(TAG + " | Initialized: " + context.getClass().getName());
+            Runnable callback;
+            while ((callback = callbacks.poll()) != null) {
+                callback.run();
             }
         }
     }
@@ -144,19 +143,17 @@ public class ContextUtil {
     /**
      * 添加回调到指定的回调列表中，且在初始化时立即触发
      */
-    private static void addCallback(Runnable callback, AtomicBoolean isInitialized, List<Runnable> callbacks) {
-        synchronized (callbacks) {
+    private static void addCallback(Runnable callback, AtomicBoolean isInitialized, ConcurrentLinkedQueue<Runnable> callbacks) {
+        if (isInitialized.get()) {
+            // 如果已经初始化，则立即执行回调
+            XposedBridge.log(TAG + "Context already initialized, running callback immediately");
+            callback.run();
+        } else {
+            // 否则加入回调队列
+            callbacks.add(callback);
             if (isInitialized.get()) {
-                // 如果已经初始化，则立即执行回调
+                // 在添加回调后再次检查初始化状态，防止 race condition
                 callback.run();
-            } else {
-                // 否则加入回调列表，并检查 race condition
-                callbacks.add(callback);
-                if (isInitialized.get()) {
-                    // 这里再次检查是否已初始化，防止在添加过程中上下文已经初始化
-                    callbacks.remove(callback);
-                    callback.run();
-                }
             }
         }
     }

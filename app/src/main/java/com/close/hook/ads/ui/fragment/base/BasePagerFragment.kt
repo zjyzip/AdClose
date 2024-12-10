@@ -22,7 +22,6 @@ import com.close.hook.ads.util.OnClearClickListener
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 
-
 abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>(), OnBackPressListener,
     IOnTabClickContainer, OnCLearCLickContainer {
 
@@ -39,7 +38,6 @@ abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>()
         initView()
         initEditText()
         initButton()
-
     }
 
     open fun initButton() {
@@ -58,13 +56,12 @@ abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>()
     }
 
     private fun initEditText() {
-        binding.editText.onFocusChangeListener =
-            View.OnFocusChangeListener { _, hasFocus ->
-                setIconAndFocus(
-                    if (hasFocus) R.drawable.ic_magnifier_to_back else R.drawable.ic_back_to_magnifier,
-                    hasFocus
-                )
-            }
+        binding.editText.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+            setIconAndFocus(
+                if (hasFocus) R.drawable.ic_magnifier_to_back else R.drawable.ic_back_to_magnifier,
+                hasFocus
+            )
+        }
         binding.editText.addTextChangedListener(textWatcher)
     }
 
@@ -145,5 +142,4 @@ abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>()
         }
         return false
     }
-
 }

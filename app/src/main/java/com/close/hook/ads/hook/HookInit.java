@@ -33,7 +33,7 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     @Override
     public void initZygote(StartupParam startupParam) throws Throwable {
         ContextUtil.initialize(() -> {
-            XposedBridge.log("ContextUtil initialized");
+            XposedBridge.log("HookInit | ContextUtil initialized.");
         });
     }
 
