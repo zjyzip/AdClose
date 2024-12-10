@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class DataSource(context: Context) {
     private val urlDao = UrlDatabase.getDatabase(context).urlDao
@@ -15,8 +16,9 @@ class DataSource(context: Context) {
 
     fun addUrl(url: Url) {
         CoroutineScope(Dispatchers.IO).launch {
-            if (!urlDao.isExist(url.type, url.url))
+            if (!urlDao.isExist(url.type, url.url)) {
                 urlDao.insert(url)
+            }
         }
     }
 
@@ -58,8 +60,10 @@ class DataSource(context: Context) {
 
     fun search(searchText: String, offset: Int, limit: Int): Flow<List<Url>> = urlDao.searchUrls(searchText, offset, limit)
 
-    fun isExist(type: String, url: String): Boolean {
-        return urlDao.isExist(type, url)
+    suspend fun isExist(type: String, url: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            urlDao.isExist(type, url)
+        }
     }
 
     companion object {

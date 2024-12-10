@@ -46,7 +46,7 @@ data class Url(
     companion object {
         const val URL_TYPE = "type"
         const val URL_ADDRESS = "url"
-        
+
         @JvmField
         val CREATOR = object : Parcelable.Creator<Url> {
             override fun createFromParcel(parcel: Parcel): Url {

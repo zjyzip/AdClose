@@ -59,7 +59,7 @@ import java.util.Locale
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
 
-    private val viewModel by viewModels<AppsViewModel>()
+    private val viewModel by viewModels<AppsViewModel>(ownerProducer = { if (arguments?.getString("type") == "configured") requireActivity() else this })
     private lateinit var mAdapter: AppsAdapter
     private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null

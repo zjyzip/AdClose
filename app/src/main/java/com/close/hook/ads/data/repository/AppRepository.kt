@@ -16,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 
 class AppRepository(
@@ -23,27 +25,35 @@ class AppRepository(
     private val context: Context
 ) {
 
-    private fun getLocalizedString(resId: Int): String {
+    private val localizedContext by lazy {
         val config = Configuration(context.resources.configuration)
         config.setLocale(closeApp.getLocale(PrefManager.language))
-        val localizedContext = context.createConfigurationContext(config)
+        context.createConfigurationContext(config)
+    }
+
+    private val semaphore = Semaphore(20)
+
+    private fun getLocalizedString(resId: Int): String {
         return localizedContext.getString(resId)
     }
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
-        packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
-            .asSequence()
+        val installedPackages = packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
             .filter { packageInfo ->
                 isSystem == null || isSystemApp(packageInfo.applicationInfo) == isSystem
             }
-            .map { packageInfo ->
+
+        val resultList = installedPackages.chunked(50).flatMap { chunk ->
+            chunk.map { packageInfo ->
                 async {
-                    getAppInfo(packageInfo)
+                    semaphore.withPermit {
+                        getAppInfo(packageInfo)
+                    }
                 }
-            }
-            .toList()
-            .awaitAll()
-            .sortedBy { it.appName.lowercase() }
+            }.awaitAll()
+        }
+
+        resultList.sortedBy { it.appName.lowercase() }
     }
 
     suspend fun getFilteredAndSortedApps(
@@ -54,22 +64,21 @@ class AppRepository(
     ): List<AppInfo> = withContext(Dispatchers.Default) {
         val comparator = getComparator(filter.first, isReverse)
 
-        apps.asSequence()
-            .filter { app ->
-                (keyword.isBlank() || app.appName.contains(keyword, ignoreCase = true) ||
-                app.packageName.contains(keyword, ignoreCase = true)) &&
-                filter.second.all { filterCriteria ->
-                    when (filterCriteria) {
-                        getLocalizedString(R.string.filter_configured) -> app.isEnable == 1
-                        getLocalizedString(R.string.filter_recent_update) ->
-                            System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
-                        getLocalizedString(R.string.filter_disabled) -> app.isAppEnable == 0
-                        else -> true
-                    }
+        val filteredApps = apps.filter { app ->
+            (keyword.isBlank() || app.appName.contains(keyword, ignoreCase = true) ||
+            app.packageName.contains(keyword, ignoreCase = true)) &&
+            filter.second.all { filterCriteria ->
+                when (filterCriteria) {
+                    getLocalizedString(R.string.filter_configured) -> app.isEnable == 1
+                    getLocalizedString(R.string.filter_recent_update) ->
+                        System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
+                    getLocalizedString(R.string.filter_disabled) -> app.isAppEnable == 0
+                    else -> true
                 }
             }
-            .sortedWith(comparator)
-            .toList()
+        }
+
+        filteredApps.sortedWith(comparator).toList()
     }
 
     private fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {
@@ -80,10 +89,11 @@ class AppRepository(
             getLocalizedString(R.string.sort_by_target_version) -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
+
         return if (isReverse) comparator.reversed() else comparator
     }
 
-    private fun getAppInfo(packageInfo: PackageInfo): AppInfo {
+    private suspend fun getAppInfo(packageInfo: PackageInfo): AppInfo = withContext(Dispatchers.IO) {
         val applicationInfo = packageInfo.applicationInfo
         val appName = packageManager.getApplicationLabel(applicationInfo).toString()
         val appIcon = packageManager.getApplicationIcon(applicationInfo)
@@ -97,7 +107,7 @@ class AppRepository(
         val isEnable =
             if (MainActivity.isModuleActivated()) AppUtils.isAppEnabled(packageInfo.packageName) else 0
 
-        return AppInfo(
+        AppInfo(
             appName,
             packageInfo.packageName,
             appIcon,
