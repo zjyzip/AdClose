@@ -27,7 +27,8 @@ object DexKitUtil {
         if (bridge == null) {
             try {
                 val classLoader = context.classLoader
-                bridge = DexKitBridge.create(classLoader, true)
+                val apkPath = context.applicationInfo.sourceDir
+                bridge = DexKitBridge.create(apkPath)
                 XposedBridge.log("DexKitBridge initialized successfully with classLoader: $classLoader")
             } catch (e: Throwable) {
                 XposedBridge.log("Error initializing DexKitBridge: ${e.message}")
