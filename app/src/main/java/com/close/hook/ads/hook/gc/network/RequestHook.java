@@ -15,6 +15,7 @@ import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
 import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.hook.util.ContextUtil;
+import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 import com.close.hook.ads.provider.UrlContentProvider;
@@ -318,7 +319,7 @@ public class RequestHook {
         if (foundMethods != null) {
             for (MethodData methodData : foundMethods) {
                 try {
-                    Method method = methodData.getMethodInstance(ContextUtil.appContext.getClassLoader());
+                    Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
                     XposedBridge.log(LOG_PREFIX+ "setupOkHttpRequestHook" + methodData);
                     HookUtil.hookMethod(method, "after", param -> {
                         try {

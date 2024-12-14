@@ -59,8 +59,10 @@ public class ContextUtil {
 
                 Object activity = param.getResult();  // performLaunchActivity 返回的是 Activity 实例
                 if (activity instanceof Context) {
-                    activityThreadContext = (Context) activity;
-                    triggerCallbacksIfInitialized(activityThreadContext, isActivityThreadContextInitialized, activityThreadContextCallbacks);
+                    synchronized (ContextUtil.class) {
+                        activityThreadContext = (Context) activity;
+                        triggerCallbacksIfInitialized(activityThreadContext, isActivityThreadContextInitialized, activityThreadContextCallbacks);
+                    }
                 }
             }
         );
@@ -71,8 +73,10 @@ public class ContextUtil {
             new Object[]{Context.class},
             "after",
             param -> {
-                appContext = (Context) param.args[0];
-                triggerCallbacksIfInitialized(appContext, isAppContextInitialized, appContextCallbacks);
+                synchronized (ContextUtil.class) {
+                    appContext = (Context) param.args[0];
+                    triggerCallbacksIfInitialized(appContext, isAppContextInitialized, appContextCallbacks);
+                }
             }
         );
 
@@ -82,8 +86,10 @@ public class ContextUtil {
             new Object[]{Application.class},
             "after",
             param -> {
-                instrumentationContext = (Application) param.args[0];
-                triggerCallbacksIfInitialized(instrumentationContext, isInstrumentationContextInitialized, instrumentationContextCallbacks);
+                synchronized (ContextUtil.class) {
+                    instrumentationContext = (Application) param.args[0];
+                    triggerCallbacksIfInitialized(instrumentationContext, isInstrumentationContextInitialized, instrumentationContextCallbacks);
+                }
             }
         );
 
@@ -93,8 +99,10 @@ public class ContextUtil {
             new Object[]{Context.class},
             "after",
             param -> {
-                contextWrapperContext = (Context) param.args[0];
-                triggerCallbacksIfInitialized(contextWrapperContext, isContextWrapperContextInitialized, contextWrapperContextCallbacks);
+                synchronized (ContextUtil.class) {
+                    contextWrapperContext = (Context) param.args[0];
+                    triggerCallbacksIfInitialized(contextWrapperContext, isContextWrapperContextInitialized, contextWrapperContextCallbacks);
+                }
             }
         );
     }
@@ -144,16 +152,14 @@ public class ContextUtil {
      * 添加回调到指定的回调列表中，且在初始化时立即触发
      */
     private static void addCallback(Runnable callback, AtomicBoolean isInitialized, ConcurrentLinkedQueue<Runnable> callbacks) {
-        if (isInitialized.get()) {
-            // 如果已经初始化，则立即执行回调
-            XposedBridge.log(TAG + "Context already initialized, running callback immediately");
-            callback.run();
-        } else {
-            // 否则加入回调队列
-            callbacks.add(callback);
+        synchronized (ContextUtil.class) {
             if (isInitialized.get()) {
-                // 在添加回调后再次检查初始化状态，防止 race condition
+                // 如果已经初始化，则立即执行回调
+                XposedBridge.log(TAG + "Context already initialized, running callback immediately");
                 callback.run();
+            } else {
+                // 否则加入回调队列
+                callbacks.add(callback);
             }
         }
     }
