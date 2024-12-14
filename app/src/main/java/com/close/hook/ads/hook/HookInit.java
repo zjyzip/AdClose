@@ -1,10 +1,13 @@
 package com.close.hook.ads.hook;
 
 import android.annotation.SuppressLint;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.os.Process;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.close.hook.ads.hook.gc.DisableClipboard;
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
@@ -26,7 +29,9 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
+
     private static final String TAG = "com.close.hook.ads";
+    private static final String PREFS_NAME = "com.close.hook.ads_preferences";
 
     private static final boolean ENABLE_DEX_DUMP = false;
 
@@ -49,7 +54,7 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 activateModule(lpparam);
             }
 
-            PreferencesHelper prefsHelper = new PreferencesHelper(TAG, "com.close.hook.ads_preferences");
+            PreferencesHelper prefsHelper = new PreferencesHelper(TAG, PREFS_NAME);
             SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
             applySettings(settingsManager);
@@ -57,6 +62,13 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             ContextUtil.addOnAppContextInitializedCallback(() -> {
                 setupApplicationHooks(ContextUtil.appContext, settingsManager);
             });
+
+/*
+            ContextUtil.addOnInstrumentationContextInitializedCallback(() -> {
+            });
+
+            ContextUtil.addOnContextWrapperContextInitializedCallback(() -> {
+            });*/
         } catch (Exception e) {
             XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
         }
@@ -95,9 +107,10 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             CharSequence appName = getAppName(appContext, packageName);
 
             if (!TAG.equals(packageName)) {
-                if (ENABLE_DEX_DUMP) {
-                    DexDumpUtil.INSTANCE.dumpDexFiles();
+                if (isMainProcess(appContext)) {
+                    showHookTip(appContext, packageName);
                 }
+
                 XposedBridge.log("Application Name: " + appName);
             }
 
@@ -112,7 +125,7 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 SDKAds.hookAds(classLoader);
             }
         } catch (Exception e) {
-            XposedBridge.log(TAG + " Exception in earlyHookComponents: " + Log.getStackTraceString(e));
+            XposedBridge.log(TAG + " Exception in setupApplicationHooks: " + Log.getStackTraceString(e));
         }
     }
 
@@ -128,5 +141,23 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             XposedBridge.log("Application Name Not Found for package: " + packageName);
             return packageName;
         }
+    }
+
+    private boolean isMainProcess(Context context) {
+        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        String mainProcessName = context.getPackageName();
+        int pid = Process.myPid();
+
+        for (ActivityManager.RunningAppProcessInfo appProcess : activityManager.getRunningAppProcesses()) {
+            if (appProcess.pid == pid && mainProcessName.equals(appProcess.processName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void showHookTip(Context context, String packageName) {
+        CharSequence appName = getAppName(context, packageName);
+        Toast.makeText(context, "Hooking into " + appName, Toast.LENGTH_SHORT).show();
     }
 }
