@@ -31,8 +31,9 @@ class BlockListAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val item = getItem(position)
         tracker?.let {
-            holder.bind(getItem(position), it.isSelected(getItem(position)))
+            holder.bind(item, it.isSelected(item))
         }
     }
 

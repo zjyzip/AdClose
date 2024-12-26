@@ -1,13 +1,8 @@
 package com.close.hook.ads.hook;
 
 import android.annotation.SuppressLint;
-import android.app.ActivityManager;
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import android.os.Process;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.close.hook.ads.hook.gc.DisableClipboard;
 import com.close.hook.ads.hook.gc.DisableFlagSecure;
@@ -19,9 +14,10 @@ import com.close.hook.ads.hook.ha.AppAds;
 import com.close.hook.ads.hook.ha.SDKAds;
 import com.close.hook.ads.hook.ha.SDKAdsKit;
 import com.close.hook.ads.hook.preference.PreferencesHelper;
+import com.close.hook.ads.util.AppUtils;
 import com.close.hook.ads.hook.util.ContextUtil;
-import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.DexDumpUtil;
+import com.close.hook.ads.hook.util.HookUtil;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
@@ -36,7 +32,7 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final boolean ENABLE_DEX_DUMP = false;
 
     @Override
-    public void initZygote(StartupParam startupParam) throws Throwable {
+    public void initZygote(StartupParam startupParam) {
         ContextUtil.initialize(() -> {
             XposedBridge.log("HookInit | ContextUtil initialized.");
         });
@@ -63,12 +59,11 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 setupApplicationHooks(ContextUtil.appContext, settingsManager);
             });
 
-/*
             ContextUtil.addOnInstrumentationContextInitializedCallback(() -> {
             });
 
             ContextUtil.addOnContextWrapperContextInitializedCallback(() -> {
-            });*/
+            });
         } catch (Exception e) {
             XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
         }
@@ -104,11 +99,15 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         try {
             ClassLoader classLoader = appContext.getClassLoader();
             String packageName = appContext.getPackageName();
-            CharSequence appName = getAppName(appContext, packageName);
+            CharSequence appName = AppUtils.getAppName(appContext, packageName);
 
             if (!TAG.equals(packageName)) {
-                if (isMainProcess(appContext)) {
-                    showHookTip(appContext, packageName);
+                if (ENABLE_DEX_DUMP) {
+                    DexDumpUtil.INSTANCE.dumpDexFiles();
+                }
+
+                if (AppUtils.isMainProcess(appContext)) {
+                    AppUtils.showHookTip(appContext, packageName);
                 }
 
                 XposedBridge.log("Application Name: " + appName);
@@ -131,33 +130,5 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private boolean shouldIgnorePackage(XC_LoadPackage.LoadPackageParam lpparam) {
         return lpparam.appInfo == null || !lpparam.isFirstApplication;
-    }
-
-    private CharSequence getAppName(Context context, String packageName) {
-        try {
-            ApplicationInfo appInfo = context.getPackageManager().getApplicationInfo(packageName, 0);
-            return context.getPackageManager().getApplicationLabel(appInfo);
-        } catch (PackageManager.NameNotFoundException e) {
-            XposedBridge.log("Application Name Not Found for package: " + packageName);
-            return packageName;
-        }
-    }
-
-    private boolean isMainProcess(Context context) {
-        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        String mainProcessName = context.getPackageName();
-        int pid = Process.myPid();
-
-        for (ActivityManager.RunningAppProcessInfo appProcess : activityManager.getRunningAppProcesses()) {
-            if (appProcess.pid == pid && mainProcessName.equals(appProcess.processName)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void showHookTip(Context context, String packageName) {
-        CharSequence appName = getAppName(context, packageName);
-        Toast.makeText(context, "Hooking into " + appName, Toast.LENGTH_SHORT).show();
     }
 }
