@@ -56,12 +56,12 @@ public class ContextUtil {
             "after",
             param -> {
                 Application mInitialApplication = (Application) XposedHelpers.getObjectField(param.thisObject, "mInitialApplication");
-
+    
                 Object activity = param.getResult();  // performLaunchActivity 返回的是 Activity 实例
                 if (activity instanceof Context) {
                     synchronized (ContextUtil.class) {
                         activityThreadContext = (Context) activity;
-                        triggerCallbacksIfInitialized(activityThreadContext, isActivityThreadContextInitialized, activityThreadContextCallbacks);
+                        triggerCallbacksIfInitialized(activityThreadContext, isActivityThreadContextInitialized, activityThreadContextCallbacks, "ActivityThreadContext");
                     }
                 }
             }
@@ -75,7 +75,7 @@ public class ContextUtil {
             param -> {
                 synchronized (ContextUtil.class) {
                     appContext = (Context) param.args[0];
-                    triggerCallbacksIfInitialized(appContext, isAppContextInitialized, appContextCallbacks);
+                    triggerCallbacksIfInitialized(appContext, isAppContextInitialized, appContextCallbacks, "AppContext");
                 }
             }
         );
@@ -88,7 +88,7 @@ public class ContextUtil {
             param -> {
                 synchronized (ContextUtil.class) {
                     instrumentationContext = (Application) param.args[0];
-                    triggerCallbacksIfInitialized(instrumentationContext, isInstrumentationContextInitialized, instrumentationContextCallbacks);
+                    triggerCallbacksIfInitialized(instrumentationContext, isInstrumentationContextInitialized, instrumentationContextCallbacks, "InstrumentationContext");
                 }
             }
         );
@@ -101,7 +101,7 @@ public class ContextUtil {
             param -> {
                 synchronized (ContextUtil.class) {
                     contextWrapperContext = (Context) param.args[0];
-                    triggerCallbacksIfInitialized(contextWrapperContext, isContextWrapperContextInitialized, contextWrapperContextCallbacks);
+                    triggerCallbacksIfInitialized(contextWrapperContext, isContextWrapperContextInitialized, contextWrapperContextCallbacks, "ContextWrapperContext");
                 }
             }
         );
@@ -110,9 +110,9 @@ public class ContextUtil {
     /**
      * 根据上下文初始化状态，触发对应的回调
      */
-    private static void triggerCallbacksIfInitialized(Context context, AtomicBoolean isInitialized, ConcurrentLinkedQueue<Runnable> callbacks) {
+    private static void triggerCallbacksIfInitialized(Context context, AtomicBoolean isInitialized, ConcurrentLinkedQueue<Runnable> callbacks, String contextType) {
         if (context != null && isInitialized.compareAndSet(false, true)) {
-            XposedBridge.log(TAG + " | Initialized: " + context.getClass().getName());
+            XposedBridge.log(TAG + " | Initialized (" + contextType + "): " + context.toString());
             Runnable callback;
             while ((callback = callbacks.poll()) != null) {
                 callback.run();

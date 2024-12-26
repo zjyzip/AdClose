@@ -8,6 +8,8 @@ import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
 
 object DexKitUtil {
+    private const val LOG_PREFIX = "[DexKitUtil]"
+
     @Volatile
     private var bridge: DexKitBridge? = null
     private val methodCache = CacheBuilder.newBuilder()
@@ -29,9 +31,9 @@ object DexKitUtil {
                 val classLoader = context.classLoader
                 val apkPath = context.applicationInfo.sourceDir
                 bridge = DexKitBridge.create(apkPath)
-                XposedBridge.log("DexKitBridge initialized successfully with classLoader: $classLoader")
+                XposedBridge.log("$LOG_PREFIX DexKitBridge initialized successfully with classLoader: $classLoader")
             } catch (e: Throwable) {
-                XposedBridge.log("Error initializing DexKitBridge: ${e.message}")
+                XposedBridge.log("$LOG_PREFIX Error initializing DexKitBridge: ${e.message}")
                 throw RuntimeException("Failed to initialize DexKitBridge", e)
             }
         }
@@ -46,16 +48,31 @@ object DexKitUtil {
         if (bridge != null) {
             try {
                 bridge?.close()
-                XposedBridge.log("DexKitBridge released successfully.")
+                XposedBridge.log("$LOG_PREFIX DexKitBridge released successfully.")
             } catch (e: Throwable) {
-                XposedBridge.log("Error releasing DexKitBridge: ${e.message}")
+                XposedBridge.log("$LOG_PREFIX Error releasing DexKitBridge: ${e.message}")
             } finally {
                 bridge = null
             }
+        } else {
+            XposedBridge.log("$LOG_PREFIX DexKitBridge already released or not initialized.")
         }
     }
 
     fun getCachedOrFindMethods(key: String, findMethodLogic: () -> List<MethodData>?): List<MethodData>? {
-        return methodCache.get(key, findMethodLogic)
+        return try {
+            methodCache.get(key) {
+                val result = findMethodLogic()
+                if (result == null || result.isEmpty()) {
+                    XposedBridge.log("$LOG_PREFIX No methods found for key: $key")
+                } else {
+                    XposedBridge.log("$LOG_PREFIX Methods found for key: $key -> ${result.size} methods cached.")
+                }
+                result
+            }
+        } catch (e: Exception) {
+            XposedBridge.log("$LOG_PREFIX Error retrieving methods for key: $key -> ${e.message}")
+            null
+        }
     }
 }

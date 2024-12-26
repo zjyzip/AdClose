@@ -33,6 +33,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     override val tabList: List<Int> =
         listOf(R.string.tab_user_apps, R.string.tab_configured_apps, R.string.tab_system_apps)
+    
     private var bottomSheet: BottomSheetDialog? = null
     private lateinit var filerBinding: BottomDialogSearchFilterBinding
     private lateinit var filterBtn: ImageButton
@@ -49,21 +50,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         return binding.root
     }
 
-    private fun setupFab() {
-        backupFab = getFab(R.drawable.ic_export, R.string.export) {
-            fabController?.onExport()
-        }
-        restoreFab = getFab(R.drawable.ic_import, R.string.restore) {
-            fabController?.onRestore()
-        }
-        updateFabMargin()
-        binding.root.apply {
-            addView(backupFab)
-            addView(restoreFab)
-        }
-    }
-
-    private fun getFab(image: Int, tooltip: Int, onClick: () -> Unit): FloatingActionButton =
+    private fun createFab(image: Int, tooltip: Int, onClick: () -> Unit): FloatingActionButton =
         FloatingActionButton(requireContext()).apply {
             layoutParams = CoordinatorLayout.LayoutParams(
                 CoordinatorLayout.LayoutParams.WRAP_CONTENT,
@@ -76,6 +63,20 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
             tooltipText = getString(tooltip)
             setOnClickListener { onClick() }
         }
+
+    private fun setupFab() {
+        backupFab = createFab(R.drawable.ic_export, R.string.export) {
+            fabController?.onExport()
+        }
+        restoreFab = createFab(R.drawable.ic_import, R.string.restore) {
+            fabController?.onRestore()
+        }
+        updateFabMargin()
+        binding.root.apply {
+            addView(backupFab)
+            addView(restoreFab)
+        }
+    }
 
     private fun updateFabMargin() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
@@ -204,15 +205,20 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
                 text = title
                 isCheckable = true
                 isClickable = true
-                isChecked = if (isSortBy) title == PrefManager.order else when (title) {
-                    getString(R.string.filter_configured) -> PrefManager.configured
-                    getString(R.string.filter_recent_update) -> PrefManager.updated
-                    getString(R.string.filter_disabled) -> PrefManager.disabled
-                    else -> false
-                }
+                isChecked = getChipCheckedState(title, isSortBy)
                 setOnClickListener { handleChipClick(this, title, isSortBy) }
             }
             chipGroup.addView(chip)
+        }
+    }
+
+    private fun getChipCheckedState(title: String, isSortBy: Boolean): Boolean {
+        return if (isSortBy) title == PrefManager.order
+        else when (title) {
+            getString(R.string.filter_configured) -> PrefManager.configured
+            getString(R.string.filter_recent_update) -> PrefManager.updated
+            getString(R.string.filter_disabled) -> PrefManager.disabled
+            else -> false
         }
     }
 
@@ -243,13 +249,16 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         updateSortAndFilters()
     }
 
-    override fun getFragment(position: Int): Fragment =
-        when (position) {
-            0 -> AppsFragment.newInstance("user")
-            1 -> AppsFragment.newInstance("configured")
-            2 -> AppsFragment.newInstance("system")
-            else -> throw IllegalArgumentException()
-        }
+    override fun getFragment(position: Int): Fragment {
+        return AppsFragment.newInstance(
+            when (position) {
+                0 -> "user"
+                1 -> "configured"
+                2 -> "system"
+                else -> throw IllegalArgumentException("Unknown position")
+            }
+        )
+    }
 
     fun setHint(totalApp: Int) {
         binding.editText.hint = if (totalApp != 0) {
@@ -263,6 +272,5 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         super.onDestroyView()
         bottomSheet?.dismiss()
         bottomSheet = null
-        fabController = null
     }
 }

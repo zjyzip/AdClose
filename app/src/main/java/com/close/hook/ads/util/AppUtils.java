@@ -2,22 +2,14 @@ package com.close.hook.ads.util;
 
 import static com.close.hook.ads.CloseApplicationKt.closeApp;
 
-import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Context;
-import android.content.res.Configuration;
-import android.graphics.Color;
-import android.os.Build;
-import android.util.DisplayMetrics;
-import android.view.View;
-import android.view.Window;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.os.Process;
 import android.widget.Toast;
 
-import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
-
 import com.close.hook.ads.hook.preference.PreferencesHelper;
-
-import java.util.Objects;
 
 public class AppUtils {
 
@@ -37,41 +29,30 @@ public class AppUtils {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
     }
 
-    public static int getNavigationBarHeight(Context context) {
-        DisplayMetrics metrics = new DisplayMetrics();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Objects.requireNonNull(context.getDisplay()).getMetrics(metrics);
+    public static CharSequence getAppName(Context context, String packageName) {
+        try {
+            ApplicationInfo appInfo = context.getPackageManager().getApplicationInfo(packageName, 0);
+            return context.getPackageManager().getApplicationLabel(appInfo);
+        } catch (PackageManager.NameNotFoundException e) {
+            return packageName;
         }
-        int usableHeight = metrics.heightPixels;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            context.getDisplay().getRealMetrics(metrics);
-        }
-        int realHeight = metrics.heightPixels;
-        if (realHeight > usableHeight)
-            return realHeight - usableHeight;
-        return usableHeight;
     }
 
-    public static void setSystemBarsColor(View view) {
-        Context context = view.getContext();
-        boolean darkMode = isDarkTheme(context);
-        Activity activity = (Activity) context;
-        Window window = activity.getWindow();
-        WindowCompat.setDecorFitsSystemWindows(window, false);
-        window.setStatusBarColor(Color.TRANSPARENT);
-        window.setNavigationBarColor(Color.TRANSPARENT);
+    public static boolean isMainProcess(Context context) {
+        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        String mainProcessName = context.getPackageName();
+        int pid = Process.myPid();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            window.setNavigationBarDividerColor(Color.TRANSPARENT);
+        for (ActivityManager.RunningAppProcessInfo appProcess : activityManager.getRunningAppProcesses()) {
+            if (appProcess.pid == pid && mainProcessName.equals(appProcess.processName)) {
+                return true;
+            }
         }
-
-        WindowInsetsControllerCompat windowInsetsController = new WindowInsetsControllerCompat(window, view);
-        windowInsetsController.setAppearanceLightStatusBars(!darkMode);
-        windowInsetsController.setAppearanceLightNavigationBars(!darkMode);
+        return false;
     }
 
-    public static boolean isDarkTheme(Context context) {
-        int currentNightMode = context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        return currentNightMode == Configuration.UI_MODE_NIGHT_YES;
+    public static void showHookTip(Context context, String packageName) {
+        CharSequence appName = getAppName(context, packageName);
+        showToast(context, "AdClose Hooking into " + appName);
     }
 }

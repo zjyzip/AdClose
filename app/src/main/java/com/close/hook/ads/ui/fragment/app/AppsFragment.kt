@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -46,6 +47,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -396,10 +398,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onDestroyView() {
         super.onDestroyView()
+
         appConfigDialog?.dismiss()
         appInfoDialog?.dismiss()
         appConfigDialog = null
         appInfoDialog = null
+
+        viewModel.appsLiveData.removeObservers(viewLifecycleOwner)
+        viewLifecycleOwner.lifecycleScope.cancel()
+
+        binding.recyclerView.adapter = null
     }
 
     override fun updateSortList(

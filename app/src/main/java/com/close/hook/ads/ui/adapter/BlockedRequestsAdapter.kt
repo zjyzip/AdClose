@@ -60,7 +60,8 @@ class BlockedRequestsAdapter(
         )
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        getItem(position)?.let { holder.bind(it) }
+        val item = getItem(position)
+        item?.let { holder.bind(it) }
     }
 
     inner class ViewHolder(private val binding: ItemBlockedRequestBinding) :
@@ -132,8 +133,8 @@ class BlockedRequestsAdapter(
 
         private fun copyToClipboard(text: String) {
             val context = itemView.context
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("request", text))
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            clipboard?.setPrimaryClip(ClipData.newPlainText("request", text))
             Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, text), Toast.LENGTH_SHORT).show()
         }
 
@@ -163,14 +164,12 @@ class BlockedRequestsAdapter(
                 context.getString(R.string.add_to_blocklist)
             }
 
-            val textColor = ThemeUtils.getThemeAttrColor(
-                context, if (isBlocked == true) {
-                    com.google.android.material.R.attr.colorError
-                } else {
-                    com.google.android.material.R.attr.colorControlNormal
-                }
-            )
-            binding.request.setTextColor(textColor)
+            val colorAttr = if (isBlocked == true) {
+                com.google.android.material.R.attr.colorError
+            } else {
+                com.google.android.material.R.attr.colorControlNormal
+            }
+            binding.request.setTextColor(ThemeUtils.getThemeAttrColor(context, colorAttr))
         }
     }
 }
