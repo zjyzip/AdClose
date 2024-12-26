@@ -175,26 +175,7 @@ public class RequestHook {
             "getByName",
             new Object[]{String.class},
             "after",
-            param -> {
-                try {
-                    String host = (String) param.args[0];
-                    InetAddress inetAddress = (InetAddress) param.getResult();
-
-                    if (host == null || inetAddress == null) return;
-
-                    String cidr = calculateCidrNotation(inetAddress);
-                    String fullAddress = inetAddress.getHostAddress();
-                    String stackTrace = HookUtil.getFormattedStackTrace();
-
-                    RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
-
-                    if (shouldBlockDnsRequest(host, details)) {
-                        param.setResult(null);
-                    }
-                } catch (Exception e) {
-                    XposedBridge.log(LOG_PREFIX + "Error in getByName hook: " + e.getMessage());
-                }
-            }
+            param -> processDnsRequest(param.args, param.getResult(), "getByName")
         );
 
         HookUtil.findAndHookMethod(
@@ -202,42 +183,53 @@ public class RequestHook {
             "getAllByName",
             new Object[]{String.class},
             "after",
-            param -> {
-                try {
-                    String host = (String) param.args[0];
-                    InetAddress[] inetAddresses = (InetAddress[]) param.getResult();
-
-                    if (host == null || inetAddresses == null || inetAddresses.length == 0) return;
-
-                    StringBuilder cidrBuilder = new StringBuilder();
-                    StringBuilder fullAddressBuilder = new StringBuilder();
-
-                    for (InetAddress inetAddress : inetAddresses) {
-                        String cidr = calculateCidrNotation(inetAddress);
-                        String addr = inetAddress.getHostAddress();
-
-                        if (cidrBuilder.length() > 0) {
-                            cidrBuilder.append(", ");
-                            fullAddressBuilder.append(", ");
-                        }
-                        cidrBuilder.append(cidr);
-                        fullAddressBuilder.append(addr);
-                    }
-
-                    String cidr = cidrBuilder.toString();
-                    String fullAddress = fullAddressBuilder.toString();
-                    String stackTrace = HookUtil.getFormattedStackTrace();
-
-                    RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
-
-                    if (shouldBlockDnsRequest(host, details)) {
-                        param.setResult(new InetAddress[0]);
-                    }
-                } catch (Exception e) {
-                    XposedBridge.log(LOG_PREFIX + "Error in getAllByName hook: " + e.getMessage());
-                }
-            }
+            param -> processDnsRequest(param.args, param.getResult(), "getAllByName")
         );
+    }
+
+    private static void processDnsRequest(Object[] args, Object result, String methodName) {
+        try {
+            String host = (String) args[0];
+            if (host == null) return;
+
+            String stackTrace = HookUtil.getFormattedStackTrace();
+            String cidr = null;
+            String fullAddress = null;
+
+            if (methodName.equals("getByName")) {
+                InetAddress inetAddress = (InetAddress) result;
+                if (inetAddress == null) return;
+                cidr = calculateCidrNotation(inetAddress);
+                fullAddress = inetAddress.getHostAddress();
+            } else if (methodName.equals("getAllByName")) {
+                InetAddress[] inetAddresses = (InetAddress[]) result;
+                if (inetAddresses == null || inetAddresses.length == 0) return;
+
+                StringBuilder cidrBuilder = new StringBuilder();
+                StringBuilder fullAddressBuilder = new StringBuilder();
+
+                for (InetAddress inetAddress : inetAddresses) {
+                    if (cidrBuilder.length() > 0) {
+                        cidrBuilder.append(", ");
+                        fullAddressBuilder.append(", ");
+                    }
+                    cidrBuilder.append(calculateCidrNotation(inetAddress));
+                    fullAddressBuilder.append(inetAddress.getHostAddress());
+                }
+
+                cidr = cidrBuilder.toString();
+                fullAddress = fullAddressBuilder.toString();
+            }
+
+            RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
+
+            if (shouldBlockDnsRequest(host, details)) {
+                result = methodName.equals("getByName") ? null : new InetAddress[0];
+            }
+
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Error in " + methodName + " hook: " + e.getMessage());
+        }
     }
 
     private static void setupHttpRequestHook() {
@@ -258,7 +250,7 @@ public class RequestHook {
 
                     String stackTrace = HookUtil.getFormattedStackTrace();
 
-                    RequestDetails details = processRequest(request, response, url, stackTrace);
+                    RequestDetails details = processHttpRequest(request, response, url, stackTrace);
 
                     if (shouldBlockHttpsRequest(url, details)) {
                         Object emptyResponse = createEmptyResponseForHttp(response);
@@ -333,7 +325,7 @@ public class RequestHook {
                             URL url = new URL(okhttpUrl.toString());
 
                             String stackTrace = HookUtil.getFormattedStackTrace();
-                            RequestDetails details = processRequest(request, response, url, stackTrace);
+                            RequestDetails details = processHttpRequest(request, response, url, stackTrace);
 
                             if (shouldBlockOkHttpsRequest(url, details)) {
                                 throw new IOException("Request blocked");
@@ -351,7 +343,7 @@ public class RequestHook {
         }
     }
 
-    private static RequestDetails processRequest(Object request, Object response, URL url, String stack) {
+    private static RequestDetails processHttpRequest(Object request, Object response, URL url, String stack) {
         try {
             String method = (String) XposedHelpers.callMethod(request, "method");
             String urlString = url.toString();
