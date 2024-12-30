@@ -6,63 +6,47 @@ import android.content.ContextWrapper;
 import android.app.Instrumentation;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.XposedBridge;
 
 public class ContextUtil {
 
     public static volatile Context activityThreadContext;
-    public static volatile Context appContext;
-    public static volatile Context instrumentationContext;
+    public static volatile Context applicationContext;
     public static volatile Context contextWrapperContext;
+    public static volatile Context instrumentationContext;
 
     private static final ConcurrentLinkedQueue<Runnable> activityThreadContextCallbacks = new ConcurrentLinkedQueue<>();
-    private static final ConcurrentLinkedQueue<Runnable> appContextCallbacks = new ConcurrentLinkedQueue<>();
-    private static final ConcurrentLinkedQueue<Runnable> instrumentationContextCallbacks = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Runnable> applicationContextCallbacks = new ConcurrentLinkedQueue<>();
     private static final ConcurrentLinkedQueue<Runnable> contextWrapperContextCallbacks = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Runnable> instrumentationContextCallbacks = new ConcurrentLinkedQueue<>();
 
     private static final AtomicBoolean isActivityThreadContextInitialized = new AtomicBoolean(false);
-    private static final AtomicBoolean isAppContextInitialized = new AtomicBoolean(false);
-    private static final AtomicBoolean isInstrumentationContextInitialized = new AtomicBoolean(false);
+    private static final AtomicBoolean isApplicationContextInitialized = new AtomicBoolean(false);
     private static final AtomicBoolean isContextWrapperContextInitialized = new AtomicBoolean(false);
+    private static final AtomicBoolean isInstrumentationContextInitialized = new AtomicBoolean(false);
 
     private static final String TAG = "ContextUtil";
 
-    /**
-     * 初始化 ContextUtil，并注册回调
-     */
     public static void initialize(Runnable initialCallback) {
         if (initialCallback != null) {
-            // 每个回调独立注册，且不会互相影响
-            addOnAppContextInitializedCallback(initialCallback);
-
-            /*
             addOnActivityThreadContextInitializedCallback(initialCallback);
-            addOnInstrumentationContextInitializedCallback(initialCallback);
+            addOnApplicationContextInitializedCallback(initialCallback);
             addOnContextWrapperContextInitializedCallback(initialCallback);
-            */
+            addOnInstrumentationContextInitializedCallback(initialCallback);
         }
-        // 启动上下文钩子的监控
         initializeContextHooks();
     }
 
-    /**
-     * 为各个 Context 的生命周期钩子绑定回调
-     */
     private static void initializeContextHooks() {
         HookUtil.hookAllMethods(
             "android.app.ActivityThread",
             "performLaunchActivity",
             "after",
             param -> {
-                Application mInitialApplication = (Application) XposedHelpers.getObjectField(param.thisObject, "mInitialApplication");
-    
-                Object activity = param.getResult();  // performLaunchActivity 返回的是 Activity 实例
+                Object activity = param.getResult();
                 if (activity instanceof Context) {
-                    synchronized (ContextUtil.class) {
-                        activityThreadContext = (Context) activity;
-                        triggerCallbacksIfInitialized(activityThreadContext, isActivityThreadContextInitialized, activityThreadContextCallbacks, "ActivityThreadContext");
-                    }
+                    activityThreadContext = (Context) activity;
+                    triggerCallbacksIfInitialized(activityThreadContext, isActivityThreadContextInitialized, activityThreadContextCallbacks, "ActivityThreadContext");
                 }
             }
         );
@@ -73,23 +57,8 @@ public class ContextUtil {
             new Object[]{Context.class},
             "after",
             param -> {
-                synchronized (ContextUtil.class) {
-                    appContext = (Context) param.args[0];
-                    triggerCallbacksIfInitialized(appContext, isAppContextInitialized, appContextCallbacks, "AppContext");
-                }
-            }
-        );
-
-        HookUtil.findAndHookMethod(
-            Instrumentation.class,
-            "callApplicationOnCreate",
-            new Object[]{Application.class},
-            "after",
-            param -> {
-                synchronized (ContextUtil.class) {
-                    instrumentationContext = (Application) param.args[0];
-                    triggerCallbacksIfInitialized(instrumentationContext, isInstrumentationContextInitialized, instrumentationContextCallbacks, "InstrumentationContext");
-                }
+                applicationContext = (Context) param.args[0];
+                triggerCallbacksIfInitialized(applicationContext, isApplicationContextInitialized, applicationContextCallbacks, "ApplicationContext");
             }
         );
 
@@ -99,20 +68,26 @@ public class ContextUtil {
             new Object[]{Context.class},
             "after",
             param -> {
-                synchronized (ContextUtil.class) {
-                    contextWrapperContext = (Context) param.args[0];
-                    triggerCallbacksIfInitialized(contextWrapperContext, isContextWrapperContextInitialized, contextWrapperContextCallbacks, "ContextWrapperContext");
-                }
+                contextWrapperContext = (Context) param.args[0];
+                triggerCallbacksIfInitialized(contextWrapperContext, isContextWrapperContextInitialized, contextWrapperContextCallbacks, "ContextWrapperContext");
+            }
+        );
+
+        HookUtil.findAndHookMethod(
+            Instrumentation.class,
+            "callApplicationOnCreate",
+            new Object[]{Application.class},
+            "after",
+            param -> {
+                instrumentationContext = (Application) param.args[0];
+                triggerCallbacksIfInitialized(instrumentationContext, isInstrumentationContextInitialized, instrumentationContextCallbacks, "InstrumentationContext");
             }
         );
     }
 
-    /**
-     * 根据上下文初始化状态，触发对应的回调
-     */
     private static void triggerCallbacksIfInitialized(Context context, AtomicBoolean isInitialized, ConcurrentLinkedQueue<Runnable> callbacks, String contextType) {
         if (context != null && isInitialized.compareAndSet(false, true)) {
-            XposedBridge.log(TAG + " | Initialized (" + contextType + "): " + context.toString());
+            XposedBridge.log(TAG + " | Initialized (" + contextType + "): " + context);
             Runnable callback;
             while ((callback = callbacks.poll()) != null) {
                 callback.run();
@@ -120,47 +95,27 @@ public class ContextUtil {
         }
     }
 
-    /**
-     * 添加 ActivityThread Context 初始化完成后的回调
-     */
     public static void addOnActivityThreadContextInitializedCallback(Runnable callback) {
         addCallback(callback, isActivityThreadContextInitialized, activityThreadContextCallbacks);
     }
 
-    /**
-     * 添加 Application Context 初始化完成后的回调
-     */
-    public static void addOnAppContextInitializedCallback(Runnable callback) {
-        addCallback(callback, isAppContextInitialized, appContextCallbacks);
+    public static void addOnApplicationContextInitializedCallback(Runnable callback) {
+        addCallback(callback, isApplicationContextInitialized, applicationContextCallbacks);
     }
 
-    /**
-     * 添加 Instrumentation Context 初始化完成后的回调
-     */
-    public static void addOnInstrumentationContextInitializedCallback(Runnable callback) {
-        addCallback(callback, isInstrumentationContextInitialized, instrumentationContextCallbacks);
-    }
-
-    /**
-     * 添加 ContextWrapper Context 初始化完成后的回调
-     */
     public static void addOnContextWrapperContextInitializedCallback(Runnable callback) {
         addCallback(callback, isContextWrapperContextInitialized, contextWrapperContextCallbacks);
     }
 
-    /**
-     * 添加回调到指定的回调列表中，且在初始化时立即触发
-     */
+    public static void addOnInstrumentationContextInitializedCallback(Runnable callback) {
+        addCallback(callback, isInstrumentationContextInitialized, instrumentationContextCallbacks);
+    }
+
     private static void addCallback(Runnable callback, AtomicBoolean isInitialized, ConcurrentLinkedQueue<Runnable> callbacks) {
-        synchronized (ContextUtil.class) {
-            if (isInitialized.get()) {
-                // 如果已经初始化，则立即执行回调
-                XposedBridge.log(TAG + "Context already initialized, running callback immediately");
-                callback.run();
-            } else {
-                // 否则加入回调队列
-                callbacks.add(callback);
-            }
+        if (isInitialized.get()) {
+            callback.run();
+        } else {
+            callbacks.offer(callback);
         }
     }
 }

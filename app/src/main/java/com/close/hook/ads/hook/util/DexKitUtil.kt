@@ -1,72 +1,71 @@
 package com.close.hook.ads.hook.util
 
 import android.content.Context
-import java.util.concurrent.TimeUnit
 import com.google.common.cache.CacheBuilder
 import de.robv.android.xposed.XposedBridge
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 object DexKitUtil {
     private const val LOG_PREFIX = "[DexKitUtil]"
 
-    @Volatile
-    private var bridge: DexKitBridge? = null
+    private val bridge = AtomicReference<DexKitBridge?>()
     private val methodCache = CacheBuilder.newBuilder()
-        .maximumSize(200)
+        .maximumSize(300)
+        .concurrencyLevel(4)
         .expireAfterWrite(12, TimeUnit.HOURS)
         .build<String, List<MethodData>?>()
 
     val context: Context
-        get() = ContextUtil.appContext
+        get() = ContextUtil.applicationContext
 
     init {
         System.loadLibrary("dexkit")
     }
 
-    @Synchronized
     fun initializeDexKitBridge() {
-        if (bridge == null) {
-            try {
-                val classLoader = context.classLoader
-                val apkPath = context.applicationInfo.sourceDir
-                bridge = DexKitBridge.create(apkPath)
-                XposedBridge.log("$LOG_PREFIX DexKitBridge initialized successfully with classLoader: $classLoader")
-            } catch (e: Throwable) {
-                XposedBridge.log("$LOG_PREFIX Error initializing DexKitBridge: ${e.message}")
-                throw RuntimeException("Failed to initialize DexKitBridge", e)
+        bridge.get() ?: synchronized(this) {
+            bridge.get() ?: run {
+                try {
+                    val classLoader = context.classLoader
+                    val apkPath = context.applicationInfo.sourceDir
+                    val newBridge = DexKitBridge.create(apkPath)
+                    XposedBridge.log("$LOG_PREFIX DexKitBridge initialized successfully with classLoader: $classLoader")
+                    if (bridge.compareAndSet(null, newBridge)) {
+                        XposedBridge.log("$LOG_PREFIX DexKitBridge initialized successfully.")
+                    }
+                } catch (e: Throwable) {
+                    XposedBridge.log("$LOG_PREFIX Error initializing DexKitBridge: ${e.message}")
+                    throw RuntimeException("Failed to initialize DexKitBridge", e)
+                }
             }
         }
     }
 
-    fun getBridge(): DexKitBridge {
-        return bridge ?: throw IllegalStateException("DexKitBridge not initialized")
-    }
+    fun getBridge(): DexKitBridge =
+        bridge.get() ?: throw IllegalStateException("DexKitBridge not initialized")
 
-    @Synchronized
     fun releaseBridge() {
-        if (bridge != null) {
+        bridge.getAndSet(null)?.let {
             try {
-                bridge?.close()
+                it.close()
                 XposedBridge.log("$LOG_PREFIX DexKitBridge released successfully.")
             } catch (e: Throwable) {
                 XposedBridge.log("$LOG_PREFIX Error releasing DexKitBridge: ${e.message}")
-            } finally {
-                bridge = null
             }
-        } else {
-            XposedBridge.log("$LOG_PREFIX DexKitBridge already released or not initialized.")
-        }
+        } ?: XposedBridge.log("$LOG_PREFIX DexKitBridge already released or not initialized.")
     }
 
     fun getCachedOrFindMethods(key: String, findMethodLogic: () -> List<MethodData>?): List<MethodData>? {
         return try {
             methodCache.get(key) {
                 val result = findMethodLogic()
-                if (result == null || result.isEmpty()) {
+                if (result.isNullOrEmpty()) {
                     XposedBridge.log("$LOG_PREFIX No methods found for key: $key")
                 } else {
-                    XposedBridge.log("$LOG_PREFIX Methods found for key: $key -> ${result.size} methods cached.")
+                    XposedBridge.log("$LOG_PREFIX Methods cached for key: $key -> ${result.size} methods.")
                 }
                 result
             }
