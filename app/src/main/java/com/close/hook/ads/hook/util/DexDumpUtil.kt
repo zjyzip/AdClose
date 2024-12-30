@@ -7,11 +7,16 @@ import java.io.File
 
 object DexDumpUtil {
 
-    fun dumpDexFiles() {
-        dumpDexFiles(defaultOutputPath)
+    fun dumpDexFilesByPackageName(packageName: String) {
+        val outputPath = getOutputPath(packageName)
+        dumpDexFilesToPath(outputPath)
     }
 
-    fun dumpDexFiles(outputPath: String = defaultOutputPath) {
+    fun dumpDexFilesToDefaultPath() {
+        dumpDexFilesToPath(defaultOutputPath)
+    }
+
+    private fun dumpDexFilesToPath(outputPath: String) {
         try {
             DexKitUtil.initializeDexKitBridge()
             val bridge = DexKitUtil.getBridge()
@@ -47,4 +52,9 @@ object DexDumpUtil {
 
     private val defaultOutputPath: String
         get() = Environment.getExternalStorageDirectory().absolutePath + "/Download/DexkitDump/"
+
+    private fun getOutputPath(packageName: String): String {
+        val baseDir = defaultOutputPath
+        return "$baseDir$packageName/"
+    }
 }

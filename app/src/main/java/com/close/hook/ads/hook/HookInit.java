@@ -31,6 +31,8 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private static final boolean ENABLE_DEX_DUMP = false;
 
+    private SettingsManager settingsManager;
+
     @Override
     public void initZygote(StartupParam startupParam) {
         ContextUtil.initialize(() -> {
@@ -51,19 +53,11 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             }
 
             PreferencesHelper prefsHelper = new PreferencesHelper(TAG, PREFS_NAME);
-            SettingsManager settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
+            settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
             applySettings(settingsManager);
 
-            ContextUtil.addOnAppContextInitializedCallback(() -> {
-                setupApplicationHooks(ContextUtil.appContext, settingsManager);
-            });
-
-            ContextUtil.addOnInstrumentationContextInitializedCallback(() -> {
-            });
-
-            ContextUtil.addOnContextWrapperContextInitializedCallback(() -> {
-            });
+            registerContextCallbacks();
         } catch (Exception e) {
             XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
         }
@@ -95,19 +89,19 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private void setupApplicationHooks(Context appContext, SettingsManager settingsManager) {
+    private void setupApplicationHooks(Context applicationContext) {
         try {
-            ClassLoader classLoader = appContext.getClassLoader();
-            String packageName = appContext.getPackageName();
-            CharSequence appName = AppUtils.getAppName(appContext, packageName);
+            ClassLoader classLoader = applicationContext.getClassLoader();
+            String packageName = applicationContext.getPackageName();
+            CharSequence appName = AppUtils.getAppName(applicationContext, packageName);
 
             if (!TAG.equals(packageName)) {
                 if (ENABLE_DEX_DUMP) {
-                    DexDumpUtil.INSTANCE.dumpDexFiles();
+                    DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
                 }
 
-                if (AppUtils.isMainProcess(appContext)) {
-                    AppUtils.showHookTip(appContext, packageName);
+                if (AppUtils.isMainProcess(applicationContext)) {
+                    AppUtils.showHookTip(applicationContext, packageName);
                 }
 
                 XposedBridge.log("Application Name: " + appName);
@@ -126,6 +120,21 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         } catch (Exception e) {
             XposedBridge.log(TAG + " Exception in setupApplicationHooks: " + Log.getStackTraceString(e));
         }
+    }
+
+    private void registerContextCallbacks() {
+        ContextUtil.addOnActivityThreadContextInitializedCallback(() -> {
+        });
+
+        ContextUtil.addOnApplicationContextInitializedCallback(() -> {
+            setupApplicationHooks(ContextUtil.applicationContext);
+        });
+
+        ContextUtil.addOnContextWrapperContextInitializedCallback(() -> {
+        });
+
+        ContextUtil.addOnInstrumentationContextInitializedCallback(() -> {
+        });
     }
 
     private boolean shouldIgnorePackage(XC_LoadPackage.LoadPackageParam lpparam) {

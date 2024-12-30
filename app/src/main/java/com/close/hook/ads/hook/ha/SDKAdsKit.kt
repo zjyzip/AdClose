@@ -22,9 +22,9 @@ object SDKAdsKit {
 
         handlePangolinSDK()
         handlePangolinInit()
+        handleGdtInit()
         handleAnyThinkSDK()
         blockFirebaseWithString()
-        blockFirebaseWithString2()
         blockAdsWithBaseBundle()
         blockAdsWithString()
         blockAdsWithPackageName()
@@ -55,7 +55,9 @@ object SDKAdsKit {
             "$packageName:handlePangolinSDK",
             listOf("tt_sdk_settings_other")
         ) { method ->
-            XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
+            hookMethod(method, "after") { param ->
+                param.result = null
+            }
         }
     }
 
@@ -73,7 +75,7 @@ object SDKAdsKit {
                 "init",
                 "after",
                 { param ->
-                    param.result = when ((param.method as java.lang.reflect.Method).returnType) {
+                    param.result = when ((param.method as Method).returnType) {
                         Void.TYPE -> null
                         java.lang.Boolean.TYPE -> false
                         else -> null
@@ -84,17 +86,27 @@ object SDKAdsKit {
         }
     }
 
+    fun handleGdtInit() {
+        hookMethodsByStringMatch(
+            "$packageName:handleGdtInit",
+            listOf("SDK 尚未初始化，请在 Application 中调用 GDTAdSdk.initWithoutStart() 初始化")
+        ) { method ->
+            hookMethod(method, "after") { param ->
+                param.result = false
+            }
+        }
+    }
+
     fun handleAnyThinkSDK() {
         hookMethodsByStringMatch(
             "$packageName:handleAnyThinkSDK",
             listOf("anythink_sdk")
         ) { method ->
-            val replacement = when (method.returnType.name) {
-                "void" -> XC_MethodReplacement.DO_NOTHING
-                "boolean" -> XC_MethodReplacement.returnConstant(false)
+            val result = when (method.returnType) {
+                Void.TYPE -> null
+                java.lang.Boolean.TYPE -> false
                 else -> null
             }
-            replacement?.let { XposedBridge.hookMethod(method, it) }
         }
     }
 
@@ -102,15 +114,6 @@ object SDKAdsKit {
         hookMethodsByStringMatch(
             "$packageName:blockFirebaseWithString",
             listOf("Device unlocked: initializing all Firebase APIs for app ")
-        ) { method ->
-            XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-        }
-    }
-
-    fun blockFirebaseWithString2() {
-        hookMethodsByStringMatch(
-            "$packageName:blockFirebaseWithString2",
-            listOf("[DEFAULT]")
         ) { method ->
             hookMethod(method, "after") { param ->
                 param.result = null
@@ -146,6 +149,7 @@ object SDKAdsKit {
     fun blockAdsWithPackageName() {
         val adPackages = listOf(
             "com.applovin",
+            "com.anythink",
             "com.facebook.ads",
             "com.fyber.inneractive.sdk",
             "com.google.android.gms.ads",
@@ -177,6 +181,6 @@ object SDKAdsKit {
 
     private fun isValidAdMethod(methodData: MethodData): Boolean {
         return !Modifier.isAbstract(methodData.modifiers) &&
-               methodData.methodName in listOf("loadAd", "loadAds", "load", "show", "fetchAd")
+               methodData.methodName in listOf("loadAd", "loadAds", "load", "show", "fetchAd", "initSDK")
     }
 }

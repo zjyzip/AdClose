@@ -44,7 +44,7 @@ import de.robv.android.xposed.XposedHelpers;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
-    private static final Context APP_CONTEXT = ContextUtil.appContext;
+    private static final Context APPLICATION_CONTEXT = ContextUtil.applicationContext;
 
     private static final Object EMPTY_WEB_RESPONSE = createEmptyWebResourceResponse();
 
@@ -141,7 +141,7 @@ public class RequestHook {
             return result;
         }
 
-        ContentResolver contentResolver = APP_CONTEXT.getContentResolver();
+        ContentResolver contentResolver = APPLICATION_CONTEXT.getContentResolver();
         Uri uri = new Uri.Builder()
             .scheme("content")
             .authority(UrlContentProvider.AUTHORITY)
@@ -228,7 +228,7 @@ public class RequestHook {
             }
 
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error in " + methodName + " hook: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + " - Error processing dns request: " + e.getMessage());
         }
     }
 
@@ -262,7 +262,7 @@ public class RequestHook {
                 } catch (Exception e) {
                     XposedBridge.log(LOG_PREFIX + "Exception in HTTP connection hook: " + e.getMessage());
                 }
-            }, ContextUtil.appContext.getClassLoader());
+            }, ContextUtil.applicationContext.getClassLoader());
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
         }
@@ -305,7 +305,7 @@ public class RequestHook {
     }
 
     private static void hookMethod(String cacheKeySuffix, String methodDescription, String methodName) {
-        String cacheKey = ContextUtil.appContext.getPackageName() + ":" + cacheKeySuffix;
+        String cacheKey = ContextUtil.applicationContext.getPackageName() + ":" + cacheKeySuffix;
         List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, methodDescription, methodName);
 
         if (foundMethods != null) {
@@ -315,12 +315,10 @@ public class RequestHook {
                     XposedBridge.log(LOG_PREFIX+ "setupOkHttpRequestHook" + methodData);
                     HookUtil.hookMethod(method, "after", param -> {
                         try {
-                            Object response = param.getResult();
-                            if (response == null) {
-                                return;
-                            }
+                            Object request = param.args[1];
 
-                            Object request = XposedHelpers.callMethod(response, "request");
+                            Object response = param.getResult();
+
                             Object okhttpUrl = XposedHelpers.callMethod(request, "url");
                             URL url = new URL(okhttpUrl.toString());
 
@@ -355,7 +353,7 @@ public class RequestHook {
 
             return new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders, stack);
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + " - Error processing http request: " + e.getMessage());
             return null;
         }
     }
@@ -390,46 +388,50 @@ public class RequestHook {
                 new Object[]{"android.webkit.WebView", "android.webkit.WebResourceRequest"},
                 "after",
                 param -> {
+                    Object response = param.getResult();
+                    if (response == null) {
+                        return;
+                    }
+
                     Object request = param.args[1];
-                    if (request != null) {
-                        String method = (String) XposedHelpers.callMethod(request, "getMethod");
-                        Object webUrl = XposedHelpers.callMethod(request, "getUrl");
-                        Object requestHeaders = XposedHelpers.callMethod(request, "getRequestHeaders");
-                        String urlString = webUrl != null ? webUrl.toString() : null;
+                    if (request == null) {
+                        return;
+                    }
 
-                        Object response = param.getResult();
-                        int responseCode = 0;
-                        String responseMessage = null;
-                        Object responseHeaders = null;
+                    Object webUrl = XposedHelpers.callMethod(request, "getUrl");
+                    String url = webUrl.toString();
 
-                        if (response != null) {
-                            try {
-                                responseHeaders = XposedHelpers.callMethod(response, "getResponseHeaders");
-                                responseCode = (int) XposedHelpers.callMethod(response, "getStatusCode");
-                                responseMessage = (String) XposedHelpers.callMethod(response, "getReasonPhrase");
-                            } catch (Exception e) {
-                                XposedBridge.log(LOG_PREFIX + " - Error extracting response details: " + e.getMessage());
-                            }
-                        }
+                    String stackTrace = HookUtil.getFormattedStackTrace();
 
-                        String stackTrace = HookUtil.getFormattedStackTrace();
+                    RequestDetails details = processWebRequest(request, response, url, stackTrace);
 
-                        RequestDetails details = new RequestDetails(
-                            method, urlString, requestHeaders, responseCode, responseMessage, responseHeaders, stackTrace
-                        );
-
-                        if (shouldBlockWebRequest(urlString, details)) {
-                            try {
-                                param.setResult(EMPTY_WEB_RESPONSE);
-                            } catch (Exception e) {
-                                XposedBridge.log(LOG_PREFIX + "Error creating WebResourceResponse: " + e.getMessage());
-                            }
+                    if (shouldBlockWebRequest(url, details)) {
+                        try {
+                            param.setResult(EMPTY_WEB_RESPONSE);
+                        } catch (Exception e) {
+                            XposedBridge.log(LOG_PREFIX + " Error creating WebResourceResponse: " + e.getMessage());
                         }
                     }
-                }, ContextUtil.appContext.getClassLoader()
+                }, ContextUtil.applicationContext.getClassLoader()
             );
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient methods: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient method: " + e.getMessage());
+        }
+    }
+
+    private static RequestDetails processWebRequest(Object request, Object response, String url, String stack) {
+        try {
+            String method = (String) XposedHelpers.callMethod(request, "getMethod");
+            Object requestHeaders = XposedHelpers.callMethod(request, "getRequestHeaders");
+
+            Object responseHeaders = XposedHelpers.callMethod(response, "getResponseHeaders");
+            int responseCode = (int) XposedHelpers.callMethod(response, "getStatusCode");
+            String responseMessage = (String) XposedHelpers.callMethod(response, "getReasonPhrase");
+
+            return new RequestDetails(method, url, requestHeaders, responseCode, responseMessage, responseHeaders, stack);
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + " - Error processing web request: " + e.getMessage());
+            return null;
         }
     }
 
@@ -472,8 +474,8 @@ public class RequestHook {
         Intent intent = new Intent("com.rikkati.REQUEST");
 
         try {
-            String appName = APP_CONTEXT.getApplicationInfo().loadLabel(APP_CONTEXT.getPackageManager()).toString() + requestType;
-            String packageName = APP_CONTEXT.getPackageName();
+            String appName = APPLICATION_CONTEXT.getApplicationInfo().loadLabel(APPLICATION_CONTEXT.getPackageManager()).toString() + requestType;
+            String packageName = APPLICATION_CONTEXT.getPackageName();
 
             String method = details.getMethod();
             String requestHeaders = details.getRequestHeaders() != null ? details.getRequestHeaders().toString() : null;
@@ -506,7 +508,7 @@ public class RequestHook {
             );
 
             intent.putExtra("request", blockedRequest);
-            APP_CONTEXT.sendBroadcast(intent);
+            APPLICATION_CONTEXT.sendBroadcast(intent);
         } catch (Exception e) {
             Log.w("RequestHook", "sendBlockedRequestBroadcast: Error broadcasting request", e);
         }

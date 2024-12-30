@@ -406,8 +406,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
         viewModel.appsLiveData.removeObservers(viewLifecycleOwner)
         viewLifecycleOwner.lifecycleScope.cancel()
-
-        binding.recyclerView.adapter = null
     }
 
     override fun updateSortList(

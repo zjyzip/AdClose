@@ -2,8 +2,6 @@ package com.close.hook.ads.hook.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -12,8 +10,6 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
 public class HookUtil {
-
-    private static final Map<String, Class<?>> classCache = new ConcurrentHashMap<>();
 
     public static class HookInfo {
         public String className;
@@ -36,10 +32,8 @@ public class HookUtil {
     }
 
     public static void hookMultipleMethods(ClassLoader classLoader, String className, String[] methodNames, Object returnValue) {
-        Class<?> clazz;
-        try {
-            clazz = Class.forName(className, false, classLoader);
-        } catch (ClassNotFoundException e) {
+        Class<?> clazz = XposedHelpers.findClassIfExists(className, classLoader);
+        if (clazz == null) {
             return;
         }
 
@@ -63,18 +57,6 @@ public class HookUtil {
             @Override
             protected Object replaceHookedMethod(MethodHookParam param) {
                 return returnValue;
-            }
-        });
-    }
-
-    private static Class<?> getClass(Object clazz, ClassLoader classLoader) throws ClassNotFoundException {
-        String className = clazz instanceof String ? (String) clazz : ((Class<?>) clazz).getName();
-        return classCache.computeIfAbsent(className, key -> {
-            try {
-                return Class.forName(key, false, classLoader);
-            } catch (ClassNotFoundException e) {
-                XposedBridge.log("Class not found: " + key + ", " + e);
-                return null;
             }
         });
     }
@@ -125,6 +107,11 @@ public class HookUtil {
         } catch (Exception e) {
             XposedBridge.log("findAndHookMethod - Error while hooking method: " + methodName + ", " + e);
         }
+    }
+
+    private static Class<?> getClass(Object clazz, ClassLoader classLoader) {
+        String className = clazz instanceof String ? (String) clazz : ((Class<?>) clazz).getName();
+        return XposedHelpers.findClassIfExists(className, classLoader);
     }
 
     public static void hookMethod(Method method, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
