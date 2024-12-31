@@ -33,6 +33,14 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private SettingsManager settingsManager;
 
+    private static Context applicationContext;
+
+    static {
+        ContextUtil.addOnApplicationContextInitializedCallback(() -> {
+            applicationContext = ContextUtil.applicationContext;
+        });
+    }
+
     @Override
     public void initZygote(StartupParam startupParam) {
         ContextUtil.initialize(() -> {
@@ -57,7 +65,7 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
             applySettings(settingsManager);
 
-            registerContextCallbacks();
+            setupAppHooks();
         } catch (Exception e) {
             XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
         }
@@ -72,6 +80,10 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             HideVPNStatus.proxy();
         }
 
+        if (settingsManager.isRequestHookEnabled()) {
+            RequestHook.init();
+        }
+
         if (settingsManager.isDisableClipboard()) {
             DisableClipboard.handle();
         }
@@ -84,57 +96,44 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             HideEnvi.handle();
         }
 
+        if (settingsManager.isHandlePlatformAdEnabled()) {
+            SDKAdsKit.INSTANCE.blockAds();
+        }
+
         if (settingsManager.isDisableShakeAdEnabled()) {
             DisableShakeAd.handle();
         }
     }
 
-    private void setupApplicationHooks(Context applicationContext) {
+    private void setupAppHooks() {
         try {
-            ClassLoader classLoader = applicationContext.getClassLoader();
-            String packageName = applicationContext.getPackageName();
-            CharSequence appName = AppUtils.getAppName(applicationContext, packageName);
+            ContextUtil.addOnApplicationContextInitializedCallback(() -> {
 
-            if (!TAG.equals(packageName)) {
-                if (ENABLE_DEX_DUMP) {
-                    DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
+                ClassLoader classLoader = applicationContext.getClassLoader();
+                String packageName = applicationContext.getPackageName();
+                CharSequence appName = AppUtils.getAppName(applicationContext, packageName);
+
+                if (!TAG.equals(packageName)) {
+                    if (ENABLE_DEX_DUMP) {
+                        DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
+                    }
+
+                    if (AppUtils.isMainProcess(applicationContext)) {
+                        AppUtils.showHookTip(applicationContext, packageName);
+                    }
+
+                    XposedBridge.log("Application Name: " + appName);
                 }
 
-                if (AppUtils.isMainProcess(applicationContext)) {
-                    AppUtils.showHookTip(applicationContext, packageName);
+                AppAds.progress(classLoader, packageName);
+
+                if (settingsManager.isHandlePlatformAdEnabled()) {
+                    SDKAds.hookAds(classLoader);
                 }
-
-                XposedBridge.log("Application Name: " + appName);
-            }
-
-            if (settingsManager.isRequestHookEnabled()) {
-                RequestHook.init();
-            }
-
-            AppAds.progress(classLoader, packageName);
-
-            if (settingsManager.isHandlePlatformAdEnabled()) {
-                SDKAdsKit.INSTANCE.blockAds();
-                SDKAds.hookAds(classLoader);
-            }
+            });
         } catch (Exception e) {
-            XposedBridge.log(TAG + " Exception in setupApplicationHooks: " + Log.getStackTraceString(e));
+            XposedBridge.log(TAG + " Exception in setupAppHooks: " + Log.getStackTraceString(e));
         }
-    }
-
-    private void registerContextCallbacks() {
-        ContextUtil.addOnActivityThreadContextInitializedCallback(() -> {
-        });
-
-        ContextUtil.addOnApplicationContextInitializedCallback(() -> {
-            setupApplicationHooks(ContextUtil.applicationContext);
-        });
-
-        ContextUtil.addOnContextWrapperContextInitializedCallback(() -> {
-        });
-
-        ContextUtil.addOnInstrumentationContextInitializedCallback(() -> {
-        });
     }
 
     private boolean shouldIgnorePackage(XC_LoadPackage.LoadPackageParam lpparam) {
