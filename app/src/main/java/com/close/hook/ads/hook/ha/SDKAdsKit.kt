@@ -5,6 +5,7 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
+import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
 import com.close.hook.ads.hook.util.HookUtil.hookAllMethods
@@ -18,18 +19,20 @@ object SDKAdsKit {
     private val packageName: String by lazy { DexKitUtil.context.packageName }
 
     fun blockAds() {
-        DexKitUtil.initializeDexKitBridge()
+        ContextUtil.addOnApplicationContextInitializedCallback {
+            DexKitUtil.initializeDexKitBridge()
 
-        handlePangolinSDK()
-        handlePangolinInit()
-        handleGdtInit()
-        handleAnyThinkSDK()
-        blockFirebaseWithString()
-        blockAdsWithBaseBundle()
-        blockAdsWithString()
-        blockAdsWithPackageName()
+            handlePangolinSDK()
+            handlePangolinInit()
+            handleGdtInit()
+            handleAnyThinkSDK()
+            blockFirebaseWithString()
+            blockAdsWithBaseBundle()
+            blockAdsWithString()
+            blockAdsWithPackageName()
 
-        DexKitUtil.releaseBridge()
+            DexKitUtil.releaseBridge()
+        }
     }
 
     private fun hookMethodsByStringMatch(cacheKey: String, strings: List<String>, action: (Method) -> Unit) {
@@ -62,28 +65,19 @@ object SDKAdsKit {
     }
 
     fun handlePangolinInit() {
-        val ttAdSdkClass = try {
-            Class.forName("com.bytedance.sdk.openadsdk.TTAdSdk", false, DexKitUtil.context.classLoader)
-        } catch (e: ClassNotFoundException) {
-            return
-        }
-
-        val methods = ttAdSdkClass.declaredMethods
-        if (methods.any { it.name == "init" }) {
-            hookAllMethods(
-                "com.bytedance.sdk.openadsdk.TTAdSdk",
-                "init",
-                "after",
-                { param ->
-                    param.result = when ((param.method as Method).returnType) {
-                        Void.TYPE -> null
-                        java.lang.Boolean.TYPE -> false
-                        else -> null
-                    }
-                },
-                DexKitUtil.context.classLoader
-            )
-        }
+        hookAllMethods(
+            "com.bytedance.sdk.openadsdk.TTAdSdk",
+            "init",
+            "after",
+            { param ->
+                param.result = when ((param.method as Method).returnType) {
+                    Void.TYPE -> null
+                    java.lang.Boolean.TYPE -> false
+                    else -> null
+                }
+            },
+            DexKitUtil.context.classLoader
+        )
     }
 
     fun handleGdtInit() {

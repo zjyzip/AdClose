@@ -46,12 +46,19 @@ import de.robv.android.xposed.XposedHelpers;
 
 public class RequestHook {
     private static final String LOG_PREFIX = "[RequestHook] ";
-    private static final Context APPLICATION_CONTEXT = ContextUtil.applicationContext;
 
     private static final Object EMPTY_WEB_RESPONSE = createEmptyWebResourceResponse();
 
     private static final ConcurrentHashMap<String, Boolean> dnsHostCache = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Boolean> urlStringCache = new ConcurrentHashMap<>();
+
+    private static Context applicationContext;
+
+    static {
+        ContextUtil.addOnApplicationContextInitializedCallback(() -> {
+            applicationContext = ContextUtil.applicationContext;
+        });
+    }
 
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
         .maximumSize(12948)
@@ -60,10 +67,12 @@ public class RequestHook {
 
     public static void init() {
         try {
-            setupDNSRequestHook();
-            setupHttpRequestHook();
-            setupOkHttpRequestHook();
-            setWebViewRequestHook();
+            ContextUtil.addOnApplicationContextInitializedCallback(() -> {
+                setupDNSRequestHook();
+                setupHttpRequestHook();
+                setupOkHttpRequestHook();
+                setWebViewRequestHook();
+            });
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
@@ -143,7 +152,7 @@ public class RequestHook {
             return result;
         }
 
-        ContentResolver contentResolver = APPLICATION_CONTEXT.getContentResolver();
+        ContentResolver contentResolver = applicationContext.getContentResolver();
         Uri uri = new Uri.Builder()
             .scheme("content")
             .authority(UrlContentProvider.AUTHORITY)
@@ -275,7 +284,7 @@ public class RequestHook {
                         XposedBridge.log(LOG_PREFIX + "Exception in HTTP connection hook: " + e.getMessage());
                     }
                 },
-                ContextUtil.applicationContext.getClassLoader()
+                applicationContext.getClassLoader()
             );
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
@@ -320,7 +329,7 @@ public class RequestHook {
     }
 
     private static void hookMethod(String cacheKeySuffix, String methodDescription, String methodName) {
-        String cacheKey = ContextUtil.applicationContext.getPackageName() + ":" + cacheKeySuffix;
+        String cacheKey = applicationContext.getPackageName() + ":" + cacheKeySuffix;
         List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, methodDescription, methodName);
 
         if (foundMethods != null) {
@@ -414,7 +423,7 @@ public class RequestHook {
                             param.setResult(EMPTY_WEB_RESPONSE);
                         }
                     }
-                }, ContextUtil.applicationContext.getClassLoader()
+                }, applicationContext.getClassLoader()
             );
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient methods: " + e.getMessage());
@@ -491,8 +500,8 @@ public class RequestHook {
         Intent intent = new Intent("com.rikkati.REQUEST");
 
         try {
-            String appName = APPLICATION_CONTEXT.getApplicationInfo().loadLabel(APPLICATION_CONTEXT.getPackageManager()).toString() + requestType;
-            String packageName = APPLICATION_CONTEXT.getPackageName();
+            String appName = applicationContext.getApplicationInfo().loadLabel(applicationContext.getPackageManager()).toString() + requestType;
+            String packageName = applicationContext.getPackageName();
 
             String method = details.getMethod();
             String requestHeaders = details.getRequestHeaders() != null ? details.getRequestHeaders().toString() : null;
@@ -525,7 +534,7 @@ public class RequestHook {
             );
 
             intent.putExtra("request", blockedRequest);
-            APPLICATION_CONTEXT.sendBroadcast(intent);
+            applicationContext.sendBroadcast(intent);
         } catch (Exception e) {
             Log.w("RequestHook", "sendBlockedRequestBroadcast: Error broadcasting request", e);
         }
