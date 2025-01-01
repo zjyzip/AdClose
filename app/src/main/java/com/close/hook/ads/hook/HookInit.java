@@ -56,10 +56,6 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 return;
             }
 
-            if (TAG.equals(lpparam.packageName)) {
-                activateModule(lpparam);
-            }
-
             PreferencesHelper prefsHelper = new PreferencesHelper(TAG, PREFS_NAME);
             settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
@@ -71,8 +67,8 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private void activateModule(XC_LoadPackage.LoadPackageParam lpparam) {
-        HookUtil.hookSingleMethod(lpparam.classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
+    private void activateModule(ClassLoader classLoader) {
+        HookUtil.hookSingleMethod(classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
     }
 
     private void applySettings(SettingsManager settingsManager) {
@@ -112,6 +108,10 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 ClassLoader classLoader = applicationContext.getClassLoader();
                 String packageName = applicationContext.getPackageName();
                 CharSequence appName = AppUtils.getAppName(applicationContext, packageName);
+
+                if (TAG.equals(packageName)) {
+                    activateModule(classLoader);
+                }
 
                 if (!TAG.equals(packageName)) {
                     if (ENABLE_DEX_DUMP) {
