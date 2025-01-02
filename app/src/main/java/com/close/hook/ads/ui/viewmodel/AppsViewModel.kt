@@ -10,11 +10,11 @@ import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 
 class AppsViewModel(
     application: Application
@@ -47,14 +47,15 @@ class AppsViewModel(
                     val apps = appRepository.getInstalledApps(isSystem)
                         .filter { type != "configured" || it.isEnable == 1 }
 
-                    val filteredSortedApps = appRepository.getFilteredAndSortedApps(
+                    emit(apps)
+                }.map { apps ->
+                    appRepository.getFilteredAndSortedApps(
                         apps = apps,
                         filter = filter,
                         keyword = params.first,
                         isReverse = params.second
                     )
-                    emit(filteredSortedApps)
-                }.buffer()
+                }
             }
             .asLiveData(viewModelScope.coroutineContext)
     }

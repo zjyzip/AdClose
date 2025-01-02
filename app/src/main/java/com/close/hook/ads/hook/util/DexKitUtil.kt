@@ -14,8 +14,8 @@ object DexKitUtil {
     private val bridge = AtomicReference<DexKitBridge?>()
     private val methodCache = CacheBuilder.newBuilder()
         .maximumSize(300)
-        .concurrencyLevel(4)
         .expireAfterWrite(12, TimeUnit.HOURS)
+        .concurrencyLevel(Runtime.getRuntime().availableProcessors() * 2)
         .build<String, List<MethodData>?>()
 
     val context: Context
