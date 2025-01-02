@@ -64,21 +64,29 @@ class AppRepository(
     ): List<AppInfo> = withContext(Dispatchers.Default) {
         val comparator = getComparator(filter.first, isReverse)
 
-        val filteredApps = apps.filter { app ->
-            (keyword.isBlank() || app.appName.contains(keyword, ignoreCase = true) ||
-            app.packageName.contains(keyword, ignoreCase = true)) &&
-            filter.second.all { filterCriteria ->
-                when (filterCriteria) {
-                    getLocalizedString(R.string.filter_configured) -> app.isEnable == 1
-                    getLocalizedString(R.string.filter_recent_update) ->
-                        System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
-                    getLocalizedString(R.string.filter_disabled) -> app.isAppEnable == 0
-                    else -> true
-                }
+        val sortedApps = apps.asSequence()
+            .filter { app -> matchesKeyword(app, keyword) && matchesFilter(app, filter.second) }
+            .sortedWith(comparator)
+            .toList()
+
+        sortedApps
+    }
+
+    private fun matchesKeyword(app: AppInfo, keyword: String): Boolean {
+        return keyword.isBlank() || app.appName.contains(keyword, ignoreCase = true) ||
+                app.packageName.contains(keyword, ignoreCase = true)
+    }
+
+    private fun matchesFilter(app: AppInfo, filterCriteria: List<String>): Boolean {
+        return filterCriteria.all { criterion ->
+            when (criterion) {
+                getLocalizedString(R.string.filter_configured) -> app.isEnable == 1
+                getLocalizedString(R.string.filter_recent_update) ->
+                    System.currentTimeMillis() - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
+                getLocalizedString(R.string.filter_disabled) -> app.isAppEnable == 0
+                else -> true
             }
         }
-
-        filteredApps.sortedWith(comparator).toList()
     }
 
     private fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {

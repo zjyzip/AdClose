@@ -60,9 +60,16 @@ public class RequestHook {
         });
     }
 
+    private static final Uri CONTENT_URI = new Uri.Builder()
+        .scheme("content")
+        .authority(UrlContentProvider.AUTHORITY)
+        .appendPath(UrlContentProvider.URL_TABLE_NAME)
+        .build();
+
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
         .maximumSize(12948)
         .expireAfterWrite(12, TimeUnit.HOURS)
+        .concurrencyLevel(Runtime.getRuntime().availableProcessors() * 2)
         .build();
 
     public static void init() {
@@ -147,37 +154,32 @@ public class RequestHook {
 
     private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         String cacheKey = queryType + ":" + queryValue;
-        Triple<Boolean, String, String> result = queryCache.getIfPresent(cacheKey);
-        if (result != null) {
-            return result;
+        Triple<Boolean, String, String> cachedResult = queryCache.getIfPresent(cacheKey);
+        if (cachedResult != null) {
+            return cachedResult;
         }
 
-        ContentResolver contentResolver = applicationContext.getContentResolver();
-        Uri uri = new Uri.Builder()
-            .scheme("content")
-            .authority(UrlContentProvider.AUTHORITY)
-            .appendPath(UrlContentProvider.URL_TABLE_NAME)
-            .build();
+        Triple<Boolean, String, String> result = performContentQuery(queryType, queryValue);
 
+        queryCache.put(cacheKey, result);
+
+        return result;
+    }
+
+    private static Triple<Boolean, String, String> performContentQuery(String queryType, String queryValue) {
+        ContentResolver contentResolver = applicationContext.getContentResolver();
         String[] projection = {Url.URL_TYPE, Url.URL_ADDRESS};
         String[] selectionArgs = {queryType, queryValue};
 
-        try (Cursor cursor = contentResolver.query(uri, projection, null, selectionArgs, null)) {
+        try (Cursor cursor = contentResolver.query(CONTENT_URI, projection, null, selectionArgs, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 String urlType = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_TYPE));
                 String urlValue = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_ADDRESS));
-
-                result = new Triple<>(true, urlType, urlValue);
-                queryCache.put(cacheKey, result);
-                return result;
+                return new Triple<>(true, urlType, urlValue);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
-        result = new Triple<>(false, null, null);
-        queryCache.put(cacheKey, result);
-        return result;
+        return new Triple<>(false, null, null);
     }
 
     private static void setupDNSRequestHook() {
