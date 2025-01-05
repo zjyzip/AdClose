@@ -27,7 +27,6 @@ import rikka.material.preference.MaterialSwitchPreference
 import rikka.preference.SimpleMenuPreference
 import java.util.Locale
 
-
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
     override fun onCreateRecyclerView(
@@ -50,7 +49,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                     }
                 }
             })
-
         }
         return recyclerView
     }
@@ -100,6 +98,13 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         preferenceManager.preferenceDataStore = SettingsPreferenceDataStore()
         setPreferencesFromResource(R.xml.settings, rootKey)
 
+        setupLanguagePreference()
+        setupThemePreferences()
+        setupCacheClearing()
+        setupAboutPreference()
+    }
+
+    private fun setupLanguagePreference() {
         findPreference<SimpleMenuPreference>("language")?.let {
             val userLocale = closeApp.getLocale(PrefManager.language)
             val entries = buildList {
@@ -107,38 +112,41 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                     if (lang == "SYSTEM") add(getString(rikka.core.R.string.follow_system))
                     else {
                         val locale = Locale.forLanguageTag(lang)
-                        add(
-                            HtmlCompat.fromHtml(
-                                locale.getDisplayName(locale),
-                                HtmlCompat.FROM_HTML_MODE_LEGACY
-                            )
-                        )
+                        add(HtmlCompat.fromHtml(locale.getDisplayName(locale), HtmlCompat.FROM_HTML_MODE_LEGACY))
                     }
                 }
             }
             it.entries = entries.toTypedArray()
             it.entryValues = LangList.LOCALES
-            if (it.value == "SYSTEM") {
-                it.summary = getString(rikka.core.R.string.follow_system)
-            } else {
-                val locale = Locale.forLanguageTag(it.value)
-                it.summary =
-                    if (!TextUtils.isEmpty(locale.script)) locale.getDisplayScript(userLocale) else locale.getDisplayName(
-                        userLocale
-                    )
-            }
+            setLanguageSummary(it, userLocale)
+
             it.setOnPreferenceChangeListener { _, newValue ->
                 val locale = closeApp.getLocale(newValue as String)
-                val config = resources.configuration
-                config.setLocale(locale)
-                LocaleDelegate.defaultLocale = locale
-                requireContext().createConfigurationContext(config)
-                requireActivity().recreate()
+                updateLocale(locale)
                 true
             }
         }
+    }
 
+    private fun setLanguageSummary(preference: SimpleMenuPreference, userLocale: Locale) {
+        if (preference.value == "SYSTEM") {
+            preference.summary = getString(rikka.core.R.string.follow_system)
+        } else {
+            val locale = Locale.forLanguageTag(preference.value)
+            preference.summary =
+                if (!TextUtils.isEmpty(locale.script)) locale.getDisplayScript(userLocale) else locale.getDisplayName(userLocale)
+        }
+    }
 
+    private fun updateLocale(locale: Locale) {
+        val config = resources.configuration
+        config.setLocale(locale)
+        LocaleDelegate.defaultLocale = locale
+        requireContext().createConfigurationContext(config)
+        requireActivity().recreate()
+    }
+
+    private fun setupThemePreferences() {
         findPreference<SimpleMenuPreference>("darkTheme")?.setOnPreferenceChangeListener { _, newValue ->
             val newMode = (newValue as String).toInt()
             if (PrefManager.darkTheme != newMode) {
@@ -162,14 +170,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             activity?.recreate()
             true
         }
+    }
 
-        findPreference<Preference>("about")?.summary =
-            "${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})"
-        findPreference<Preference>("about")?.setOnPreferenceClickListener {
-            startActivity(Intent(requireContext(), AboutActivity::class.java))
-            true
-        }
-
+    private fun setupCacheClearing() {
         findPreference<Preference>("clean")?.apply {
             summary = CacheDataManager.getTotalCacheSize(requireContext())
             setOnPreferenceClickListener {
@@ -186,7 +189,14 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 true
             }
         }
-
     }
 
+    private fun setupAboutPreference() {
+        findPreference<Preference>("about")?.summary =
+            "${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})"
+        findPreference<Preference>("about")?.setOnPreferenceClickListener {
+            startActivity(Intent(requireContext(), AboutActivity::class.java))
+            true
+        }
+    }
 }

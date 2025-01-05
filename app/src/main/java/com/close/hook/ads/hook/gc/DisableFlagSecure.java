@@ -5,30 +5,28 @@ import android.view.Window;
 import android.view.WindowManager;
 import com.close.hook.ads.hook.util.HookUtil;
 
-import de.robv.android.xposed.XC_MethodHook;
-
 public class DisableFlagSecure {
 
     public static void process() {
-        HookUtil.hookAllMethods(Window.class, "setFlags", "before", param -> handleFlagSecure(param));
-        HookUtil.hookAllMethods(Window.class, "addFlags", "before", param -> handleFlagSecure(param));
-        HookUtil.hookAllMethods(Dialog.class, "setFlags", "before", param -> handleFlagSecure(param));
-        HookUtil.hookAllConstructors(WindowManager.LayoutParams.class, "before", param -> handleFlagSecure(param));
+        HookUtil.hookAllMethods(Window.class, "setFlags", "before", param -> handleFlagSecure(param.args));
+        HookUtil.hookAllMethods(Window.class, "addFlags", "before", param -> handleFlagSecure(param.args));
+        HookUtil.hookAllMethods(Dialog.class, "setFlags", "before", param -> handleFlagSecure(param.args));
+        HookUtil.hookAllConstructors(WindowManager.LayoutParams.class, "before", param -> handleFlagSecure(param.args));
     }
 
-    private static void handleFlagSecure(XC_MethodHook.MethodHookParam param) {
-        if (param.args == null) {
+    private static void handleFlagSecure(Object[] args) {
+        if (args == null || args.length == 0) {
             return;
         }
 
-        if (param.args.length >= 1 && param.args[0] instanceof Integer) {
-            int flags = (Integer) param.args[0];
+        if (args.length >= 1 && args[0] instanceof Integer) {
+            int flags = (Integer) args[0];
             flags &= ~WindowManager.LayoutParams.FLAG_SECURE;
-            param.args[0] = flags;
+            args[0] = flags;
         }
 
-        if (param.args.length >= 2 && param.args[1] instanceof WindowManager.LayoutParams) {
-            WindowManager.LayoutParams layoutParams = (WindowManager.LayoutParams) param.args[1];
+        if (args.length >= 2 && args[1] instanceof WindowManager.LayoutParams) {
+            WindowManager.LayoutParams layoutParams = (WindowManager.LayoutParams) args[1];
             layoutParams.flags &= ~WindowManager.LayoutParams.FLAG_SECURE;
         }
     }
