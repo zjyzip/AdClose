@@ -50,8 +50,7 @@ public class WeiboIE {
 
 		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadBoolean", settingBlocker);
 		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadInt", settingBlocker);
-		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadStringSet",
-				settingBlocker);
+		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadStringSet", settingBlocker);
 		HookUtil.hookSingleMethod(classLoader, "com.weico.international.activity.v4.Setting", "loadString", settingBlocker);
 	}
 

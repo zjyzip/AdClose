@@ -36,23 +36,38 @@ class AppsAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
         val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return AppViewHolder(binding, onItemClickListener, requestOptions, preloadDistance, differ)
+        return AppViewHolder(binding, onItemClickListener, requestOptions)
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
         val appInfo = differ.currentList[position]
         holder.bind(appInfo)
-        holder.preloadImages(position)
+        preloadImages(position)
     }
 
     override fun getItemCount(): Int = differ.currentList.size
 
+    private fun preloadImages(currentPosition: Int) {
+        val start = (currentPosition - preloadDistance).coerceAtLeast(0)
+        val end = (currentPosition + preloadDistance).coerceAtMost(differ.currentList.size - 1)
+
+        if (context is LifecycleOwner) {
+            (context as LifecycleOwner).lifecycleScope.launch(Dispatchers.Main) {
+                for (i in start..end) {
+                    val appInfo = differ.currentList[i]
+                    Glide.with(context)
+                        .load(appInfo.appIcon)
+                        .apply(requestOptions)
+                        .preload()
+                }
+            }
+        }
+    }
+
     class AppViewHolder(
         private val binding: InstallsItemAppBinding,
         private val onItemClickListener: OnItemClickListener,
-        private val requestOptions: RequestOptions,
-        private val preloadDistance: Int,
-        private val differ: AsyncListDiffer<AppInfo>
+        private val requestOptions: RequestOptions
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private lateinit var appInfo: AppInfo
@@ -77,23 +92,6 @@ class AppsAdapter(
                 .load(appInfo.appIcon)
                 .apply(requestOptions)
                 .into(binding.appIcon)
-        }
-
-        fun preloadImages(currentPosition: Int) {
-            val start = (currentPosition - preloadDistance).coerceAtLeast(0)
-            val end = (currentPosition + preloadDistance).coerceAtMost(differ.currentList.size - 1)
-
-            if (binding.root.context is LifecycleOwner) {
-                (binding.root.context as LifecycleOwner).lifecycleScope.launch(Dispatchers.Main) {
-                    for (i in start..end) {
-                        val appInfo = differ.currentList[i]
-                        Glide.with(binding.appIcon.context)
-                            .load(appInfo.appIcon)
-                            .apply(requestOptions)
-                            .preload()
-                    }
-                }
-            }
         }
     }
 

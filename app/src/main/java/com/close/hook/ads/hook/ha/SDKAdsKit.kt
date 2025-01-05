@@ -56,10 +56,12 @@ object SDKAdsKit {
     fun handlePangolinSDK() {
         hookMethodsByStringMatch(
             "$packageName:handlePangolinSDK",
-            listOf("tt_sdk_settings_other")
+            listOf("https://%s%s")
         ) { method ->
-            hookMethod(method, "after") { param ->
-                param.result = null
+            if (method.declaringClass.name.startsWith("com.bytedance.sdk")) {
+                hookMethod(method, "after") { param ->
+                    param.result = null
+                }
             }
         }
     }

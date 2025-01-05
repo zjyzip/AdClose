@@ -67,8 +67,8 @@ public class RequestHook {
         .build();
 
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
-        .maximumSize(12948)
-        .expireAfterWrite(12, TimeUnit.HOURS)
+        .maximumSize(4857)
+        .expireAfterWrite(6, TimeUnit.HOURS)
         .concurrencyLevel(Runtime.getRuntime().availableProcessors() * 2)
         .build();
 
@@ -98,28 +98,24 @@ public class RequestHook {
 
     private static String formatUrlWithoutQuery(Object urlObject) {
         try {
-            String formattedUrl = null;
             if (urlObject instanceof URL) {
                 URL url = (URL) urlObject;
                 String decodedPath = URLDecoder.decode(url.getPath(), StandardCharsets.UTF_8.name());
-                URL formattedUrlObj = new URL(url.getProtocol(), url.getHost(), url.getPort(), decodedPath);
-                formattedUrl = formattedUrlObj.toExternalForm();
+                return new URL(url.getProtocol(), url.getHost(), url.getPort(), decodedPath).toExternalForm();
             } else if (urlObject instanceof Uri) {
                 Uri uri = (Uri) urlObject;
-                String path = uri.getPath();
-                String decodedPath = URLDecoder.decode(path, StandardCharsets.UTF_8.name());
-                formattedUrl = new Uri.Builder()
+                String decodedPath = URLDecoder.decode(uri.getPath(), StandardCharsets.UTF_8.name());
+                return new Uri.Builder()
                         .scheme(uri.getScheme())
                         .authority(uri.getAuthority())
                         .path(decodedPath)
                         .build()
                         .toString();
             }
-            return formattedUrl;
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error formatting URL: " + e.getMessage());
-            return null;
         }
+        return "";
     }
 
     private static boolean shouldBlockDnsRequest(final String host, final RequestDetails details) {
@@ -127,19 +123,15 @@ public class RequestHook {
     }
 
     private static boolean shouldBlockHttpsRequest(final URL url, final RequestDetails details) {
-        String formattedUrl = formatUrlWithoutQuery(url);
-        return checkShouldBlockRequest(formattedUrl, details, " HTTP", "url");
+        return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, " HTTP", "url");
     }
 
     private static boolean shouldBlockOkHttpsRequest(final URL url, final RequestDetails details) {
-        String formattedUrl = formatUrlWithoutQuery(url);
-        return checkShouldBlockRequest(formattedUrl, details, " OKHTTP", "url");
+        return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, " OKHTTP", "url");
     }
 
     private static boolean shouldBlockWebRequest(final String url, final RequestDetails details) {
-        Uri parsedUri = Uri.parse(url);
-        String formattedUrl = formatUrlWithoutQuery(parsedUri);
-        return checkShouldBlockRequest(formattedUrl, details, " Web", "url");
+        return checkShouldBlockRequest(formatUrlWithoutQuery(Uri.parse(url)), details, " Web", "url");
     }
 
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
