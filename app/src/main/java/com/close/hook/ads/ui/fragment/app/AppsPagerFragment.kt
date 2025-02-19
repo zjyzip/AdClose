@@ -33,7 +33,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     override val tabList: List<Int> =
         listOf(R.string.tab_user_apps, R.string.tab_configured_apps, R.string.tab_system_apps)
-    
+
     private var bottomSheet: BottomSheetDialog? = null
     private lateinit var filerBinding: BottomDialogSearchFilterBinding
     private lateinit var filterBtn: ImageButton
@@ -224,7 +224,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun handleChipClick(chip: Chip, title: String, isSortBy: Boolean) {
         if (!isSortBy && title == getString(R.string.filter_configured) && !MainActivity.isModuleActivated()) {
-            Snackbar.make(filerBinding.root, getString(R.string.module_not_activated), Snackbar.LENGTH_SHORT).show()
+            showSnackbar(getString(R.string.module_not_activated))
             chip.isChecked = false
             return
         }
@@ -241,8 +241,12 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
         val message =
             if (isSortBy) "${getString(R.string.sort_by_default)}: $title" else "$title ${getString(R.string.updated)}"
-        Snackbar.make(filerBinding.root, message, Snackbar.LENGTH_SHORT).show()
+        showSnackbar(message)
         updateSortAndFilters()
+    }
+
+    private fun showSnackbar(message: String) {
+        Snackbar.make(filerBinding.root, message, Snackbar.LENGTH_SHORT).show()
     }
 
     override fun search(text: String) {

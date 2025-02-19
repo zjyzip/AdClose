@@ -224,6 +224,24 @@
         android:textAppearance="?attr/textAppearanceBodyMedium"
         app:layout_constraintTop_toBottomOf="@id/divider_seven" />
 
+    <View
+        android:id="@+id/divider_eight"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintTop_toBottomOf="@id/switch_seven" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/switch_eight"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableEnd="?android:attr/listChoiceIndicatorMultiple"
+        android:text="@string/hook_tip_enable"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintTop_toBottomOf="@id/divider_eight" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/button_update"
         android:layout_width="match_parent"
@@ -232,6 +250,6 @@
         android:text="@string/update_checkbox_status"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/switch_seven" />
+        app:layout_constraintTop_toBottomOf="@id/switch_eight" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

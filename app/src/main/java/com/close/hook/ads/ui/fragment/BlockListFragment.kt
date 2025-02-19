@@ -18,6 +18,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import androidx.core.content.ContextCompat
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -70,9 +71,7 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
 
-    private val viewModel by viewModels<BlockListViewModel> {
-        UrlViewModelFactory(requireContext())
-    }
+    private val viewModel by viewModels<BlockListViewModel> { UrlViewModelFactory(requireContext()) }
     private lateinit var mAdapter: BlockListAdapter
     private val footerAdapter = FooterAdapter()
     private var tracker: SelectionTracker<Url>? = null
@@ -91,27 +90,30 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         initObserve()
         setUpTracker()
         addObserverToTracker()
-
     }
 
     private fun initObserve() {
         viewModel.blackListLiveData.observe(viewLifecycleOwner) { blackList ->
             mAdapter.submitList(blackList) {
+                updateFooterAdapterVisibility(blackList)
                 binding.progressBar.visibility = View.GONE
-
-                val adapter = binding.recyclerView.adapter as? ConcatAdapter
-                if (blackList.isEmpty()) {
-                    if (adapter?.adapters?.contains(footerAdapter) == true) {
-                        adapter.removeAdapter(footerAdapter)
-                    }
-                } else if (adapter != null && !adapter.adapters.contains(footerAdapter)) {
-                    adapter.addAdapter(footerAdapter)
-                }
-
-                if (binding.vfContainer.displayedChild != blackList.size) {
-                    binding.vfContainer.displayedChild = blackList.size
-                }
+                updateViewFlipper(blackList.size)
             }
+        }
+    }
+
+    private fun updateFooterAdapterVisibility(blackList: List<Url>) {
+        val adapter = binding.recyclerView.adapter as? ConcatAdapter
+        if (blackList.isEmpty()) {
+            adapter?.removeAdapter(footerAdapter)
+        } else if (adapter != null && !adapter.adapters.contains(footerAdapter)) {
+            adapter.addAdapter(footerAdapter)
+        }
+    }
+
+    private fun updateViewFlipper(blackListSize: Int) {
+        if (binding.vfContainer.displayedChild != blackListSize) {
+            binding.vfContainer.displayedChild = blackListSize
         }
     }
 
@@ -156,20 +158,22 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             override fun onSelectionChanged() {
                 super.onSelectionChanged()
                 selectedItems = tracker?.selection
-                val size = tracker?.selection?.size() ?: 0
-
-                if (size > 0) {
-                    if (mActionMode == null) {
-                        mActionMode =
-                            (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
-                    }
-                    mActionMode?.title = "Selected $size"
-                } else {
-                    mActionMode?.finish()
-                    mActionMode = null
-                }
+                handleActionMode()
             }
         })
+    }
+
+    private fun handleActionMode() {
+        val size = selectedItems?.size() ?: 0
+        if (size > 0) {
+            if (mActionMode == null) {
+                mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
+            }
+            mActionMode?.title = "Selected $size"
+        } else {
+            mActionMode?.finish()
+            mActionMode = null
+        }
     }
 
     private val mActionModeCallback = object : ActionMode.Callback {
@@ -186,12 +190,10 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     onRemove()
                     true
                 }
-
                 R.id.action_copy -> {
                     onCopy()
                     true
                 }
-
                 else -> false
             }
         }
@@ -252,7 +254,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         binding.recyclerView.apply {
             adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
-
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
                 private val scrollThreshold = 20
@@ -260,7 +261,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
                     totalDy += dy
-
                     val navContainer = activity as? INavContainer
                     if (totalDy > scrollThreshold) {
                         navContainer?.hideNavigation()
@@ -271,7 +271,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     }
                 }
             })
-
             FastScrollerBuilder(this).useMd2Style().build()
         }
 
@@ -281,7 +280,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
-        binding.searchIcon.setImageDrawable(requireContext().getDrawable(drawableId))
+    binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
         (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
         if (focus) {
             binding.editText.requestFocus()

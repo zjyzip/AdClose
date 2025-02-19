@@ -56,18 +56,24 @@ class BlockListAdapter(
         private fun setupListeners() {
             binding.apply {
                 edit.setOnClickListener {
-                    bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
-                        onEditUrl(currentList[it])
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        val item = getItem(position)
+                        onEditUrl(item)
                     }
                 }
                 delete.setOnClickListener {
-                    bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
-                        onRemoveUrl(currentList[it])
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        val item = getItem(position)
+                        onRemoveUrl(item)
                     }
                 }
                 cardView.setOnClickListener {
-                    bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }?.let {
-                        copyToClipboard(binding.type.text.toString(), binding.url.text.toString())
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        val item = getItem(position)
+                        copyToClipboard(item.type, item.url)
                     }
                 }
             }
@@ -83,7 +89,6 @@ class BlockListAdapter(
         }
 
         private fun copyToClipboard(type: String, url: String) {
-            val context = itemView.context
             val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clipData = ClipData.newPlainText(type, url)
             clipboardManager.setPrimaryClip(clipData)

@@ -115,7 +115,7 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
                 }
 
-                if (AppUtils.isMainProcess(applicationContext)) {
+                if (AppUtils.isMainProcess(applicationContext) && settingsManager.isHookTipEnabled()) {
                     AppUtils.showHookTip(applicationContext, packageName);
                 }
 
