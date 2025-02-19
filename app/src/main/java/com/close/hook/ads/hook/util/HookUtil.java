@@ -191,16 +191,58 @@ public class HookUtil {
         XposedHelpers.setStaticObjectField(clazz, fieldName, value);
     }
 
+    public static void setStaticObjectField(Object clazz, ClassLoader classLoader, String fieldName, Object value) {
+        try {
+            Class<?> actualClass = getClass(clazz, classLoader);
+            if (actualClass != null) {
+                XposedHelpers.setStaticObjectField(actualClass, fieldName, value);
+            } else {
+                XposedBridge.log("setStaticObjectField - Class not found: " + clazz);
+            }
+        } catch (Exception e) {
+            XposedBridge.log("setStaticObjectField - Error setting static field: " + e.getMessage());
+        }
+    }
+
     public static void setIntField(Object obj, String fieldName, int value) {
         XposedHelpers.setIntField(obj, fieldName, value);
     }
 
-    public static String getFormattedStackTrace() {
-        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-        StringBuilder sb = new StringBuilder();
-        for (StackTraceElement element : stackTrace) {
-            sb.append("\tat ").append(element.toString()).append("\n");
+    public static void setIntField(Object clazz, ClassLoader classLoader, Object obj, String fieldName, int value) {
+        try {
+            Class<?> actualClass = getClass(clazz, classLoader);
+            if (actualClass != null && actualClass.isInstance(obj)) {
+                XposedHelpers.setIntField(obj, fieldName, value);
+            } else {
+                XposedBridge.log("setIntField: - Object is not an instance of " + clazz);
+            }
+        } catch (Exception e) {
+            XposedBridge.log("setIntField - Error setting int field " + e.getMessage());
         }
-        return sb.toString();
+    }
+
+    public static String getFormattedStackTrace() {
+        StringBuilder stackTrace = new StringBuilder("调用堆栈：\n");
+
+        StackTraceElement[] stackElements = Thread.currentThread().getStackTrace();
+
+        for (int i = 3; i < stackElements.length; i++) {
+            StackTraceElement element = stackElements[i];
+    
+            String className = element.getClassName();
+            String methodName = element.getMethodName();
+            int lineNumber = element.getLineNumber();
+
+            String lineInfo = (lineNumber >= 0) ? "(line：" + lineNumber + ")" : "(Native Method)";
+
+            stackTrace.append("  ")
+                    .append(className)
+                    .append(" --> ")
+                    .append(methodName)
+                    .append(lineInfo)
+                    .append("\n");
+        }
+
+        return stackTrace.toString();
     }
 }

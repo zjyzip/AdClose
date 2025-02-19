@@ -57,6 +57,7 @@ public class RequestHook {
     static {
         ContextUtil.addOnApplicationContextInitializedCallback(() -> {
             applicationContext = ContextUtil.applicationContext;
+            initHooks();
         });
     }
 
@@ -72,17 +73,19 @@ public class RequestHook {
         .concurrencyLevel(Runtime.getRuntime().availableProcessors() * 2)
         .build();
 
-    public static void init() {
+    private static void initHooks() {
         try {
-            ContextUtil.addOnApplicationContextInitializedCallback(() -> {
-                setupDNSRequestHook();
-                setupHttpRequestHook();
-                setupOkHttpRequestHook();
-                setWebViewRequestHook();
-            });
+            setupDNSRequestHook();
+            setupHttpRequestHook();
+            setupOkHttpRequestHook();
+            setWebViewRequestHook();
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
         }
+    }
+
+    public static void init() {
+        initHooks();
     }
 
     private static String calculateCidrNotation(InetAddress inetAddress) {
@@ -254,7 +257,7 @@ public class RequestHook {
                 param -> {
                     try {
                         Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
-    
+
                         boolean isResponseAvailable = (boolean) XposedHelpers.callMethod(httpEngine, "hasResponse");
                         if (!isResponseAvailable) {
                             return;
@@ -412,13 +415,27 @@ public class RequestHook {
                 param -> {
                     Object request = param.args[1];
                     Object response = param.getResult();
-                    if (request != null) {
-                        if (processWebRequest(request, response)) {
-                            param.setResult(EMPTY_WEB_RESPONSE);
-                        }
+                    if (request != null && processWebRequest(request, response)) {
+                        param.setResult(EMPTY_WEB_RESPONSE);
                     }
-                }, applicationContext.getClassLoader()
+                },
+                applicationContext.getClassLoader()
             );
+
+            HookUtil.findAndHookMethod(
+                clientClassName,
+                "shouldOverrideUrlLoading",
+                new Object[]{WebView.class, WebResourceRequest.class},
+                "before",
+                param -> {
+                    Object request = param.args[1];
+                    if (request != null && processWebRequest(request, null)) {
+                        param.setResult(true);
+                    }
+                },
+                applicationContext.getClassLoader()
+            );
+
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient methods: " + e.getMessage());
         }
@@ -426,10 +443,16 @@ public class RequestHook {
 
     private static boolean processWebRequest(Object request, Object response) {
         try {
-            String method = (String) XposedHelpers.callMethod(request, "getMethod");
-            Object webUrl = XposedHelpers.callMethod(request, "getUrl");
-            Object requestHeaders = XposedHelpers.callMethod(request, "getRequestHeaders");
-            String urlString = webUrl.toString();
+            String method = null;
+            String urlString = null;
+            Object requestHeaders = null;
+
+            if (request != null) {
+                method = (String) XposedHelpers.callMethod(request, "getMethod");
+                Object webUrl = XposedHelpers.callMethod(request, "getUrl");
+                requestHeaders = XposedHelpers.callMethod(request, "getRequestHeaders");
+                urlString = webUrl.toString();
+            }
 
             int responseCode = 0;
             String responseMessage = null;

@@ -31,13 +31,14 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private static final boolean ENABLE_DEX_DUMP = false;
 
-    private SettingsManager settingsManager;
+    private static SettingsManager settingsManager;
 
     private static Context applicationContext;
 
     static {
         ContextUtil.addOnApplicationContextInitializedCallback(() -> {
             applicationContext = ContextUtil.applicationContext;
+            setupAppHooks();
         });
     }
 
@@ -60,18 +61,16 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
 
             applySettings(settingsManager);
-
-            setupAppHooks();
         } catch (Exception e) {
             XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
         }
     }
 
-    private void activateModule(ClassLoader classLoader) {
+    private static void activateModule(ClassLoader classLoader) {
         HookUtil.hookSingleMethod(classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
     }
 
-    private void applySettings(SettingsManager settingsManager) {
+    private static void applySettings(SettingsManager settingsManager) {
         if (settingsManager.isHideVPNStatusEnabled()) {
             HideVPNStatus.proxy();
         }
@@ -101,36 +100,33 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private void setupAppHooks() {
+    private static void setupAppHooks() {
         try {
-            ContextUtil.addOnApplicationContextInitializedCallback(() -> {
+            ClassLoader classLoader = applicationContext.getClassLoader();
+            String packageName = applicationContext.getPackageName();
+            CharSequence appName = AppUtils.getAppName(applicationContext, packageName);
 
-                ClassLoader classLoader = applicationContext.getClassLoader();
-                String packageName = applicationContext.getPackageName();
-                CharSequence appName = AppUtils.getAppName(applicationContext, packageName);
+            if (TAG.equals(packageName)) {
+                activateModule(classLoader);
+            }
 
-                if (TAG.equals(packageName)) {
-                    activateModule(classLoader);
+            if (!TAG.equals(packageName)) {
+                if (ENABLE_DEX_DUMP) {
+                    DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
                 }
 
-                if (!TAG.equals(packageName)) {
-                    if (ENABLE_DEX_DUMP) {
-                        DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
-                    }
-
-                    if (AppUtils.isMainProcess(applicationContext)) {
-                        AppUtils.showHookTip(applicationContext, packageName);
-                    }
-
-                    XposedBridge.log("Application Name: " + appName);
+                if (AppUtils.isMainProcess(applicationContext)) {
+                    AppUtils.showHookTip(applicationContext, packageName);
                 }
 
-                AppAds.progress(classLoader, packageName);
+                XposedBridge.log("Application Name: " + appName);
+            }
 
-                if (settingsManager.isHandlePlatformAdEnabled()) {
-                    SDKAds.hookAds(classLoader);
-                }
-            });
+            AppAds.progress(classLoader, packageName);
+
+            if (settingsManager.isHandlePlatformAdEnabled()) {
+                SDKAds.hookAds(classLoader);
+            }
         } catch (Exception e) {
             XposedBridge.log(TAG + " Exception in setupAppHooks: " + Log.getStackTraceString(e));
         }

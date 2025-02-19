@@ -111,9 +111,7 @@ object SDKAdsKit {
             "$packageName:blockFirebaseWithString",
             listOf("Device unlocked: initializing all Firebase APIs for app ")
         ) { method ->
-            hookMethod(method, "after") { param ->
-                param.result = null
-            }
+            XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
         }
     }
 
@@ -157,7 +155,8 @@ object SDKAdsKit {
             "com.tradplus.ads",
             "com.unity3d.services",
             "com.unity3d.ads",
-            "com.vungle.warren"
+            "com.vungle.warren",
+            "com.bytedance.sdk"
         )
 
         DexKitUtil.getCachedOrFindMethods("$packageName:blockAdsWithPackageName") {
@@ -177,6 +176,6 @@ object SDKAdsKit {
 
     private fun isValidAdMethod(methodData: MethodData): Boolean {
         return !Modifier.isAbstract(methodData.modifiers) &&
-               methodData.methodName in listOf("loadAd", "loadAds", "load", "show", "fetchAd", "initSDK")
+               methodData.methodName in listOf("loadAd", "loadAds", "load", "show", "fetchAd", "initSDK", "initialize", "initializeSdk")
     }
 }
