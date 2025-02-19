@@ -10,7 +10,6 @@ object StringFinderKit {
             DexKitUtil.initializeDexKitBridge()
             DexKitUtil.getCachedOrFindMethods(key) {
                 DexKitUtil.getBridge().findMethod {
-                    excludePackages(listOf("com"))
                     matcher {
                         usingStrings = listOf(searchString)
                         name = methodName

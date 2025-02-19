@@ -38,7 +38,7 @@
             android:maxLines="1"/>
 
         <TextView
-            android:id="@+id/packageName"
+            android:id="@+id/appVersion"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceBodyMedium"
@@ -47,7 +47,7 @@
             android:textColor="?attr/colorOnSurfaceVariant"/>
 
         <TextView
-            android:id="@+id/appVersion"
+            android:id="@+id/packageName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceBodySmall"
