@@ -32,7 +32,7 @@ import java.util.Date
 
 class BlockedRequestsAdapter(
     private val dataSource: DataSource,
-    private val onGetAppIcon: (String) -> Drawable?,
+    private val onGetAppIcon: (String) -> Drawable?
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<BlockedRequest>? = null

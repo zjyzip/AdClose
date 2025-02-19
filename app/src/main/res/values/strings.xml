@@ -38,6 +38,7 @@
     <string name="remove_sensor_monitor">Remove acceleration sensor registration</string>
     <string name="remove_envi_detection">Remove Environment Detection</string>
     <string name="remove_clipboard">Remove clipboard reading and writing</string>
+    <string name="hook_tip_enable">Enable Hook Tip</string>
 
     <string name="settings_theme">Theme</string>
     <string name="settings_system_theme_color_summary">Theme color from system</string>

@@ -13,7 +13,10 @@ import com.close.hook.ads.hook.preference.PreferencesHelper;
 
 public class AppUtils {
 
-    private static final String[] KEYS = {"switch_one_", "switch_two_", "switch_three_", "switch_four_", "switch_five_", "switch_six_", "switch_seven_"};
+    private static final String[] KEYS = {
+        "switch_one_", "switch_two_", "switch_three_", "switch_four_",
+        "switch_five_", "switch_six_", "switch_seven_", "switch_eight_"
+    };
 
     public static int isAppEnabled(String packageName) {
         PreferencesHelper prefsHelper = new PreferencesHelper(closeApp, "com.close.hook.ads_preferences");

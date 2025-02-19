@@ -8,6 +8,7 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.core.view.isVisible
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.adapter.FragmentStateAdapter
@@ -66,7 +67,7 @@ abstract class BasePagerFragment : BaseFragment<BaseTablayoutViewpagerBinding>()
     }
 
     fun setIconAndFocus(drawableId: Int, focus: Boolean) {
-        binding.searchIcon.setImageDrawable(requireContext().getDrawable(drawableId))
+        binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
         (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
         if (focus) {
             binding.editText.requestFocus()

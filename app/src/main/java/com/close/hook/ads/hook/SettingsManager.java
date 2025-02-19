@@ -39,4 +39,9 @@ public class SettingsManager {
     public boolean isDisableClipboard() {
         return prefsHelper.getBoolean("switch_seven_" + packageName, false);
     }
+
+    public boolean isHookTipEnabled() {
+        return prefsHelper.getBoolean("switch_eight_" + packageName, false);
+    }
+
 }

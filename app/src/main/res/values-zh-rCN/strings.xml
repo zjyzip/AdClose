@@ -38,6 +38,7 @@
     <string name="remove_sensor_monitor">移除加速度传感器注册</string>
     <string name="remove_envi_detection">去除环境检测</string>
     <string name="remove_clipboard">去除剪贴板读取写入</string>
+    <string name="hook_tip_enable">启用Hook提示</string>
 
     <string name="settings_theme">主题</string>
     <string name="settings_system_theme_color_summary">系统取色</string>

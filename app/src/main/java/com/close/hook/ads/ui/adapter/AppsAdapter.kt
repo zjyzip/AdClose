@@ -1,6 +1,7 @@
 package com.close.hook.ads.ui.adapter
 
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.lifecycle.LifecycleOwner
@@ -52,7 +53,7 @@ class AppsAdapter(
         val end = (currentPosition + preloadDistance).coerceAtMost(differ.currentList.size - 1)
 
         if (context is LifecycleOwner) {
-            (context as LifecycleOwner).lifecycleScope.launch(Dispatchers.Main) {
+            (context as LifecycleOwner).lifecycleScope.launch(Dispatchers.IO) {
                 for (i in start..end) {
                     val appInfo = differ.currentList[i]
                     Glide.with(context)
@@ -87,11 +88,18 @@ class AppsAdapter(
             binding.appName.text = appInfo.appName
             binding.packageName.text = appInfo.packageName
             binding.appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
+            loadAppIcon(appInfo.appIcon)
+        }
 
-            Glide.with(binding.appIcon.context)
-                .load(appInfo.appIcon)
-                .apply(requestOptions)
-                .into(binding.appIcon)
+        private fun loadAppIcon(icon: Any) {
+            if (icon is String) {
+                Glide.with(binding.appIcon.context)
+                    .load(icon)
+                    .apply(requestOptions)
+                    .into(binding.appIcon)
+            } else if (icon is Drawable) {
+                binding.appIcon.setImageDrawable(icon)
+            }
         }
     }
 
