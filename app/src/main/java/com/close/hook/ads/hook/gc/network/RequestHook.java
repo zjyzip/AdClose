@@ -54,13 +54,6 @@ public class RequestHook {
 
     private static Context applicationContext;
 
-    static {
-        ContextUtil.addOnApplicationContextInitializedCallback(() -> {
-            applicationContext = ContextUtil.applicationContext;
-            initHooks();
-        });
-    }
-
     private static final Uri CONTENT_URI = new Uri.Builder()
         .scheme("content")
         .authority(UrlContentProvider.AUTHORITY)
@@ -73,19 +66,23 @@ public class RequestHook {
         .concurrencyLevel(Runtime.getRuntime().availableProcessors() * 2)
         .build();
 
-    private static void initHooks() {
-        try {
-            setupDNSRequestHook();
-            setupHttpRequestHook();
-            setupOkHttpRequestHook();
-            setWebViewRequestHook();
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
-        }
-    }
-
     public static void init() {
-        initHooks();
+        try {
+            ContextUtil.addOnApplicationContextInitializedCallback(() -> {
+                applicationContext = ContextUtil.applicationContext;
+
+                try {
+                    setupDNSRequestHook();
+                    setupHttpRequestHook();
+                    setupOkHttpRequestHook();
+                    setupWebViewRequestHook();
+                } catch (Exception e) {
+                    XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + "Error during initialization: " + e.getMessage());
+        }
     }
 
     private static String calculateCidrNotation(InetAddress inetAddress) {
@@ -383,7 +380,7 @@ public class RequestHook {
         }
     }
 
-    public static void setWebViewRequestHook() {
+    public static void setupWebViewRequestHook() {
         try {
             HookUtil.findAndHookMethod(
                 WebView.class,
