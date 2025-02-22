@@ -22,7 +22,6 @@ object SDKAdsKit {
         ContextUtil.addOnApplicationContextInitializedCallback {
             DexKitUtil.initializeDexKitBridge()
 
-            handlePangolinSDK()
             handlePangolinInit()
             handleGdtInit()
             handleAnyThinkSDK()
@@ -51,19 +50,6 @@ object SDKAdsKit {
 
     private fun isValidMethodData(methodData: MethodData): Boolean {
         return methodData.methodName != "<init>"
-    }
-
-    fun handlePangolinSDK() {
-        hookMethodsByStringMatch(
-            "$packageName:handlePangolinSDK",
-            listOf("https://%s%s")
-        ) { method ->
-            if (method.declaringClass.name.startsWith("com.bytedance.sdk")) {
-                hookMethod(method, "after") { param ->
-                    param.result = null
-                }
-            }
-        }
     }
 
     fun handlePangolinInit() {
@@ -111,7 +97,9 @@ object SDKAdsKit {
             "$packageName:blockFirebaseWithString",
             listOf("Device unlocked: initializing all Firebase APIs for app ")
         ) { method ->
-            XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
+            hookMethod(method, "after") { param ->
+                param.result = null
+            }
         }
     }
 
