@@ -8,44 +8,34 @@ import androidx.collection.ArrayMap;
 public class AppAds {
 
     public static void progress(ClassLoader classLoader, String packageName) {
-        // 获取应用的 Hook 配置
         ArrayMap<String, HookInfo[]> appHooks = getAppHooks();
+        HookInfo[] hooks = appHooks.get(packageName);
 
-        // 如果存在当前应用的 Hook 信息，进行 Hook 操作
-        if (appHooks.containsKey(packageName)) {
-            for (HookInfo hookInfo : appHooks.get(packageName)) {
+        if (hooks != null) {
+            for (HookInfo hookInfo : hooks) {
                 HookUtil.hookMultipleMethods(classLoader, hookInfo.className, hookInfo.methodNames, hookInfo.returnValue);
             }
         }
 
-        // 对特定应用包名进行额外处理
-        if (packageName.equals("com.weico.international")) {
+        if ("com.weico.international".equals(packageName)) {
             WeiboIE.handle(classLoader);
         }
     }
 
-    // 初始化每个应用的 Hook 信息
     private static ArrayMap<String, HookInfo[]> getAppHooks() {
         ArrayMap<String, HookInfo[]> appHooks = new ArrayMap<>();
 
-        // 示例：为特定应用配置 Hook 信息
-        appHooks.put("应用包名", new HookInfo[] {
-            // Hook 类的某方法，返回固定值0
-            new HookInfo("类名", "方法名", 0),
-            // Hook 类的某方法，使其不执行任何操作
-            new HookInfo("类名", "方法名", null),
-            // Hook 类的某方法，返回 false
-            new HookInfo("类名", "方法名", false),
-            // Hook 类的多个方法，使其不执行任何操作
-            new HookInfo("类名", new String[] { "方法1", "方法2" }, null) 
+        appHooks.put("com.example.app", new HookInfo[]{
+                new HookInfo("com.example.ClassName", new String[]{"methodName"}, 0),
+                new HookInfo("com.example.ClassName", new String[]{"methodName"}, null),
+                new HookInfo("com.example.ClassName", new String[]{"methodName"}, false),
+                new HookInfo("com.example.ClassName", new String[]{"method1", "method2"}, null)
         });
 
-        // 为另一个应用配置 Hook 信息
-        appHooks.put("另一个应用包名", new HookInfo[] {
-            // 示例配置
-            new HookInfo("类名", "方法名", 0),
-            new HookInfo("类名", "方法名", "0"),
-            new HookInfo("类名", "方法名", false)
+        appHooks.put("com.example.anotherApp", new HookInfo[]{
+                new HookInfo("com.example.anotherClass", new String[]{"methodName"}, 0),
+                new HookInfo("com.example.anotherClass", new String[]{"methodName"}, "0"),
+                new HookInfo("com.example.anotherClass", new String[]{"methodName"}, false)
         });
 
         return appHooks;
