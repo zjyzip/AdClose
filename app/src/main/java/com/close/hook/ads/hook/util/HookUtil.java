@@ -2,6 +2,7 @@ package com.close.hook.ads.hook.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.function.Consumer;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -27,38 +28,38 @@ public class HookUtil {
         }
     }
 
-    public static void hookSingleMethod(ClassLoader classLoader, String className, String methodName, Object returnValue) {
+    public static void hookSingleMethod(
+            ClassLoader classLoader,
+            String className,
+            String methodName,
+            Object returnValue) {
+
         hookMultipleMethods(classLoader, className, new String[]{methodName}, returnValue);
     }
 
-    public static void hookMultipleMethods(ClassLoader classLoader, String className, String[] methodNames, Object returnValue) {
-        Class<?> clazz = XposedHelpers.findClassIfExists(className, classLoader);
-        if (clazz == null) {
-            return;
-        }
+    public static void hookMultipleMethods(
+            ClassLoader classLoader,
+            String className,
+            String[] methodNames,
+            Object returnValue) {
 
-        for (Method method : clazz.getDeclaredMethods()) {
-            boolean isTargetMethod = false;
+        Class<?> actualClass = getClass(className, classLoader);
+        if (actualClass == null) return;
+
+        for (Method method : actualClass.getDeclaredMethods()) {
             for (String targetMethodName : methodNames) {
                 if (method.getName().equals(targetMethodName)) {
-                    isTargetMethod = true;
+                    method.setAccessible(true);
+                    XposedBridge.hookMethod(method, new XC_MethodReplacement() {
+                        @Override
+                        protected Object replaceHookedMethod(MethodHookParam param) {
+                            return returnValue;
+                        }
+                    });
                     break;
                 }
             }
-
-            if (isTargetMethod) {
-                hookMethodWithReplacement(method, returnValue);
-            }
         }
-    }
-
-    private static void hookMethodWithReplacement(Method method, Object returnValue) {
-        XposedBridge.hookMethod(method, new XC_MethodReplacement() {
-            @Override
-            protected Object replaceHookedMethod(MethodHookParam param) {
-                return returnValue;
-            }
-        });
     }
 
     public static void findAndHookMethod(
@@ -67,6 +68,7 @@ public class HookUtil {
             Object[] parameterTypes,
             String hookType,
             Consumer<XC_MethodHook.MethodHookParam> action) {
+
         findAndHookMethod(clazz, methodName, parameterTypes, hookType, action, null);
     }
 
@@ -85,73 +87,90 @@ public class HookUtil {
                 return;
             }
 
-            Class<?>[] classParams = new Class<?>[parameterTypes.length];
-            for (int i = 0; i < parameterTypes.length; i++) {
-                classParams[i] = getClass(parameterTypes[i], classLoader);
-                if (classParams[i] == null) {
-                    XposedBridge.log("findAndHookMethod - Parameter type class not found: " + parameterTypes[i]);
-                    return;
-                }
-            }
+            Class<?>[] classParams = (parameterTypes == null) ? new Class<?>[0] :
+                    Arrays.stream(parameterTypes)
+                            .map(param -> param instanceof String ? getClass(param, classLoader) :
+                                    (param instanceof Class<?> ? (Class<?>) param : null))
+                            .toArray(Class<?>[]::new);
 
-            Method method = actualClass.getDeclaredMethod(methodName, classParams);
-            if (method == null) {
-                XposedBridge.log("findAndHookMethod - Method not found: " + methodName + " in class " + actualClass.getName());
+            if (Arrays.asList(classParams).contains(null)) {
+                XposedBridge.log("findAndHookMethod - One or more parameter types could not be resolved.");
                 return;
             }
 
-            XC_MethodHook methodHook = createMethodHook(hookType, action);
-            XposedBridge.hookMethod(method, methodHook);
-        } catch (NoSuchMethodException e) {
-            XposedBridge.log("findAndHookMethod - No such method: " + methodName + ", " + e);
-        } catch (Exception e) {
-            XposedBridge.log("findAndHookMethod - Error while hooking method: " + methodName + ", " + e);
+            Method method = actualClass.getDeclaredMethod(methodName, classParams);
+            method.setAccessible(true);
+            XposedBridge.hookMethod(method, createMethodHook(hookType, action));
+
+        } catch (Throwable e) {
+            XposedBridge.log("findAndHookMethod - Error hooking method: " + methodName + " - " + e.getMessage());
         }
     }
 
-    private static Class<?> getClass(Object clazz, ClassLoader classLoader) {
-        String className = clazz instanceof String ? (String) clazz : ((Class<?>) clazz).getName();
-        return XposedHelpers.findClassIfExists(className, classLoader);
+        private static Class<?> getClass(Object clazz, ClassLoader classLoader) {
+        if (clazz instanceof String) {
+            return XposedHelpers.findClassIfExists((String) clazz, classLoader);
+        }
+        return (clazz instanceof Class<?>) ? (Class<?>) clazz : null;
     }
 
     public static void hookMethod(Method method, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
         if (method == null) {
-            XposedBridge.log("hookMethod - Method is null");
+            XposedBridge.log("hookMethod - Attempted to hook a null method.");
             return;
         }
 
         try {
-            XC_MethodHook methodHook = createMethodHook(hookType, action);
-            XposedBridge.hookMethod(method, methodHook);
-        } catch (Exception e) {
+            method.setAccessible(true);
+            XposedBridge.hookMethod(method, createMethodHook(hookType, action));
+        } catch (Throwable e) {
             XposedBridge.log("hookMethod - Error occurred while hooking method " + method.getName() + ": " + e.getMessage());
         }
     }
 
-    public static void hookAllMethods(Object clazz, String methodName, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+    public static void hookAllMethods(
+            Object clazz,
+            String methodName,
+            String hookType,
+            Consumer<XC_MethodHook.MethodHookParam> action) {
+
         hookAllMethods(clazz, methodName, hookType, action, null);
     }
 
-    public static void hookAllMethods(Object clazz, String methodName, String hookType, Consumer<XC_MethodHook.MethodHookParam> action, ClassLoader classLoader) {
+    public static void hookAllMethods(
+            Object clazz,
+            String methodName,
+            String hookType,
+            Consumer<XC_MethodHook.MethodHookParam> action,
+            ClassLoader classLoader) {
+
         try {
             Class<?> actualClass = getClass(clazz, classLoader);
             if (actualClass == null) {
                 XposedBridge.log("hookAllMethods - Class not found: " + clazz);
                 return;
             }
+            XposedBridge.hookAllMethods(actualClass, methodName, createMethodHook(hookType, action));
 
-            XC_MethodHook methodHook = createMethodHook(hookType, action);
-            XposedBridge.hookAllMethods(actualClass, methodName, methodHook);
         } catch (Throwable e) {
-            XposedBridge.log("hookAllMethods - Error occurred while hooking all methods of " + methodName + ": " + e.getMessage());
+            XposedBridge.log("hookAllMethods - Error hooking all methods of " + methodName + " - " + e.getMessage());
         }
     }
 
-    public static void hookAllConstructors(Object clazz, String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+    public static void hookAllConstructors(
+            Object clazz,
+            String hookType,
+            Consumer<XC_MethodHook.MethodHookParam> action) {
+
         hookAllConstructors(clazz, hookType, action, null);
     }
 
-    public static void hookAllConstructors(Object clazz, String hookType, Consumer<XC_MethodHook.MethodHookParam> action, ClassLoader classLoader) {
+    public static void hookAllConstructors(
+            Object clazz,
+            String hookType,
+            Consumer<XC_MethodHook.MethodHookParam> action,
+            ClassLoader classLoader) {
+
         try {
             Class<?> actualClass = getClass(clazz, classLoader);
             if (actualClass == null) {
@@ -160,29 +179,29 @@ public class HookUtil {
             }
 
             XC_MethodHook methodHook = createMethodHook(hookType, action);
-            Constructor<?>[] constructors = actualClass.getDeclaredConstructors();
-            for (Constructor<?> constructor : constructors) {
+            for (Constructor<?> constructor : actualClass.getDeclaredConstructors()) {
+                constructor.setAccessible(true);
                 XposedBridge.hookMethod(constructor, methodHook);
             }
+
         } catch (Throwable e) {
-            XposedBridge.log("hookAllConstructors - Error occurred while hooking all constructors: " + e.getMessage());
+            XposedBridge.log("hookAllConstructors - Error hooking constructors: " + e.getMessage());
         }
     }
 
-    private static XC_MethodHook createMethodHook(String hookType, Consumer<XC_MethodHook.MethodHookParam> action) {
+    private static XC_MethodHook createMethodHook(
+            String hookType,
+            Consumer<XC_MethodHook.MethodHookParam> action) {
+
         return new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if ("before".equals(hookType) && action != null) {
-                    action.accept(param);
-                }
+                if ("before".equals(hookType)) action.accept(param);
             }
 
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if ("after".equals(hookType) && action != null) {
-                    action.accept(param);
-                }
+                if ("after".equals(hookType)) action.accept(param);
             }
         };
     }
@@ -191,7 +210,12 @@ public class HookUtil {
         XposedHelpers.setStaticObjectField(clazz, fieldName, value);
     }
 
-    public static void setStaticObjectField(Object clazz, ClassLoader classLoader, String fieldName, Object value) {
+    public static void setStaticObjectField(
+            Object clazz,
+            ClassLoader classLoader,
+            String fieldName,
+            Object value) {
+
         try {
             Class<?> actualClass = getClass(clazz, classLoader);
             if (actualClass != null) {
@@ -199,7 +223,8 @@ public class HookUtil {
             } else {
                 XposedBridge.log("setStaticObjectField - Class not found: " + clazz);
             }
-        } catch (Exception e) {
+
+        } catch (Throwable e) {
             XposedBridge.log("setStaticObjectField - Error setting static field: " + e.getMessage());
         }
     }
@@ -208,39 +233,38 @@ public class HookUtil {
         XposedHelpers.setIntField(obj, fieldName, value);
     }
 
-    public static void setIntField(Object clazz, ClassLoader classLoader, Object obj, String fieldName, int value) {
+    public static void setIntField(
+            Object clazz,
+            ClassLoader classLoader,
+            Object obj,
+            String fieldName,
+            int value) {
+
         try {
             Class<?> actualClass = getClass(clazz, classLoader);
             if (actualClass != null && actualClass.isInstance(obj)) {
                 XposedHelpers.setIntField(obj, fieldName, value);
             } else {
-                XposedBridge.log("setIntField: - Object is not an instance of " + clazz);
+                XposedBridge.log("setIntField - Object is not an instance of " + clazz);
             }
-        } catch (Exception e) {
-            XposedBridge.log("setIntField - Error setting int field " + e.getMessage());
+
+        } catch (Throwable e) {
+            XposedBridge.log("setIntField - Error setting int field: " + e.getMessage());
         }
     }
 
     public static String getFormattedStackTrace() {
-        StringBuilder stackTrace = new StringBuilder("调用堆栈：\n");
-
         StackTraceElement[] stackElements = Thread.currentThread().getStackTrace();
+        StringBuilder stackTrace = new StringBuilder("Stack Trace:\n");
 
         for (int i = 3; i < stackElements.length; i++) {
-            StackTraceElement element = stackElements[i];
-    
-            String className = element.getClassName();
-            String methodName = element.getMethodName();
-            int lineNumber = element.getLineNumber();
-
-            String lineInfo = (lineNumber >= 0) ? "(line：" + lineNumber + ")" : "(Native Method)";
-
             stackTrace.append("  ")
-                    .append(className)
-                    .append(" --> ")
-                    .append(methodName)
-                    .append(lineInfo)
-                    .append("\n");
+                      .append(stackElements[i].getClassName())
+                      .append(" --> ")
+                      .append(stackElements[i].getMethodName())
+                      .append("(line: ")
+                      .append(stackElements[i].getLineNumber())
+                      .append(")\n");
         }
 
         return stackTrace.toString();
