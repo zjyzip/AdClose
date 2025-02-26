@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
@@ -27,6 +28,7 @@ import com.google.common.cache.CacheBuilder;
 
 import org.luckypray.dexkit.result.MethodData;
 
+import java.io.InputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -35,6 +37,7 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,15 +73,10 @@ public class RequestHook {
         try {
             ContextUtil.addOnApplicationContextInitializedCallback(() -> {
                 applicationContext = ContextUtil.applicationContext;
-
-                try {
-                    setupDNSRequestHook();
-                    setupHttpRequestHook();
-                    setupOkHttpRequestHook();
-                    setupWebViewRequestHook();
-                } catch (Exception e) {
-                    XposedBridge.log(LOG_PREFIX + "Error while hooking: " + e.getMessage());
-                }
+                setupDNSRequestHook();
+                setupHttpRequestHook();
+                setupOkHttpRequestHook();
+                setupWebViewRequestHook();
             });
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Error during initialization: " + e.getMessage());
@@ -147,14 +145,13 @@ public class RequestHook {
     private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
         String cacheKey = queryType + ":" + queryValue;
         Triple<Boolean, String, String> cachedResult = queryCache.getIfPresent(cacheKey);
+
         if (cachedResult != null) {
             return cachedResult;
         }
 
         Triple<Boolean, String, String> result = performContentQuery(queryType, queryValue);
-
         queryCache.put(cacheKey, result);
-
         return result;
     }
 
@@ -169,6 +166,8 @@ public class RequestHook {
                 String urlValue = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_ADDRESS));
                 return new Triple<>(true, urlType, urlValue);
             }
+        } catch (Exception e) {
+            XposedBridge.log(LOG_PREFIX + " - Error querying content provider: " + e.getMessage());
         }
 
         return new Triple<>(false, null, null);
@@ -201,24 +200,22 @@ public class RequestHook {
     }
 
     private static boolean processDnsRequest(Object[] args, Object result, String methodName) {
-        try {
-            String host = (String) args[0];
-            if (host == null) return false;
+        String host = (String) args[0];
+        if (host == null) return false;
 
-            String stackTrace = HookUtil.getFormattedStackTrace();
-            String cidr = null;
-            String fullAddress = null;
+        String stackTrace = HookUtil.getFormattedStackTrace();
+        String cidr = null;
+        String fullAddress = null;
 
-            if ("getByName".equals(methodName)) {
-                InetAddress inetAddress = (InetAddress) result;
-                if (inetAddress == null) return false;
-
+        if ("getByName".equals(methodName)) {
+            InetAddress inetAddress = (InetAddress) result;
+            if (inetAddress != null) {
                 cidr = calculateCidrNotation(inetAddress);
                 fullAddress = inetAddress.getHostAddress();
-            } else if ("getAllByName".equals(methodName)) {
-                InetAddress[] inetAddresses = (InetAddress[]) result;
-                if (inetAddresses == null || inetAddresses.length == 0) return false;
-
+            }
+        } else if ("getAllByName".equals(methodName)) {
+            InetAddress[] inetAddresses = (InetAddress[]) result;
+            if (inetAddresses != null && inetAddresses.length > 0) {
                 StringBuilder cidrBuilder = new StringBuilder();
                 StringBuilder fullAddressBuilder = new StringBuilder();
 
@@ -234,15 +231,13 @@ public class RequestHook {
                 cidr = cidrBuilder.toString();
                 fullAddress = fullAddressBuilder.toString();
             }
-
-            RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
-
-            return shouldBlockDnsRequest(host, details);
-
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + " - Error processing dns request: " + e.getMessage());
-            return false;
         }
+
+        if (cidr != null && fullAddress != null) {
+            RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
+            return shouldBlockDnsRequest(host, details);
+        }
+        return false;
     }
 
     private static void setupHttpRequestHook() {
@@ -381,61 +376,87 @@ public class RequestHook {
     }
 
     public static void setupWebViewRequestHook() {
-        try {
-            HookUtil.findAndHookMethod(
-                WebView.class,
-                "setWebViewClient",
-                new Object[]{WebViewClient.class},
-                "before",
-                param -> {
-                    Object client = param.args[0];
-                    if (client != null) {
-                        String clientClassName = client.getClass().getName();
-                        XposedBridge.log(LOG_PREFIX + " - WebViewClient set: " + clientClassName);
+        String packageName = applicationContext.getPackageName();
 
-                        hookClientMethods(clientClassName);
-                    }
-                }
-            );
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient methods: " + e.getMessage());
+        if ("com.UCMobile".equals(packageName) || "com.UCMobile.intl".equals(packageName)) {
+            setupWebViewRequestHookForUCMobile();
+        } else {
+            setupWebViewRequestHookForDefault();
         }
     }
 
-    private static void hookClientMethods(String clientClassName) {
-        try {
-            HookUtil.findAndHookMethod(
-                clientClassName,
-                "shouldInterceptRequest",
-                new Object[]{WebView.class, WebResourceRequest.class},
-                "after",
-                param -> {
-                    Object request = param.args[1];
-                    Object response = param.getResult();
-                    if (request != null && processWebRequest(request, response)) {
-                        param.setResult(EMPTY_WEB_RESPONSE);
-                    }
-                },
-                applicationContext.getClassLoader()
-            );
+    private static void setupWebViewRequestHookForUCMobile() {
+        HookUtil.findAndHookMethod(
+            "com.uc.webview.export.WebView",
+            "setWebViewClient",
+            new Object[]{"com.uc.webview.export.WebViewClient"},
+            "before",
+            param -> {
+                Object client = param.args[0];
+                if (client != null) {
+                    String clientClassName = client.getClass().getName();
+                    hookClientMethods(clientClassName, applicationContext.getClassLoader(),
+                        "com.uc.webview.export.WebView", "com.uc.webview.export.WebResourceRequest");
+                }
+            },
+            applicationContext.getClassLoader()
+        );
+    }
 
-            HookUtil.findAndHookMethod(
-                clientClassName,
-                "shouldOverrideUrlLoading",
-                new Object[]{WebView.class, WebResourceRequest.class},
-                "before",
-                param -> {
-                    Object request = param.args[1];
-                    if (request != null && processWebRequest(request, null)) {
-                        param.setResult(true);
-                    }
-                },
-                applicationContext.getClassLoader()
-            );
+    private static void setupWebViewRequestHookForDefault() {
+        HookUtil.findAndHookMethod(
+            WebView.class,
+            "setWebViewClient",
+            new Object[]{WebViewClient.class},
+            "before",
+            param -> {
+                Object client = param.args[0];
+                if (client != null) {
+                    String clientClassName = client.getClass().getName();
+                    hookClientMethods(clientClassName, applicationContext.getClassLoader(),
+                        WebView.class.getName(), WebResourceRequest.class.getName());
+                }
+            }
+        );
+    }
 
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + " - Error hooking WebViewClient methods: " + e.getMessage());
-        }
+    private static void hookClientMethods(
+        String clientClassName,
+        ClassLoader classLoader,
+        String webViewClassName,
+        String webResourceRequestClassName
+    ) {
+
+        XposedBridge.log(LOG_PREFIX + " - WebViewClient set: " + clientClassName);
+
+        HookUtil.findAndHookMethod(
+            clientClassName,
+            "shouldInterceptRequest",
+            new Object[]{webViewClassName, webResourceRequestClassName},
+            "after",
+            param -> {
+                Object request = param.args[1];
+                Object response = param.getResult();
+                if (request != null && processWebRequest(request, response)) {
+                    param.setResult(EMPTY_WEB_RESPONSE);
+                }
+            },
+            classLoader
+        );
+
+        HookUtil.findAndHookMethod(
+            clientClassName,
+            "shouldOverrideUrlLoading",
+            new Object[]{webViewClassName, webResourceRequestClassName},
+            "after",
+            param -> {
+                Object request = param.args[1];
+                if (request != null && processWebRequest(request, null)) {
+                    param.setResult(true);
+                }
+            },
+            classLoader
+        );
     }
 
     private static boolean processWebRequest(Object request, Object response) {
@@ -475,17 +496,21 @@ public class RequestHook {
         }
     }
 
-    private static Object createEmptyWebResourceResponse() {
-        try {
-            Class<?> webResourceResponseClass = Class.forName("android.webkit.WebResourceResponse");
-            return webResourceResponseClass
-                    .getConstructor(String.class, String.class, int.class, String.class, java.util.Map.class, java.io.InputStream.class)
-                    .newInstance("text/plain", "UTF-8", 204, "No Content", null, null);
-        } catch (Exception e) {
-            XposedBridge.log("Error creating empty WebResourceResponse: " + e.getMessage());
-            return null;
-        }
+private static Object createEmptyWebResourceResponse() {
+    try {
+        return new WebResourceResponse(
+                "text/plain",
+                "UTF-8",
+                204,
+                "No Content",
+                Collections.emptyMap(),
+                InputStream.nullInputStream()
+        );
+    } catch (Exception e) {
+        XposedBridge.log("Error creating empty WebResourceResponse: " + e.getMessage());
+        return null;
     }
+}
 
     private static void sendBroadcast(
         String requestType, boolean shouldBlock, String blockType, String ruleUrl,
