@@ -107,7 +107,7 @@ public class HookUtil {
         }
     }
 
-        private static Class<?> getClass(Object clazz, ClassLoader classLoader) {
+    private static Class<?> getClass(Object clazz, ClassLoader classLoader) {
         if (clazz instanceof String) {
             return XposedHelpers.findClassIfExists((String) clazz, classLoader);
         }
