@@ -3,8 +3,8 @@ package com.close.hook.ads.hook.gc;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.Arrays;
 
 import com.close.hook.ads.hook.util.HookUtil;
@@ -42,9 +42,7 @@ public class HideEnvi {
             "libriru_edxp.so"
     };
 
-    private static final String[] MAGISK_FEATURES = {"/.magisk", "MAGISK_INJ_"};
-
-    private static final ReentrantLock lock = new ReentrantLock();
+    private static final String[] MAGISK_FEATURES = { "/.magisk", "MAGISK_INJ_" };
 
     public static void handle() {
         hideXposedMagiskPaths();
@@ -56,13 +54,8 @@ public class HideEnvi {
     private static void hideXposedMagiskPaths() {
         HookUtil.hookAllMethods(File.class, "exists", "before", param -> {
             File file = (File) param.thisObject;
-            lock.lock();
-            try {
-                if (isXposedMagiskPath(file.getAbsolutePath())) {
-                    param.setResult(false);
-                }
-            } finally {
-                lock.unlock();
+            if (isXposedMagiskPath(file.getAbsolutePath())) {
+                param.setResult(false);
             }
         });
     }
@@ -73,19 +66,13 @@ public class HideEnvi {
 
     private static void hideXposedMagiskInExec() {
         HookUtil.hookAllMethods(Runtime.class, "exec", "before", param -> {
-            lock.lock();
-            try {
-                if (detectXposedOrMagiskInMemory()) {
-                    param.setResult(null);
-                }
-            } finally {
-                lock.unlock();
+            if (detectXposedOrMagiskInMemory()) {
+                param.setResult(null);
             }
         });
     }
 
     private static boolean detectXposedOrMagiskInMemory() {
-        lock.lock();
         try (BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -93,10 +80,8 @@ public class HideEnvi {
                     return true;
                 }
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             XposedBridge.log("HideEnvi Error while reading maps: " + e.getMessage());
-        } finally {
-            lock.unlock();
         }
         return false;
     }
@@ -116,19 +101,13 @@ public class HideEnvi {
     private static void hideSystemProperties() {
         HookUtil.hookAllMethods("android.os.SystemProperties", "get", "before", param -> {
             String key = (String) param.args[0];
-            lock.lock();
-            try {
-                if (isXposedMagiskProperty(key)) {
-                    param.setResult("");
-                }
-            } finally {
-                lock.unlock();
+            if (isXposedMagiskProperty(key)) {
+                param.setResult("");
             }
         });
     }
 
     private static boolean isXposedMagiskProperty(String key) {
-        String lowerKey = key.toLowerCase();
-        return lowerKey.contains("xposed") || lowerKey.contains("magisk");
+        return key.toLowerCase().contains("xposed") || key.toLowerCase().contains("magisk");
     }
 }

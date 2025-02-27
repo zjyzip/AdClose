@@ -31,23 +31,7 @@ class UrlContentProvider : ContentProvider() {
         if (!::urlDao.isInitialized) return null
 
         return when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> {
-                val cursor = when {
-                    selectionArgs?.size == 2 -> {
-                        val type = selectionArgs[0]
-                        val url = selectionArgs[1]
-                        if (type == "Domain") {
-                            urlDao.findExactMatchCursor(url)
-                        } else {
-                            urlDao.findPartialMatchCursor(url)
-                        }
-                    }
-                    else -> urlDao.findAll()
-                }
-                cursor?.apply {
-                    context?.contentResolver?.notifyChange(uri, null)
-                }
-            }
+            ID_URL_DATA -> handleQuery(selectionArgs)
             else -> null
         }
     }
@@ -105,13 +89,30 @@ class UrlContentProvider : ContentProvider() {
         context?.contentResolver?.notifyChange(uri, null)
     }
 
-    private fun contentValuesToUrl(values: ContentValues): Url = try {
-        Url(
-            type = values.getAsString(Url.URL_TYPE) ?: "",
-            url = values.getAsString(Url.URL_ADDRESS) ?: ""
-        )
-    } catch (e: Exception) {
-        Url(type = "", url = "")
+    private fun contentValuesToUrl(values: ContentValues): Url {
+        return try {
+            Url(
+                type = values.getAsString(Url.URL_TYPE) ?: "",
+                url = values.getAsString(Url.URL_ADDRESS) ?: ""
+            )
+        } catch (e: Exception) {
+            Url(type = "", url = "")
+        }
+    }
+
+    private fun handleQuery(selectionArgs: Array<String>?): Cursor? {
+        return when {
+            selectionArgs?.size == 2 -> {
+                val type = selectionArgs[0]
+                val url = selectionArgs[1]
+                if (type == "Domain") {
+                    urlDao.findExactMatchCursor(url)
+                } else {
+                    urlDao.findPartialMatchCursor(url)
+                }
+            }
+            else -> urlDao.findAll()
+        }
     }
 
     companion object {

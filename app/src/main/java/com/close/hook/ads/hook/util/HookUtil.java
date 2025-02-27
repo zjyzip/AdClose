@@ -258,12 +258,18 @@ public class HookUtil {
         StringBuilder stackTrace = new StringBuilder("Stack Trace:\n");
 
         for (int i = 3; i < stackElements.length; i++) {
+            StackTraceElement element = stackElements[i];
+
+            String className = element.getClassName();
+            String methodName = element.getMethodName();
+            int lineNumber = element.getLineNumber();
+
             stackTrace.append("  ")
-                      .append(stackElements[i].getClassName())
-                      .append(" --> ")
-                      .append(stackElements[i].getMethodName())
+                      .append(className)
+                      .append(".")
+                      .append(methodName)
                       .append("(line: ")
-                      .append(stackElements[i].getLineNumber())
+                      .append(lineNumber)
                       .append(")\n");
         }
 

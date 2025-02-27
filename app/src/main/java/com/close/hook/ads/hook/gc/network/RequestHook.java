@@ -496,21 +496,21 @@ public class RequestHook {
         }
     }
 
-private static Object createEmptyWebResourceResponse() {
-    try {
-        return new WebResourceResponse(
-                "text/plain",
-                "UTF-8",
-                204,
-                "No Content",
-                Collections.emptyMap(),
-                InputStream.nullInputStream()
-        );
-    } catch (Exception e) {
-        XposedBridge.log("Error creating empty WebResourceResponse: " + e.getMessage());
-        return null;
+    private static Object createEmptyWebResourceResponse() {
+        try {
+            return new WebResourceResponse(
+                    "text/plain",
+                    "UTF-8",
+                    204,
+                    "No Content",
+                    Collections.emptyMap(),
+                    InputStream.nullInputStream()
+            );
+        } catch (Exception e) {
+            XposedBridge.log("Error creating empty WebResourceResponse: " + e.getMessage());
+            return null;
+        }
     }
-}
 
     private static void sendBroadcast(
         String requestType, boolean shouldBlock, String blockType, String ruleUrl,

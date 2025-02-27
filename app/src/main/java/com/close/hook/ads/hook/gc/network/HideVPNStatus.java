@@ -14,7 +14,12 @@ public class HideVPNStatus {
     private static final String LOG_PREFIX = "[HideVPNStatus] ";
     private static final String EMPTY_STRING = "";
     private static final String DEFAULT_PROXY_PORT = "-1";
-    private static final Pattern VPN_INTERFACE = Pattern.compile("^(tun\\d*|ppp\\d*)");
+    private static final Pattern VPN_INTERFACE = Pattern.compile("^(tun[0-9]+|ppp[0-9]+)");
+
+    private static final String HTTP_PROXY_HOST = "http.proxyHost";
+    private static final String HTTP_PROXY_PORT = "http.proxyPort";
+    private static final String VPN = "VPN";
+    private static final String WIFI = "WIFI";
 
     public static void proxy() {
         bypassSystemProxyCheck();
@@ -24,7 +29,7 @@ public class HideVPNStatus {
 
     private static String getRandomString(int length) {
         String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(length);
         Random random = new Random();
         for (int i = 0; i < length; i++) {
             sb.append(alphabet.charAt(random.nextInt(alphabet.length())));
@@ -33,45 +38,38 @@ public class HideVPNStatus {
     }
 
     private static void bypassSystemProxyCheck() {
-        HookUtil.hookAllMethods(System.class, "getProperty", "before", param -> {
-            String propertyName = (String) param.args[0];
-            if ("http.proxyHost".equals(propertyName)) {
-                param.setResult(EMPTY_STRING);
-            } else if ("http.proxyPort".equals(propertyName)) {
-                param.setResult(DEFAULT_PROXY_PORT);
-            }
-        });
+        hookSystemProperty("getProperty", HTTP_PROXY_HOST, EMPTY_STRING);
+        hookSystemProperty("getProperty", HTTP_PROXY_PORT, DEFAULT_PROXY_PORT);
+        hookSystemProperty("setProperty", HTTP_PROXY_HOST, EMPTY_STRING);
+        hookSystemProperty("setProperty", HTTP_PROXY_PORT, EMPTY_STRING);
+    }
 
-        HookUtil.hookAllMethods(System.class, "setProperty", "before", param -> {
-            String propertyName = (String) param.args[0];
-            if ("http.proxyHost".equals(propertyName) || "http.proxyPort".equals(propertyName)) {
-                param.setResult(EMPTY_STRING);
+    private static void hookSystemProperty(String methodName, String propertyName, String value) {
+        HookUtil.hookAllMethods(System.class, methodName, "before", param -> {
+            String property = (String) param.args[0];
+            if (property.equals(propertyName)) {
+                param.setResult(value);
             }
         });
     }
 
     private static void modifyNetworkInfo() {
-        HookUtil.hookAllMethods(NetworkInfo.class, "getType", "before", param -> {
+        hookNetworkInfoMethod("getType", ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI);
+        hookNetworkInfoMethod("getTypeName", VPN, WIFI);
+        hookNetworkInfoMethod("getSubtypeName", VPN, WIFI);
+        hookGetNetworkInfo();
+    }
+
+    private static void hookNetworkInfoMethod(String methodName, Object target, Object replacement) {
+        HookUtil.hookAllMethods(NetworkInfo.class, methodName, "before", param -> {
             Object result = param.getResult();
-            if (result instanceof Integer && (int) result == ConnectivityManager.TYPE_VPN) {
-                param.setResult(ConnectivityManager.TYPE_WIFI);
+            if (target.equals(result)) {
+                param.setResult(replacement);
             }
         });
+    }
 
-        HookUtil.hookAllMethods(NetworkInfo.class, "getTypeName", "before", param -> {
-            Object result = param.getResult();
-            if (result instanceof String && "VPN".equalsIgnoreCase((String) result)) {
-                param.setResult("WIFI");
-            }
-        });
-
-        HookUtil.hookAllMethods(NetworkInfo.class, "getSubtypeName", "before", param -> {
-            Object result = param.getResult();
-            if (result instanceof String && "VPN".equalsIgnoreCase((String) result)) {
-                param.setResult("WIFI");
-            }
-        });
-
+    private static void hookGetNetworkInfo() {
         HookUtil.hookAllMethods(ConnectivityManager.class, "getNetworkInfo", "before", param -> {
             if (param.args.length > 0 && param.args[0] instanceof Integer && (int) param.args[0] == ConnectivityManager.TYPE_VPN) {
                 param.setResult(null);
@@ -80,28 +78,25 @@ public class HideVPNStatus {
     }
 
     private static void modifyNetworkCapabilities() {
-        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasTransport", "before", param -> {
-            Object arg = param.args[0];
-            if (arg instanceof Integer && (int) arg == NetworkCapabilities.TRANSPORT_VPN) {
-                param.setResult(false);
+        hookNetworkCapabilitiesMethod("hasTransport", NetworkCapabilities.TRANSPORT_VPN, false);
+        hookNetworkCapabilitiesMethod("hasCapability", NetworkCapabilities.NET_CAPABILITY_NOT_VPN, true);
+        hookNetworkInterfaceMethods();
+    }
+
+    private static void hookNetworkCapabilitiesMethod(String methodName, Object arg, Object result) {
+        HookUtil.hookAllMethods(NetworkCapabilities.class, methodName, "before", param -> {
+            Object arg0 = param.args[0];
+            if (arg.equals(arg0)) {
+                param.setResult(result);
             }
         });
+    }
 
-        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasCapability", "before", param -> {
-            Object arg = param.args[0];
-            if (arg instanceof Integer && (int) arg == NetworkCapabilities.NET_CAPABILITY_NOT_VPN) {
-                param.setResult(true);
-            }
-        });
-
-        HookUtil.hookAllMethods(NetworkInterface.class, "isVirtual", "before", param -> 
-            param.setResult(false)
-        );
-
+    private static void hookNetworkInterfaceMethods() {
+        HookUtil.hookAllMethods(NetworkInterface.class, "isVirtual", "before", param -> param.setResult(false));
         HookUtil.hookAllMethods(NetworkInterface.class, "isUp", "before", param -> {
             NetworkInterface networkInterface = (NetworkInterface) param.thisObject;
-            String interfaceName = networkInterface.getName();
-            if (interfaceName != null && VPN_INTERFACE.matcher(interfaceName).matches()) {
+            if (networkInterface != null && VPN_INTERFACE.matcher(networkInterface.getName()).matches()) {
                 param.setResult(false);
             }
         });
