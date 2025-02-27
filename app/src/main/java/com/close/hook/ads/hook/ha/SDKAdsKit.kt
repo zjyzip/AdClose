@@ -1,6 +1,5 @@
 package com.close.hook.ads.hook.ha
 
-import android.os.BaseBundle
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XC_MethodReplacement
@@ -26,7 +25,6 @@ object SDKAdsKit {
             handleGdtInit()
             handleAnyThinkSDK()
             blockFirebaseWithString()
-            blockAdsWithBaseBundle()
             blockAdsWithString()
             blockAdsWithPackageName()
 
@@ -99,20 +97,6 @@ object SDKAdsKit {
         ) { method ->
             hookMethod(method, "after") { param ->
                 param.result = null
-            }
-        }
-    }
-
-    fun blockAdsWithBaseBundle() {
-        findAndHookMethod(
-            BaseBundle::class.java,
-            "get",
-            arrayOf(String::class.java),
-            "after"
-        ) { param ->
-            val key = param.args[0] as? String
-            if ("com.google.android.gms.ads.APPLICATION_ID" == key) {
-                param.result = "ca-app-pub-0000000000000000~0000000000"
             }
         }
     }
