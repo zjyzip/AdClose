@@ -16,22 +16,20 @@ class CloseApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-
         closeApp = this
 
-        AppCenter.start(
-            this, "621cdb49-4473-44d3-a8f8-e76f28ba43d7",
-            Analytics::class.java, Crashes::class.java
-        )
-
+        initAppCenter()
         AppCompatDelegate.setDefaultNightMode(darkTheme)
-
         applyLocale(PrefManager.language)
     }
 
-    fun getLocale(tag: String): Locale {
-        return if (tag == "SYSTEM") LocaleDelegate.systemLocale
-        else Locale.forLanguageTag(tag)
+    private fun initAppCenter() {
+        AppCenter.start(
+            this,
+            "621cdb49-4473-44d3-a8f8-e76f28ba43d7",
+            Analytics::class.java,
+            Crashes::class.java
+        )
     }
 
     private fun applyLocale(languageTag: String) {
@@ -39,5 +37,13 @@ class CloseApplication : Application() {
         val config = resources.configuration
         config.setLocale(LocaleDelegate.defaultLocale)
         createConfigurationContext(config)
+    }
+
+    fun getLocale(tag: String): Locale {
+        return if (tag == "SYSTEM") {
+            LocaleDelegate.systemLocale
+        } else {
+            Locale.forLanguageTag(tag)
+        }
     }
 }

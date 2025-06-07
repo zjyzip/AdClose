@@ -91,10 +91,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         "switch_eight_"
     )
     private val prefsHelper by lazy {
-        PreferencesHelper(
-            requireContext(),
-            "com.close.hook.ads_preferences"
-        )
+        PreferencesHelper(requireContext())
     }
 
     companion object {

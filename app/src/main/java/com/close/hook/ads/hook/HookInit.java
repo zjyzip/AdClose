@@ -27,12 +27,9 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private static final String TAG = "com.close.hook.ads";
-    private static final String PREFS_NAME = "com.close.hook.ads_preferences";
-
     private static final boolean ENABLE_DEX_DUMP = false;
 
     private static SettingsManager settingsManager;
-
     private static Context applicationContext;
 
     static {
@@ -44,30 +41,30 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     @Override
     public void initZygote(StartupParam startupParam) {
-        ContextUtil.initialize(() -> {
-            XposedBridge.log("HookInit | ContextUtil initialized.");
-        });
+        ContextUtil.initialize(() -> XposedBridge.log(TAG + " | ContextUtil initialized."));
     }
 
     @SuppressLint("SuspiciousIndentation")
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
+        if (shouldIgnorePackage(lpparam)) return;
+
         try {
-            if (shouldIgnorePackage(lpparam)) {
-                return;
-            }
-
-            PreferencesHelper prefsHelper = new PreferencesHelper(TAG, PREFS_NAME);
+            PreferencesHelper prefsHelper = new PreferencesHelper();
             settingsManager = new SettingsManager(prefsHelper, lpparam.packageName);
-
             applySettings(settingsManager);
-        } catch (Exception e) {
-            XposedBridge.log("Error in handleLoadPackage: " + e.getMessage());
+        } catch (Throwable e) {
+            XposedBridge.log(TAG + " | handleLoadPackage error: " + Log.getStackTraceString(e));
         }
     }
 
     private static void activateModule(ClassLoader classLoader) {
-        HookUtil.hookSingleMethod(classLoader, "com.close.hook.ads.ui.activity.MainActivity", "isModuleActivated", true);
+        HookUtil.hookSingleMethod(
+            classLoader,
+            "com.close.hook.ads.ui.activity.MainActivity",
+            "isModuleActivated",
+            true
+        );
     }
 
     private static void applySettings(SettingsManager settingsManager) {
@@ -108,27 +105,27 @@ public class HookInit implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
             if (TAG.equals(packageName)) {
                 activateModule(classLoader);
+                return;
             }
 
-            if (!TAG.equals(packageName)) {
-                if (ENABLE_DEX_DUMP) {
-                    DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
-                }
-
-                if (AppUtils.isMainProcess(applicationContext) && settingsManager.isHookTipEnabled()) {
-                    AppUtils.showHookTip(applicationContext, packageName);
-                }
-
-                XposedBridge.log("Application Name: " + appName);
+            if (ENABLE_DEX_DUMP) {
+                DexDumpUtil.INSTANCE.dumpDexFilesByPackageName(packageName);
             }
+
+            if (AppUtils.isMainProcess(applicationContext) && settingsManager.isHookTipEnabled()) {
+                AppUtils.showHookTip(applicationContext, packageName);
+            }
+
+            XposedBridge.log(TAG + " | App: " + appName + " Package: " + packageName);
 
             AppAds.progress(classLoader, packageName);
 
             if (settingsManager.isHandlePlatformAdEnabled()) {
                 SDKAds.hookAds(classLoader);
             }
-        } catch (Exception e) {
-            XposedBridge.log(TAG + " Exception in setupAppHooks: " + Log.getStackTraceString(e));
+
+        } catch (Throwable e) {
+            XposedBridge.log(TAG + " | setupAppHooks error: " + Log.getStackTraceString(e));
         }
     }
 

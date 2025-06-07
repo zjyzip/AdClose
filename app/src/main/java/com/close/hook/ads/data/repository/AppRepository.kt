@@ -10,7 +10,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.ui.activity.MainActivity
-import com.close.hook.ads.util.AppUtils
+import com.close.hook.ads.hook.preference.PreferencesHelper;
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -113,7 +113,7 @@ class AppRepository(
         }
         val isAppEnable = getIsAppEnable(packageInfo.packageName)
         val isEnable =
-            if (MainActivity.isModuleActivated()) AppUtils.isAppEnabled(packageInfo.packageName) else 0
+            if (MainActivity.isModuleActivated()) PreferencesHelper.isAppHooked(packageInfo.packageName) else 0
 
         AppInfo(
             appName,
