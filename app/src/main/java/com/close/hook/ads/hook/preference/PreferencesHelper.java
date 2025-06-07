@@ -7,18 +7,42 @@ import java.util.Optional;
 
 import de.robv.android.xposed.XSharedPreferences;
 
+import static com.close.hook.ads.CloseApplicationKt.closeApp;
+
 public class PreferencesHelper {
+
+    private static final String PREF_NAME = "com.close.hook.ads_preferences";
+
+    private static final String[] ENABLE_KEYS = {
+        "switch_one_", "switch_two_", "switch_three_", "switch_four_",
+        "switch_five_", "switch_six_", "switch_seven_", "switch_eight_"
+    };
 
     private final Optional<SharedPreferences> prefs;
     private final Optional<XSharedPreferences> xPrefs;
 
-    public PreferencesHelper(Context context, String prefsName) {
-        prefs = Optional.ofNullable(context.getSharedPreferences(prefsName, Context.MODE_WORLD_READABLE));
+/*
+    public PreferencesHelper(Context context) {
+        prefs = Optional.of(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE));
+        xPrefs = Optional.empty();
+
+        try {
+            File prefFile = new File("/data/data/" + context.getPackageName() + "/shared_prefs/" + PREF_NAME + ".xml");
+            if (prefFile.exists()) {
+                prefFile.setReadable(true, false);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+*/
+
+    public PreferencesHelper(Context context) {
+        prefs = Optional.of(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE));
         xPrefs = Optional.empty();
     }
 
-    public PreferencesHelper(String packageName, String prefsName) {
-        xPrefs = Optional.ofNullable(new XSharedPreferences(packageName, prefsName));
+    public PreferencesHelper() {
+        xPrefs = Optional.of(new XSharedPreferences("com.close.hook.ads", PREF_NAME));
         prefs = Optional.empty();
         xPrefs.ifPresent(xp -> {
             xp.makeWorldReadable();
@@ -26,10 +50,24 @@ public class PreferencesHelper {
         });
     }
 
+    public static int isAppHooked(String packageName) {
+        PreferencesHelper prefs = new PreferencesHelper(closeApp);
+        for (String key : ENABLE_KEYS) {
+            if (prefs.getBoolean(key + packageName, false)) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     public boolean getBoolean(String key, boolean defaultValue) {
-        return prefs.map(p -> p.getBoolean(key, defaultValue))
-                .orElseGet(() -> xPrefs.map(xp -> xp.getBoolean(key, defaultValue))
-                        .orElse(defaultValue));
+        if (prefs.isPresent()) {
+            return prefs.get().getBoolean(key, defaultValue);
+        } else if (xPrefs.isPresent()) {
+            xPrefs.get().reload();
+            return xPrefs.get().getBoolean(key, defaultValue);
+        }
+        return defaultValue;
     }
 
     public void setBoolean(String key, boolean value) {
@@ -37,9 +75,13 @@ public class PreferencesHelper {
     }
 
     public int getInt(String key, int defaultValue) {
-        return prefs.map(p -> p.getInt(key, defaultValue))
-                .orElseGet(() -> xPrefs.map(xp -> xp.getInt(key, defaultValue))
-                        .orElse(defaultValue));
+        if (prefs.isPresent()) {
+            return prefs.get().getInt(key, defaultValue);
+        } else if (xPrefs.isPresent()) {
+            xPrefs.get().reload();
+            return xPrefs.get().getInt(key, defaultValue);
+        }
+        return defaultValue;
     }
 
     public void setInt(String key, int value) {
@@ -47,9 +89,13 @@ public class PreferencesHelper {
     }
 
     public long getLong(String key, long defaultValue) {
-        return prefs.map(p -> p.getLong(key, defaultValue))
-                .orElseGet(() -> xPrefs.map(xp -> xp.getLong(key, defaultValue))
-                        .orElse(defaultValue));
+        if (prefs.isPresent()) {
+            return prefs.get().getLong(key, defaultValue);
+        } else if (xPrefs.isPresent()) {
+            xPrefs.get().reload();
+            return xPrefs.get().getLong(key, defaultValue);
+        }
+        return defaultValue;
     }
 
     public void putLong(String key, long value) {
@@ -57,9 +103,13 @@ public class PreferencesHelper {
     }
 
     public float getFloat(String key, float defaultValue) {
-        return prefs.map(p -> p.getFloat(key, defaultValue))
-                .orElseGet(() -> xPrefs.map(xp -> xp.getFloat(key, defaultValue))
-                        .orElse(defaultValue));
+        if (prefs.isPresent()) {
+            return prefs.get().getFloat(key, defaultValue);
+        } else if (xPrefs.isPresent()) {
+            xPrefs.get().reload();
+            return xPrefs.get().getFloat(key, defaultValue);
+        }
+        return defaultValue;
     }
 
     public void setFloat(String key, float value) {
@@ -67,9 +117,13 @@ public class PreferencesHelper {
     }
 
     public String getString(String key, String defaultValue) {
-        return prefs.map(p -> p.getString(key, defaultValue))
-                .orElseGet(() -> xPrefs.map(xp -> xp.getString(key, defaultValue))
-                        .orElse(defaultValue));
+        if (prefs.isPresent()) {
+            return prefs.get().getString(key, defaultValue);
+        } else if (xPrefs.isPresent()) {
+            xPrefs.get().reload();
+            return xPrefs.get().getString(key, defaultValue);
+        }
+        return defaultValue;
     }
 
     public void setString(String key, String value) {
@@ -77,9 +131,13 @@ public class PreferencesHelper {
     }
 
     public boolean contains(String key) {
-        return prefs.map(p -> p.contains(key))
-                .orElseGet(() -> xPrefs.map(xp -> xp.contains(key))
-                        .orElse(false));
+        if (prefs.isPresent()) {
+            return prefs.get().contains(key);
+        } else if (xPrefs.isPresent()) {
+            xPrefs.get().reload();
+            return xPrefs.get().contains(key);
+        }
+        return false;
     }
 
     public void remove(String key) {
