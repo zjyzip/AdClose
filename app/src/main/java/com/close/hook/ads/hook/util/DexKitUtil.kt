@@ -16,7 +16,7 @@ object DexKitUtil {
         .maximumSize(300)
         .expireAfterWrite(12, TimeUnit.HOURS)
         .concurrencyLevel(Runtime.getRuntime().availableProcessors() * 2)
-        .build<String, List<MethodData>?>()
+        .build<String, List<MethodData>>()
 
     val context: Context
         get() = ContextUtil.applicationContext
@@ -58,20 +58,21 @@ object DexKitUtil {
         } ?: XposedBridge.log("$LOG_PREFIX DexKitBridge already released or not initialized.")
     }
 
-    fun getCachedOrFindMethods(key: String, findMethodLogic: () -> List<MethodData>?): List<MethodData>? {
+    fun getCachedOrFindMethods(key: String, findMethodLogic: () -> List<MethodData>?): List<MethodData> {
         return try {
             methodCache.get(key) {
                 val result = findMethodLogic()
                 if (result.isNullOrEmpty()) {
                     XposedBridge.log("$LOG_PREFIX No methods found for key: $key")
+                    emptyList()
                 } else {
                     XposedBridge.log("$LOG_PREFIX Methods cached for key: $key -> ${result.size} methods.")
+                    result
                 }
-                result
             }
         } catch (e: Exception) {
             XposedBridge.log("$LOG_PREFIX Error retrieving methods for key: $key -> ${e.message}")
-            null
+            emptyList()
         }
     }
 }
