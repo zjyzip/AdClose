@@ -129,7 +129,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun initView() {
         mAdapter = BlockedRequestsAdapter(viewModel.dataSource) { packageName ->
-            appsViewModel.appsLiveData.value?.find { it.packageName == packageName }?.appIcon
+            requireContext().packageManager.getApplicationIcon(packageName)
         }
 
         binding.recyclerView.apply {

@@ -6,6 +6,7 @@ plugins {
     id("dev.rikka.tools.materialthemebuilder")
     id("com.google.devtools.ksp")
     id("dev.rikka.tools.autoresconfig")
+    id("kotlin-parcelize")
 }
 
 autoResConfig {

@@ -10,7 +10,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.ui.activity.MainActivity
-import com.close.hook.ads.hook.preference.PreferencesHelper;
+import com.close.hook.ads.hook.preference.PreferencesHelper
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -25,13 +25,18 @@ class AppRepository(
     private val context: Context
 ) {
 
+    private val ENABLE_KEYS = arrayOf(
+        "switch_one_", "switch_two_", "switch_three_", "switch_four_",
+        "switch_five_", "switch_six_", "switch_seven_", "switch_eight_"
+    )
+
     private val localizedContext by lazy {
         val config = Configuration(context.resources.configuration)
         config.setLocale(closeApp.getLocale(PrefManager.language))
         context.createConfigurationContext(config)
     }
 
-    private val semaphore = Semaphore(20)
+    private val semaphore = Semaphore(10)
 
     private fun getLocalizedString(resId: Int): String {
         return localizedContext.getString(resId)
@@ -104,7 +109,6 @@ class AppRepository(
     private suspend fun getAppInfo(packageInfo: PackageInfo): AppInfo = withContext(Dispatchers.IO) {
         val applicationInfo = packageInfo.applicationInfo
         val appName = packageManager.getApplicationLabel(applicationInfo).toString()
-        val appIcon = packageManager.getApplicationIcon(applicationInfo)
         val size = File(applicationInfo.sourceDir).length()
         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode.toInt()
@@ -113,22 +117,31 @@ class AppRepository(
         }
         val isAppEnable = getIsAppEnable(packageInfo.packageName)
         val isEnable =
-            if (MainActivity.isModuleActivated()) PreferencesHelper.isAppHooked(packageInfo.packageName) else 0
+            if (MainActivity.isModuleActivated()) isAppHooked(packageInfo.packageName) else 0
 
         AppInfo(
-            appName,
-            packageInfo.packageName,
-            appIcon,
-            packageInfo.versionName,
-            versionCode,
-            packageInfo.firstInstallTime,
-            packageInfo.lastUpdateTime,
-            size,
-            applicationInfo.targetSdkVersion,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) applicationInfo.minSdkVersion else 0,
-            isAppEnable,
-            isEnable
+            appName = appName,
+            packageName = packageInfo.packageName,
+            versionName = packageInfo.versionName,
+            versionCode = versionCode,
+            firstInstallTime = packageInfo.firstInstallTime,
+            lastUpdateTime = packageInfo.lastUpdateTime,
+            size = size,
+            targetSdk = applicationInfo.targetSdkVersion,
+            minSdk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) applicationInfo.minSdkVersion else 0,
+            isAppEnable = isAppEnable,
+            isEnable = isEnable
         )
+    }
+
+    fun isAppHooked(packageName: String): Int {
+        val prefs = PreferencesHelper(closeApp)
+        for (key in ENABLE_KEYS) {
+            if (prefs.getBoolean(key + packageName, false)) {
+                return 1
+            }
+        }
+        return 0
     }
 
     private fun isSystemApp(applicationInfo: ApplicationInfo): Boolean =
