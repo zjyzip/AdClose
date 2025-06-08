@@ -314,7 +314,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
 
-            icon.setImageDrawable(viewModel.appsLiveData.value?.find { it.packageName == appInfo.packageName }?.appIcon)
+            val iconDrawable = requireContext().packageManager.getApplicationIcon(appInfo.packageName)
+            icon.setImageDrawable(iconDrawable)
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName
@@ -338,7 +339,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
-            icon.setImageDrawable(viewModel.appsLiveData.value?.find { it.packageName == appInfo.packageName }?.appIcon)
+            val iconDrawable = requireContext().packageManager.getApplicationIcon(appInfo.packageName)
+            icon.setImageDrawable(iconDrawable)
 
             appName.text = appInfo.appName
             packageName.apply {

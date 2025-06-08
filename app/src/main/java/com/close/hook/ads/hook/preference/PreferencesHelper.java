@@ -7,16 +7,9 @@ import java.util.Optional;
 
 import de.robv.android.xposed.XSharedPreferences;
 
-import static com.close.hook.ads.CloseApplicationKt.closeApp;
-
 public class PreferencesHelper {
 
     private static final String PREF_NAME = "com.close.hook.ads_preferences";
-
-    private static final String[] ENABLE_KEYS = {
-        "switch_one_", "switch_two_", "switch_three_", "switch_four_",
-        "switch_five_", "switch_six_", "switch_seven_", "switch_eight_"
-    };
 
     private final Optional<SharedPreferences> prefs;
     private final Optional<XSharedPreferences> xPrefs;
@@ -48,16 +41,6 @@ public class PreferencesHelper {
             xp.makeWorldReadable();
             xp.reload();
         });
-    }
-
-    public static int isAppHooked(String packageName) {
-        PreferencesHelper prefs = new PreferencesHelper(closeApp);
-        for (String key : ENABLE_KEYS) {
-            if (prefs.getBoolean(key + packageName, false)) {
-                return 1;
-            }
-        }
-        return 0;
     }
 
     public boolean getBoolean(String key, boolean defaultValue) {
