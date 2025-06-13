@@ -9,8 +9,8 @@ import android.os.Build
 import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.model.AppInfo
-import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.hook.preference.PreferencesHelper
+import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -19,46 +19,49 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.io.File
+import java.util.Locale
 
 class AppRepository(
     private val packageManager: PackageManager,
     private val context: Context
 ) {
 
-    private val ENABLE_KEYS = arrayOf(
+    private val enableKeys = arrayOf(
         "switch_one_", "switch_two_", "switch_three_", "switch_four_",
         "switch_five_", "switch_six_", "switch_seven_", "switch_eight_"
     )
 
     private val localizedContext by lazy {
-        val config = Configuration(context.resources.configuration)
-        config.setLocale(closeApp.getLocale(PrefManager.language))
+        val config = Configuration(context.resources.configuration).apply {
+            setLocale(closeApp.getLocale(PrefManager.language))
+        }
         context.createConfigurationContext(config)
     }
 
-    private val semaphore = Semaphore(10)
+    private val semaphore = Semaphore(permits = 5)
 
-    private fun getLocalizedString(resId: Int): String {
-        return localizedContext.getString(resId)
-    }
+    private fun getLocalizedString(resId: Int): String =
+        localizedContext.getString(resId)
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
-        val installedPackages = packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
-            .filter { packageInfo ->
-                isSystem == null || isSystemApp(packageInfo.applicationInfo) == isSystem
-            }
+        val packages = packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
+            .filter { isSystem == null || isSystemApp(it.applicationInfo) == isSystem }
 
-        val resultList = installedPackages.chunked(50).flatMap { chunk ->
-            chunk.map { packageInfo ->
+        val resultList = packages.chunked(50).flatMap { chunk ->
+            chunk.map { pkgInfo ->
                 async {
                     semaphore.withPermit {
-                        getAppInfo(packageInfo)
+                        try {
+                            getAppInfo(pkgInfo)
+                        } catch (e: Exception) {
+                            null
+                        }
                     }
                 }
-            }.awaitAll()
+            }.awaitAll().filterNotNull()
         }
 
-        resultList.sortedBy { it.appName.lowercase() }
+        resultList.sortedBy { it.appName.lowercase(Locale.ROOT) }
     }
 
     suspend fun getFilteredAndSortedApps(
@@ -68,22 +71,19 @@ class AppRepository(
         isReverse: Boolean
     ): List<AppInfo> = withContext(Dispatchers.Default) {
         val comparator = getComparator(filter.first, isReverse)
-
-        val sortedApps = apps.asSequence()
+        apps.asSequence()
             .filter { app -> matchesKeyword(app, keyword) && matchesFilter(app, filter.second) }
             .sortedWith(comparator)
             .toList()
-
-        sortedApps
     }
 
-    private fun matchesKeyword(app: AppInfo, keyword: String): Boolean {
-        return keyword.isBlank() || app.appName.contains(keyword, ignoreCase = true) ||
-                app.packageName.contains(keyword, ignoreCase = true)
-    }
+    private fun matchesKeyword(app: AppInfo, keyword: String): Boolean =
+        keyword.isBlank() ||
+        app.appName.contains(keyword, ignoreCase = true) ||
+        app.packageName.contains(keyword, ignoreCase = true)
 
-    private fun matchesFilter(app: AppInfo, filterCriteria: List<String>): Boolean {
-        return filterCriteria.all { criterion ->
+    private fun matchesFilter(app: AppInfo, criteria: List<String>): Boolean =
+        criteria.all { criterion ->
             when (criterion) {
                 getLocalizedString(R.string.filter_configured) -> app.isEnable == 1
                 getLocalizedString(R.string.filter_recent_update) ->
@@ -92,60 +92,48 @@ class AppRepository(
                 else -> true
             }
         }
-    }
 
     private fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {
-        val comparator = when (sortBy) {
+        val base = when (sortBy) {
             getLocalizedString(R.string.sort_by_app_size) -> compareBy<AppInfo> { it.size }
             getLocalizedString(R.string.sort_by_last_update) -> compareBy { it.lastUpdateTime }
             getLocalizedString(R.string.sort_by_install_date) -> compareBy { it.firstInstallTime }
             getLocalizedString(R.string.sort_by_target_version) -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
-
-        return if (isReverse) comparator.reversed() else comparator
+        return if (isReverse) base.reversed() else base
     }
 
     private suspend fun getAppInfo(packageInfo: PackageInfo): AppInfo = withContext(Dispatchers.IO) {
-        val applicationInfo = packageInfo.applicationInfo
-        val appName = packageManager.getApplicationLabel(applicationInfo).toString()
-        val size = File(applicationInfo.sourceDir).length()
+        val appInfo = packageInfo.applicationInfo
         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode.toInt()
         } else {
             packageInfo.versionCode
         }
-        val isAppEnable = getIsAppEnable(packageInfo.packageName)
-        val isEnable =
-            if (MainActivity.isModuleActivated()) isAppHooked(packageInfo.packageName) else 0
 
         AppInfo(
-            appName = appName,
+            appName = packageManager.getApplicationLabel(appInfo).toString(),
             packageName = packageInfo.packageName,
-            versionName = packageInfo.versionName,
+            versionName = packageInfo.versionName ?: "",
             versionCode = versionCode,
             firstInstallTime = packageInfo.firstInstallTime,
             lastUpdateTime = packageInfo.lastUpdateTime,
-            size = size,
-            targetSdk = applicationInfo.targetSdkVersion,
-            minSdk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) applicationInfo.minSdkVersion else 0,
-            isAppEnable = isAppEnable,
-            isEnable = isEnable
+            size = File(appInfo.sourceDir).length(),
+            targetSdk = appInfo.targetSdkVersion,
+            minSdk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) appInfo.minSdkVersion else 0,
+            isAppEnable = getIsAppEnable(packageInfo.packageName),
+            isEnable = if (MainActivity.isModuleActivated()) isAppHooked(packageInfo.packageName) else 0
         )
     }
 
     fun isAppHooked(packageName: String): Int {
         val prefs = PreferencesHelper(closeApp)
-        for (key in ENABLE_KEYS) {
-            if (prefs.getBoolean(key + packageName, false)) {
-                return 1
-            }
-        }
-        return 0
+        return if (enableKeys.any { prefs.getBoolean(it + packageName, false) }) 1 else 0
     }
 
-    private fun isSystemApp(applicationInfo: ApplicationInfo): Boolean =
-        applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
+    private fun isSystemApp(appInfo: ApplicationInfo): Boolean =
+        (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
 
     private fun getIsAppEnable(packageName: String): Int =
         if (packageManager.getApplicationEnabledSetting(packageName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) 1 else 0
