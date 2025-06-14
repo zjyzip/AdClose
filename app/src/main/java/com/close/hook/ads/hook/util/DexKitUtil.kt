@@ -20,6 +20,7 @@ object DexKitUtil {
 
     val context: Context
         get() = ContextUtil.applicationContext
+            ?: throw IllegalStateException("DexKitUtil.context is not initialized")
 
     init {
         System.loadLibrary("dexkit")

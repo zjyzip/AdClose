@@ -71,8 +71,8 @@ public class RequestHook {
 
     public static void init() {
         try {
-            ContextUtil.addOnApplicationContextInitializedCallback(() -> {
-                applicationContext = ContextUtil.applicationContext;
+            ContextUtil.INSTANCE.addOnApplicationContextInitializedCallback(() -> {
+                applicationContext = ContextUtil.INSTANCE.applicationContext;
                 setupDNSRequestHook();
                 setupHttpRequestHook();
                 setupOkHttpRequestHook();
