@@ -24,7 +24,7 @@ data class Url(
 ) : Parcelable {
 
     @PrimaryKey(autoGenerate = true)
-    var id: Long = 0
+    var id: Long = 0L
 
     constructor(parcel: Parcel) : this(
         parcel.readString() ?: "",
@@ -33,9 +33,7 @@ data class Url(
         id = parcel.readLong()
     }
 
-    override fun describeContents(): Int {
-        return 0
-    }
+    override fun describeContents(): Int = 0
 
     override fun writeToParcel(dest: Parcel, flags: Int) {
         dest.writeString(type)
@@ -49,13 +47,8 @@ data class Url(
 
         @JvmField
         val CREATOR = object : Parcelable.Creator<Url> {
-            override fun createFromParcel(parcel: Parcel): Url {
-                return Url(parcel)
-            }
-
-            override fun newArray(size: Int): Array<Url?> {
-                return arrayOfNulls(size)
-            }
+            override fun createFromParcel(parcel: Parcel): Url = Url(parcel)
+            override fun newArray(size: Int): Array<Url?> = arrayOfNulls(size)
         }
     }
 }

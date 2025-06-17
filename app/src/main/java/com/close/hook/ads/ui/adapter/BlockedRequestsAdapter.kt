@@ -140,7 +140,7 @@ class BlockedRequestsAdapter(
 
         private fun toggleBlockStatus(request: BlockedRequest) {
             CoroutineScope(Dispatchers.IO).launch {
-                val type = request.blockType ?: "URL"
+                val type = request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
                 val url = request.url ?: request.request
                 if (request.isBlocked == true) {
                     dataSource.removeUrlString(type, url)

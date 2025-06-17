@@ -34,10 +34,10 @@ interface UrlDao {
     fun searchUrls(searchText: String, offset: Int, limit: Int): Flow<List<Url>>
 
     @Query("SELECT * FROM url_info WHERE url = :url LIMIT 1")
-    fun findExactMatchCursor(url: String): Cursor
+    fun findByExactUrl(url: String): Cursor
 
-    @Query("SELECT * FROM url_info WHERE :url LIKE '%' || url || '%' LIMIT 1")
-    fun findPartialMatchCursor(url: String): Cursor
+    @Query("SELECT * FROM url_info WHERE INSTR(:url, url) > 0 LIMIT 1")
+    fun findByUrlContaining(url: String): Cursor
 
     @Query("SELECT COUNT(*) > 0 FROM url_info WHERE url = :url")
     fun isExist(url: String): Boolean

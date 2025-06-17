@@ -31,7 +31,19 @@ class UrlContentProvider : ContentProvider() {
         if (!::urlDao.isInitialized) return null
 
         return when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> handleQuery(selectionArgs)
+            ID_URL_DATA -> {
+                if (selectionArgs?.size == 2) {
+                    val type = selectionArgs[0]
+                    val url = selectionArgs[1]
+                    if (type == "URL") {
+                        urlDao.findByExactUrl(url)
+                    } else {
+                        urlDao.findByUrlContaining(url)
+                    }
+                } else {
+                    urlDao.findAll()
+                }
+            }
             else -> null
         }
     }
@@ -90,29 +102,10 @@ class UrlContentProvider : ContentProvider() {
     }
 
     private fun contentValuesToUrl(values: ContentValues): Url {
-        return try {
-            Url(
-                type = values.getAsString(Url.URL_TYPE) ?: "",
-                url = values.getAsString(Url.URL_ADDRESS) ?: ""
-            )
-        } catch (e: Exception) {
-            Url(type = "", url = "")
-        }
-    }
-
-    private fun handleQuery(selectionArgs: Array<String>?): Cursor? {
-        return when {
-            selectionArgs?.size == 2 -> {
-                val type = selectionArgs[0]
-                val url = selectionArgs[1]
-                if (type == "Domain") {
-                    urlDao.findExactMatchCursor(url)
-                } else {
-                    urlDao.findPartialMatchCursor(url)
-                }
-            }
-            else -> urlDao.findAll()
-        }
+        return Url(
+            type = values.getAsString(Url.URL_TYPE) ?: "",
+            url = values.getAsString(Url.URL_ADDRESS) ?: ""
+        )
     }
 
     companion object {

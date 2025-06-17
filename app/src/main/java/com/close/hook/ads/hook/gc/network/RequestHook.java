@@ -37,8 +37,11 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -64,9 +67,9 @@ public class RequestHook {
         .build();
 
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
-        .maximumSize(4857)
-        .expireAfterWrite(6, TimeUnit.HOURS)
-        .concurrencyLevel(Runtime.getRuntime().availableProcessors() * 2)
+        .maximumSize(8192)
+        .expireAfterAccess(4, TimeUnit.HOURS)
+        .softValues()
         .build();
 
     public static void init() {
@@ -84,13 +87,8 @@ public class RequestHook {
     }
 
     private static String calculateCidrNotation(InetAddress inetAddress) {
-        byte[] addressBytes = inetAddress.getAddress();
-        int prefixLength = 0;
-
-        for (byte b : addressBytes) {
-            prefixLength += Integer.bitCount(b & 0xFF);
-        }
-
+        if (inetAddress == null) return "";
+        int prefixLength = inetAddress.getAddress().length == 4 ? 32 : 128;
         return inetAddress.getHostAddress() + "/" + prefixLength;
     }
 
@@ -207,36 +205,34 @@ public class RequestHook {
         String cidr = null;
         String fullAddress = null;
 
-        if ("getByName".equals(methodName)) {
+        if ("getByName".equals(methodName) && result instanceof InetAddress) {
             InetAddress inetAddress = (InetAddress) result;
-            if (inetAddress != null) {
-                cidr = calculateCidrNotation(inetAddress);
-                fullAddress = inetAddress.getHostAddress();
-            }
-        } else if ("getAllByName".equals(methodName)) {
+            cidr = calculateCidrNotation(inetAddress);
+            fullAddress = inetAddress.getHostAddress();
+        } else if ("getAllByName".equals(methodName) && result instanceof InetAddress[]) {
             InetAddress[] inetAddresses = (InetAddress[]) result;
             if (inetAddresses != null && inetAddresses.length > 0) {
-                StringBuilder cidrBuilder = new StringBuilder();
-                StringBuilder fullAddressBuilder = new StringBuilder();
+                List<InetAddress> addressList = Arrays.stream(inetAddresses)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
 
-                for (InetAddress inetAddress : inetAddresses) {
-                    if (cidrBuilder.length() > 0) {
-                        cidrBuilder.append(", ");
-                        fullAddressBuilder.append(", ");
-                    }
-                    cidrBuilder.append(calculateCidrNotation(inetAddress));
-                    fullAddressBuilder.append(inetAddress.getHostAddress());
-                }
+                cidr = addressList.stream()
+                    .map(RequestHook::calculateCidrNotation)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.joining(", "));
 
-                cidr = cidrBuilder.toString();
-                fullAddress = fullAddressBuilder.toString();
+                fullAddress = addressList.stream()
+                    .map(InetAddress::getHostAddress)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.joining(", "));
             }
         }
 
-        if (cidr != null && fullAddress != null) {
+        if (cidr != null && !cidr.isEmpty() && fullAddress != null && !fullAddress.isEmpty()) {
             RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
             return shouldBlockDnsRequest(host, details);
         }
+
         return false;
     }
 
