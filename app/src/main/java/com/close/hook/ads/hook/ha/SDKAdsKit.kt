@@ -22,6 +22,7 @@ object SDKAdsKit {
             handlePangolinInit()
             handleGdtInit()
             handleAnyThinkSDK()
+            handleIQIYI()
             blockFirebaseWithString()
             blockAdsWithString()
             blockAdsWithPackageName()
@@ -52,7 +53,7 @@ object SDKAdsKit {
         hookAllMethods(
             "com.bytedance.sdk.openadsdk.TTAdSdk",
             "init",
-            "after",
+            "before",
             { param ->
                 param.result = when ((param.method as Method).returnType) {
                     Void.TYPE -> null
@@ -69,7 +70,7 @@ object SDKAdsKit {
             "$packageName:handleGdtInit",
             listOf("SDK 尚未初始化，请在 Application 中调用 GDTAdSdk.initWithoutStart() 初始化")
         ) { method ->
-            hookMethod(method, "after") { param ->
+            hookMethod(method, "before") { param ->
                 param.result = false
             }
         }
@@ -85,8 +86,19 @@ object SDKAdsKit {
                 java.lang.Boolean.TYPE -> false
                 else -> null
             }
-            hookMethod(method, "after") { param ->
+            hookMethod(method, "before") { param ->
                 param.result = result
+            }
+        }
+    }
+
+    fun handleIQIYI() {
+        hookMethodsByStringMatch(
+            "$packageName:handleIQIYI",
+            listOf("smartUpgradeResponse")
+        ) { method ->
+            hookMethod(method, "before") { param ->
+                param.result = null
             }
         }
     }
@@ -96,7 +108,7 @@ object SDKAdsKit {
             "$packageName:blockFirebaseWithString",
             listOf("Device unlocked: initializing all Firebase APIs for app ")
         ) { method ->
-            hookMethod(method, "after") { param ->
+            hookMethod(method, "before") { param ->
                 param.result = null
             }
         }
@@ -107,7 +119,7 @@ object SDKAdsKit {
             "$packageName:blockAdsWithString",
             listOf("Flags.initialize() was not called!")
         ) { method ->
-            hookMethod(method, "after") { param ->
+            hookMethod(method, "before") { param ->
                 param.result = true
             }
         }
