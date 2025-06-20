@@ -27,84 +27,6 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
     companion object {
         private const val TAG = "com.close.hook.ads"
         private const val ENABLE_DEX_DUMP = false
-
-        private var settingsManager: SettingsManager? = null
-        private var applicationContext: Context? = null
-
-        init {
-            ContextUtil.addOnApplicationContextInitializedCallback {
-                applicationContext = ContextUtil.applicationContext
-                setupAppHooks()
-            }
-        }
-
-        private fun setupAppHooks() {
-            try {
-                val context = applicationContext ?: return
-                val classLoader = context.classLoader
-                val packageName = context.packageName
-                val appName = AppUtils.getAppName(context, packageName)
-
-                if (TAG == packageName) {
-                    activateModule(classLoader)
-                    return
-                }
-
-                if (ENABLE_DEX_DUMP) {
-                    DexDumpUtil.dumpDexFilesByPackageName(packageName)
-                }
-
-                settingsManager?.let { manager ->
-                    if (AppUtils.isMainProcess(context) && manager.isHookTipEnabled) {
-                        AppUtils.showHookTip(context, packageName)
-                    }
-
-                    if (manager.isHandlePlatformAdEnabled) {
-                        SDKAds.hookAds(classLoader)
-                    }
-                }
-
-                XposedBridge.log("$TAG | App: $appName Package: $packageName")
-
-                AppAds.progress(classLoader, packageName)
-
-            } catch (e: Throwable) {
-                XposedBridge.log("$TAG | setupAppHooks error: ${Log.getStackTraceString(e)}")
-            }
-        }
-
-        private fun activateModule(classLoader: ClassLoader) {
-            HookUtil.hookSingleMethod(
-                classLoader,
-                "com.close.hook.ads.ui.activity.MainActivity",
-                "isModuleActivated",
-                true
-            )
-        }
-
-        private fun applySettings(manager: SettingsManager) {
-            if (manager.isHideVPNStatusEnabled) {
-                HideVPNStatus.proxy()
-            }
-            if (manager.isRequestHookEnabled) {
-                RequestHook.init()
-            }
-            if (manager.isDisableClipboard) {
-                DisableClipboard.handle()
-            }
-            if (manager.isDisableFlagSecureEnabled) {
-                DisableFlagSecure.process()
-            }
-            if (manager.isHideEnivEnabled) {
-                HideEnvi.handle()
-            }
-            if (manager.isHandlePlatformAdEnabled) {
-                SDKAdsKit.blockAds()
-            }
-            if (manager.isDisableShakeAdEnabled) {
-                DisableShakeAd.handle()
-            }
-        }
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
@@ -120,8 +42,14 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         try {
             val prefsHelper = PreferencesHelper()
             val manager = SettingsManager(prefsHelper, lpparam.packageName)
-            settingsManager = manager
+
             applySettings(manager)
+
+            ContextUtil.addOnApplicationContextInitializedCallback {
+                val ctx = ContextUtil.applicationContext ?: return@addOnApplicationContextInitializedCallback
+                setupAppHooks(ctx, manager)
+            }
+
         } catch (e: Throwable) {
             XposedBridge.log("$TAG | handleLoadPackage error: ${Log.getStackTraceString(e)}")
         }
@@ -129,5 +57,67 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private fun shouldIgnorePackage(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
         return lpparam.appInfo == null || !lpparam.isFirstApplication
+    }
+
+    private fun setupAppHooks(context: Context, manager: SettingsManager) {
+        try {
+            val classLoader = context.classLoader
+            val packageName = context.packageName
+            val appName = AppUtils.getAppName(context, packageName)
+
+            if (packageName == TAG) {
+                activateModule(classLoader)
+                return
+            }
+
+            if (ENABLE_DEX_DUMP) {
+                DexDumpUtil.dumpDexFilesByPackageName(packageName)
+            }
+
+            if (AppUtils.isMainProcess(context) && manager.isHookTipEnabled) {
+                AppUtils.showHookTip(context, packageName)
+            }
+
+            XposedBridge.log("$TAG | App: $appName Package: $packageName")
+
+            AppAds.progress(classLoader, packageName)
+
+        } catch (e: Throwable) {
+            XposedBridge.log("$TAG | setupAppHooks error: ${Log.getStackTraceString(e)}")
+        }
+    }
+
+    private fun activateModule(classLoader: ClassLoader) {
+        HookUtil.hookSingleMethod(
+            classLoader,
+            "com.close.hook.ads.ui.activity.MainActivity",
+            "isModuleActivated",
+            true
+        )
+    }
+
+    private fun applySettings(manager: SettingsManager) {
+        if (manager.isHideVPNStatusEnabled) {
+            HideVPNStatus.proxy()
+        }
+        if (manager.isRequestHookEnabled) {
+            RequestHook.init()
+        }
+        if (manager.isDisableClipboard) {
+            DisableClipboard.handle()
+        }
+        if (manager.isDisableFlagSecureEnabled) {
+            DisableFlagSecure.process()
+        }
+        if (manager.isHideEnivEnabled) {
+            HideEnvi.handle()
+        }
+        if (manager.isHandlePlatformAdEnabled) {
+            SDKAds.hookAds()
+            SDKAdsKit.blockAds()
+        }
+        if (manager.isDisableShakeAdEnabled) {
+            DisableShakeAd.handle()
+        }
     }
 }

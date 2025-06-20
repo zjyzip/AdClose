@@ -1,5 +1,7 @@
 package com.close.hook.ads.hook.ha;
 
+import android.content.Context;
+import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.HookUtil.HookInfo;
 
@@ -12,9 +14,13 @@ public class SDKAds {
         new HookInfo("com.example.ClassName", new String[]{"method1", "method2"}, null)
     };
 
-    public static void hookAds(ClassLoader classLoader) {
-        for (HookInfo info : HOOK_INFOS) {
-            HookUtil.hookMultipleMethods(classLoader, info.className, info.methodNames, info.returnValue);
-        }
+
+    public static void hookAds() {
+        ContextUtil.INSTANCE.addOnApplicationContextInitializedCallback(() -> {
+            ClassLoader cl = ContextUtil.INSTANCE.applicationContext.getClassLoader();
+            for (HookInfo info : HOOK_INFOS) {
+                HookUtil.hookMultipleMethods(cl, info.className, info.methodNames, info.returnValue);
+            }
+        });
     }
 }
