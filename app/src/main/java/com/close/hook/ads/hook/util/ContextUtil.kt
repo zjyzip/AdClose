@@ -143,7 +143,7 @@ object ContextUtil {
         addCallback(callback, isInstrumentationContextInitialized, instrumentationContextCallbacks)
     }
  
-       private fun addCallback(
+   private fun addCallback(
         callback: Runnable,
         isInitialized: AtomicBoolean,
         callbacks: ConcurrentLinkedQueue<Runnable>
