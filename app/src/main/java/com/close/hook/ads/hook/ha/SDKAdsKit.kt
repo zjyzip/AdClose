@@ -85,6 +85,9 @@ object SDKAdsKit {
                 java.lang.Boolean.TYPE -> false
                 else -> null
             }
+            hookMethod(method, "after") { param ->
+                param.result = result
+            }
         }
     }
 
@@ -109,6 +112,11 @@ object SDKAdsKit {
             }
         }
     }
+
+    private val validAdMethods = setOf(
+        "loadAd", "loadAds", "load", "show", "fetchAd",
+        "initSDK", "initialize", "initializeSdk"
+    )
 
     fun blockAdsWithPackageName() {
         val adPackages = listOf(
@@ -147,7 +155,6 @@ object SDKAdsKit {
     }
 
     private fun isValidAdMethod(methodData: MethodData): Boolean {
-        return !Modifier.isAbstract(methodData.modifiers) &&
-               methodData.methodName in listOf("loadAd", "loadAds", "load", "show", "fetchAd", "initSDK", "initialize", "initializeSdk")
+        return !Modifier.isAbstract(methodData.modifiers) && methodData.methodName in validAdMethods
     }
 }

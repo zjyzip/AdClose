@@ -156,9 +156,10 @@ public class RequestHook {
     private static Triple<Boolean, String, String> performContentQuery(String queryType, String queryValue) {
         ContentResolver contentResolver = applicationContext.getContentResolver();
         String[] projection = {Url.URL_TYPE, Url.URL_ADDRESS};
+        String selection = "type=? AND value=?";
         String[] selectionArgs = {queryType, queryValue};
 
-        try (Cursor cursor = contentResolver.query(CONTENT_URI, projection, null, selectionArgs, null)) {
+        try (Cursor cursor = contentResolver.query(CONTENT_URI, projection, selection, selectionArgs, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 String urlType = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_TYPE));
                 String urlValue = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_ADDRESS));
@@ -167,7 +168,6 @@ public class RequestHook {
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + " - Error querying content provider: " + e.getMessage());
         }
-
         return new Triple<>(false, null, null);
     }
 
