@@ -16,37 +16,30 @@ object DexDumpUtil {
         dumpDexFilesToPath(defaultOutputPath)
     }
 
-    private fun dumpDexFilesToPath(outputPath: String) {
-        try {
-            DexKitUtil.initializeDexKitBridge()
-            val bridge = DexKitUtil.getBridge()
-
-            val outputDir = File(outputPath)
-            if (!outputDir.exists()) {
-                if (!outputDir.mkdirs()) {
+    fun dumpDexFilesToPath(outputPath: String) {
+        DexKitUtil.withBridge { bridge ->
+            try {
+                val outputDir = File(outputPath)
+                if (!outputDir.exists() && !outputDir.mkdirs()) {
                     XposedBridge.log("Failed to create output directory: $outputPath")
-                    return
+                    return@withBridge
+                }
+
+                bridge.exportDexFile(outputPath)
+                val dexFiles = outputDir.listFiles { _, name -> name.endsWith(".dex") }
+    
+                if (!dexFiles.isNullOrEmpty()) {
+                    XposedBridge.log("Exported ${dexFiles.size} dex files to: $outputPath")
+                    dexFiles.forEach { file ->
+                        XposedBridge.log("Exported dex file: ${file.absolutePath}")
+                    }
                 } else {
-                    XposedBridge.log("Directory created successfully: $outputPath")
+                    XposedBridge.log("No dex files found in output directory: $outputPath")
                 }
+
+            } catch (e: Throwable) {
+                XposedBridge.log("Error dumping dex files: ${e.message}")
             }
-
-            bridge.exportDexFile(outputPath)
-
-            val dexFiles = outputDir.listFiles { _, name -> name.endsWith(".dex") }
-            if (dexFiles != null && dexFiles.isNotEmpty()) {
-                XposedBridge.log("Exported ${dexFiles.size} dex files to: $outputPath")
-                dexFiles.forEach { file ->
-                    XposedBridge.log("Exported dex file: ${file.absolutePath}")
-                }
-            } else {
-                XposedBridge.log("No dex files found in output directory: $outputPath")
-            }
-
-        } catch (e: Throwable) {
-            XposedBridge.log("Error dumping dex files: ${e.message}")
-        } finally {
-            DexKitUtil.releaseBridge()
         }
     }
 
