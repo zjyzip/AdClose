@@ -14,7 +14,6 @@ public class SDKAds {
         new HookInfo("com.example.ClassName", new String[]{"method1", "method2"}, null)
     };
 
-
     public static void hookAds() {
         ContextUtil.INSTANCE.addOnApplicationContextInitializedCallback(() -> {
             ClassLoader cl = ContextUtil.INSTANCE.applicationContext.getClassLoader();
