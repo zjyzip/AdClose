@@ -25,16 +25,9 @@ object AppUtils {
 
     fun isMainProcess(context: Context): Boolean {
         val pid = Process.myPid()
-        val mainProcess = context.packageName
-        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-        if (manager != null) {
-            for (proc in manager.runningAppProcesses ?: emptyList()) {
-                if (proc.pid == pid && mainProcess == proc.processName) {
-                    return true
-                }
-            }
-        }
-        return false
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
+        return am.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName == context.packageName
+            ?: false
     }
 
     fun showHookTip(context: Context, packageName: String) {

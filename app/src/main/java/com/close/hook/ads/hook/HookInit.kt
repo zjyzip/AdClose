@@ -30,9 +30,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
-        ContextUtil.initialize {
-            XposedBridge.log("$TAG | ContextUtil initialized.")
-        }
+        ContextUtil.initialize {}
     }
 
     @SuppressLint("SuspiciousIndentation")
@@ -74,11 +72,12 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 DexDumpUtil.dumpDexFilesByPackageName(packageName)
             }
 
-            if (AppUtils.isMainProcess(context) && manager.isHookTipEnabled) {
-                AppUtils.showHookTip(context, packageName)
+            if (AppUtils.isMainProcess(context)) {
+                if (manager.isHookTipEnabled) {
+                    AppUtils.showHookTip(context, packageName)
+                }
+                XposedBridge.log("$TAG | App: $appName Package: $packageName")
             }
-
-            XposedBridge.log("$TAG | App: $appName Package: $packageName")
 
             AppAds.progress(classLoader, packageName)
 
