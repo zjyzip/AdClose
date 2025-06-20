@@ -19,29 +19,27 @@ object SDKAdsKit {
 
     fun blockAds() {
         ContextUtil.addOnApplicationContextInitializedCallback {
-            DexKitUtil.initializeDexKitBridge()
-
             handlePangolinInit()
             handleGdtInit()
             handleAnyThinkSDK()
             blockFirebaseWithString()
             blockAdsWithString()
             blockAdsWithPackageName()
-
-            DexKitUtil.releaseBridge()
         }
     }
 
-    private fun hookMethodsByStringMatch(cacheKey: String, strings: List<String>, action: (Method) -> Unit) {
-        DexKitUtil.getCachedOrFindMethods(cacheKey) {
-            DexKitUtil.getBridge().findMethod {
-                matcher { usingStrings = strings }
-            }
-        }?.forEach { methodData ->
-            if (isValidMethodData(methodData)) {
-                val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                action(method)
-                XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+    fun hookMethodsByStringMatch(cacheKey: String, strings: List<String>, action: (Method) -> Unit) {
+        DexKitUtil.withBridge { bridge ->
+            DexKitUtil.getCachedOrFindMethods(cacheKey) {
+                bridge.findMethod {
+                    matcher { usingStrings = strings }
+                }
+            }?.forEach { methodData ->
+                if (isValidMethodData(methodData)) {
+                    val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
+                    action(method)
+                    XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+                }
             }
         }
     }
@@ -131,18 +129,20 @@ object SDKAdsKit {
             "com.bytedance.sdk"
         )
 
-        DexKitUtil.getCachedOrFindMethods("$packageName:blockAdsWithPackageName") {
-            DexKitUtil.getBridge().findMethod {
-                searchPackages(adPackages)
-                matcher {
-                    modifiers = Modifier.PUBLIC
-                    returnType(Void.TYPE)
-                }
-            }?.filter(::isValidAdMethod)
-        }?.forEach { methodData ->
-            val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-            XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
-            XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+        DexKitUtil.withBridge { bridge ->
+            DexKitUtil.getCachedOrFindMethods("$packageName:blockAdsWithPackageName") {
+                bridge.findMethod {
+                    searchPackages(adPackages)
+                    matcher {
+                        modifiers = Modifier.PUBLIC
+                        returnType(Void.TYPE)
+                    }
+                }?.filter(::isValidAdMethod)
+            }?.forEach {
+                val method = it.getMethodInstance(DexKitUtil.context.classLoader)
+                XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
+                XposedBridge.log("$LOG_PREFIX Hooked method: ${it}")
+            }
         }
     }
 
