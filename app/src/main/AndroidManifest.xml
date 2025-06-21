@@ -28,6 +28,8 @@
             android:enabled="true"
             android:exported="true" />
 
+        <activity android:name=".ui.debug.PerformanceActivity" />
+
         <activity
             android:name=".ui.activity.RequestInfoActivity"
             android:exported="true" />

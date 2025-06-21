@@ -28,7 +28,7 @@ import com.google.common.cache.CacheBuilder;
 
 import org.luckypray.dexkit.result.MethodData;
 
-import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -500,7 +500,7 @@ public class RequestHook {
                     204,
                     "No Content",
                     Collections.emptyMap(),
-                    InputStream.nullInputStream()
+                    new ByteArrayInputStream(new byte[0])
             );
         } catch (Exception e) {
             XposedBridge.log("Error creating empty WebResourceResponse: " + e.getMessage());

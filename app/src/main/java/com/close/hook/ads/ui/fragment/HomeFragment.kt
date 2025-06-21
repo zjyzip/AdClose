@@ -1,14 +1,17 @@
 package com.close.hook.ads.ui.fragment
 
 import android.annotation.SuppressLint
-import android.content.ContentResolver;
-import android.content.Context;
+import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.method.LinkMovementMethod
 import android.view.View
+import android.view.MotionEvent
+import android.view.GestureDetector
+import android.view.HapticFeedbackConstants
 import androidx.appcompat.widget.ThemeUtils
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
@@ -17,6 +20,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHomeBinding
 import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.ui.activity.MainActivity
+import com.close.hook.ads.ui.debug.PerformanceActivity
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 
 class HomeFragment : BaseFragment<FragmentHomeBinding>() {
@@ -99,11 +103,23 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
         binding.toolbar.apply {
             title = getString(R.string.app_name)
             inflateMenu(R.menu.menu_home)
+
             setOnMenuItemClickListener {
                 if (it.itemId == R.id.about) {
                     startActivity(Intent(requireContext(), AboutActivity::class.java))
                 }
                 true
+            }
+
+            val gestureDetector = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
+                override fun onLongPress(e: MotionEvent) {
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    startActivity(Intent(requireContext(), PerformanceActivity::class.java))
+                }
+            })
+
+            setOnTouchListener { _, event ->
+                gestureDetector.onTouchEvent(event)
             }
         }
     }
