@@ -152,4 +152,5 @@ dependencies {
     annotationProcessor(libs.glideCompiler)
     implementation(libs.appcenterAnalytics)
     implementation(libs.appcenterCrashes)
+    implementation(libs.mpandroidchart)
 }
