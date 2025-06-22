@@ -1,6 +1,5 @@
 package com.close.hook.ads.ui.adapter
 
-import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.lifecycle.LifecycleOwner
@@ -17,32 +16,41 @@ import com.close.hook.ads.databinding.InstallsItemAppBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
 
 class AppsAdapter(
-    private val context: Context,
     private val onItemClickListener: OnItemClickListener
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
 
-    private val requestOptions = RequestOptions()
-        .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-        .override(context.resources.getDimensionPixelSize(R.dimen.app_icon_size))
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
         val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return AppViewHolder(binding, onItemClickListener, context)
+        return AppViewHolder(binding, onItemClickListener)
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
 
-    inner class AppViewHolder(
-        private val binding: InstallsItemAppBinding,
-        private val onItemClickListener: OnItemClickListener,
-        private val context: Context
+    override fun onViewRecycled(holder: AppViewHolder) {
+        Glide.with(holder.binding.appIcon.context).clear(holder.binding.appIcon)
+        holder.cancelIconLoadJob()
+        super.onViewRecycled(holder)
+    }
+
+    class AppViewHolder(
+        val binding: InstallsItemAppBinding,
+        private val onItemClickListener: OnItemClickListener
     ) : RecyclerView.ViewHolder(binding.root) {
 
+        private var iconLoadJob: Job? = null
         private lateinit var appInfo: AppInfo
+
+        private val requestOptions: RequestOptions by lazy {
+            RequestOptions()
+                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                .override(binding.root.resources.getDimensionPixelSize(R.dimen.app_icon_size))
+                .dontAnimate()
+        }
 
         init {
             binding.root.setOnClickListener {
@@ -60,26 +68,37 @@ class AppsAdapter(
             binding.packageName.text = appInfo.packageName
             binding.appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
 
-            Glide.with(binding.appIcon).clear(binding.appIcon)
+            binding.appIcon.tag = appInfo.packageName
 
-            if (context is LifecycleOwner) {
-                context.lifecycleScope.launch {
+            iconLoadJob?.cancel()
+
+            val lifecycleOwner = binding.root.context as? LifecycleOwner
+            lifecycleOwner?.let { owner ->
+                iconLoadJob = owner.lifecycleScope.launch {
                     val icon = withContext(Dispatchers.IO) {
                         try {
-                            context.packageManager.getApplicationIcon(appInfo.packageName)
+                            binding.root.context.packageManager.getApplicationIcon(appInfo.packageName)
                         } catch (e: Exception) {
                             null
                         }
                     }
 
-                    if (icon != null && this@AppViewHolder.appInfo.packageName == appInfo.packageName) {
+                    if (binding.appIcon.tag == appInfo.packageName && icon != null) {
                         Glide.with(binding.appIcon)
                             .load(icon)
                             .apply(requestOptions)
                             .into(binding.appIcon)
+                    } else {
+                        Glide.with(binding.appIcon).clear(binding.appIcon)
+                        binding.appIcon.setImageDrawable(null)
                     }
                 }
             }
+        }
+
+        fun cancelIconLoadJob() {
+            iconLoadJob?.cancel()
+            iconLoadJob = null
         }
     }
 

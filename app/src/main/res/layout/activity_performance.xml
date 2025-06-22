@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/debugRoot"
     android:layout_width="match_parent"
@@ -8,51 +9,77 @@
     android:padding="16dp"
     tools:context=".ui.debug.PerformanceActivity">
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/runTestButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
         android:text="运行性能测试"
-        android:layout_marginBottom="8dp" />
+        app:cornerRadius="8dp" />
 
-    <TextView
-        android:id="@+id/timeSummary"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingTop="4dp"
-        android:text="平均耗时：--"
-        android:textSize="16sp"
-        android:textColor="#222222" />
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:contentPadding="16dp">
 
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/memoryChart"
+        <TextView
+            android:id="@+id/timeSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="平均耗时：--"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurface" />
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="280dp"
-        android:layout_marginTop="8dp" />
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:contentPadding="8dp">
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/memoryChart"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </com.google.android.material.card.MaterialCardView>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingTop="12dp"
+        android:layout_marginBottom="8dp"
         android:text="测试日志："
-        android:textColor="#222222"
-        android:textSize="16sp" />
+        android:textAppearance="?attr/textAppearanceTitleSmall"
+        android:textColor="?attr/colorOnSurface" />
 
-    <ScrollView
-        android:id="@+id/scrollView"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="4dp">
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp"
+        app:contentPadding="8dp">
 
-        <TextView
-            android:id="@+id/logView"
+        <ScrollView
+            android:id="@+id/scrollView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#444444"
-            android:textSize="14sp"
-            android:padding="8dp"
-            android:textIsSelectable="true"
-            android:lineSpacingExtra="4dp" />
-    </ScrollView>
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/logView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="4dp"
+                android:textIsSelectable="true"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+        </ScrollView>
+    </com.google.android.material.card.MaterialCardView>
+
 </LinearLayout>

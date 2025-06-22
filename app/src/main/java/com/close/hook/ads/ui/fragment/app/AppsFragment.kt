@@ -15,6 +15,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.RequestOptions
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.ConfiguredBean
@@ -47,7 +50,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -61,13 +64,16 @@ import java.util.Locale
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
 
-    private val viewModel by viewModels<AppsViewModel>(ownerProducer = { if (arguments?.getString("type") == "configured") requireActivity() else this })
+    private val viewModel by viewModels<AppsViewModel>(ownerProducer = {
+        if (arguments?.getString("type") == "configured") requireActivity() else this
+    })
     private lateinit var mAdapter: AppsAdapter
     private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null
     private var appInfoDialog: BottomSheetDialog? = null
     private lateinit var configBinding: BottomDialogSwitchesBinding
     private lateinit var infoBinding: BottomDialogAppInfoBinding
+
     private val childrenCheckBoxes by lazy {
         listOf(
             configBinding.switchOne,
@@ -93,6 +99,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val prefsHelper by lazy {
         PreferencesHelper(requireContext())
     }
+
+    private val glideRequestOptions: RequestOptions by lazy {
+        RequestOptions()
+            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+            .override(resources.getDimensionPixelSize(R.dimen.app_icon_size))
+            .dontAnimate()
+    }
+
+    private var dialogIconLoadJob: Job? = null
+
 
     companion object {
         @JvmStatic
@@ -120,17 +136,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         initRefresh()
         initSheet()
         initObserve()
-
     }
 
     private fun initSheet() {
-        // AppConfig
         appConfigDialog = BottomSheetDialog(requireContext())
         configBinding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
         appConfigDialog?.setContentView(configBinding.root)
         initAppConfig()
 
-        // AppInfo
         appInfoDialog = BottomSheetDialog(requireContext())
         infoBinding = BottomDialogAppInfoBinding.inflate(layoutInflater, null, false)
         appInfoDialog?.setContentView(infoBinding.root)
@@ -143,11 +156,15 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 appInfoDialog?.dismiss()
             }
             detail.setOnClickListener {
-                openAppDetails(packageName.value.text.toString())
+                packageName.value.text?.toString()?.let { pkgName ->
+                    openAppDetails(pkgName)
+                }
                 appInfoDialog?.dismiss()
             }
             launch.setOnClickListener {
-                launchApp(packageName.value.text.toString())
+                packageName.value.text?.toString()?.let { pkgName ->
+                    launchApp(pkgName)
+                }
                 appInfoDialog?.dismiss()
             }
         }
@@ -169,9 +186,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 isUpdatingChildren = false
             }
 
-            val onParentCheckedChange = { checkBox: MaterialCheckBox, state: Int ->
+            val onParentCheckedChange: (MaterialCheckBox, Int) -> Unit = { _, state ->
                 if (state != MaterialCheckBox.STATE_INDETERMINATE) {
-                    updateChildrenCheckBoxes(checkBox.isChecked)
+                    updateChildrenCheckBoxes(selectAll.isChecked)
                 }
             }
 
@@ -204,6 +221,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun openAppDetails(packageName: String) {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", packageName, null)
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         try {
             startActivity(intent)
@@ -236,21 +255,22 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             )
             setOnRefreshListener {
                 viewModel.refreshApps()
+                (activity as? INavContainer)?.showNavigation()
             }
         }
     }
 
     private fun initView() {
-        mAdapter = AppsAdapter(requireContext(), this)
+        mAdapter = AppsAdapter(this)
         binding.recyclerView.apply {
             setHasFixedSize(true)
-            setItemViewCacheSize(30)
+            setItemViewCacheSize(10)
             adapter = ConcatAdapter(mAdapter)
             layoutManager = LinearLayoutManager(requireContext())
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
-                private val scrollThreshold = 20
+                private val scrollThreshold = 20.dp
 
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
@@ -262,6 +282,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     } else if (totalDy < -scrollThreshold) {
                         navContainer?.showNavigation()
                         totalDy = 0
+                    }
+                }
+
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    super.onScrollStateChanged(recyclerView, newState)
+                    if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                        (activity as? INavContainer)?.showNavigation()
                     }
                 }
             })
@@ -288,14 +315,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 if (adapter.adapters.contains(footerAdapter)) {
                     adapter.removeAdapter(footerAdapter)
                 }
+                if (binding.vfContainer.displayedChild != 0) {
+                    binding.vfContainer.displayedChild = 0
+                }
             } else {
                 if (!adapter.adapters.contains(footerAdapter)) {
                     adapter.addAdapter(footerAdapter)
                 }
-            }
-
-            if (binding.vfContainer.displayedChild != list.size) {
-                binding.vfContainer.displayedChild = list.size
+                if (binding.vfContainer.displayedChild != 1) {
+                    binding.vfContainer.displayedChild = 1
+                }
             }
         }
     }
@@ -305,6 +334,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             (parentFragment as? AppsPagerFragment)?.setHint(size)
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onItemClick(appInfo: AppInfo) {
         if (!MainActivity.isModuleActivated()) {
             AppUtils.showToast(requireContext(), getString(R.string.module_not_activated))
@@ -314,8 +344,24 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
 
-            val iconDrawable = requireContext().packageManager.getApplicationIcon(appInfo.packageName)
-            icon.setImageDrawable(iconDrawable)
+            dialogIconLoadJob?.cancel()
+            dialogIconLoadJob = lifecycleScope.launch {
+                val iconDrawable = withContext(Dispatchers.IO) {
+                    try {
+                        requireContext().packageManager.getApplicationIcon(appInfo.packageName)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                if (iconDrawable != null) {
+                    Glide.with(icon)
+                        .load(iconDrawable)
+                        .apply(glideRequestOptions)
+                        .into(icon)
+                } else {
+                    icon.setImageDrawable(null)
+                }
+            }
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName
@@ -339,8 +385,24 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
-            val iconDrawable = requireContext().packageManager.getApplicationIcon(appInfo.packageName)
-            icon.setImageDrawable(iconDrawable)
+            dialogIconLoadJob?.cancel()
+            dialogIconLoadJob = lifecycleScope.launch {
+                val iconDrawable = withContext(Dispatchers.IO) {
+                    try {
+                        requireContext().packageManager.getApplicationIcon(appInfo.packageName)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                if (iconDrawable != null) {
+                    Glide.with(icon)
+                        .load(iconDrawable)
+                        .apply(glideRequestOptions)
+                        .into(icon)
+                } else {
+                    icon.setImageDrawable(null)
+                }
+            }
 
             appName.text = appInfo.appName
             packageName.apply {
@@ -399,14 +461,15 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onDestroyView() {
         super.onDestroyView()
-
         appConfigDialog?.dismiss()
         appInfoDialog?.dismiss()
         appConfigDialog = null
         appInfoDialog = null
 
+        dialogIconLoadJob?.cancel()
+        dialogIconLoadJob = null
+
         viewModel.appsLiveData.removeObservers(viewLifecycleOwner)
-        viewLifecycleOwner.lifecycleScope.cancel()
     }
 
     override fun updateSortList(
@@ -422,26 +485,40 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     override fun onExport() {
-        val configuredList = viewModel.appsLiveData.value?.map { appInfo ->
-            ConfiguredBean(
-                appInfo.packageName,
-                prefKeys.map { key ->
-                    prefsHelper.getBoolean(key + appInfo.packageName, false)
-                })
-        } ?: emptyList()
-        try {
-            val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
-            if (saveFile(content)) {
-                backupSAFLauncher.launch("configured_list.json")
-            } else {
-                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch(Dispatchers.IO) {
+            val configuredList = viewModel.appsLiveData.value?.map { appInfo ->
+                ConfiguredBean(
+                    appInfo.packageName,
+                    prefKeys.map { key ->
+                        prefsHelper.getBoolean(key + appInfo.packageName, false)
+                    })
+            } ?: emptyList()
+
+            if (configuredList.isEmpty()) {
+                return@launch
             }
-        } catch (e: ActivityNotFoundException) {
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.export_no_app_found),
-                Toast.LENGTH_SHORT
-            ).show()
+
+            try {
+                val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
+                if (saveFile(content)) {
+                    withContext(Dispatchers.Main) {
+                        backupSAFLauncher.launch("configured_list.json")
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.export_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         }
     }
 
@@ -450,17 +527,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             val dir = File(requireContext().cacheDir.toString())
             if (!dir.exists())
                 dir.mkdir()
-            val file = File("${requireContext().cacheDir}/configured_list.json")
-            if (!file.exists())
-                file.createNewFile()
-            else {
+            val file = File(dir, "configured_list.json")
+            if (file.exists()) {
                 file.delete()
-                file.createNewFile()
             }
-            val fileOutputStream = FileOutputStream(file)
-            fileOutputStream.write(content.toByteArray())
-            fileOutputStream.flush()
-            fileOutputStream.close()
+            file.createNewFile()
+
+            FileOutputStream(file).use { fileOutputStream ->
+                fileOutputStream.write(content.toByteArray())
+                fileOutputStream.flush()
+            }
             true
         } catch (e: IOException) {
             e.printStackTrace()
@@ -469,24 +545,35 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     private val backupSAFLauncher =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
-            if (uri == null) return@backup
-            try {
-                File("${requireContext().cacheDir}/configured_list.json").inputStream()
-                    .use { input ->
-                        requireContext().contentResolver.openOutputStream(uri).use { output ->
-                            if (output == null) {
-                                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT)
-                                    .show()
-                            } else {
-                                input.copyTo(output)
-                                Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT)
-                                    .show()
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri == null) {
+                return@registerForActivityResult
+            }
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    File(requireContext().cacheDir, "configured_list.json").inputStream()
+                        .use { input ->
+                            requireContext().contentResolver.openOutputStream(uri).use { output ->
+                                if (output == null) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT)
+                                            .show()
+                                    }
+                                } else {
+                                    input.copyTo(output)
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT)
+                                            .show()
+                                    }
+                                }
                             }
                         }
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), "${getString(R.string.export_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
                     }
-            } catch (e: IOException) {
-                e.printStackTrace()
+                }
             }
         }
 
@@ -497,15 +584,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let {
-                CoroutineScope(Dispatchers.IO).launch {
+                lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
                         val string = requireContext().contentResolver
                             .openInputStream(uri)?.reader().use { it?.readText() }
-                            ?: throw IOException("Backup file was damaged")
+                            ?: throw IOException("Backup file was damaged or empty.")
                         val dataList: List<ConfiguredBean> = Gson().fromJson(
                             string,
                             Array<ConfiguredBean>::class.java
                         ).toList()
+
                         dataList.forEach { bean ->
                             bean.switchStates.forEachIndexed { index, state ->
                                 prefsHelper.setBoolean(prefKeys[index] + bean.packageName, state)
@@ -513,6 +601,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), getString(R.string.import_success), Toast.LENGTH_SHORT).show()
+                            if (viewModel.type == "configured") {
+                                viewModel.refreshApps()
+                            }
                         }
                     }.onFailure { e ->
                         withContext(Dispatchers.Main) {
@@ -521,7 +612,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                                 .setMessage(e.message ?: "Unknown error")
                                 .setPositiveButton(android.R.string.ok, null)
                                 .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
-                                    MaterialAlertDialogBuilder(requireContext())
+                                    MaterialAlertDialogBuilder(requireContext().applicationContext)
                                         .setTitle(getString(R.string.crash_log))
                                         .setMessage(e.stackTraceToString())
                                         .setPositiveButton(android.R.string.ok, null)
@@ -533,5 +624,4 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 }
             }
         }
-
 }

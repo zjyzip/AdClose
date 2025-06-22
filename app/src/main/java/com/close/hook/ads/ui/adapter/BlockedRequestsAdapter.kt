@@ -10,19 +10,20 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.appcompat.widget.ThemeUtils
+import androidx.annotation.AttrRes
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.aitsuki.swipe.SwipeLayout
 import com.close.hook.ads.R
 import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockedRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
+import com.google.android.material.color.MaterialColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,7 +33,7 @@ import java.util.Date
 
 class BlockedRequestsAdapter(
     private val dataSource: DataSource,
-    private val onGetAppIcon: (String) -> Drawable?
+    private val onGetAppIcon: suspend (String) -> Drawable?
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<BlockedRequest>? = null
@@ -61,13 +62,13 @@ class BlockedRequestsAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
-        item?.let { holder.bind(it) }
+        holder.bind(item)
     }
 
     inner class ViewHolder(private val binding: ItemBlockedRequestBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        private var currentRequest: BlockedRequest? = null
+        private lateinit var currentRequest: BlockedRequest
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
             object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
@@ -79,20 +80,29 @@ class BlockedRequestsAdapter(
             setupListeners()
         }
 
-        @SuppressLint("SetTextI18n", "RestrictedApi")
+        @SuppressLint("SetTextI18n")
         fun bind(request: BlockedRequest) = with(binding) {
             currentRequest = request
 
-            val type = request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
-            val url = request.url ?: request.request
+            val requestType = request.blockType ?: run {
+                if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
+            }
+
             appName.text = "${request.appName} ${if (request.stack.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
 
-            onGetAppIcon(request.packageName)?.let { icon.setImageDrawable(it) }
+            CoroutineScope(Dispatchers.Main).launch {
+                val iconDrawable = withContext(Dispatchers.IO) {
+                    onGetAppIcon(request.packageName)
+                }
+                if (currentRequest.packageName == request.packageName) {
+                    icon.setImageDrawable(iconDrawable)
+                }
+            }
 
             blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
-            blockType.text = request.blockType
+            blockType.text = requestType
 
             updateBlockStatusUI(request.isBlocked)
 
@@ -102,13 +112,13 @@ class BlockedRequestsAdapter(
         private fun setupListeners() {
             binding.apply {
                 cardView.setOnClickListener {
-                    currentRequest?.let { openRequestInfoActivity(it) }
+                    openRequestInfoActivity(currentRequest)
                 }
                 copy.setOnClickListener {
-                    currentRequest?.request?.let { copyToClipboard(it) }
+                    currentRequest.request?.let { copyToClipboard(it) }
                 }
                 block.setOnClickListener {
-                    currentRequest?.let { toggleBlockStatus(it) }
+                    toggleBlockStatus(currentRequest)
                 }
             }
         }
@@ -140,22 +150,33 @@ class BlockedRequestsAdapter(
 
         private fun toggleBlockStatus(request: BlockedRequest) {
             CoroutineScope(Dispatchers.IO).launch {
-                val type = request.blockType ?: if (request.appName.trim().endsWith("DNS")) "Domain" else "URL"
-                val url = request.url ?: request.request
-                if (request.isBlocked == true) {
-                    dataSource.removeUrlString(type, url)
-                    request.isBlocked = false
-                } else {
-                    dataSource.addUrl(Url(type, url))
-                    request.isBlocked = true
+                val requestType = request.blockType ?: run {
+                    if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
                 }
+                val urlToToggle = request.url ?: request.request
+
+                val newIsBlocked = if (request.isBlocked == true) {
+                    dataSource.removeUrlString(requestType, urlToToggle)
+                    false
+                } else {
+                    dataSource.addUrl(Url(requestType, urlToToggle))
+                    true
+                }
+
+                val updatedRequest = request.copy(isBlocked = newIsBlocked)
+
                 withContext(Dispatchers.Main) {
-                    updateBlockStatusUI(request.isBlocked)
+                    val currentList = currentList.toMutableList()
+                    val index = currentList.indexOfFirst { it.timestamp == updatedRequest.timestamp }
+                    if (index != -1) {
+                        currentList[index] = updatedRequest
+                        submitList(currentList) {
+                        }
+                    }
                 }
             }
         }
 
-        @SuppressLint("RestrictedApi")
         private fun updateBlockStatusUI(isBlocked: Boolean?) {
             val context = itemView.context
             binding.block.text = if (isBlocked == true) {
@@ -164,12 +185,12 @@ class BlockedRequestsAdapter(
                 context.getString(R.string.add_to_blocklist)
             }
 
-            val colorAttr = if (isBlocked == true) {
-                com.google.android.material.R.attr.colorError
+            val textColor = if (isBlocked == true) {
+                MaterialColors.getColor(context, com.google.android.material.R.attr.colorError, 0)
             } else {
-                com.google.android.material.R.attr.colorControlNormal
+                MaterialColors.getColor(context, com.google.android.material.R.attr.colorControlNormal, 0)
             }
-            binding.request.setTextColor(ThemeUtils.getThemeAttrColor(context, colorAttr))
+            binding.request.setTextColor(textColor)
         }
     }
 }
