@@ -32,6 +32,7 @@ class AppsViewModel(
     val appsLiveData: LiveData<List<AppInfo>> get() = _appsLiveData
 
     init {
+        observeUpdateParams()
         refreshApps()
     }
 
@@ -41,11 +42,9 @@ class AppsViewModel(
         val timestamp = System.currentTimeMillis()
 
         updateParams.value = updateParams.value.copy(first = filter, second = params, third = timestamp)
-
-        updateApps()
     }
 
-    private fun updateApps() {
+    private fun observeUpdateParams() {
         viewModelScope.launch {
             updateParams
                 .debounce(300L)
@@ -58,9 +57,13 @@ class AppsViewModel(
                             else -> null
                         }
                         val apps = appRepository.getInstalledApps(isSystem)
-                            .filter { type != "configured" || it.isEnable == 1 }
 
-                        emit(apps)
+                        val filteredByTypeApps = if (type == "configured") {
+                            apps.filter { it.isEnable == 1 }
+                        } else {
+                            apps
+                        }
+                        emit(filteredByTypeApps)
                     }.map { apps ->
                         appRepository.getFilteredAndSortedApps(
                             apps = apps,
@@ -95,7 +98,5 @@ class AppsViewModel(
             second = Pair(keyword, isReverse),
             third = System.currentTimeMillis()
         )
-
-        updateApps()
     }
 }

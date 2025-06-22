@@ -32,10 +32,19 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
     private BottomNavigationView bottomNavigationView;
     private HideBottomViewOnScrollBehavior<BottomNavigationView> hideBottomViewOnScrollBehavior;
 
+    private final List<Class<? extends Fragment>> fragmentClasses = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        fragmentClasses.add(AppsPagerFragment.class);
+        fragmentClasses.add(RequestFragment.class);
+        fragmentClasses.add(HomeFragment.class);
+        fragmentClasses.add(BlockListFragment.class);
+        fragmentClasses.add(SettingsFragment.class);
+
         setupViewPagerAndBottomNavigation();
     }
 
@@ -48,27 +57,21 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         bottomNavigationView = findViewById(R.id.bottom_navigation);
         hideBottomViewOnScrollBehavior = new HideBottomViewOnScrollBehavior<BottomNavigationView>();
 
-        List<Fragment> fragments = new ArrayList<>();
-        fragments.add(new AppsPagerFragment());
-        fragments.add(new RequestFragment());
-        fragments.add(new HomeFragment());
-        fragments.add(new BlockListFragment());
-        fragments.add(new SettingsFragment());
-
-        BottomFragmentStateAdapter adapter = new BottomFragmentStateAdapter(this, fragments);
+        BottomFragmentStateAdapter adapter = new BottomFragmentStateAdapter(this, fragmentClasses);
         viewPager2.setAdapter(adapter);
         viewPager2.setUserInputEnabled(false);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
-            if (item.getItemId() == R.id.bottom_item_1) {
+            int itemId = item.getItemId();
+            if (itemId == R.id.bottom_item_1) {
                 viewPager2.setCurrentItem(0);
-            } else if (item.getItemId() == R.id.bottom_item_2) {
+            } else if (itemId == R.id.bottom_item_2) {
                 viewPager2.setCurrentItem(1);
-            } else if (item.getItemId() == R.id.bottom_item_3) {
+            } else if (itemId == R.id.bottom_item_3) {
                 viewPager2.setCurrentItem(2);
-            } else if (item.getItemId() == R.id.bottom_item_4) {
+            } else if (itemId == R.id.bottom_item_4) {
                 viewPager2.setCurrentItem(3);
-            } else if (item.getItemId() == R.id.bottom_item_5) {
+            } else if (itemId == R.id.bottom_item_5) {
                 viewPager2.setCurrentItem(4);
             }
             return true;
@@ -76,7 +79,8 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         CoordinatorLayout.LayoutParams layoutParams = (CoordinatorLayout.LayoutParams) bottomNavigationView.getLayoutParams();
         layoutParams.setBehavior(hideBottomViewOnScrollBehavior);
 
-        viewPager2.setOffscreenPageLimit(fragments.size());
+        viewPager2.setOffscreenPageLimit(1);
+
         viewPager2.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -89,7 +93,8 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
     }
 
     private void updateCurrentFragmentController(int position) {
-        Fragment fragment = getSupportFragmentManager().findFragmentByTag("f" + position);
+        Fragment fragment = getSupportFragmentManager().findFragmentByTag("f" + viewPager2.getId() + ":" + viewPager2.getCurrentItem());
+        
         if (fragment instanceof OnBackPressListener) {
             currentFragmentController = (OnBackPressListener) fragment;
         } else {
@@ -99,10 +104,17 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
 
     @Override
     public void onBackPressed() {
-        if (currentFragmentController == null || !currentFragmentController.onBackPressed()) {
+        if (currentFragmentController != null && currentFragmentController.onBackPressed()) {
+            return;
+        }
+
+        if (viewPager2.getCurrentItem() != 0) {
+            viewPager2.setCurrentItem(0, true);
+        } else {
             super.onBackPressed();
         }
     }
+
 
     @Override
     public OnBackPressListener getBackController() {
@@ -128,22 +140,41 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
 
     static class BottomFragmentStateAdapter extends FragmentStateAdapter {
 
-        private final List<Fragment> fragmentList;
+        private final List<Class<? extends Fragment>> fragmentClasses;
 
-        public BottomFragmentStateAdapter(@NonNull FragmentActivity fragmentActivity, List<Fragment> fragmentList) {
+        public BottomFragmentStateAdapter(@NonNull FragmentActivity fragmentActivity, List<Class<? extends Fragment>> fragmentClasses) {
             super(fragmentActivity);
-            this.fragmentList = fragmentList;
+            this.fragmentClasses = fragmentClasses;
         }
 
         @NonNull
         @Override
         public Fragment createFragment(int position) {
-            return fragmentList.get(position);
+            try {
+                return fragmentClasses.get(position).newInstance();
+            } catch (InstantiationException | IllegalAccessException e) {
+                throw new RuntimeException("Failed to create fragment instance", e);
+            }
         }
 
         @Override
         public int getItemCount() {
-            return fragmentList.size();
+            return fragmentClasses.size();
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return fragmentClasses.get(position).hashCode();
+        }
+
+        @Override
+        public boolean containsItem(long itemId) {
+            for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
+                if (fragmentClass.hashCode() == itemId) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

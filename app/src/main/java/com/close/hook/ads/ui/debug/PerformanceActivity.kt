@@ -1,9 +1,17 @@
 package com.close.hook.ads.ui.debug
 
-import android.os.Bundle
+import android.app.ActivityManager
+import android.content.Context
+import android.graphics.Color
+import android.os.Build
 import android.os.Debug
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
-import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.util.Log
+import android.view.Choreographer
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.lifecycleScope
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
@@ -16,141 +24,200 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.math.roundToInt
 import kotlin.system.measureTimeMillis
-import java.io.File
 
+@RequiresApi(Build.VERSION_CODES.N)
 class PerformanceActivity : BaseActivity() {
 
     private lateinit var binding: ActivityPerformanceBinding
-    private lateinit var repo: AppRepository
-    private val heapUsageList = mutableListOf<Entry>()
-    private val nativeUsageList = mutableListOf<Entry>()
-    private val cpuUsageList = mutableListOf<Entry>()
-    private val threadCountList = mutableListOf<Entry>()
-    private val labels = mutableListOf<String>()
+    private lateinit var appRepository: AppRepository
 
-    private val testTimes = 3
-    private var installedTotal = 0L
-    private var filteredTotal = 0L
+    private val javaHeapEntries = mutableListOf<Entry>()
+    private val nativeHeapEntries = mutableListOf<Entry>()
+    private val pssUsageEntries = mutableListOf<Entry>()
+    private val threadCountEntries = mutableListOf<Entry>()
+    private val gcCountEntries = mutableListOf<Entry>()
+    private val fpsEntries = mutableListOf<Entry>()
+    private val chartLabels = mutableListOf<String>()
+
+    private val testRepeatTimes = 3
+
+    private var totalInstalledAppsTimeMs = 0L
+    private var totalFilteredAppsTimeMs = 0L
+
+    private var fpsFrameTimes = mutableListOf<Long>()
+    private var fpsMeasurementActive = false
+    private var lastFrameNanos: Long = 0L
+
+    private val frameCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (fpsMeasurementActive) {
+                if (lastFrameNanos != 0L) {
+                    val elapsedNanos = frameTimeNanos - lastFrameNanos
+                    fpsFrameTimes.add(elapsedNanos)
+                }
+                lastFrameNanos = frameTimeNanos
+                Choreographer.getInstance().postFrameCallback(this)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPerformanceBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        repo = AppRepository(packageManager, this)
-        setupChart()
+        appRepository = AppRepository(packageManager, this)
+        setupPerformanceChart()
 
         binding.runTestButton.setOnClickListener {
-            lifecycleScope.launch { runTests() }
+            lifecycleScope.launch {
+                runAllPerformanceTests()
+            }
         }
     }
 
-    private fun setupChart() {
-        binding.memoryChart.apply {
+    override fun onDestroy() {
+        super.onDestroy()
+        Choreographer.getInstance().removeFrameCallback(frameCallback)
+    }
+
+    private fun setupPerformanceChart() {
+        with(binding.memoryChart) {
             setTouchEnabled(true)
             setScaleEnabled(true)
             isDragEnabled = true
             setPinchZoom(true)
             description.isEnabled = false
-            setExtraOffsets(10f, 10f, 10f, 10f)
+            setExtraOffsets(5f, 10f, 10f, 25f)
 
             legend.apply {
                 isWordWrapEnabled = true
                 form = Legend.LegendForm.LINE
-                textSize = 12f
+                textSize = 10f
+                textColor = Color.BLACK
+                orientation = Legend.LegendOrientation.HORIZONTAL
+                verticalAlignment = Legend.LegendVerticalAlignment.BOTTOM
+                horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
+                setDrawInside(false)
             }
 
             xAxis.apply {
                 position = XAxis.XAxisPosition.BOTTOM
                 granularity = 1f
-                valueFormatter = IndexAxisValueFormatter(labels)
+                valueFormatter = IndexAxisValueFormatter(chartLabels)
                 setDrawGridLines(false)
                 textSize = 12f
+                textColor = Color.BLACK
             }
 
             axisLeft.apply {
                 axisMinimum = 0f
                 textSize = 12f
+                textColor = Color.BLACK
             }
 
             axisRight.isEnabled = false
         }
     }
 
-    private suspend fun runTests() {
-        heapUsageList.clear()
-        nativeUsageList.clear()
-        cpuUsageList.clear()
-        threadCountList.clear()
-        labels.clear()
-        installedTotal = 0
-        filteredTotal = 0
+    private suspend fun runAllPerformanceTests() {
+        clearAllPerformanceData()
+
+        totalInstalledAppsTimeMs = 0L
+        totalFilteredAppsTimeMs = 0L
+
         binding.logView.text = ""
+        log("🚀 开始性能测试...\n")
 
-        repeat(testTimes) { index ->
-            log("▶️ 开始第 ${index + 1} 次测试...")
+        repeat(testRepeatTimes) { index ->
+            val testRunId = index + 1
+            log("--- ▶️ 第 $testRunId 次测试开始 ---\n")
             System.gc()
-            delay(200)
+            delay(300)
 
-            val beforeCpu = readCpuUsage()
-            val beforeThreads = getThreadCount()
+            startFpsMeasurement()
+
             val apps: List<AppInfo>
-            val timeInstalled = measureTimeMillis {
-                apps = repo.getInstalledApps()
+            val installedTime = measureTimeMillis {
+                apps = appRepository.getInstalledApps()
             }
-            installedTotal += timeInstalled
-            log("📦 应用数量: ${apps.size}")
+            totalInstalledAppsTimeMs += installedTime
+            log("  📦 获取应用数量: ${apps.size}")
 
             val filteredApps: List<AppInfo>
-            val timeFiltered = measureTimeMillis {
-                filteredApps = repo.getFilteredAndSortedApps(
+            val filteredTime = measureTimeMillis {
+                filteredApps = appRepository.getFilteredAndSortedApps(
                     apps,
                     Pair(getString(R.string.filter_configured), listOf(getString(R.string.filter_configured))),
                     "",
                     false
                 )
             }
-            filteredTotal += timeFiltered
-            log("📑 过滤结果: ${filteredApps.size}")
+            totalFilteredAppsTimeMs += filteredTime
+            log("  📑 过滤后应用数量: ${filteredApps.size}")
 
-            val afterCpu = readCpuUsage()
-            val afterThreads = getThreadCount()
+            val averageFps = stopFpsMeasurementAndCalculate()
 
-            val heapAfter = usedHeapMB()
-            val nativeAfter = nativeHeapMB()
-            val cpuDelta = ((afterCpu - beforeCpu) * 100f).coerceIn(0f, 100f)
-            val threadDelta = (afterThreads - beforeThreads).coerceAtLeast(0)
+            val currentThreadCount = getCurrentThreadCount()
+            val memoryMetrics = getMemoryMetrics()
+            val gcCollectionCount = getGcCollectionCount()
 
-            labels += "Run ${index + 1}"
-            heapUsageList += Entry(index.toFloat(), heapAfter.toFloat())
-            nativeUsageList += Entry(index.toFloat(), nativeAfter.toFloat())
-            cpuUsageList += Entry(index.toFloat(), cpuDelta)
-            threadCountList += Entry(index.toFloat(), threadDelta.toFloat())
+            chartLabels.add("Run $testRunId")
+            javaHeapEntries.add(Entry(index.toFloat(), memoryMetrics.javaHeapMb.toFloat()))
+            nativeHeapEntries.add(Entry(index.toFloat(), memoryMetrics.nativeHeapMb.toFloat()))
+            pssUsageEntries.add(Entry(index.toFloat(), memoryMetrics.pssMb.toFloat()))
+            threadCountEntries.add(Entry(index.toFloat(), currentThreadCount.toFloat()))
+            gcCountEntries.add(Entry(index.toFloat(), gcCollectionCount.toFloat()))
+            fpsEntries.add(Entry(index.toFloat(), averageFps))
 
             log("""
-                ✅ 获取应用耗时: ${timeInstalled}ms, 过滤用时: ${timeFiltered}ms
-                🧠 Heap: ${heapAfter}MB, Native: ${nativeAfter}MB
-                🖥 CPU增量: ${cpuDelta.roundToInt()}%
-                🧵 线程增量: $threadDelta
+                --- ✅ 第 $testRunId 次测试结果 ---
+                ⏱ 获取应用耗时: ${installedTime}ms
+                ⏱ 过滤用时: ${filteredTime}ms
+                🧠 Java Heap: ${memoryMetrics.javaHeapMb}MB
+                🧠 Native Heap: ${memoryMetrics.nativeHeapMb}MB
+                🧠 PSS (Physical): ${memoryMetrics.pssMb}MB
+                🧵 线程数量: $currentThreadCount
+                ♻️ GC 次数: $gcCollectionCount
+                ⚡️ 平均 FPS: ${averageFps.roundToInt()}
             """.trimIndent())
+
+            delay(1000)
+            log("--- 第 $testRunId 次测试结束 ---\n")
         }
 
-        updateChart()
+        updatePerformanceChart()
         val summary = """
-            🎯 平均 getInstalledApps: ${installedTotal / testTimes}ms
-            🎯 平均 getFilteredApps: ${filteredTotal / testTimes}ms
+            --- 🎯 性能测试总结 ---
+            平均获取已安装应用耗时: ${totalInstalledAppsTimeMs / testRepeatTimes}ms
+            平均过滤和排序应用耗时: ${totalFilteredAppsTimeMs / testRepeatTimes}ms
+            -----------------------
         """.trimIndent()
-
         binding.timeSummary.text = summary
         log(summary)
+        log("\n🚀 性能测试完成。")
     }
 
-    private fun updateChart() {
-        fun makeDataSet(entries: List<Entry>, label: String, color: Int): LineDataSet {
+    private fun clearAllPerformanceData() {
+        javaHeapEntries.clear()
+        nativeHeapEntries.clear()
+        pssUsageEntries.clear()
+        threadCountEntries.clear()
+        gcCountEntries.clear()
+        fpsEntries.clear()
+        chartLabels.clear()
+        binding.memoryChart.clear()
+        binding.memoryChart.invalidate()
+    }
+
+    private fun updatePerformanceChart() {
+        fun createDataSet(entries: List<Entry>, label: String, color: Int): LineDataSet {
             return LineDataSet(entries, label).apply {
                 setDrawCircles(true)
                 setDrawValues(true)
@@ -163,74 +230,93 @@ class PerformanceActivity : BaseActivity() {
             }
         }
 
-        val dataSets = listOf(
-            makeDataSet(heapUsageList, "Java Heap MB", 0xFF1E88E5.toInt()),
-            makeDataSet(nativeUsageList, "Native Heap MB", 0xFF6D4C41.toInt()),
-            makeDataSet(cpuUsageList, "CPU 使用率增量 %", 0xFF8E24AA.toInt()),
-            makeDataSet(threadCountList, "线程数量增量", 0xFF43A047.toInt())
+        val dataSets = mutableListOf<ILineDataSet>(
+            createDataSet(javaHeapEntries, "Java Heap (MB)", Color.parseColor("#1E88E5")),
+            createDataSet(nativeHeapEntries, "Native Heap (MB)", Color.parseColor("#6D4C41")),
+            createDataSet(pssUsageEntries, "PSS (Physical) (MB)", Color.parseColor("#00897B")),
+            createDataSet(threadCountEntries, "线程数量", Color.parseColor("#43A047")),
+            createDataSet(gcCountEntries, "GC 次数", Color.parseColor("#FB8C00")),
+            createDataSet(fpsEntries, "平均 FPS", Color.parseColor("#9C27B0"))
         )
 
         binding.memoryChart.data = LineData(dataSets)
         binding.memoryChart.invalidate()
     }
 
-    private fun usedHeapMB(): Int {
-        val r = Runtime.getRuntime()
-        return ((r.totalMemory() - r.freeMemory()) / (1024 * 1024f)).roundToInt()
-    }
+    data class MemoryMetrics(val javaHeapMb: Int, val nativeHeapMb: Int, val pssMb: Int)
 
-    private fun nativeHeapMB(): Int {
-        return (Debug.getNativeHeapAllocatedSize() / (1024 * 1024f)).roundToInt()
-    }
+    private fun getMemoryMetrics(): MemoryMetrics {
+        val pid = Process.myPid()
+        val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val processMemoryInfo = am.getProcessMemoryInfo(intArrayOf(pid))
 
-    private fun readCpuUsage(): Float {
-        return try {
-            val pid = Process.myPid()
-            val stat1 = readProcStat()
-            val proc1 = readProcPidStat(pid)
-            Thread.sleep(400)
-            val stat2 = readProcStat()
-            val proc2 = readProcPidStat(pid)
+        if (processMemoryInfo != null && processMemoryInfo.isNotEmpty()) {
+            val debugMemoryInfo = processMemoryInfo[0]
+            val javaHeapMb = ((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / (1024 * 1024f))
+            val nativeHeapMb = debugMemoryInfo.nativePss / 1024f
+            val pssMb = debugMemoryInfo.totalPss / 1024f
 
-            val total = (stat2.total - stat1.total).toFloat()
-            val used = (proc2.total - proc1.total).toFloat()
-            if (total > 0) used / total else 0f
-        } catch (e: Exception) {
-            0f
+            return MemoryMetrics(javaHeapMb.roundToInt(), nativeHeapMb.roundToInt(), pssMb.roundToInt())
         }
+
+        Log.w("PerformanceActivity", "Failed to get process memory info, using Debug.getNativeHeapAllocatedSize() as fallback.")
+        val javaHeapMb = ((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / (1024 * 1024f)).roundToInt()
+        val nativeHeapMb = (Debug.getNativeHeapAllocatedSize() / (1024 * 1024f)).roundToInt()
+        return MemoryMetrics(javaHeapMb, nativeHeapMb, 0)
     }
 
-    private data class CpuStat(val total: Long)
-    private fun readProcStat(): CpuStat {
-        val line = java.io.RandomAccessFile("/proc/stat", "r").use { it.readLine() }
-        val toks = line.split("\\s+".toRegex()).drop(1).mapNotNull { it.toLongOrNull() }
-        return CpuStat(toks.take(7).sum())
-    }
-
-    private data class ProcStat(val total: Long)
-    private fun readProcPidStat(pid: Int): ProcStat {
-        val toks = java.io.RandomAccessFile("/proc/$pid/stat", "r").use {
-            it.readLine().split(" ")
-        }
-        return ProcStat(
-            toks[13].toLong() + toks[14].toLong() + toks[15].toLong() + toks[16].toLong()
-        )
-    }
-
-    private fun getThreadCount(): Int {
+    private fun getCurrentThreadCount(): Int {
         val pid = Process.myPid()
         val taskDir = File("/proc/$pid/task")
         return try {
             taskDir.list()?.size ?: Thread.getAllStackTraces().size
         } catch (e: Exception) {
+            Log.e("PerformanceActivity", "Error reading thread count from /proc: ${e.message}", e)
             Thread.getAllStackTraces().size
         }
     }
 
-    private fun log(msg: String) {
-        binding.logView.append("$msg\n")
-        binding.scrollView.post {
-            binding.scrollView.fullScroll(android.view.View.FOCUS_DOWN)
+    private fun log(message: String) {
+        Handler(Looper.getMainLooper()).post {
+            binding.logView.append("$message\n")
+            binding.scrollView.post {
+                binding.scrollView.fullScroll(android.view.View.FOCUS_DOWN)
+            }
+        }
+    }
+
+    private fun getGcCollectionCount(): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val stats = Debug.getRuntimeStats()
+            val count = stats["art.gc.gc-count"] ?: "0"
+            return count.toIntOrNull() ?: 0
+        }
+        return 0
+    }
+
+    private fun startFpsMeasurement() {
+        fpsFrameTimes.clear()
+        lastFrameNanos = 0L
+        fpsMeasurementActive = true
+        Choreographer.getInstance().postFrameCallback(frameCallback)
+    }
+
+    private fun stopFpsMeasurementAndCalculate(): Float {
+        fpsMeasurementActive = false
+        Choreographer.getInstance().removeFrameCallback(frameCallback)
+
+        if (fpsFrameTimes.isEmpty()) {
+            return 0f
+        }
+
+        val validFrameTimes = if (fpsFrameTimes.size > 1) fpsFrameTimes.drop(1) else fpsFrameTimes
+
+        val totalDurationNanos = validFrameTimes.sum()
+        return if (totalDurationNanos > 0) {
+            val totalDurationSeconds = totalDurationNanos / 1_000_000_000f
+            validFrameTimes.size / totalDurationSeconds
+        } else {
+            0f
         }
     }
 }

@@ -27,23 +27,29 @@ class AppRepository(
         "switch_five_", "switch_six_", "switch_seven_", "switch_eight_"
     )
 
-    private val localizedContext by lazy {
+    private val prefsHelper: PreferencesHelper by lazy {
+        PreferencesHelper(closeApp)
+    }
+
+    private val localizedContext: Context by lazy {
         val config = Configuration(context.resources.configuration).apply {
             setLocale(closeApp.getLocale(PrefManager.language))
         }
-        context.createConfigurationContext(config)
+        context.applicationContext.createConfigurationContext(config)
     }
 
     private fun getLocalizedString(resId: Int): String =
         localizedContext.getString(resId)
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
-        val packages = runCatching { packageManager.getInstalledPackages(0) }.getOrElse { emptyList() }
+        val packages = runCatching {
+            packageManager.getInstalledPackages(0)
+        }.getOrElse { emptyList() }
 
         packages.asSequence()
             .filter { isSystem == null || isSystemApp(it.applicationInfo) == isSystem }
-            .mapNotNull {
-                runCatching { getAppInfo(it) }.getOrNull()
+            .mapNotNull { packageInfo ->
+                runCatching { getAppInfo(packageInfo) }.getOrNull()
             }
             .sortedWith(Comparator { a, b ->
                 String.CASE_INSENSITIVE_ORDER.compare(a.appName, b.appName)
@@ -65,7 +71,10 @@ class AppRepository(
         val filterDisabled = getLocalizedString(R.string.filter_disabled)
 
         apps.asSequence()
-            .filter { app -> matchesKeyword(app, keyword) && matchesFilter(app, filter.second, now, filterConfigured, filterRecentUpdate, filterDisabled) }
+            .filter { app ->
+                matchesKeyword(app, keyword) &&
+                matchesFilter(app, filter.second, now, filterConfigured, filterRecentUpdate, filterDisabled)
+            }
             .sortedWith(comparator)
             .toList()
     }
@@ -92,14 +101,14 @@ class AppRepository(
     }
 
     private fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {
-        val base = when (sortBy) {
+        val baseComparator = when (sortBy) {
             getLocalizedString(R.string.sort_by_app_size) -> compareBy<AppInfo> { it.size }
             getLocalizedString(R.string.sort_by_last_update) -> compareBy { it.lastUpdateTime }
             getLocalizedString(R.string.sort_by_install_date) -> compareBy { it.firstInstallTime }
             getLocalizedString(R.string.sort_by_target_version) -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
-        return if (isReverse) base.reversed() else base
+        return if (isReverse) baseComparator.reversed() else baseComparator
     }
 
     private fun getAppInfo(packageInfo: PackageInfo): AppInfo {
@@ -107,13 +116,14 @@ class AppRepository(
         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode.toInt()
         } else {
+            @Suppress("DEPRECATION")
             packageInfo.versionCode
         }
 
         return AppInfo(
             appName = appInfo.loadLabel(packageManager).toString(),
             packageName = packageInfo.packageName,
-            versionName = packageInfo.versionName ?: "",
+            versionName = packageInfo.versionName.orEmpty(),
             versionCode = versionCode,
             firstInstallTime = packageInfo.firstInstallTime,
             lastUpdateTime = packageInfo.lastUpdateTime,
@@ -126,8 +136,7 @@ class AppRepository(
     }
 
     fun isAppHooked(packageName: String): Int {
-        val prefs = PreferencesHelper(closeApp)
-        return if (enableKeys.any { prefs.getBoolean(it + packageName, false) }) 1 else 0
+        return if (enableKeys.any { prefsHelper.getBoolean(it + packageName, false) }) 1 else 0
     }
 
     private fun isSystemApp(appInfo: ApplicationInfo): Boolean =
