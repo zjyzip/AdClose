@@ -30,7 +30,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
-        ContextUtil.initialize {}
+        ContextUtil.setupContextHooks()
     }
 
     @SuppressLint("SuspiciousIndentation")
