@@ -3,10 +3,8 @@ package com.close.hook.ads.data
 import android.content.Context
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class DataSource(context: Context) {
@@ -14,48 +12,34 @@ class DataSource(context: Context) {
 
     fun getUrlList(): Flow<List<Url>> = urlDao.loadAllList()
 
-    fun addUrl(url: Url) {
-        CoroutineScope(Dispatchers.IO).launch {
-            if (!urlDao.isExist(url.type, url.url)) {
-                urlDao.insert(url)
-            }
+    suspend fun addUrl(url: Url) {
+        if (!urlDao.isExist(url.type, url.url)) {
+            urlDao.insert(url)
         }
     }
 
-    fun removeList(list: List<Url>) {
-        CoroutineScope(Dispatchers.IO).launch {
-            urlDao.deleteList(list)
-        }
+    suspend fun removeList(list: List<Url>) {
+        urlDao.deleteList(list)
     }
 
-    fun removeUrl(url: Url) {
-        CoroutineScope(Dispatchers.IO).launch {
-            urlDao.deleteUrl(url)
-        }
+    suspend fun removeUrl(url: Url) {
+        urlDao.deleteUrl(url)
     }
 
-    fun removeAll() {
-        CoroutineScope(Dispatchers.IO).launch {
-            urlDao.deleteAll()
-        }
+    suspend fun removeAll() {
+        urlDao.deleteAll()
     }
 
-    fun addListUrl(list: List<Url>) {
-        CoroutineScope(Dispatchers.IO).launch {
-            urlDao.insertAll(list)
-        }
+    suspend fun addListUrl(list: List<Url>) {
+        urlDao.insertAll(list)
     }
 
-    fun updateUrl(url: Url) {
-        CoroutineScope(Dispatchers.IO).launch {
-            urlDao.update(url)
-        }
+    suspend fun updateUrl(url: Url) {
+        urlDao.update(url)
     }
 
-    fun removeUrlString(type: String, url: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            urlDao.deleteUrlString(type, url)
-        }
+    suspend fun removeUrlString(type: String, url: String) {
+        urlDao.deleteUrlString(type, url)
     }
 
     fun search(searchText: String, offset: Int, limit: Int): Flow<List<Url>> = urlDao.searchUrls(searchText, offset, limit)
@@ -72,7 +56,7 @@ class DataSource(context: Context) {
 
         fun getDataSource(context: Context): DataSource {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: DataSource(context).also { INSTANCE = it }
+                INSTANCE ?: DataSource(context.applicationContext).also { INSTANCE = it }
             }
         }
     }

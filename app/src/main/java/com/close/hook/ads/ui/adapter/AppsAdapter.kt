@@ -1,5 +1,6 @@
 package com.close.hook.ads.ui.adapter
 
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.lifecycle.LifecycleOwner
@@ -44,6 +45,7 @@ class AppsAdapter(
 
         private var iconLoadJob: Job? = null
         private lateinit var appInfo: AppInfo
+        private var loadedIcon: Drawable? = null
 
         private val requestOptions: RequestOptions by lazy {
             RequestOptions()
@@ -54,10 +56,10 @@ class AppsAdapter(
 
         init {
             binding.root.setOnClickListener {
-                if (::appInfo.isInitialized) onItemClickListener.onItemClick(appInfo)
+                if (::appInfo.isInitialized) onItemClickListener.onItemClick(appInfo, loadedIcon)
             }
             binding.root.setOnLongClickListener {
-                if (::appInfo.isInitialized) onItemClickListener.onItemLongClick(appInfo)
+                if (::appInfo.isInitialized) onItemClickListener.onItemLongClick(appInfo, loadedIcon)
                 true
             }
         }
@@ -70,7 +72,7 @@ class AppsAdapter(
 
             binding.appIcon.tag = appInfo.packageName
 
-            iconLoadJob?.cancel()
+            cancelIconLoadJob()
 
             val lifecycleOwner = binding.root.context as? LifecycleOwner
             lifecycleOwner?.let { owner ->
@@ -83,7 +85,8 @@ class AppsAdapter(
                         }
                     }
 
-                    if (binding.appIcon.tag == appInfo.packageName && icon != null) {
+                    if (binding.appIcon.tag == appInfo.packageName) {
+                        loadedIcon = icon
                         Glide.with(binding.appIcon)
                             .load(icon)
                             .apply(requestOptions)
@@ -91,6 +94,7 @@ class AppsAdapter(
                     } else {
                         Glide.with(binding.appIcon).clear(binding.appIcon)
                         binding.appIcon.setImageDrawable(null)
+                        loadedIcon = null
                     }
                 }
             }
@@ -99,12 +103,13 @@ class AppsAdapter(
         fun cancelIconLoadJob() {
             iconLoadJob?.cancel()
             iconLoadJob = null
+            loadedIcon = null
         }
     }
 
     interface OnItemClickListener {
-        fun onItemClick(appInfo: AppInfo)
-        fun onItemLongClick(appInfo: AppInfo)
+        fun onItemClick(appInfo: AppInfo, icon: Drawable?)
+        fun onItemLongClick(appInfo: AppInfo, icon: Drawable?)
     }
 
     companion object {
