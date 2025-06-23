@@ -29,28 +29,37 @@ import java.util.Locale
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
+    private var recyclerView: RecyclerView? = null
+    private val scrollListener = object : RecyclerView.OnScrollListener() {
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+            super.onScrolled(recyclerView, dx, dy)
+            if (dy > 0) {
+                (activity as? INavContainer)?.hideNavigation()
+            } else if (dy < 0) {
+                (activity as? INavContainer)?.showNavigation()
+            }
+        }
+    }
+
     override fun onCreateRecyclerView(
         inflater: LayoutInflater,
         parent: ViewGroup,
         savedInstanceState: Bundle?
     ): RecyclerView {
-        val recyclerView =
-            super.onCreateRecyclerView(inflater, parent, savedInstanceState)
-        recyclerView.apply {
+        val createdRecyclerView = super.onCreateRecyclerView(inflater, parent, savedInstanceState)
+        recyclerView = createdRecyclerView
+        createdRecyclerView.apply {
             isVerticalScrollBarEnabled = false
 
-            addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                    super.onScrolled(recyclerView, dx, dy)
-                    if (dy > 0) {
-                        (activity as INavContainer).hideNavigation()
-                    } else if (dy < 0) {
-                        (activity as INavContainer).showNavigation()
-                    }
-                }
-            })
+            addOnScrollListener(scrollListener)
         }
-        return recyclerView
+        return createdRecyclerView
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        recyclerView?.removeOnScrollListener(scrollListener)
+        recyclerView = null
     }
 
     class SettingsPreferenceDataStore : PreferenceDataStore() {
@@ -93,7 +102,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
     }
 
-    @SuppressLint("SetTextI18n")
+    @SuppressLint("SetTextI19n")
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.preferenceDataStore = SettingsPreferenceDataStore()
         setPreferencesFromResource(R.xml.settings, rootKey)

@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context.MODE_PRIVATE
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatDelegate
+import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
 
 object PrefManager {
@@ -46,9 +47,9 @@ object PrefManager {
             )
         }
 
-    var order: String
-        get() = pref.getString("order", "应用名称")!!
-        set(value) = pref.edit().putString("order", value).apply()
+    var order: Int
+        get() = pref.getInt("order_id", R.string.sort_by_app_name)
+        set(value) = pref.edit().putInt("order_id", value).apply()
 
     var configured: Boolean
         get() = pref.getBoolean("configured", false)

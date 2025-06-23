@@ -11,7 +11,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,192 +24,196 @@ import java.io.StringWriter;
 import java.lang.ref.WeakReference;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public final class CrashActivity {
 
     private final static String TAG = "CrashActivity";
-    //Extras passed to the error activity
     private static final String EXTRA_CONFIG = "com.close.hook.ads.EXTRA_CONFIG";
     private static final String EXTRA_STACK_TRACE = "com.close.hook.ads.EXTRA_STACK_TRACE";
     private static final String EXTRA_ACTIVITY_LOG = "com.close.hook.ads.EXTRA_ACTIVITY_LOG";
-    //General constants
     private static final String INTENT_ACTION_ERROR_ACTIVITY = "com.close.hook.ads.ERROR";
     private static final String INTENT_ACTION_RESTART_ACTIVITY = "com.close.hook.ads.RESTART";
     private static final String CRASH_HANDLER_PACKAGE_NAME = "com.close.hook.ads.";
     private static final String DEFAULT_HANDLER_PACKAGE_NAME = "com.android.internal.os";
-    private static final int MAX_STACK_TRACE_SIZE = 131071; //128 KB - 1
+    private static final int MAX_STACK_TRACE_SIZE = 131071;
     private static final int MAX_ACTIVITIES_IN_LOG = 50;
-    //Shared preferences
     private static final String SHARED_PREFERENCES_FILE = "com.close.hook.ads_crash.preferences";
     private static final String SHARED_PREFERENCES_FIELD_TIMESTAMP = "last_crash_timestamp";
-    //Internal variables
     private static Application application;
     private static CrashConfig config = new CrashConfig();
-    private static final Deque<String> activityLog = new ArrayDeque<>(MAX_ACTIVITIES_IN_LOG);
+    private static final Deque<String> activityLog = new ConcurrentLinkedDeque<>();
     private static WeakReference<Activity> lastActivityCreated = new WeakReference<>(null);
     private static boolean isInBackground = true;
+    private static Application.ActivityLifecycleCallbacks activityLifecycleCallbacks;
 
     @RestrictTo(RestrictTo.Scope.LIBRARY)
     public static void install(@Nullable final Context context) {
         try {
             if (context == null) {
-                Log.e(TAG, "Install failed: context is null!");
-            } else {
-                //INSTALL!
-                final Thread.UncaughtExceptionHandler oldHandler = Thread.getDefaultUncaughtExceptionHandler();
-                if (oldHandler != null && oldHandler.getClass().getName().startsWith(CRASH_HANDLER_PACKAGE_NAME)) {
-                    Log.e(TAG, "CrashActivity was already installed, doing nothing!");
-                } else {
-                    if (oldHandler != null
-                            && !oldHandler.getClass().getName().startsWith(DEFAULT_HANDLER_PACKAGE_NAME)) {
-                        Log.e(TAG,
-                                "IMPORTANT WARNING! You already have an UncaughtExceptionHandler, are you sure this is correct? If you use a custom UncaughtExceptionHandler, you must initialize it AFTER CrashActivity! Installing anyway, but your original handler will not be called.");
-                    }
-                    application = (Application) context.getApplicationContext();
-                    Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
-                        if (config.isEnabled()) {
-                            Log.e(TAG, "App has crashed, executing CrashActivity's UncaughtExceptionHandler",
-                                    throwable);
-                            if (hasCrashedInTheLastSeconds(application)) {
-                                Log.e(TAG,
-                                        "App already crashed recently, not starting custom error activity because we could enter a restart loop. Are you sure that your app does not crash directly on init?",
-                                        throwable);
-                                if (oldHandler != null) {
-                                    oldHandler.uncaughtException(thread, throwable);
-                                    return;
-                                }
-                            } else {
-                                setLastCrashTimestamp(application, new Date().getTime());
-                                Class<? extends Activity> errorActivityClass = config.getErrorActivityClass();
-                                if (errorActivityClass == null) {
-                                    errorActivityClass = guessErrorActivityClass(application);
-                                }
-                                if (isStackTraceLikelyConflictive(throwable, errorActivityClass)) {
-                                    Log.e(TAG,
-                                            "Your application class or your error activity have crashed, the custom activity will not be launched!");
-                                    if (oldHandler != null) {
-                                        oldHandler.uncaughtException(thread, throwable);
-                                        return;
-                                    }
-                                } else if (config.getBackgroundMode() == CrashConfig.BACKGROUND_MODE_SHOW_CUSTOM
-                                        || !isInBackground) {
-                                    final Intent intent = new Intent(application, errorActivityClass);
-                                    StringWriter sw = new StringWriter();
-                                    PrintWriter pw = new PrintWriter(sw);
-                                    throwable.printStackTrace(pw);
-                                    String stackTraceString = sw.toString();
-                                    if (stackTraceString.length() > MAX_STACK_TRACE_SIZE) {
-                                        String disclaimer = " [stack trace too large]";
-                                        stackTraceString = stackTraceString.substring(0,
-                                                MAX_STACK_TRACE_SIZE - disclaimer.length()) + disclaimer;
-                                    }
-                                    intent.putExtra(EXTRA_STACK_TRACE, stackTraceString);
-                                    if (config.isTrackActivities()) {
-                                        StringBuilder activityLogStringBuilder = new StringBuilder();
-                                        while (!activityLog.isEmpty()) {
-                                            activityLogStringBuilder.append(activityLog.poll());
-                                        }
-                                        intent.putExtra(EXTRA_ACTIVITY_LOG, activityLogStringBuilder.toString());
-                                    }
-                                    if (config.isShowRestartButton() && config.getRestartActivityClass() == null) {
-                                        config.setRestartActivityClass(guessRestartActivityClass(application));
-                                    }
-                                    intent.putExtra(EXTRA_CONFIG, config);
-                                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                                    if (config.getEventListener() != null) {
-                                        config.getEventListener().onLaunchErrorActivity();
-                                    }
-                                    application.startActivity(intent);
-                                } else if (config.getBackgroundMode() == CrashConfig.BACKGROUND_MODE_CRASH) {
-                                    if (oldHandler != null) {
-                                        oldHandler.uncaughtException(thread, throwable);
-                                        return;
-                                    }
-                                }
-                            }
-                            final Activity lastActivity = lastActivityCreated.get();
-                            if (lastActivity != null) {
-                                lastActivity.finish();
-                                lastActivityCreated.clear();
-                            }
-                            killCurrentProcess();
-                        } else if (oldHandler != null) {
-                            oldHandler.uncaughtException(thread, throwable);
-                        }
-                    });
-                    application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
-                        int currentlyStartedActivities = 0;
-                        final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
-
-                        @Override
-                        public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
-                            if (activity.getClass() != config.getErrorActivityClass()) {
-                                lastActivityCreated = new WeakReference<>(activity);
-                            }
-                            if (config.isTrackActivities()) {
-                                activityLog.add(dateFormat.format(new Date()) + ": "
-                                        + activity.getClass().getSimpleName() + " created\n");
-                            }
-                        }
-
-                        @Override
-                        public void onActivityStarted(Activity activity) {
-                            currentlyStartedActivities++;
-                            isInBackground = (currentlyStartedActivities == 0);
-                            //Do nothing
-                        }
-
-                        @Override
-                        public void onActivityResumed(Activity activity) {
-                            if (config.isTrackActivities()) {
-                                activityLog.add(dateFormat.format(new Date()) + ": "
-                                        + activity.getClass().getSimpleName() + " resumed\n");
-                            }
-                        }
-
-                        @Override
-                        public void onActivityPaused(Activity activity) {
-                            if (config.isTrackActivities()) {
-                                activityLog.add(dateFormat.format(new Date()) + ": "
-                                        + activity.getClass().getSimpleName() + " paused\n");
-                            }
-                        }
-
-                        @Override
-                        public void onActivityStopped(Activity activity) {
-                            //Do nothing
-                            currentlyStartedActivities--;
-                            isInBackground = (currentlyStartedActivities == 0);
-                        }
-
-                        @Override
-                        public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
-                            //Do nothing
-                        }
-
-                        @Override
-                        public void onActivityDestroyed(Activity activity) {
-                            if (config.isTrackActivities()) {
-                                activityLog.add(dateFormat.format(new Date()) + ": "
-                                        + activity.getClass().getSimpleName() + " destroyed\n");
-                            }
-                        }
-                    });
-                }
-                Log.i(TAG, "CrashActivity has been installed.");
+                return;
             }
+
+            final Thread.UncaughtExceptionHandler oldHandler = Thread.getDefaultUncaughtExceptionHandler();
+            if (oldHandler != null && oldHandler.getClass().getName().startsWith(CRASH_HANDLER_PACKAGE_NAME)) {
+                return;
+            }
+
+            if (oldHandler != null && !oldHandler.getClass().getName().startsWith(DEFAULT_HANDLER_PACKAGE_NAME)) {
+            }
+
+            application = (Application) context.getApplicationContext();
+
+            if (activityLifecycleCallbacks != null) {
+                application.unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks);
+            }
+
+            Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+                if (config.isEnabled()) {
+                    if (hasCrashedInTheLastSeconds(application)) {
+                        if (oldHandler != null) {
+                            oldHandler.uncaughtException(thread, throwable);
+                            return;
+                        }
+                    } else {
+                        setLastCrashTimestamp(application, new Date().getTime());
+                        Class<? extends Activity> errorActivityClass = config.getErrorActivityClass();
+                        if (errorActivityClass == null) {
+                            errorActivityClass = guessErrorActivityClass(application);
+                        }
+                        if (isStackTraceLikelyConflictive(throwable, errorActivityClass)) {
+                            if (oldHandler != null) {
+                                oldHandler.uncaughtException(thread, throwable);
+                                return;
+                            }
+                        } else if (config.getBackgroundMode() == CrashConfig.BACKGROUND_MODE_SHOW_CUSTOM
+                                || !isInBackground) {
+                            final Intent intent = new Intent(application, errorActivityClass);
+                            StringWriter sw = new StringWriter();
+                            PrintWriter pw = new PrintWriter(sw);
+                            throwable.printStackTrace(pw);
+                            String stackTraceString = sw.toString();
+                            if (stackTraceString.length() > MAX_STACK_TRACE_SIZE) {
+                                String disclaimer = " [stack trace too large]";
+                                stackTraceString = stackTraceString.substring(0,
+                                        MAX_STACK_TRACE_SIZE - disclaimer.length()) + disclaimer;
+                            }
+                            intent.putExtra(EXTRA_STACK_TRACE, stackTraceString);
+                            if (config.isTrackActivities()) {
+                                StringBuilder activityLogStringBuilder = new StringBuilder();
+                                while (!activityLog.isEmpty()) {
+                                    activityLogStringBuilder.append(activityLog.poll());
+                                }
+                                intent.putExtra(EXTRA_ACTIVITY_LOG, activityLogStringBuilder.toString());
+                            }
+                            if (config.isShowRestartButton() && config.getRestartActivityClass() == null) {
+                                config.setRestartActivityClass(guessRestartActivityClass(application));
+                            }
+                            intent.putExtra(EXTRA_CONFIG, config);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            if (config.getEventListener() != null) {
+                                config.getEventListener().onLaunchErrorActivity();
+                            }
+                            application.startActivity(intent);
+                        } else if (config.getBackgroundMode() == CrashConfig.BACKGROUND_MODE_CRASH) {
+                            if (oldHandler != null) {
+                                oldHandler.uncaughtException(thread, throwable);
+                                return;
+                            }
+                        }
+                    }
+                    final Activity lastActivity = lastActivityCreated.get();
+                    if (lastActivity != null) {
+                        lastActivity.finish();
+                        lastActivityCreated.clear();
+                    }
+                    killCurrentProcess();
+                } else if (oldHandler != null) {
+                    oldHandler.uncaughtException(thread, throwable);
+                }
+            });
+
+            activityLifecycleCallbacks = new Application.ActivityLifecycleCallbacks() {
+                int currentlyStartedActivities = 0;
+                final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
+
+                @Override
+                public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+                    if (config.isTrackActivities()) {
+                        String logEntry = dateFormat.format(new Date()) + ": "
+                                + activity.getClass().getSimpleName() + " created\n";
+                        activityLog.add(logEntry);
+                        if (activityLog.size() > MAX_ACTIVITIES_IN_LOG) {
+                            activityLog.poll();
+                        }
+                    }
+
+                    if (activity.getClass() != config.getErrorActivityClass()) {
+                        lastActivityCreated = new WeakReference<>(activity);
+                    }
+                }
+
+                @Override
+                public void onActivityStarted(Activity activity) {
+                    currentlyStartedActivities++;
+                    isInBackground = (currentlyStartedActivities == 0);
+                }
+
+                @Override
+                public void onActivityResumed(Activity activity) {
+                    if (config.isTrackActivities()) {
+                        String logEntry = dateFormat.format(new Date()) + ": "
+                                + activity.getClass().getSimpleName() + " resumed\n";
+                        activityLog.add(logEntry);
+                        if (activityLog.size() > MAX_ACTIVITIES_IN_LOG) {
+                            activityLog.poll();
+                        }
+                    }
+                }
+
+                @Override
+                public void onActivityPaused(Activity activity) {
+                    if (config.isTrackActivities()) {
+                        String logEntry = dateFormat.format(new Date()) + ": "
+                                + activity.getClass().getSimpleName() + " paused\n";
+                        activityLog.add(logEntry);
+                        if (activityLog.size() > MAX_ACTIVITIES_IN_LOG) {
+                            activityLog.poll();
+                        }
+                    }
+                }
+
+                @Override
+                public void onActivityStopped(Activity activity) {
+                    currentlyStartedActivities--;
+                    isInBackground = (currentlyStartedActivities == 0);
+                }
+
+                @Override
+                public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
+                }
+
+                @Override
+                public void onActivityDestroyed(Activity activity) {
+                    if (config.isTrackActivities()) {
+                        String logEntry = dateFormat.format(new Date()) + ": "
+                                + activity.getClass().getSimpleName() + " destroyed\n";
+                        activityLog.add(logEntry);
+                        if (activityLog.size() > MAX_ACTIVITIES_IN_LOG) {
+                            activityLog.poll();
+                        }
+                    }
+                }
+            };
+            application.registerActivityLifecycleCallbacks(activityLifecycleCallbacks);
+
         } catch (Throwable t) {
-            Log.e(TAG,
-                    "An unknown error occurred while installing CrashActivity, it may not have been properly initialized. Please report this as a bug if needed.",
-                    t);
         }
     }
 
@@ -221,11 +224,12 @@ public final class CrashActivity {
 
     public static CrashConfig getConfigFromIntent(@NonNull Intent intent) {
         CrashConfig config = (CrashConfig) intent.getSerializableExtra(CrashActivity.EXTRA_CONFIG);
-        if (Objects.requireNonNull(config).isLogErrorOnRestart()) {
+        if (config == null) {
+            return new CrashConfig();
+        }
+        if (config.isLogErrorOnRestart()) {
             String stackTrace = getStackTraceFromIntent(intent);
             if (stackTrace != null) {
-                Log.e(TAG, "The previous app process crashed. This is the stack trace of the crash:\n"
-                        + getStackTraceFromIntent(intent));
             }
         }
         return config;
@@ -242,21 +246,21 @@ public final class CrashActivity {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
         String buildDateAsString = getBuildDateAsString(context, dateFormat);
         String versionName = getVersionName(context);
-        String errorDetails = "";
-        errorDetails += "Build version: " + versionName + " \n";
+        StringBuilder errorDetails = new StringBuilder();
+        errorDetails.append("Build version: ").append(versionName).append(" \n");
         if (buildDateAsString != null) {
-            errorDetails += "Build date: " + buildDateAsString + " \n";
+            errorDetails.append("Build date: ").append(buildDateAsString).append(" \n");
         }
-        errorDetails += "Current date: " + dateFormat.format(currentDate) + " \n";
-        errorDetails += "Device: " + getDeviceModelName() + " \n \n";
-        errorDetails += "Stack trace:  \n";
-        errorDetails += getStackTraceFromIntent(intent);
+        errorDetails.append("Current date: ").append(dateFormat.format(currentDate)).append(" \n");
+        errorDetails.append("Device: ").append(getDeviceModelName()).append(" \n \n");
+        errorDetails.append("Stack trace:  \n");
+        errorDetails.append(getStackTraceFromIntent(intent));
         String activityLog = getActivityLogFromIntent(intent);
         if (activityLog != null) {
-            errorDetails += "\nUser actions: \n";
-            errorDetails += activityLog;
+            errorDetails.append("\nUser actions: \n");
+            errorDetails.append(activityLog);
         }
-        return errorDetails;
+        return errorDetails.toString();
     }
 
     private static void restartApplicationWithIntent(@NonNull Activity activity, @NonNull Intent intent,
@@ -264,11 +268,6 @@ public final class CrashActivity {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK
                 | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         if (intent.getComponent() != null) {
-            //If the class name has been set, we force it to simulate a Launcher launch.
-            //If we don't do this, if you restart from the error activity, then press home,
-            //and then launch the activity from the launcher, the main activity appears twice on the backstack.
-            //This will most likely not have any detrimental effect because if you set the Intent component,
-            //if will always be launched regardless of the actions specified here.
             intent.setAction(Intent.ACTION_MAIN);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);
         }
@@ -322,15 +321,9 @@ public final class CrashActivity {
     @Nullable
     private static String getBuildDateAsString(@NonNull Context context, @NonNull DateFormat dateFormat) {
         long buildDate;
-        try {
-            ApplicationInfo ai = context.getPackageManager().getApplicationInfo(context.getPackageName(), 0);
-            ZipFile zf = new ZipFile(ai.sourceDir);
-
-            //If this failed, try with the old zip method
+        try (ZipFile zf = new ZipFile(context.getPackageManager().getApplicationInfo(context.getPackageName(), 0).sourceDir)) {
             ZipEntry ze = zf.getEntry("classes.dex");
             buildDate = ze.getTime();
-
-            zf.close();
         } catch (Exception e) {
             buildDate = 0;
         }
@@ -391,14 +384,11 @@ public final class CrashActivity {
                 .setPackage(context.getPackageName());
         List<ResolveInfo> resolveInfos = context.getPackageManager().queryIntentActivities(searchedIntent,
                 PackageManager.GET_RESOLVED_FILTER);
-        if (resolveInfos != null && resolveInfos.size() > 0) {
+        if (resolveInfos != null && !resolveInfos.isEmpty()) {
             ResolveInfo resolveInfo = resolveInfos.get(0);
             try {
                 return (Class<? extends Activity>) Class.forName(resolveInfo.activityInfo.name);
             } catch (ClassNotFoundException e) {
-                //Should not happen, print it to the log!
-                Log.e(TAG, "Failed when resolving the restart activity class via intent filter, stack trace follows!",
-                        e);
             }
         }
         return null;
@@ -411,10 +401,6 @@ public final class CrashActivity {
             try {
                 return (Class<? extends Activity>) Class.forName(intent.getComponent().getClassName());
             } catch (ClassNotFoundException e) {
-                //Should not happen, print it to the log!
-                Log.e(TAG,
-                        "Failed when resolving the restart activity class via getLaunchIntentForPackage, stack trace follows!",
-                        e);
             }
         }
         return null;
@@ -436,12 +422,11 @@ public final class CrashActivity {
                 .setPackage(context.getPackageName());
         List<ResolveInfo> resolveInfos = context.getPackageManager().queryIntentActivities(searchedIntent,
                 PackageManager.GET_RESOLVED_FILTER);
-        if (resolveInfos != null && resolveInfos.size() > 0) {
+        if (resolveInfos != null && !resolveInfos.isEmpty()) {
             ResolveInfo resolveInfo = resolveInfos.get(0);
             try {
                 return (Class<? extends Activity>) Class.forName(resolveInfo.activityInfo.name);
             } catch (ClassNotFoundException e) {
-                Log.e(TAG, "Failed when resolving the error activity class via intent filter, stack trace follows!", e);
             }
         }
         return null;
@@ -452,7 +437,7 @@ public final class CrashActivity {
         System.exit(10);
     }
 
-    @SuppressLint("ApplySharedPref") //This must be done immediately since we are killing the app
+    @SuppressLint("ApplySharedPref")
     private static void setLastCrashTimestamp(@NonNull Context context, long timestamp) {
         context.getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE).edit()
                 .putLong(SHARED_PREFERENCES_FIELD_TIMESTAMP, timestamp).commit();
@@ -466,7 +451,8 @@ public final class CrashActivity {
     private static boolean hasCrashedInTheLastSeconds(@NonNull Context context) {
         long lastTimestamp = getLastCrashTimestamp(context);
         long currentTimestamp = new Date().getTime();
-        return (lastTimestamp <= currentTimestamp
+        return (lastTimestamp > 0
+                && lastTimestamp <= currentTimestamp
                 && currentTimestamp - lastTimestamp < config.getMinTimeBetweenCrashesMs());
     }
 
