@@ -5,7 +5,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
@@ -37,7 +36,6 @@ import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
-import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
@@ -51,13 +49,9 @@ import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.setSpaceFooterView
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -65,14 +59,12 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 
-
 class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
     IOnTabClickListener, IOnFabClickListener, OnBackPressListener {
 
     private val viewModel by lazy {
         ViewModelProvider(
-            owner = requireParentFragment(),
-            factory = UrlViewModelFactory(requireContext())
+            owner = requireParentFragment()
         )[BlockListViewModel::class.java]
     }
     private val appsViewModel by viewModels<AppsViewModel>(ownerProducer = { requireActivity() })
@@ -105,25 +97,24 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         setUpTracker()
         addObserverToTracker()
         initObserve()
-
     }
 
     private fun initObserve() {
-        viewModel.requestList.observe(viewLifecycleOwner) { requests ->
-            requests?.let {
-                val filteredList = when (type) {
-                    "all" -> it
-                    "block" -> it.filter { request -> request.isBlocked == true }
-                    "pass" -> it.filter { request -> request.isBlocked == false }
-                    else -> emptyList()
-                }
-
-                mAdapter.submitList(filteredList) {
-                    if (binding.vfContainer.displayedChild != filteredList.size) {
-                        binding.vfContainer.displayedChild = filteredList.size
-                    }
+        viewModel.getFilteredRequestList(type).observe(viewLifecycleOwner) { filteredList ->
+            mAdapter.submitList(filteredList) {
+                val targetChild = if (filteredList.isEmpty()) 0 else 1
+                if (binding.vfContainer.displayedChild != targetChild) {
+                    binding.vfContainer.displayedChild = targetChild
                 }
             }
+        }
+
+        lifecycleScope.launch {
+            viewModel.requestSearchQuery
+                .debounce(300L)
+                .distinctUntilChanged()
+                .collect {
+                }
         }
     }
 
@@ -227,46 +218,11 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     override fun search(keyword: String) {
-        lifecycleScope.launch {
-            viewModel.searchQuery.value = keyword
-
-            viewModel.searchQuery
-                .debounce(500L)
-                .distinctUntilChanged()
-                .flatMapLatest { query ->
-                    flow {
-                        val allRequests = withContext(Dispatchers.IO) {
-                            viewModel.requestList.value.orEmpty()
-                        }
-
-                        val filteredRequests = withContext(Dispatchers.IO) {
-                            val filteredByType = when (type) {
-                                "all" -> allRequests
-                                "block" -> allRequests.filter { it.isBlocked == true }
-                                "pass" -> allRequests.filter { it.isBlocked == false }
-                                else -> emptyList()
-                            }
-                            filteredByType.filter { blockedRequest ->
-                                blockedRequest.request.contains(query, ignoreCase = true) ||
-                                blockedRequest.packageName.contains(query, ignoreCase = true) ||
-                                blockedRequest.appName.contains(query, ignoreCase = true)
-                            }
-                        }
-
-                        emit(filteredRequests)
-                    }
-                }
-                .catch { throwable ->
-                    Log.e("RequestListFragment", "Error during search for keyword: $keyword", throwable)
-                }
-                .collect { filteredList ->
-                    mAdapter.submitList(filteredList)
-                }
-        }
+        viewModel.setRequestSearchQuery(keyword)
     }
 
     override fun onClearAll() {
-        viewModel.onClearAll()
+        viewModel.onClearAllRequests()
         (activity as? INavContainer)?.showNavigation()
     }
 

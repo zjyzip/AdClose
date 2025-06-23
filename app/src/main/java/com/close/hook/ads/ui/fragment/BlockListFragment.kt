@@ -18,18 +18,17 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
-import androidx.core.content.ContextCompat
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.asFlow
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
@@ -49,7 +48,6 @@ import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
-import com.close.hook.ads.ui.viewmodel.UrlViewModelFactory
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
@@ -58,20 +56,14 @@ import com.close.hook.ads.util.setSpaceFooterView
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
 
-    private val viewModel by viewModels<BlockListViewModel> { UrlViewModelFactory(requireContext()) }
+    private val viewModel by viewModels<BlockListViewModel>()
     private lateinit var mAdapter: BlockListAdapter
     private val footerAdapter = FooterAdapter()
     private var tracker: SelectionTracker<Url>? = null
@@ -112,8 +104,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun updateViewFlipper(blackListSize: Int) {
-        if (binding.vfContainer.displayedChild != blackListSize) {
-            binding.vfContainer.displayedChild = blackListSize
+        val targetChild = if (blackListSize == 0) 0 else 1
+        if (binding.vfContainer.displayedChild != targetChild) {
+            binding.vfContainer.displayedChild = targetChild
         }
     }
 
@@ -270,6 +263,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                         totalDy = 0
                     }
                 }
+
             })
             FastScrollerBuilder(this).useMd2Style().build()
         }
@@ -280,7 +274,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
-    binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
+        binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
         (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
         if (focus) {
             binding.editText.requestFocus()
@@ -304,9 +298,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initEditText() {
-        var page = 0
-        val pageSize = 20
-
         binding.editText.onFocusChangeListener =
             View.OnFocusChangeListener { _, hasFocus ->
                 setIconAndFocus(
@@ -315,30 +306,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 )
             }
         binding.editText.addTextChangedListener(textWatcher)
-
-        lifecycleScope.launch {
-            viewModel.searchQuery
-                .debounce(300)
-                .distinctUntilChanged()
-                .flatMapLatest { query ->
-                    if (query.isBlank()) {
-                        viewModel.blackListLiveData.asFlow()
-                    } else {
-                        viewModel.dataSource.search(query, page * pageSize, pageSize)
-                            .catch { emit(emptyList<Url>()) }
-                            .flowOn(Dispatchers.IO)
-                    }
-                }
-                .flowOn(Dispatchers.Default)
-                .collect { list: List<Url> ->
-                    if (list.isEmpty()) {
-                        binding.vfContainer.displayedChild = 0
-                    } else {
-                        mAdapter.submitList(list)
-                        binding.vfContainer.displayedChild = 1
-                    }
-                }
-        }
     }
 
     private fun initButton() {
@@ -397,16 +364,17 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
                 val newItem = Url(type = newType, url = newUrl).also { it.id = url?.id ?: 0L }
 
-                if (url == null) {
-                    val isExist =
-                        viewModel.blackListLiveData.value?.any { it.type == newType && it.url == newUrl } == true
-                    if (!isExist) {
-                        viewModel.addUrl(newItem)
+                lifecycleScope.launch {
+                    val isExist = viewModel.dataSource.isExist(newType, newUrl)
+                    if (url == null) {
+                        if (!isExist) {
+                            viewModel.addUrl(newItem)
+                        } else {
+                            Toast.makeText(requireContext(), getString(R.string.rule_exists), Toast.LENGTH_SHORT).show()
+                        }
                     } else {
-                        Toast.makeText(requireContext(), getString(R.string.rule_exists), Toast.LENGTH_SHORT).show()
+                        viewModel.updateUrl(newItem)
                     }
-                } else {
-                    viewModel.updateUrl(newItem)
                 }
             }
             .create().apply {
@@ -430,16 +398,16 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun prepareDataForExport(): List<String> {
         return viewModel.blackListLiveData.value
-            ?.map { "${it.type}, ${it.url}" } // 转换为 "Type, Url" 格式
-            ?.distinct() // 去重
-            ?.filter { it.contains(",") } // 确保每项至少包含一个逗号
-            ?.sorted() ?: emptyList() // 字母排序
+            ?.map { "${it.type}, ${it.url}" }
+            ?.distinct()
+            ?.filter { it.contains(",") }
+            ?.sorted() ?: emptyList()
     }
 
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let { uri ->
-                CoroutineScope(Dispatchers.IO).launch {
+                lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
                         val currentList: List<Url> = viewModel.blackListLiveData.value ?: emptyList()
                         val contentResolver = requireContext().contentResolver
@@ -448,7 +416,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                             if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
                         }
-                        if (fileName == null || !fileName.matches(Regex(".*\\.rule( \\(\\d+\\))?"))) {
+                        if (fileName == null || !fileName.matches(Regex(".*\\.rule(\\s*\\(\\d+\\))?"))) {
                             throw IllegalArgumentException(getString(R.string.invalid_file_format))
                         }
 
@@ -456,10 +424,11 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                         val newList: List<Url> = inputStream?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
                                 val parts: List<String> = line.split(",\\s*".toRegex()).map { it.trim() }
-                                if (parts.size == 2 && parts[0].equals("Domain", ignoreCase = true) ||
-                                    parts[0].equals("URL", ignoreCase = true) ||
-                                    parts[0].equals("KeyWord", ignoreCase = true)
-                                ) {
+                                if (parts.size == 2 && (
+                                            parts[0].equals("Domain", ignoreCase = true) ||
+                                            parts[0].equals("URL", ignoreCase = true) ||
+                                            parts[0].equals("KeyWord", ignoreCase = true)
+                                            )) {
                                     Url(parts[0], parts[1])
                                 } else null
                             }.toList()
@@ -497,7 +466,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private val backupSAFLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri: Uri? ->
             uri?.let {
-                CoroutineScope(Dispatchers.IO).launch {
+                lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
                         requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
                             prepareDataForExport().forEach { line ->
@@ -576,5 +545,4 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         binding.editText.removeTextChangedListener(textWatcher)
         super.onDestroyView()
     }
-
 }

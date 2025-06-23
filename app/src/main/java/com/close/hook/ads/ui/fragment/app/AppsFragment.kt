@@ -3,6 +3,7 @@ package com.close.hook.ads.ui.fragment.app
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -99,16 +100,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val prefsHelper by lazy {
         PreferencesHelper(requireContext())
     }
-
-    private val glideRequestOptions: RequestOptions by lazy {
-        RequestOptions()
-            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-            .override(resources.getDimensionPixelSize(R.dimen.app_icon_size))
-            .dontAnimate()
-    }
-
-    private var dialogIconLoadJob: Job? = null
-
 
     companion object {
         @JvmStatic
@@ -285,12 +276,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     }
                 }
 
-                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                    super.onScrollStateChanged(recyclerView, newState)
-                    if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                        (activity as? INavContainer)?.showNavigation()
-                    }
-                }
             })
 
             addItemDecoration(LinearItemDecoration(4.dp))
@@ -335,7 +320,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     @SuppressLint("SetTextI18n")
-    override fun onItemClick(appInfo: AppInfo) {
+    override fun onItemClick(appInfo: AppInfo, icon: Drawable?) {
         if (!MainActivity.isModuleActivated()) {
             AppUtils.showToast(requireContext(), getString(R.string.module_not_activated))
             return
@@ -344,23 +329,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
 
-            dialogIconLoadJob?.cancel()
-            dialogIconLoadJob = lifecycleScope.launch {
-                val iconDrawable = withContext(Dispatchers.IO) {
-                    try {
-                        requireContext().packageManager.getApplicationIcon(appInfo.packageName)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                if (iconDrawable != null) {
-                    Glide.with(icon)
-                        .load(iconDrawable)
-                        .apply(glideRequestOptions)
-                        .into(icon)
-                } else {
-                    icon.setImageDrawable(null)
-                }
+            icon?.let { drawable ->
+                this.icon.setImageDrawable(drawable)
+            } ?: run {
+                this.icon.setImageDrawable(null)
             }
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
@@ -381,27 +353,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     @SuppressLint("SetTextI18n")
-    override fun onItemLongClick(appInfo: AppInfo) {
+    override fun onItemLongClick(appInfo: AppInfo, icon: Drawable?) {
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
-            dialogIconLoadJob?.cancel()
-            dialogIconLoadJob = lifecycleScope.launch {
-                val iconDrawable = withContext(Dispatchers.IO) {
-                    try {
-                        requireContext().packageManager.getApplicationIcon(appInfo.packageName)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                if (iconDrawable != null) {
-                    Glide.with(icon)
-                        .load(iconDrawable)
-                        .apply(glideRequestOptions)
-                        .into(icon)
-                } else {
-                    icon.setImageDrawable(null)
-                }
+            icon?.let { drawable ->
+                this.icon.setImageDrawable(drawable)
+            } ?: run {
+                this.icon.setImageDrawable(null)
             }
 
             appName.text = appInfo.appName
@@ -466,9 +425,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appConfigDialog = null
         appInfoDialog = null
 
-        dialogIconLoadJob?.cancel()
-        dialogIconLoadJob = null
-
         viewModel.appsLiveData.removeObservers(viewLifecycleOwner)
     }
 
@@ -524,9 +480,11 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private fun saveFile(content: String): Boolean {
         return try {
-            val dir = File(requireContext().cacheDir.toString())
-            if (!dir.exists())
-                dir.mkdir()
+            val dir = File(requireContext().cacheDir, "export_temp")
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+
             val file = File(dir, "configured_list.json")
             if (file.exists()) {
                 file.delete()
@@ -550,28 +508,38 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 return@registerForActivityResult
             }
             lifecycleScope.launch(Dispatchers.IO) {
+                val sourceFile = File(requireContext().cacheDir, "export_temp/configured_list.json")
+
+                if (!sourceFile.exists()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
                 try {
-                    File(requireContext().cacheDir, "configured_list.json").inputStream()
-                        .use { input ->
-                            requireContext().contentResolver.openOutputStream(uri).use { output ->
-                                if (output == null) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT)
-                                            .show()
-                                    }
-                                } else {
-                                    input.copyTo(output)
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT)
-                                            .show()
-                                    }
+                    sourceFile.inputStream().use { input ->
+                        requireContext().contentResolver.openOutputStream(uri).use { output ->
+                            if (output == null) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                input.copyTo(output)
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
+                    }
                 } catch (e: IOException) {
                     e.printStackTrace()
                     withContext(Dispatchers.Main) {
                         Toast.makeText(requireContext(), "${getString(R.string.export_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                } finally {
+                    if (sourceFile.exists()) {
+                        sourceFile.delete()
                     }
                 }
             }
@@ -612,7 +580,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                                 .setMessage(e.message ?: "Unknown error")
                                 .setPositiveButton(android.R.string.ok, null)
                                 .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
-                                    MaterialAlertDialogBuilder(requireContext().applicationContext)
+                                    MaterialAlertDialogBuilder(requireContext())
                                         .setTitle(getString(R.string.crash_log))
                                         .setMessage(e.stackTraceToString())
                                         .setPositiveButton(android.R.string.ok, null)
