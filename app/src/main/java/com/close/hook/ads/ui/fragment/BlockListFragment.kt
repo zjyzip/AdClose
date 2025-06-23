@@ -105,8 +105,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun updateViewFlipper(blackListSize: Int) {
         val targetChild = if (blackListSize == 0) 0 else 1
-        if (binding.vfContainer.displayedChild != targetChild) {
-            binding.vfContainer.displayedChild = targetChild
+        if (binding.vfContainer.displayedChild != blackListSize) {
+            binding.vfContainer.displayedChild = blackListSize
         }
     }
 
