@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 
@@ -22,32 +24,44 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
 
     val dataSource: DataSource = DataSource.getDataSource(application)
 
-    val blackListLiveData: LiveData<List<Url>>
     val searchQuery: MutableStateFlow<String> = MutableStateFlow("")
 
-    init {
-        blackListLiveData = combine(
-            dataSource.getUrlList(),
-            searchQuery
-        ) { urlList: List<Url>, query: String ->
-            if (query.isBlank()) {
-                urlList
-            } else {
-                urlList.filter {
-                    it.url.contains(query, ignoreCase = true) ||
-                    it.type.contains(query, ignoreCase = true)
-                }
+    val blackListLiveData: LiveData<List<Url>> = combine(
+        dataSource.getUrlList(),
+        searchQuery.debounce(300L).distinctUntilChanged()
+    ) { urlList: List<Url>, query: String ->
+        if (query.isBlank()) {
+            urlList
+        } else {
+            urlList.filter {
+                it.url.contains(query, ignoreCase = true) ||
+                it.type.contains(query, ignoreCase = true)
             }
         }
-        .flowOn(Dispatchers.Default)
-        .asLiveData(viewModelScope.coroutineContext + Dispatchers.Main)
     }
+    .flowOn(Dispatchers.Default)
+    .asLiveData(viewModelScope.coroutineContext + Dispatchers.Main)
+
 
     private val _requestList = MutableLiveData<List<BlockedRequest>>(emptyList())
     val requestList: LiveData<List<BlockedRequest>> = _requestList
 
     private val _requestSearchQuery = MutableStateFlow("")
     val requestSearchQuery: StateFlow<String> = _requestSearchQuery.asStateFlow()
+
+    init {
+        setupRequestSearchQueryObservation()
+    }
+
+    private fun setupRequestSearchQueryObservation() {
+        viewModelScope.launch {
+            _requestSearchQuery
+                .debounce(300L)
+                .distinctUntilChanged()
+                .collect {
+                }
+        }
+    }
 
     fun getFilteredRequestList(type: String): LiveData<List<BlockedRequest>> {
         return combine(

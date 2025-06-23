@@ -56,7 +56,7 @@ class DataSource(context: Context) {
 
         fun getDataSource(context: Context): DataSource {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: DataSource(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: DataSource(context).also { INSTANCE = it }
             }
         }
     }

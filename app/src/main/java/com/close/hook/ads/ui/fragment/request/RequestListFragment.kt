@@ -50,8 +50,6 @@ import com.close.hook.ads.util.setSpaceFooterView
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -107,14 +105,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     binding.vfContainer.displayedChild = targetChild
                 }
             }
-        }
-
-        lifecycleScope.launch {
-            viewModel.requestSearchQuery
-                .debounce(300L)
-                .distinctUntilChanged()
-                .collect {
-                }
         }
     }
 
