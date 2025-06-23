@@ -22,10 +22,9 @@ class AppsViewModel(
 ) : AndroidViewModel(application) {
 
     var type: String = "user"
-    private val updateParams = MutableStateFlow(Triple(Pair("", emptyList<String>()), Pair("", false), 0L))
+    private val updateParams = MutableStateFlow(Triple(Pair(0, emptyList<Int>()), Pair("", false), 0L))
     private val appRepository: AppRepository = AppRepository(
-        packageManager = application.packageManager,
-        context = application.applicationContext
+        packageManager = application.packageManager
     )
 
     private val _appsLiveData = MutableLiveData<List<AppInfo>>()
@@ -79,17 +78,16 @@ class AppsViewModel(
         }
     }
 
-    private fun getFilterList(): List<String> {
-        val context = getApplication<Application>()
+    private fun getFilterList(): List<Int> {
         return listOfNotNull(
-            if (PrefManager.configured) context.getString(R.string.filter_configured) else null,
-            if (PrefManager.updated) context.getString(R.string.filter_recent_update) else null,
-            if (PrefManager.disabled) context.getString(R.string.filter_disabled) else null
+            if (PrefManager.configured) R.string.filter_configured else null,
+            if (PrefManager.updated) R.string.filter_recent_update else null,
+            if (PrefManager.disabled) R.string.filter_disabled else null
         )
     }
 
     fun updateList(
-        filter: Pair<String, List<String>>,
+        filter: Pair<Int, List<Int>>,
         keyword: String,
         isReverse: Boolean
     ) {

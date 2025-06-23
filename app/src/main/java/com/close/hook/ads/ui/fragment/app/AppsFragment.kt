@@ -473,7 +473,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     override fun updateSortList(
-        filter: Pair<String, List<String>>,
+        filter: Pair<Int, List<Int>>,
         keyWord: String,
         isReverse: Boolean
     ) {

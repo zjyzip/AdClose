@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.os.Build
 import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
@@ -15,11 +14,9 @@ import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.Locale
 
 class AppRepository(
-    private val packageManager: PackageManager,
-    private val context: Context
+    private val packageManager: PackageManager
 ) {
 
     private val enableKeys = arrayOf(
@@ -30,16 +27,6 @@ class AppRepository(
     private val prefsHelper: PreferencesHelper by lazy {
         PreferencesHelper(closeApp)
     }
-
-    private val localizedContext: Context by lazy {
-        val config = Configuration(context.resources.configuration).apply {
-            setLocale(closeApp.getLocale(PrefManager.language))
-        }
-        context.applicationContext.createConfigurationContext(config)
-    }
-
-    private fun getLocalizedString(resId: Int): String =
-        localizedContext.getString(resId)
 
     suspend fun getInstalledApps(isSystem: Boolean? = null): List<AppInfo> = withContext(Dispatchers.IO) {
         val packages = runCatching {
@@ -59,21 +46,17 @@ class AppRepository(
 
     suspend fun getFilteredAndSortedApps(
         apps: List<AppInfo>,
-        filter: Pair<String, List<String>>,
+        filter: Pair<Int, List<Int>>,
         keyword: String,
         isReverse: Boolean
     ): List<AppInfo> = withContext(Dispatchers.Default) {
         val comparator = getComparator(filter.first, isReverse)
         val now = System.currentTimeMillis()
 
-        val filterConfigured = getLocalizedString(R.string.filter_configured)
-        val filterRecentUpdate = getLocalizedString(R.string.filter_recent_update)
-        val filterDisabled = getLocalizedString(R.string.filter_disabled)
-
         apps.asSequence()
             .filter { app ->
                 matchesKeyword(app, keyword) &&
-                matchesFilter(app, filter.second, now, filterConfigured, filterRecentUpdate, filterDisabled)
+                matchesFilter(app, filter.second, now)
             }
             .sortedWith(comparator)
             .toList()
@@ -86,26 +69,23 @@ class AppRepository(
 
     private fun matchesFilter(
         app: AppInfo,
-        criteria: List<String>,
-        now: Long,
-        filterConfigured: String,
-        filterRecentUpdate: String,
-        filterDisabled: String
-    ): Boolean = criteria.all { criterion ->
-        when (criterion) {
-            filterConfigured -> app.isEnable == 1
-            filterRecentUpdate -> now - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
-            filterDisabled -> app.isAppEnable == 0
+        criteria: List<Int>,
+        now: Long
+    ): Boolean = criteria.all { criterionResId ->
+        when (criterionResId) {
+            R.string.filter_configured -> app.isEnable == 1
+            R.string.filter_recent_update -> now - app.lastUpdateTime < 3 * 24 * 3600 * 1000L
+            R.string.filter_disabled -> app.isAppEnable == 0
             else -> true
         }
     }
 
-    private fun getComparator(sortBy: String, isReverse: Boolean): Comparator<AppInfo> {
+    private fun getComparator(sortBy: Int, isReverse: Boolean): Comparator<AppInfo> {
         val baseComparator = when (sortBy) {
-            getLocalizedString(R.string.sort_by_app_size) -> compareBy<AppInfo> { it.size }
-            getLocalizedString(R.string.sort_by_last_update) -> compareBy { it.lastUpdateTime }
-            getLocalizedString(R.string.sort_by_install_date) -> compareBy { it.firstInstallTime }
-            getLocalizedString(R.string.sort_by_target_version) -> compareBy { it.targetSdk }
+            R.string.sort_by_app_size -> compareBy<AppInfo> { it.size }
+            R.string.sort_by_last_update -> compareBy { it.lastUpdateTime }
+            R.string.sort_by_install_date -> compareBy { it.firstInstallTime }
+            R.string.sort_by_target_version -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
         return if (isReverse) baseComparator.reversed() else baseComparator

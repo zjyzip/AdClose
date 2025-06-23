@@ -72,7 +72,7 @@ class PerformanceActivity : BaseActivity() {
         binding = ActivityPerformanceBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        appRepository = AppRepository(packageManager, this)
+        appRepository = AppRepository(packageManager)
         setupPerformanceChart()
 
         binding.runTestButton.setOnClickListener {
@@ -154,7 +154,7 @@ class PerformanceActivity : BaseActivity() {
             val filteredTime = measureTimeMillis {
                 filteredApps = appRepository.getFilteredAndSortedApps(
                     apps,
-                    Pair(getString(R.string.filter_configured), listOf(getString(R.string.filter_configured))),
+                    Pair(R.string.filter_configured, listOf(R.string.filter_configured)),
                     "",
                     false
                 )

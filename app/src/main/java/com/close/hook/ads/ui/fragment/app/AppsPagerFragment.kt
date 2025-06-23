@@ -152,29 +152,29 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
             }
         }
 
-        val sortByTitles = listOf(
-            getString(R.string.sort_by_app_name),
-            getString(R.string.sort_by_app_size),
-            getString(R.string.sort_by_last_update),
-            getString(R.string.sort_by_install_date),
-            getString(R.string.sort_by_target_version)
+        val sortByItems = listOf(
+            R.string.sort_by_app_name,
+            R.string.sort_by_app_size,
+            R.string.sort_by_last_update,
+            R.string.sort_by_install_date,
+            R.string.sort_by_target_version
         )
-        val filterTitles = listOf(
-            getString(R.string.filter_configured),
-            getString(R.string.filter_recent_update),
-            getString(R.string.filter_disabled)
+        val filterItems = listOf(
+            R.string.filter_configured,
+            R.string.filter_recent_update,
+            R.string.filter_disabled
         )
 
-        setupChipGroup(filerBinding.sortBy, sortByTitles, true)
-        setupChipGroup(filerBinding.filter, filterTitles, false)
+        setupChipGroup(filerBinding.sortBy, sortByItems, true)
+        setupChipGroup(filerBinding.filter, filterItems, false)
     }
 
     private fun updateSortAndFilters() {
-        val filters = listOfNotNull(
-            getString(R.string.filter_configured).takeIf { PrefManager.configured },
-            getString(R.string.filter_recent_update).takeIf { PrefManager.updated },
-            getString(R.string.filter_disabled).takeIf { PrefManager.disabled }
-        )
+        val filters = mutableListOf<Int>()
+        if (PrefManager.configured) filters.add(R.string.filter_configured)
+        if (PrefManager.updated) filters.add(R.string.filter_recent_update)
+        if (PrefManager.disabled) filters.add(R.string.filter_disabled)
+
         controller?.updateSortList(
             Pair(PrefManager.order, filters),
             binding.editText.text.toString(),
@@ -184,13 +184,13 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun resetFilters() {
         with(filerBinding) {
-            sortBy.check(sortBy.getChildAt(0).id)
+            (sortBy.getChildAt(0) as? Chip)?.let { sortBy.check(it.id) }
             filter.clearCheck()
             reverseSwitch.isChecked = false
         }
 
         PrefManager.isReverse = false
-        PrefManager.order = getString(R.string.sort_by_app_name)
+        PrefManager.order = R.string.sort_by_app_name
         PrefManager.configured = false
         PrefManager.updated = false
         PrefManager.disabled = false
@@ -198,49 +198,50 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         updateSortAndFilters()
     }
 
-    private fun setupChipGroup(chipGroup: ChipGroup, titles: List<String>, isSortBy: Boolean) {
+    private fun setupChipGroup(chipGroup: ChipGroup, titles: List<Int>, isSortBy: Boolean) {
         chipGroup.isSingleSelection = isSortBy
-        titles.forEach { title ->
+        titles.forEach { titleResId ->
             val chip = Chip(requireContext()).apply {
-                text = title
+                text = getString(titleResId)
                 isCheckable = true
                 isClickable = true
-                isChecked = getChipCheckedState(title, isSortBy)
-                setOnClickListener { handleChipClick(this, title, isSortBy) }
+                isChecked = getChipCheckedState(titleResId, isSortBy)
+                setOnClickListener { handleChipClick(this, titleResId, isSortBy) }
             }
             chipGroup.addView(chip)
         }
     }
 
-    private fun getChipCheckedState(title: String, isSortBy: Boolean): Boolean {
-        return if (isSortBy) title == PrefManager.order
-        else when (title) {
-            getString(R.string.filter_configured) -> PrefManager.configured
-            getString(R.string.filter_recent_update) -> PrefManager.updated
-            getString(R.string.filter_disabled) -> PrefManager.disabled
+    private fun getChipCheckedState(titleResId: Int, isSortBy: Boolean): Boolean {
+        return if (isSortBy) titleResId == PrefManager.order
+        else when (titleResId) {
+            R.string.filter_configured -> PrefManager.configured
+            R.string.filter_recent_update -> PrefManager.updated
+            R.string.filter_disabled -> PrefManager.disabled
             else -> false
         }
     }
 
-    private fun handleChipClick(chip: Chip, title: String, isSortBy: Boolean) {
-        if (!isSortBy && title == getString(R.string.filter_configured) && !MainActivity.isModuleActivated()) {
+    private fun handleChipClick(chip: Chip, titleResId: Int, isSortBy: Boolean) {
+        if (!isSortBy && titleResId == R.string.filter_configured && !MainActivity.isModuleActivated()) {
             showSnackbar(getString(R.string.module_not_activated))
             chip.isChecked = false
             return
         }
 
         if (isSortBy) {
-            PrefManager.order = title
+            PrefManager.order = titleResId
         } else {
-            when (title) {
-                getString(R.string.filter_configured) -> PrefManager.configured = chip.isChecked
-                getString(R.string.filter_recent_update) -> PrefManager.updated = chip.isChecked
-                getString(R.string.filter_disabled) -> PrefManager.disabled = chip.isChecked
+            when (titleResId) {
+                R.string.filter_configured -> PrefManager.configured = chip.isChecked
+                R.string.filter_recent_update -> PrefManager.updated = chip.isChecked
+                R.string.filter_disabled -> PrefManager.disabled = chip.isChecked
             }
         }
 
         val message =
-            if (isSortBy) "${getString(R.string.sort_by_default)}: $title" else "$title ${getString(R.string.updated)}"
+            if (isSortBy) "${getString(R.string.sort_by_default)}: ${getString(titleResId)}"
+            else "${getString(titleResId)} ${getString(R.string.updated)}"
         showSnackbar(message)
         updateSortAndFilters()
     }
