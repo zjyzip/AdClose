@@ -25,7 +25,7 @@ object DexKitUtil {
     private val isReleasing = AtomicBoolean(false)
     private var releaseJob: Job? = null
 
-    private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val methodCache = CacheBuilder.newBuilder()
         .maximumSize(300)
@@ -43,8 +43,12 @@ object DexKitUtil {
             return null
         }
 
+        if (!ensureBridgeInitialized()) {
+            XposedBridge.log("$LOG_PREFIX DexKitBridge init failed")
+            return null
+        }
+
         cancelPendingRelease()
-        initBridge()
         val count = usageCount.incrementAndGet()
         XposedBridge.log("$LOG_PREFIX usageCount++ => $count")
 
@@ -70,50 +74,61 @@ object DexKitUtil {
         }
     }
 
-    private fun createDexKitBridge(): DexKitBridge? {
-        val loader = context.classLoader
-        val loaderName = loader::class.java.name
-        XposedBridge.log("$LOG_PREFIX Bridge initialized with classLoader: $loaderName ($loader)")
-        return when {
-            loaderName.endsWith("PathClassLoader") -> {
-                DexKitBridge.create(loader, true)
-            }
-            else -> {
-                XposedBridge.log("$LOG_PREFIX Unknown ClassLoader: $loaderName, fallback to apkPath")
-                DexKitBridge.create(context.applicationInfo.sourceDir)
-            }
-        }
-    }
-
-    private fun initBridge() {
+    private fun ensureBridgeInitialized(): Boolean {
         if (!nativeLoaded.get()) {
             synchronized(nativeLoaded) {
                 if (nativeLoaded.compareAndSet(false, true)) {
-                    System.loadLibrary("dexkit")
-                    XposedBridge.log("$LOG_PREFIX Native library loaded")
+                    runCatching {
+                        System.loadLibrary("dexkit")
+                        XposedBridge.log("$LOG_PREFIX Native library loaded")
+                    }.onFailure {
+                        XposedBridge.log("$LOG_PREFIX Bridge init failed: ${it.message}")
+                        nativeLoaded.set(false)
+                        return false
+                    }
                 }
             }
         }
 
-        if (bridgeRef.get() != null) return
+        if (bridgeRef.get() != null) return true
 
         synchronized(this) {
-            if (bridgeRef.get() != null) return
+            if (bridgeRef.get() != null) return true
 
-            val bridge = runCatching { createDexKitBridge() }
-                .recoverCatching {
-                    Thread.sleep(100)
-                    createDexKitBridge()
-                }.onFailure {
-                    XposedBridge.log("$LOG_PREFIX Bridge init failed: ${it.message}")
-                }.getOrNull()
+            val bridge = runCatching {
+                createDexKitBridge(context)
+            }.onFailure {
+                XposedBridge.log("$LOG_PREFIX Bridge init failed: ${it.message}")
+            }.getOrNull()
 
             if (bridge != null) {
                 bridgeRef.set(bridge)
+                return true
             } else {
-                error("$LOG_PREFIX DexKitBridge init failed")
+                XposedBridge.log("$LOG_PREFIX DexKitBridge init failed")
+                return false
             }
         }
+    }
+
+    private fun createDexKitBridge(context: Context): DexKitBridge? {
+        val loader = context.classLoader
+        val loaderName = loader::class.java.name
+        XposedBridge.log("$LOG_PREFIX Bridge initialized with classLoader: $loaderName ($loader)")
+
+        return runCatching {
+            when {
+                loaderName.endsWith("PathClassLoader") -> {
+                    DexKitBridge.create(loader, true)
+                }
+                else -> {
+                    XposedBridge.log("$LOG_PREFIX Unknown ClassLoader: $loaderName, fallback to apkPath")
+                    DexKitBridge.create(context.applicationInfo.sourceDir)
+                }
+            }
+        }.onFailure {
+            XposedBridge.log("$LOG_PREFIX Bridge init failed: ${it.message}")
+        }.getOrNull()
     }
 
     private fun scheduleDelayedRelease() {

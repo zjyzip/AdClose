@@ -38,17 +38,8 @@ object ContextUtil {
 
     private const val TAG = "ContextUtil"
 
-    fun initialize(initialCallback: Runnable?) {
-        initialCallback?.let {
-            addOnActivityThreadContextInitializedCallback(it)
-            addOnApplicationContextInitializedCallback(it)
-            addOnContextWrapperContextInitializedCallback(it)
-            addOnInstrumentationContextInitializedCallback(it)
-        }
-        initializeContextHooks()
-    }
+    fun setupContextHooks() {
 
-    private fun initializeContextHooks() {
         HookUtil.hookAllMethods(
             "android.app.ActivityThread",
             "performLaunchActivity",
@@ -119,7 +110,7 @@ object ContextUtil {
         contextType: String
     ) {
         if (context != null && isInitialized.compareAndSet(false, true)) {
-            XposedBridge.log("$TAG | Initialized ($contextType): $context")
+            XposedBridge.log("$TAG | Context Initialized ($contextType): $context")
             while (true) {
                 val callback = callbacks.poll() ?: break
                 callback.run()
@@ -128,27 +119,28 @@ object ContextUtil {
     }
 
     fun addOnActivityThreadContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isActivityThreadContextInitialized, activityThreadContextCallbacks)
+        addCallback(callback, isActivityThreadContextInitialized, activityThreadContextCallbacks, activityThreadContext)
     }
 
     fun addOnApplicationContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isApplicationContextInitialized, applicationContextCallbacks)
+        addCallback(callback, isApplicationContextInitialized, applicationContextCallbacks, applicationContext)
     }
 
     fun addOnContextWrapperContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isContextWrapperContextInitialized, contextWrapperContextCallbacks)
+        addCallback(callback, isContextWrapperContextInitialized, contextWrapperContextCallbacks, contextWrapperContext)
     }
 
     fun addOnInstrumentationContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isInstrumentationContextInitialized, instrumentationContextCallbacks)
+        addCallback(callback, isInstrumentationContextInitialized, instrumentationContextCallbacks, instrumentationContext)
     }
  
-   private fun addCallback(
+    private fun addCallback(
         callback: Runnable,
         isInitialized: AtomicBoolean,
-        callbacks: ConcurrentLinkedQueue<Runnable>
+        callbacks: ConcurrentLinkedQueue<Runnable>,
+        currentContext: Context?
     ) {
-        if (isInitialized.get()) {
+        if (isInitialized.get() && currentContext != null) {
             callback.run()
         } else {
             callbacks.offer(callback)
