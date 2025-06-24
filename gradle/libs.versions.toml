@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.1.21"
+kotlin = "2.2.0"
 androidApplicationPlugin = "8.10.1"
 materialThemeBuilder = "1.5.1"
 ksp = "2.1.21-2.0.2"
