@@ -86,12 +86,6 @@ public class RequestHook {
         }
     }
 
-    private static String calculateCidrNotation(InetAddress inetAddress) {
-        if (inetAddress == null) return "";
-        int prefixLength = inetAddress.getAddress().length == 4 ? 32 : 128;
-        return inetAddress.getHostAddress() + "/" + prefixLength;
-    }
-
     private static String formatUrlWithoutQuery(Object urlObject) {
         try {
             if (urlObject instanceof URL) {
@@ -112,22 +106,6 @@ public class RequestHook {
             XposedBridge.log(LOG_PREFIX + "Error formatting URL: " + e.getMessage());
         }
         return "";
-    }
-
-    private static boolean shouldBlockDnsRequest(final String host, final RequestDetails details) {
-        return checkShouldBlockRequest(host, details, " DNS", "host");
-    }
-
-    private static boolean shouldBlockHttpsRequest(final URL url, final RequestDetails details) {
-        return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, " HTTP", "url");
-    }
-
-    private static boolean shouldBlockOkHttpsRequest(final URL url, final RequestDetails details) {
-        return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, " OKHTTP", "url");
-    }
-
-    private static boolean shouldBlockWebRequest(final String url, final RequestDetails details) {
-        return checkShouldBlockRequest(formatUrlWithoutQuery(Uri.parse(url)), details, " Web", "url");
     }
 
     private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
@@ -156,7 +134,7 @@ public class RequestHook {
     private static Triple<Boolean, String, String> performContentQuery(String queryType, String queryValue) {
         ContentResolver contentResolver = applicationContext.getContentResolver();
         String[] projection = {Url.URL_TYPE, Url.URL_ADDRESS};
-        String selection = "type=? AND value=?";
+        String selection = null;
         String[] selectionArgs = {queryType, queryValue};
 
         try (Cursor cursor = contentResolver.query(CONTENT_URI, projection, selection, selectionArgs, null)) {
@@ -199,41 +177,35 @@ public class RequestHook {
 
     private static boolean processDnsRequest(Object[] args, Object result, String methodName) {
         String host = (String) args[0];
-        if (host == null) return false;
+        if (host == null) {
+            return false;
+        }
 
         String stackTrace = HookUtil.getFormattedStackTrace();
-        String cidr = null;
         String fullAddress = null;
 
         if ("getByName".equals(methodName) && result instanceof InetAddress) {
             InetAddress inetAddress = (InetAddress) result;
-            cidr = calculateCidrNotation(inetAddress);
             fullAddress = inetAddress.getHostAddress();
         } else if ("getAllByName".equals(methodName) && result instanceof InetAddress[]) {
             InetAddress[] inetAddresses = (InetAddress[]) result;
             if (inetAddresses != null && inetAddresses.length > 0) {
-                List<InetAddress> addressList = Arrays.stream(inetAddresses)
+                fullAddress = Arrays.stream(inetAddresses)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-
-                cidr = addressList.stream()
-                    .map(RequestHook::calculateCidrNotation)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.joining(", "));
-
-                fullAddress = addressList.stream()
                     .map(InetAddress::getHostAddress)
                     .filter(Objects::nonNull)
                     .collect(Collectors.joining(", "));
             }
         }
 
-        if (cidr != null && !cidr.isEmpty() && fullAddress != null && !fullAddress.isEmpty()) {
-            RequestDetails details = new RequestDetails(host, cidr, fullAddress, stackTrace);
-            return shouldBlockDnsRequest(host, details);
+        if (fullAddress == null || fullAddress.isEmpty()) {
+            XposedBridge.log(LOG_PREFIX + "processDnsRequest: No fullAddress obtained for host: " + host);
+            return false;
         }
 
-        return false;
+        RequestDetails details = new RequestDetails(host, fullAddress, stackTrace);
+
+        return checkShouldBlockRequest(host, details, " DNS", "host");
     }
 
     private static void setupHttpRequestHook() {
@@ -258,7 +230,7 @@ public class RequestHook {
 
                         String stackTrace = HookUtil.getFormattedStackTrace();
 
-                        if (processHttpRequest(request, response, url, stackTrace)) {
+                        if (shouldBlockHttpRequest(url, " HTTP", request, response, stackTrace)) {
                             Object emptyResponse = createEmptyResponseForHttp(response);
 
                             Field userResponseField = httpEngine.getClass().getDeclaredField("userResponse");
@@ -335,7 +307,7 @@ public class RequestHook {
 
                             String stackTrace = HookUtil.getFormattedStackTrace();
 
-                            if (processHttpRequest(request, response, url, stackTrace)) {
+                            if (shouldBlockHttpRequest(url, " OKHTTP", request, response, stackTrace)) {
                                 throw new IOException("Request blocked");
                             }
                         } catch (IOException e) {
@@ -351,7 +323,8 @@ public class RequestHook {
         }
     }
 
-    private static boolean processHttpRequest(Object request, Object response, URL url, String stack) {
+    private static boolean shouldBlockHttpRequest(final URL url, final String requestFrameworkType,
+                                                    Object request, Object response, String stack) {
         try {
             String method = (String) XposedHelpers.callMethod(request, "method");
             String urlString = url.toString();
@@ -363,10 +336,10 @@ public class RequestHook {
 
             RequestDetails details = new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders, stack);
 
-            return shouldBlockHttpsRequest(url, details);
+            return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, requestFrameworkType, "url");
 
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception in processing request: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Exception in shouldBlockHttpRequest: " + e.getMessage());
             return false;
         }
     }
@@ -375,44 +348,41 @@ public class RequestHook {
         String packageName = applicationContext.getPackageName();
 
         if ("com.UCMobile".equals(packageName) || "com.UCMobile.intl".equals(packageName)) {
-            setupWebViewRequestHookForUCMobile();
+            setupWebViewRequestHookInternal(
+                "com.uc.webview.export.WebView",
+                "com.uc.webview.export.WebViewClient",
+                "com.uc.webview.export.WebResourceRequest",
+                applicationContext.getClassLoader()
+            );
         } else {
-            setupWebViewRequestHookForDefault();
+            setupWebViewRequestHookInternal(
+                WebView.class.getName(),
+                WebViewClient.class.getName(),
+                WebResourceRequest.class.getName(),
+                applicationContext.getClassLoader()
+            );
         }
     }
 
-    private static void setupWebViewRequestHookForUCMobile() {
+    private static void setupWebViewRequestHookInternal(
+        String webViewClass,
+        String webViewClientClass,
+        String webResourceRequestClass,
+        ClassLoader classLoader
+    ) {
         HookUtil.findAndHookMethod(
-            "com.uc.webview.export.WebView",
+            webViewClass,
             "setWebViewClient",
-            new Object[]{"com.uc.webview.export.WebViewClient"},
+            new Object[]{webViewClientClass},
             "before",
             param -> {
                 Object client = param.args[0];
                 if (client != null) {
                     String clientClassName = client.getClass().getName();
-                    hookClientMethods(clientClassName, applicationContext.getClassLoader(),
-                        "com.uc.webview.export.WebView", "com.uc.webview.export.WebResourceRequest");
+                    hookClientMethods(clientClassName, classLoader, webViewClass, webResourceRequestClass);
                 }
             },
-            applicationContext.getClassLoader()
-        );
-    }
-
-    private static void setupWebViewRequestHookForDefault() {
-        HookUtil.findAndHookMethod(
-            WebView.class,
-            "setWebViewClient",
-            new Object[]{WebViewClient.class},
-            "before",
-            param -> {
-                Object client = param.args[0];
-                if (client != null) {
-                    String clientClassName = client.getClass().getName();
-                    hookClientMethods(clientClassName, applicationContext.getClassLoader(),
-                        WebView.class.getName(), WebResourceRequest.class.getName());
-                }
-            }
+            classLoader
         );
     }
 
@@ -422,7 +392,6 @@ public class RequestHook {
         String webViewClassName,
         String webResourceRequestClassName
     ) {
-
         XposedBridge.log(LOG_PREFIX + " - WebViewClient set: " + clientClassName);
 
         HookUtil.findAndHookMethod(
@@ -433,6 +402,7 @@ public class RequestHook {
             param -> {
                 Object request = param.args[1];
                 Object response = param.getResult();
+
                 if (request != null && processWebRequest(request, response)) {
                     param.setResult(EMPTY_WEB_RESPONSE);
                 }
@@ -472,20 +442,21 @@ public class RequestHook {
             String responseMessage = null;
             Object responseHeaders = null;
 
-            if (response != null) {
-                responseHeaders = XposedHelpers.callMethod(response, "getResponseHeaders");
-                responseCode = (int) XposedHelpers.callMethod(response, "getStatusCode");
-                responseMessage = (String) XposedHelpers.callMethod(response, "getReasonPhrase");
+            if (response != null && response instanceof WebResourceResponse) {
+                WebResourceResponse webResponse = (WebResourceResponse) response;
+                responseHeaders = webResponse.getResponseHeaders();
+                responseCode = webResponse.getStatusCode();
+                responseMessage = webResponse.getReasonPhrase();
             }
 
             String stackTrace = HookUtil.getFormattedStackTrace();
 
-            RequestDetails details = new RequestDetails(
-                method, urlString, requestHeaders, responseCode, responseMessage, responseHeaders, stackTrace
-            );
+            RequestDetails details = new RequestDetails(method, urlString, requestHeaders, responseCode, responseMessage, responseHeaders, stackTrace);
 
-            return shouldBlockWebRequest(urlString, details);
-
+            if (urlString != null) {
+                return checkShouldBlockRequest(formatUrlWithoutQuery(Uri.parse(urlString)), details, " Web", "url");
+            }
+            return false;
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + " - Error processing web request: " + e.getMessage());
             return false;
@@ -544,7 +515,6 @@ public class RequestHook {
             String responseMessage = details.getResponseMessage();
             String responseHeaders = details.getResponseHeaders() != null ? details.getResponseHeaders().toString() : null;
             String stackTrace = details.getStack();
-            String dnsCidr = details.getDnsCidr();
             String fullAddress = details.getFullAddress();
 
             BlockedRequest blockedRequest = new BlockedRequest(
@@ -564,7 +534,6 @@ public class RequestHook {
                 responseHeaders,
                 stackTrace,
                 dnsHost,
-                dnsCidr,
                 fullAddress
             );
 

@@ -134,7 +134,6 @@ class BlockedRequestsAdapter(
                 putExtra("responseHeaders", request.responseHeaders)
                 putExtra("stack", request.stack)
                 putExtra("dnsHost", request.dnsHost)
-                putExtra("dnsCidr", request.dnsCidr)
                 putExtra("fullAddress", request.fullAddress)
             }.also {
                 context.startActivity(it)

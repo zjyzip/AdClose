@@ -17,8 +17,8 @@ class UrlContentProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         context?.let { ctx ->
             urlDao = UrlDatabase.getDatabase(ctx).urlDao
+            return true
         } ?: return false
-        return true
     }
 
     override fun query(
@@ -28,21 +28,23 @@ class UrlContentProvider : ContentProvider() {
         selectionArgs: Array<String>?,
         sortOrder: String?
     ): Cursor? {
-        if (!::urlDao.isInitialized) return null
-
         return when (uriMatcher.match(uri)) {
             ID_URL_DATA -> {
-                if (selectionArgs?.size == 2) {
-                    val type = selectionArgs[0]
-                    val url = selectionArgs[1]
-                    if (type == "URL") {
-                        urlDao.findByExactUrl(url)
+                if (selectionArgs != null && selectionArgs.size == 2) {
+                    val queryType = selectionArgs[0]
+                    val queryValue = selectionArgs[1]
+                    if (queryType == "URL") {
+                        urlDao.findByExactUrl(queryValue)
                     } else {
-                        urlDao.findByUrlContaining(url)
+                        urlDao.findByUrlContaining(queryValue)
                     }
                 } else {
-                    urlDao.findAll()
+                    urlDao.findAllList()
                 }
+            }
+            ID_URL_DATA_ITEM -> {
+                val id = ContentUris.parseId(uri)
+                null
             }
             else -> null
         }
@@ -57,40 +59,49 @@ class UrlContentProvider : ContentProvider() {
     }
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        if (!::urlDao.isInitialized || values == null) return null
+        if (values == null) return null
 
         return when (uriMatcher.match(uri)) {
             ID_URL_DATA -> {
                 val id = urlDao.insert(contentValuesToUrl(values))
-                notifyChange(uri)
-                ContentUris.withAppendedId(uri, id)
+                if (id > 0) {
+                    notifyChange(uri)
+                    ContentUris.withAppendedId(uri, id)
+                } else {
+                    null
+                }
             }
             else -> null
         }
     }
 
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {
-        if (!::urlDao.isInitialized) return 0
-
         return when (uriMatcher.match(uri)) {
             ID_URL_DATA_ITEM -> {
                 val id = ContentUris.parseId(uri)
                 val count = urlDao.deleteById(id)
-                notifyChange(uri)
+                if (count > 0) {
+                    notifyChange(uri)
+                }
                 count
+            }
+            ID_URL_DATA -> {
+                0
             }
             else -> 0
         }
     }
 
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int {
-        if (!::urlDao.isInitialized || values == null) return 0
+        if (values == null) return 0
 
         return when (uriMatcher.match(uri)) {
             ID_URL_DATA_ITEM -> {
                 val url = contentValuesToUrl(values).apply { id = ContentUris.parseId(uri) }
                 val count = urlDao.update(url)
-                notifyChange(uri)
+                if (count > 0) {
+                    notifyChange(uri)
+                }
                 count
             }
             else -> 0
@@ -98,13 +109,13 @@ class UrlContentProvider : ContentProvider() {
     }
 
     private fun notifyChange(uri: Uri) {
-        context?.contentResolver?.notifyChange(uri, null)
+        context?.applicationContext?.contentResolver?.notifyChange(uri, null)
     }
 
     private fun contentValuesToUrl(values: ContentValues): Url {
         return Url(
             type = values.getAsString(Url.URL_TYPE) ?: "",
-            url = values.getAsString(Url.URL_ADDRESS) ?: ""
+            url = values.getAsString(Url.URL_ADDRESS) ?: "",
         )
     }
 

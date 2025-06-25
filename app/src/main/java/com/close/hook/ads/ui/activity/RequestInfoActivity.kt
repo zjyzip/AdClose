@@ -35,14 +35,13 @@ class RequestInfoActivity : BaseActivity() {
         val responseHeaders = intent.getStringExtra("responseHeaders") ?: ""
         val stack = intent.getStringExtra("stack") ?: ""
         val dnsHost = intent.getStringExtra("dnsHost")
-        val dnsCidr = intent.getStringExtra("dnsCidr")
         val fullAddress = intent.getStringExtra("fullAddress")
 
         val sectionsPagerAdapter = SectionsPagerAdapter(
             this, supportFragmentManager, lifecycle,
             method, urlString, requestHeaders,
             responseCode, responseMessage, responseHeaders,
-            stack, dnsHost, dnsCidr, fullAddress
+            stack, dnsHost, fullAddress
         )
         val viewPager: ViewPager2 = findViewById(R.id.view_pager)
         viewPager.adapter = sectionsPagerAdapter
@@ -65,7 +64,6 @@ class RequestInfoActivity : BaseActivity() {
         private val responseHeaders: String,
         private val stack: String,
         private val dnsHost: String?,
-        private val dnsCidr: String?,
         private val fullAddress: String?,
     ) : FragmentStateAdapter(fm, lifecycle) {
 
@@ -73,8 +71,8 @@ class RequestInfoActivity : BaseActivity() {
         private val fragmentTitles = mutableListOf<String>()
 
         init {
-            if (!dnsHost.isNullOrEmpty() && !dnsCidr.isNullOrEmpty()) {
-                fragments.add(DnsInfoFragment.newInstance(dnsHost, dnsCidr, fullAddress))
+            if (!dnsHost.isNullOrEmpty()) {
+                fragments.add(DnsInfoFragment.newInstance(dnsHost, fullAddress))
                 fragmentTitles.add("DNS Info")
             }
             if (method.isNotEmpty() || urlString.isNotEmpty() || requestHeaders.isNotEmpty()) {

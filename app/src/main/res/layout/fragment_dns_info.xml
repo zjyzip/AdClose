@@ -34,27 +34,6 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="DNS CIDR" />
-            <TextView
-                android:id="@+id/dnsCidrText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:textIsSelectable="true"
-                android:fontFamily="monospace"
-                android:lineSpacingExtra="4dp"
-                android:gravity="start"/>
-        </TableRow>
-
-        <View
-            android:layout_height="16dp"
-            android:layout_width="match_parent"/>
-
-        <TableRow>
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:text="Full Address" />
             <TextView
                 android:id="@+id/fullAddressText"

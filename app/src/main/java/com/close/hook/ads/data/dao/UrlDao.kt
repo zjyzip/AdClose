@@ -16,7 +16,7 @@ interface UrlDao {
     fun insert(url: Url): Long
 
     @Query("SELECT * FROM url_info")
-    fun findAll(): Cursor
+    fun findAllList(): Cursor
 
     @Query("DELETE FROM url_info WHERE id = :id")
     fun deleteById(id: Long): Int

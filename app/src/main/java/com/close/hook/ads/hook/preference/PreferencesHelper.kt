@@ -57,7 +57,7 @@ class PreferencesHelper {
             ?: defaultValue
     }
 
-    fun putLong(key: String, value: Long) {
+    fun setLong(key: String, value: Long) {
         prefs?.edit()?.putLong(key, value)?.apply()
     }
 
@@ -72,10 +72,9 @@ class PreferencesHelper {
     }
 
     fun getString(key: String, defaultValue: String): String {
-        return prefs?.getString(key, defaultValue)
-            ?: xPrefs?.getString(key, defaultValue)
-            ?: defaultValue
-            ?: defaultValue
+        val result = prefs?.getString(key, null)
+        return if (result != null) result
+               else xPrefs?.getString(key, defaultValue) ?: defaultValue
     }
 
     fun setString(key: String, value: String) {
