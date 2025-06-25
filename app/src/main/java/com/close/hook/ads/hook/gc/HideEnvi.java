@@ -5,32 +5,31 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Set;
-import java.util.Arrays;
 
 import com.close.hook.ads.hook.util.HookUtil;
 
 import de.robv.android.xposed.XposedBridge;
-
-/*
- * 2023.12.8-10:14
- * 参考 https://d0nuts33.github.io/2023/04/29/加固防护总结
- */
 
 public class HideEnvi {
 
     private static final Set<String> XPOSED_MAGISK_PATHS = Set.of(
             "/sbin/.magisk",
             "/system/bin/magisk",
-            "/data/data/com.topjohnwu.magisk",
-            "/system/lib/libriruloader.so",
+            "//system/bin/magiskpolicy",
+            "/data/adb/lspd",
+            "/data/adb/modules",
+            "/data/adb/magisk",
             "/system/bin/su",
             "/system/xbin/su",
             "/system/sbin/su",
+            "/bin/su",
             "/sbin/su",
-            "/vendor/bin/su"
+            "/vendor/bin/su",
+            "/system/bin/.ext/.su",
+            "/su/bin/su"
     );
 
-    private static final String[] XPOSED_FEATURES = {
+    private static final Set<String> XPOSED_MEMORY_FEATURES = Set.of(
             "xposed.installer",
             "app_process_xposed",
             "libriru_",
@@ -40,65 +39,69 @@ public class HideEnvi {
             "app_process_zposed",
             "liblspd.so",
             "libriru_edxp.so"
-    };
-
-    private static final String[] MAGISK_FEATURES = { "/.magisk", "MAGISK_INJ_" };
+    );
 
     public static void handle() {
-        hideXposedMagiskPaths();
-        hideXposedMagiskInExec();
-        hideSystemProperties();
+        hookFileExistenceChecks();
+        hookRuntimeExecutions();
+        hookSystemProperties();
         AntiEmulatorDetection.handle();
     }
 
-    private static void hideXposedMagiskPaths() {
+    private static void hookFileExistenceChecks() {
         HookUtil.hookAllMethods(File.class, "exists", "before", param -> {
             File file = (File) param.thisObject;
-            if (isXposedMagiskPath(file.getAbsolutePath())) {
+            String path = file.getAbsolutePath();
+            if (isSensitivePath(path)) {
+                XposedBridge.log("HideEnvi: Hiding path existence for: " + path);
                 param.setResult(false);
             }
         });
     }
 
-    private static boolean isXposedMagiskPath(String path) {
+    private static boolean isSensitivePath(String path) {
         return XPOSED_MAGISK_PATHS.stream().anyMatch(path::startsWith);
     }
 
-    private static void hideXposedMagiskInExec() {
+    private static void hookRuntimeExecutions() {
         HookUtil.hookAllMethods(Runtime.class, "exec", "before", param -> {
-            if (detectXposedOrMagiskInMemory()) {
-                param.setResult(null);
+            String[] cmdArray = null;
+            if (param.args[0] instanceof String[]) {
+                cmdArray = (String[]) param.args[0];
+            } else if (param.args[0] instanceof String) {
+                cmdArray = new String[]{(String) param.args[0]};
+            }
+
+            if (cmdArray != null && cmdArray.length > 0) {
+                String command = cmdArray[0].toLowerCase();
+                if (command.contains("su") || command.contains("which") || command.contains("mount") ||
+                    command.contains("getprop") || command.contains("id") || command.contains("busybox")) {
+                    if (isXposedMagiskDetectedInMemory()) {
+                        param.setResult(null);
+                        return;
+                    }
+                }
             }
         });
     }
 
-    private static boolean detectXposedOrMagiskInMemory() {
+    private static boolean isXposedMagiskDetectedInMemory() {
         try (BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (lineContainsXposedMagiskFeatures(line)) {
+                if (XPOSED_MEMORY_FEATURES.stream().anyMatch(line::contains) ||
+                    ((line.contains("/.magisk") || line.contains("MAGISK_INJ_")) && line.contains("r-xp"))) {
+                    XposedBridge.log("HideEnvi: Detected Xposed/Magisk features in memory map: " + line);
                     return true;
                 }
             }
         } catch (IOException e) {
-            XposedBridge.log("HideEnvi Error while reading maps: " + e.getMessage());
+            XposedBridge.log("HideEnvi Error reading /proc/self/maps: " + e.getMessage());
         }
         return false;
     }
 
-    private static boolean lineContainsXposedMagiskFeatures(String line) {
-        return matchesAnyFeature(line, XPOSED_FEATURES) || matchesAnyFeature(line, MAGISK_FEATURES, "r-xp") || line.length() > 8192;
-    }
-
-    private static boolean matchesAnyFeature(String line, String[] features) {
-        return Arrays.stream(features).anyMatch(line::contains);
-    }
-
-    private static boolean matchesAnyFeature(String line, String[] features, String additionalCondition) {
-        return Arrays.stream(features).anyMatch(feature -> line.contains(feature) && line.contains(additionalCondition));
-    }
-
-    private static void hideSystemProperties() {
+    private static void hookSystemProperties() {
         HookUtil.hookAllMethods("android.os.SystemProperties", "get", "before", param -> {
             String key = (String) param.args[0];
             if (isXposedMagiskProperty(key)) {
