@@ -12,6 +12,14 @@ class DataSource(context: Context) {
 
     fun getUrlList(): Flow<List<Url>> = urlDao.loadAllList()
 
+    fun searchUrls(searchText: String): Flow<List<Url>> {
+        return if (searchText.isBlank()) {
+            urlDao.loadAllList()
+        } else {
+            urlDao.searchUrls(searchText)
+        }
+    }
+
     suspend fun addUrl(url: Url) {
         if (!urlDao.isExist(url.type, url.url)) {
             urlDao.insert(url)
@@ -41,8 +49,6 @@ class DataSource(context: Context) {
     suspend fun removeUrlString(type: String, url: String) {
         urlDao.deleteUrlString(type, url)
     }
-
-    fun search(searchText: String, offset: Int, limit: Int): Flow<List<Url>> = urlDao.searchUrls(searchText, offset, limit)
 
     suspend fun isExist(type: String, url: String): Boolean {
         return withContext(Dispatchers.IO) {

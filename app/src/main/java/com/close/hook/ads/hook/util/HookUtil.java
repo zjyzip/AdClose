@@ -36,9 +36,6 @@ public class HookUtil {
             actualClass = (Class<?>) clazzObj;
         }
 
-        if (actualClass == null) {
-            XposedBridge.log("HookUtil - Class not found or invalid: " + clazzObj);
-        }
         return actualClass;
     }
 

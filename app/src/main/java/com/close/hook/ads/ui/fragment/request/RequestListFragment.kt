@@ -52,6 +52,7 @@ import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
 import java.io.FileOutputStream
@@ -98,11 +99,13 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun initObserve() {
-        viewModel.getFilteredRequestList(type).observe(viewLifecycleOwner) { filteredList ->
-            mAdapter.submitList(filteredList) {
-                val targetChild = if (filteredList.isEmpty()) 0 else 1
-                if (binding.vfContainer.displayedChild != targetChild) {
-                    binding.vfContainer.displayedChild = targetChild
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getFilteredRequestList(type).collectLatest { filteredList ->
+                mAdapter.submitList(filteredList) {
+                    val targetChild = if (filteredList.isEmpty()) 0 else 1
+                    if (binding.vfContainer.displayedChild != targetChild) {
+                        binding.vfContainer.displayedChild = targetChild
+                    }
                 }
             }
         }

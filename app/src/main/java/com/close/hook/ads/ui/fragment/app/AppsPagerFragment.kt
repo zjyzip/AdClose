@@ -41,6 +41,11 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     private lateinit var restoreFab: FloatingActionButton
     override var fabController: IOnFabClickListener? = null
 
+    companion object {
+        @JvmStatic
+        fun newInstance() = AppsPagerFragment()
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
