@@ -30,7 +30,6 @@ import org.luckypray.dexkit.result.MethodData;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.net.InetAddress;
@@ -199,7 +198,6 @@ public class RequestHook {
         }
 
         if (fullAddress == null || fullAddress.isEmpty()) {
-            XposedBridge.log(LOG_PREFIX + "processDnsRequest: No fullAddress obtained for host: " + host);
             return false;
         }
 
@@ -232,10 +230,7 @@ public class RequestHook {
 
                         if (shouldBlockHttpRequest(url, " HTTP", request, response, stackTrace)) {
                             Object emptyResponse = createEmptyResponseForHttp(response);
-
-                            Field userResponseField = httpEngine.getClass().getDeclaredField("userResponse");
-                            userResponseField.setAccessible(true);
-                            userResponseField.set(httpEngine, emptyResponse);
+                            XposedHelpers.setObjectField(httpEngine, "userResponse", emptyResponse);
                         }
                     } catch (Exception e) {
                         XposedBridge.log(LOG_PREFIX + "Exception in HTTP connection hook: " + e.getMessage());

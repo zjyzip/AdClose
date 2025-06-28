@@ -59,6 +59,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
@@ -85,11 +86,13 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initObserve() {
-        viewModel.blackListLiveData.observe(viewLifecycleOwner) { blackList ->
-            mAdapter.submitList(blackList) {
-                updateFooterAdapterVisibility(blackList)
-                binding.progressBar.visibility = View.GONE
-                updateViewFlipper(blackList.size)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.blackList.collectLatest { blackList ->
+                mAdapter.submitList(blackList) {
+                    updateFooterAdapterVisibility(blackList)
+                    binding.progressBar.visibility = View.GONE
+                    updateViewFlipper(blackList.size)
+                }
             }
         }
     }
@@ -289,7 +292,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
 
         override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-            viewModel.searchQuery.value = s.toString()
+            viewModel.setBlackListSearchQuery(s.toString())
         }
 
         override fun afterTextChanged(s: Editable) {
@@ -397,7 +400,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun prepareDataForExport(): List<String> {
-        return viewModel.blackListLiveData.value
+        return viewModel.blackList.value
             ?.map { "${it.type}, ${it.url}" }
             ?.distinct()
             ?.filter { it.contains(",") }
@@ -409,7 +412,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             uri?.let { uri ->
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        val currentList: List<Url> = viewModel.blackListLiveData.value ?: emptyList()
+                        val currentList: List<Url> = viewModel.blackList.value ?: emptyList()
                         val contentResolver = requireContext().contentResolver
 
                         val fileName = contentResolver.query(uri, null, null, null, null)?.use { cursor ->

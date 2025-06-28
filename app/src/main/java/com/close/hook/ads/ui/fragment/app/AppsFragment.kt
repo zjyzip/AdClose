@@ -16,9 +16,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.request.RequestOptions
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.ConfiguredBean
@@ -49,11 +46,10 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
 import java.io.FileOutputStream
@@ -68,6 +64,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val viewModel by viewModels<AppsViewModel>(ownerProducer = {
         if (arguments?.getString("type") == "configured") requireActivity() else this
     })
+
+    private var fragmentType: String = "user"
+
+    private var isFirstListSubmit = true
     private lateinit var mAdapter: AppsAdapter
     private val footerAdapter = FooterAdapter()
     private var appConfigDialog: BottomSheetDialog? = null
@@ -113,10 +113,11 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        with(arguments?.getString("type") ?: "user") {
-            viewModel.type = this
-            if (this == "configured")
-                (parentFragment as? IOnFabClickContainer)?.fabController = this@AppsFragment
+        fragmentType = arguments?.getString("type") ?: "user"
+        viewModel.setAppType(fragmentType)
+
+        if (fragmentType == "configured") {
+            (parentFragment as? IOnFabClickContainer)?.fabController = this@AppsFragment
         }
     }
 
@@ -256,8 +257,11 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         binding.recyclerView.apply {
             setHasFixedSize(true)
             setItemViewCacheSize(10)
-            adapter = ConcatAdapter(mAdapter)
-            layoutManager = LinearLayoutManager(requireContext())
+            adapter = ConcatAdapter(mAdapter, footerAdapter)
+            layoutManager = LinearLayoutManager(requireContext()).apply {
+                stackFromEnd = false
+                reverseLayout = false
+            }
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
@@ -275,7 +279,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         totalDy = 0
                     }
                 }
-
             })
 
             addItemDecoration(LinearItemDecoration(4.dp))
@@ -288,28 +291,30 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     private fun initObserve() {
-        viewModel.appsLiveData.observe(viewLifecycleOwner) { list ->
-            mAdapter.submitList(list)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collectLatest { state ->
+                val list = state.apps
+                val isLoading = state.isLoading
 
-            binding.swipeRefresh.isRefreshing = false
-            binding.progressBar.isVisible = false
-            updateSearchHint(list.size)
-
-            val adapter = binding.recyclerView.adapter as ConcatAdapter
-            if (list.isEmpty()) {
-                if (adapter.adapters.contains(footerAdapter)) {
-                    adapter.removeAdapter(footerAdapter)
-                }
-                if (binding.vfContainer.displayedChild != 0) {
+                if (list.isEmpty()) {
                     binding.vfContainer.displayedChild = 0
-                }
-            } else {
-                if (!adapter.adapters.contains(footerAdapter)) {
-                    adapter.addAdapter(footerAdapter)
-                }
-                if (binding.vfContainer.displayedChild != 1) {
+                } else {
                     binding.vfContainer.displayedChild = 1
                 }
+
+                updateSearchHint(list.size)
+
+                mAdapter.submitList(list) {
+                    if (isFirstListSubmit && list.isNotEmpty()) {
+                        binding.recyclerView.post {
+                            binding.recyclerView.scrollToPosition(0)
+                        }
+                        isFirstListSubmit = false
+                    }
+                }
+
+                binding.progressBar.isVisible = isLoading && list.isEmpty()
+                binding.swipeRefresh.isRefreshing = isLoading && list.isNotEmpty() && !isFirstListSubmit
             }
         }
     }
@@ -319,7 +324,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             (parentFragment as? AppsPagerFragment)?.setHint(size)
     }
 
-    @SuppressLint("SetTextI18n")
+    @SuppressLint("SetText18n")
     override fun onItemClick(appInfo: AppInfo, icon: Drawable?) {
         if (!MainActivity.isModuleActivated()) {
             AppUtils.showToast(requireContext(), getString(R.string.module_not_activated))
@@ -352,7 +357,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appConfigDialog?.show()
     }
 
-    @SuppressLint("SetTextI18n")
+    @SuppressLint("SetText18n")
     override fun onItemLongClick(appInfo: AppInfo, icon: Drawable?) {
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -409,7 +414,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         super.onResume()
         (parentFragment as? IOnTabClickContainer)?.tabController = this
         (parentFragment as? OnCLearCLickContainer)?.controller = this
-        updateSearchHint(viewModel.appsLiveData.value?.size ?: 0)
+        updateSearchHint(viewModel.uiState.value.apps.size)
     }
 
     override fun onPause() {
@@ -424,8 +429,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appInfoDialog?.dismiss()
         appConfigDialog = null
         appInfoDialog = null
-
-        viewModel.appsLiveData.removeObservers(viewLifecycleOwner)
     }
 
     override fun updateSortList(
@@ -433,8 +436,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         keyWord: String,
         isReverse: Boolean
     ) {
-        viewModel.updateList(
-            filter,
+        viewModel.updateFilterAndSort(
+            filter.first,
             keyWord,
             isReverse
         )
@@ -442,21 +445,25 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onExport() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val configuredList = viewModel.appsLiveData.value?.map { appInfo ->
+            val configuredList = viewModel.uiState.value.apps.filter { it.isEnable == 1 }.map { appInfo ->
                 ConfiguredBean(
                     appInfo.packageName,
                     prefKeys.map { key ->
                         prefsHelper.getBoolean(key + appInfo.packageName, false)
                     })
-            } ?: emptyList()
+            }
 
             if (configuredList.isEmpty()) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                }
                 return@launch
             }
 
             try {
                 val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
-                if (saveFile(content)) {
+                val tempFileSaved = saveFile(content)
+                if (tempFileSaved) {
                     withContext(Dispatchers.Main) {
                         backupSAFLauncher.launch("configured_list.json")
                     }
@@ -466,7 +473,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         requireContext(),
@@ -497,7 +503,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             }
             true
         } catch (e: IOException) {
-            e.printStackTrace()
             false
         }
     }
@@ -533,7 +538,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         }
                     }
                 } catch (e: IOException) {
-                    e.printStackTrace()
                     withContext(Dispatchers.Main) {
                         Toast.makeText(requireContext(), "${getString(R.string.export_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
                     }
@@ -569,7 +573,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), getString(R.string.import_success), Toast.LENGTH_SHORT).show()
-                            if (viewModel.type == "configured") {
+                            if (fragmentType == "configured") {
                                 viewModel.refreshApps()
                             }
                         }

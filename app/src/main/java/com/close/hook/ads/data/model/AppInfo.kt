@@ -15,5 +15,6 @@ data class AppInfo(
     val targetSdk: Int,
     val minSdk: Int,
     val isAppEnable: Int,
-    var isEnable: Int
+    var isEnable: Int,
+    val isSystem: Boolean
 ) : Parcelable

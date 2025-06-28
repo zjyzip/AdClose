@@ -79,7 +79,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         CoordinatorLayout.LayoutParams layoutParams = (CoordinatorLayout.LayoutParams) bottomNavigationView.getLayoutParams();
         layoutParams.setBehavior(hideBottomViewOnScrollBehavior);
 
-        viewPager2.setOffscreenPageLimit(1);
+        viewPager2.setOffscreenPageLimit(fragmentClasses.size()); 
 
         viewPager2.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -150,10 +150,15 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         @NonNull
         @Override
         public Fragment createFragment(int position) {
-            try {
-                return fragmentClasses.get(position).newInstance();
-            } catch (InstantiationException | IllegalAccessException e) {
-                throw new RuntimeException("Failed to create fragment instance", e);
+            Class<? extends Fragment> fragmentClass = fragmentClasses.get(position);
+            if (fragmentClass == AppsPagerFragment.class) {
+                return AppsPagerFragment.newInstance();
+            } else {
+                try {
+                    return fragmentClass.newInstance();
+                } catch (InstantiationException | IllegalAccessException e) {
+                    throw new RuntimeException("Failed to create fragment instance", e);
+                }
             }
         }
 
@@ -164,17 +169,12 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
 
         @Override
         public long getItemId(int position) {
-            return fragmentClasses.get(position).hashCode();
+            return position;
         }
 
         @Override
         public boolean containsItem(long itemId) {
-            for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
-                if (fragmentClass.hashCode() == itemId) {
-                    return true;
-                }
-            }
-            return false;
+            return itemId >= 0 && itemId < fragmentClasses.size();
         }
     }
 }
