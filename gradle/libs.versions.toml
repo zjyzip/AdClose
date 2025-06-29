@@ -6,7 +6,6 @@ ksp = "2.1.21-2.0.2"
 autoresconfig = "1.2.2"
 gson = "2.13.1"
 guava = "33.4.8-jre"
-glide = "4.16.0"
 appcenterAnalytics = "5.0.6"
 appcenterCrashes = "5.0.6"
 xposedApi = "82"
@@ -45,8 +44,6 @@ rikkaMaterial = { module = "dev.rikka.rikkax.material:material", version.ref = "
 rikkaMaterialPreference = { module = "dev.rikka.rikkax.material:material-preference", version.ref = "rikkaMaterialPreference" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
-glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
-glideCompiler = { module = "com.github.bumptech.glide:compiler", version.ref = "glide" }
 appcenterAnalytics = { module = "com.microsoft.appcenter:appcenter-analytics", version.ref = "appcenterAnalytics" }
 appcenterCrashes = { module = "com.microsoft.appcenter:appcenter-crashes", version.ref = "appcenterCrashes" }
 mpandroidchart = { module = "com.github.PhilJay:MPAndroidChart", version.ref = "mpandroidchart" }
