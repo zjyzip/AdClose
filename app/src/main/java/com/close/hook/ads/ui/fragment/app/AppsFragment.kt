@@ -256,7 +256,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         mAdapter = AppsAdapter(this)
         binding.recyclerView.apply {
             setHasFixedSize(true)
-            setItemViewCacheSize(10)
+            setItemViewCacheSize(30)
             adapter = ConcatAdapter(mAdapter, footerAdapter)
             layoutManager = LinearLayoutManager(requireContext()).apply {
                 stackFromEnd = false

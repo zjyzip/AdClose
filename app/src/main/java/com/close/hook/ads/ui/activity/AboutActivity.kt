@@ -62,7 +62,7 @@ class AboutActivity : AbsAboutActivity() {
         items.add(License("SwipeMenuRecyclerView", "aitsuki", License.MIT, "https://github.com/aitsuki/SwipeMenuRecyclerView"))
         items.add(License("RikkaX", "RikkaApps", License.MIT, "https://github.com/RikkaApps/RikkaX"))
         items.add(License("kotlin", "JetBrains", License.APACHE_2, "https://github.com/JetBrains/kotlin"))
-        items.add(License("glide", "bumptech", License.APACHE_2, "https://github.com/bumptech/glide"))
+        items.add(License("MPAndroidChart", "PhilJay", "Other", "https://github.com/PhilJay/MPAndroidChart"))
         items.add(License("Guava", "Google", License.APACHE_2, "https://github.com/google/guava"))
 
     }

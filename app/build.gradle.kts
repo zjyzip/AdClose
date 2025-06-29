@@ -149,8 +149,6 @@ dependencies {
 
     implementation(libs.gson)
     implementation(libs.guava)
-    implementation(libs.glide)
-    annotationProcessor(libs.glideCompiler)
     implementation(libs.appcenterAnalytics)
     implementation(libs.appcenterCrashes)
     implementation(libs.mpandroidchart)

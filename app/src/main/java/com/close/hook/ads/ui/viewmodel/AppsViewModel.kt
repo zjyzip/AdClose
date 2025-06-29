@@ -3,9 +3,8 @@ package com.close.hook.ads.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.close.hook.ads.R
-import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.AppFilterState
+import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.util.PrefManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,20 +38,16 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         )
     )
 
-    private val appsFlow: StateFlow<List<AppInfo>> = _filterState
-        .debounce(300L)
+    private val appsFlow = _filterState
+        .debounce(100L)
         .distinctUntilChanged()
-        .combine(repo.getAllAppsFlow()) { filter, allApps ->
-            repo.filterAndSortApps(allApps, filter)
+        .combine(repo.getAllAppsFlow()) { filter, all ->
+            repo.filterAndSortApps(all, filter)
         }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val uiState: StateFlow<UiState> = combine(appsFlow, repo.isLoading) { list, loading ->
-        UiState(apps = list, isLoading = loading)
+        UiState(list, loading)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
 
     fun setAppType(type: String) {
@@ -61,11 +56,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateFilterAndSort(order: Int, keyword: String, reverse: Boolean) {
         _filterState.update {
-            it.copy(
-                filterOrder = order,
-                keyword = keyword,
-                isReverse = reverse
-            )
+            it.copy(filterOrder = order, keyword = keyword, isReverse = reverse)
         }
     }
 
