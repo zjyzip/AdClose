@@ -7,12 +7,15 @@ import com.close.hook.ads.data.model.AppFilterState
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.util.PrefManager
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -38,17 +41,31 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         )
     )
 
-    private val appsFlow = _filterState
-        .debounce(100L)
-        .distinctUntilChanged()
-        .combine(repo.getAllAppsFlow()) { filter, all ->
-            repo.filterAndSortApps(all, filter)
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _refreshTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    val uiState: StateFlow<UiState> = combine(appsFlow, repo.isLoading) { list, loading ->
-        UiState(list, loading)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _refreshTrigger
+                .onStart { emit(Unit) }
+                .flatMapLatest {
+                    flow {
+                        _uiState.update { it.copy(isLoading = true) }
+                        emit(repo.getAllAppsFlow().first())
+                    }
+                }
+                .combine(_filterState) { apps, filter ->
+                    UiState(repo.filterAndSortApps(apps, filter), false)
+                }
+                .collect(_uiState::value::set)
+        }
+    }
+
+    fun refreshApps() {
+        _refreshTrigger.tryEmit(Unit)
+    }
 
     fun setAppType(type: String) {
         _filterState.update { it.copy(appType = type) }
@@ -58,24 +75,5 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         _filterState.update {
             it.copy(filterOrder = order, keyword = keyword, isReverse = reverse)
         }
-    }
-
-    fun refreshApps() {
-        viewModelScope.launch {
-            repo.triggerRefresh()
-            _filterState.update {
-                it.copy(
-                    filterOrder = PrefManager.order,
-                    isReverse = PrefManager.isReverse,
-                    showConfigured = PrefManager.configured,
-                    showUpdated = PrefManager.updated,
-                    showDisabled = PrefManager.disabled
-                )
-            }
-        }
-    }
-
-    init {
-        refreshApps()
     }
 }

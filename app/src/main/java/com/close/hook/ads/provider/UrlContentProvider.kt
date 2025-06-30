@@ -14,12 +14,10 @@ class UrlContentProvider : ContentProvider() {
 
     private lateinit var urlDao: UrlDao
 
-    override fun onCreate(): Boolean {
-        context?.let { ctx ->
-            urlDao = UrlDatabase.getDatabase(ctx).urlDao
-            return true
-        } ?: return false
-    }
+    override fun onCreate(): Boolean = context?.let {
+        urlDao = UrlDatabase.getDatabase(it).urlDao
+        true
+    } ?: false
 
     override fun query(
         uri: Uri,
@@ -27,103 +25,62 @@ class UrlContentProvider : ContentProvider() {
         selection: String?,
         selectionArgs: Array<String>?,
         sortOrder: String?
-    ): Cursor? {
-        return when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> {
-                if (selectionArgs != null && selectionArgs.size == 2) {
-                    val queryType = selectionArgs[0]
-                    val queryValue = selectionArgs[1]
-                    if (queryType == "URL") {
-                        urlDao.findByExactUrl(queryValue)
-                    } else {
-                        urlDao.findByUrlContaining(queryValue)
-                    }
-                } else {
-                    urlDao.findAllList()
-                }
-            }
-            ID_URL_DATA_ITEM -> {
-                val id = ContentUris.parseId(uri)
-                null
-            }
-            else -> null
-        }
+    ): Cursor? = when (uriMatcher.match(uri)) {
+        ID_URL_DATA -> handleQueryData(selectionArgs)
+        ID_URL_DATA_ITEM -> null
+        else -> null
     }
 
-    override fun getType(uri: Uri): String? {
-        return when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> "vnd.android.cursor.dir/$AUTHORITY.$URL_TABLE_NAME"
-            ID_URL_DATA_ITEM -> "vnd.android.cursor.item/$AUTHORITY.$URL_TABLE_NAME"
-            else -> null
+    private fun handleQueryData(selectionArgs: Array<String>?): Cursor =
+        if (selectionArgs != null && selectionArgs.size == 2) {
+            val (queryType, queryValue) = selectionArgs
+            if (queryType == "URL") urlDao.findByExactUrl(queryValue)
+            else urlDao.findByUrlContaining(queryValue)
+        } else {
+            urlDao.findAllList()
         }
+
+    override fun getType(uri: Uri): String? = when (uriMatcher.match(uri)) {
+        ID_URL_DATA -> "vnd.android.cursor.dir/$AUTHORITY.$URL_TABLE_NAME"
+        ID_URL_DATA_ITEM -> "vnd.android.cursor.item/$AUTHORITY.$URL_TABLE_NAME"
+        else -> null
     }
 
-    override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        if (values == null) return null
-
-        return when (uriMatcher.match(uri)) {
-            ID_URL_DATA -> {
-                val id = urlDao.insert(contentValuesToUrl(values))
-                if (id > 0) {
-                    notifyChange(uri)
-                    ContentUris.withAppendedId(uri, id)
-                } else {
-                    null
-                }
+    override fun insert(uri: Uri, values: ContentValues?): Uri? =
+        if (uriMatcher.match(uri) == ID_URL_DATA && values != null) {
+            urlDao.insert(values.toUrl()).takeIf { it > 0 }?.let { id ->
+                notifyChange(uri)
+                ContentUris.withAppendedId(uri, id)
             }
-            else -> null
-        }
-    }
+        } else null
 
-    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {
-        return when (uriMatcher.match(uri)) {
-            ID_URL_DATA_ITEM -> {
-                val id = ContentUris.parseId(uri)
-                val count = urlDao.deleteById(id)
-                if (count > 0) {
-                    notifyChange(uri)
-                }
-                count
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int =
+        if (uriMatcher.match(uri) == ID_URL_DATA_ITEM) {
+            urlDao.deleteById(ContentUris.parseId(uri)).also { count ->
+                if (count > 0) notifyChange(uri)
             }
-            ID_URL_DATA -> {
-                0
-            }
-            else -> 0
-        }
-    }
+        } else 0
 
-    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int {
-        if (values == null) return 0
-
-        return when (uriMatcher.match(uri)) {
-            ID_URL_DATA_ITEM -> {
-                val url = contentValuesToUrl(values).apply { id = ContentUris.parseId(uri) }
-                val count = urlDao.update(url)
-                if (count > 0) {
-                    notifyChange(uri)
-                }
-                count
+    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int =
+        if (uriMatcher.match(uri) == ID_URL_DATA_ITEM && values != null) {
+            val url = values.toUrl().apply { id = ContentUris.parseId(uri) }
+            urlDao.update(url).also { count ->
+                if (count > 0) notifyChange(uri)
             }
-            else -> 0
-        }
-    }
+        } else 0
 
     private fun notifyChange(uri: Uri) {
-        context?.applicationContext?.contentResolver?.notifyChange(uri, null)
+        context?.contentResolver?.notifyChange(uri, null)
     }
 
-    private fun contentValuesToUrl(values: ContentValues): Url {
-        return Url(
-            type = values.getAsString(Url.URL_TYPE) ?: "",
-            url = values.getAsString(Url.URL_ADDRESS) ?: "",
-        )
-    }
+    private fun ContentValues.toUrl(): Url =
+        Url(type = getAsString(Url.URL_TYPE).orEmpty(), url = getAsString(Url.URL_ADDRESS).orEmpty())
 
     companion object {
         const val AUTHORITY = "com.close.hook.ads.provider"
         const val URL_TABLE_NAME = "url_info"
-        const val ID_URL_DATA = 1
-        const val ID_URL_DATA_ITEM = 2
+        private const val ID_URL_DATA = 1
+        private const val ID_URL_DATA_ITEM = 2
 
         private val uriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
             addURI(AUTHORITY, URL_TABLE_NAME, ID_URL_DATA)
