@@ -30,15 +30,9 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     val blackList: StateFlow<List<Url>> = blackListSearchQuery
         .debounce(300L)
         .distinctUntilChanged()
-        .flatMapLatest { query ->
-            dataSource.searchUrls(query)
-        }
+        .flatMapLatest { dataSource.searchUrls(it) }
         .flowOn(Dispatchers.IO)
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _requestList = MutableStateFlow<List<BlockedRequest>>(emptyList())
     val requestList: StateFlow<List<BlockedRequest>> = _requestList.asStateFlow()
@@ -46,34 +40,29 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     private val _requestSearchQuery = MutableStateFlow("")
     val requestSearchQuery: StateFlow<String> = _requestSearchQuery.asStateFlow()
 
-    fun getFilteredRequestList(type: String): StateFlow<List<BlockedRequest>> {
-        return combine(
+    fun getFilteredRequestList(type: String): StateFlow<List<BlockedRequest>> =
+        combine(
             _requestList,
             _requestSearchQuery.debounce(300L).distinctUntilChanged()
         ) { requests, query ->
-            val filteredByType = when (type) {
-                "all" -> requests
-                "block" -> requests.filter { it.isBlocked == true }
-                "pass" -> requests.filter { it.isBlocked == false }
-                else -> emptyList()
-            }
-
-            if (query.isBlank()) {
-                filteredByType
-            } else {
-                filteredByType.filter {
-                    it.request.contains(query, ignoreCase = true) ||
-                    it.packageName.contains(query, ignoreCase = true) ||
-                    it.appName.contains(query, ignoreCase = true)
+            requests.filter { request ->
+                val matchesType = when (type) {
+                    "all" -> true
+                    "block" -> request.isBlocked == true
+                    "pass" -> request.isBlocked == false
+                    else -> false
                 }
+                val matchesQuery = query.isBlank() ||
+                        request.request.contains(query, ignoreCase = true) ||
+                        request.packageName.contains(query, ignoreCase = true) ||
+                        request.appName.contains(query, ignoreCase = true)
+
+                matchesType && matchesQuery
             }
-        }.flowOn(Dispatchers.Default)
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                emptyList()
-            )
-    }
+        }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
 
     fun setBlackListSearchQuery(query: String) {
         _blackListSearchQuery.value = query
@@ -84,15 +73,11 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addUrl(url: Url) = viewModelScope.launch(Dispatchers.IO) {
-        if (!dataSource.isExist(url.type, url.url)) {
-            dataSource.addUrl(url)
-        }
+        if (!dataSource.isExist(url.type, url.url)) dataSource.addUrl(url)
     }
 
     fun removeList(list: List<Url>) = viewModelScope.launch(Dispatchers.IO) {
-        if (list.isNotEmpty()) {
-            dataSource.removeList(list)
-        }
+        if (list.isNotEmpty()) dataSource.removeList(list)
     }
 
     fun removeUrl(url: Url) = viewModelScope.launch(Dispatchers.IO) {
@@ -104,9 +89,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addListUrl(list: List<Url>) = viewModelScope.launch(Dispatchers.IO) {
-        if (list.isNotEmpty()) {
-            dataSource.addListUrl(list)
-        }
+        if (list.isNotEmpty()) dataSource.addListUrl(list)
     }
 
     fun updateUrl(url: Url) = viewModelScope.launch(Dispatchers.IO) {
@@ -119,7 +102,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateRequestList(item: BlockedRequest) {
         _requestList.update { list ->
-            list.toMutableList().apply { add(0, item) }
+            listOf(item) + list
         }
     }
 

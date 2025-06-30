@@ -15,7 +15,10 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.databinding.InstallsItemAppBinding
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
@@ -28,11 +31,11 @@ class AppsAdapter(
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
 
     private val iconCache = object : LruCache<String, Drawable>(200) {}
-    private val loadingMap = ConcurrentHashMap<String, Job>()
+    private val loadingJobs = ConcurrentHashMap<String, Job>()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
         val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return AppViewHolder(binding, onItemClickListener, onIconLoadListener, iconCache, loadingMap)
+        return AppViewHolder(binding, onItemClickListener, onIconLoadListener, iconCache, loadingJobs)
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
@@ -45,82 +48,55 @@ class AppsAdapter(
     }
 
     class AppViewHolder(
-        val binding: InstallsItemAppBinding,
+        private val binding: InstallsItemAppBinding,
         private val onItemClickListener: OnItemClickListener,
         private val onIconLoadListener: OnIconLoadListener?,
         private val iconCache: LruCache<String, Drawable>,
-        private val loadingMap: ConcurrentHashMap<String, Job>
+        private val loadingJobs: ConcurrentHashMap<String, Job>
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        private lateinit var currentAppInfo: AppInfo
         private var iconLoadJob: Job? = null
-        private val targetSizePx by lazy {
-            (binding.root.context.resources.displayMetrics.density * 48).roundToInt() // 48dp
-        }
+        private val targetSizePx by lazy { (binding.root.context.resources.displayMetrics.density * 48).roundToInt() }
 
         init {
             binding.root.setOnClickListener {
-                onItemClickListener.onItemClick(currentAppInfo, binding.appIcon.drawable)
+                (binding.root.tag as? AppInfo)?.let { appInfo ->
+                    onItemClickListener.onItemClick(appInfo, binding.appIcon.drawable)
+                }
             }
             binding.root.setOnLongClickListener {
-                onItemClickListener.onItemLongClick(currentAppInfo, binding.appIcon.drawable)
+                (binding.root.tag as? AppInfo)?.let { appInfo ->
+                    onItemClickListener.onItemLongClick(appInfo, binding.appIcon.drawable)
+                }
                 true
             }
         }
 
         fun bind(appInfo: AppInfo) {
-            currentAppInfo = appInfo
+            binding.root.tag = appInfo
             binding.appName.text = appInfo.appName
             binding.packageName.text = appInfo.packageName
             binding.appVersion.text = "${appInfo.versionName} (${appInfo.versionCode})"
 
             val context = binding.root.context
-            val key = appInfo.packageName
-            val cached = iconCache[key]
-
-            if (cached != null) {
-                binding.appIcon.setImageDrawable(cached)
+            val packageName = appInfo.packageName
+            iconCache[packageName]?.let {
+                binding.appIcon.setImageDrawable(it)
                 return
             }
 
             binding.appIcon.setImageDrawable(null)
-            val lifecycleOwner = context as? LifecycleOwner ?: return
+            cancelIconLoadJob()
 
-            iconLoadJob = lifecycleOwner.lifecycleScope.launch(Dispatchers.Main.immediate) {
-                if (loadingMap.containsKey(key)) return@launch
+            (context as? LifecycleOwner)?.lifecycleScope?.launch(Dispatchers.Main.immediate) {
+                if (loadingJobs.containsKey(packageName)) return@launch
 
                 val job = launch(Dispatchers.IO) {
-                    var icon: Drawable? = null
-                    var sizeBytes = 0
-                    var width = 0
-                    var height = 0
-                    var memoryBytes = 0
-
-                    val loadTime = measureTimeMillis {
-                        icon = loadAndCompressIcon(context, key, targetSizePx)?.also {
-                            if (it is BitmapDrawable) {
-                                val bmp = it.bitmap
-                                width = bmp.width
-                                height = bmp.height
-                                memoryBytes = bmp.byteCount
-                                sizeBytes = bmp.allocationByteCount
-                            }
-                        }
-                    }
-
-                    icon?.let {
-                        iconCache.put(key, it)
-                        withContext(Dispatchers.Main) {
-                            binding.appIcon.setImageDrawable(it)
-                        }
-                        onIconLoadListener?.onIconLoaded(loadTime, sizeBytes, width, height, memoryBytes)
-                    }
-
-                    loadingMap.remove(key)
+                    loadAndDisplayIcon(context, packageName, targetSizePx)
                 }
-
-                loadingMap[key] = job
+                loadingJobs[packageName] = job
                 job.join()
+                loadingJobs.remove(packageName, job)
             }
         }
 
@@ -129,32 +105,70 @@ class AppsAdapter(
             iconLoadJob = null
         }
 
-        private fun loadAndCompressIcon(context: Context, packageName: String, targetSize: Int): Drawable? {
-            val cacheFile = File(context.cacheDir, "icons/$packageName.png")
-            if (cacheFile.exists()) {
-                BitmapFactory.decodeFile(cacheFile.absolutePath)?.let {
-                    return BitmapDrawable(context.resources, it)
+        private suspend fun loadAndDisplayIcon(context: Context, packageName: String, targetSize: Int) {
+            var icon: Drawable? = null
+            var loadTimeMs: Long = 0
+            var sizeBytes = 0
+            var width = 0
+            var height = 0
+            var memoryBytes = 0
+
+            loadTimeMs = measureTimeMillis {
+                icon = loadAndCompressIcon(context, packageName, targetSize)?.also { drawable ->
+                    if (drawable is BitmapDrawable) {
+                        drawable.bitmap?.let { bmp ->
+                            width = bmp.width
+                            height = bmp.height
+                            memoryBytes = bmp.byteCount
+                            sizeBytes = bmp.allocationByteCount
+                        }
+                    }
                 }
             }
 
-            val original = try {
-                context.packageManager.getApplicationIcon(packageName)
-            } catch (_: Exception) {
+            icon?.let { drawable ->
+                iconCache.put(packageName, drawable)
+                withContext(Dispatchers.Main) {
+                    binding.appIcon.setImageDrawable(drawable)
+                }
+                onIconLoadListener?.onIconLoaded(loadTimeMs, sizeBytes, width, height, memoryBytes)
+            }
+        }
+
+        private fun loadAndCompressIcon(context: Context, packageName: String, targetSize: Int): Drawable? {
+            val cacheFile = File(context.cacheDir, "icons/$packageName.png")
+
+            cacheFile.takeIf { it.exists() }?.let {
+                BitmapFactory.decodeFile(it.absolutePath)?.let { bitmap ->
+                    return BitmapDrawable(context.resources, bitmap)
+                }
+            }
+
+            return try {
+                context.packageManager.getApplicationIcon(packageName)?.let { originalDrawable ->
+                    if (originalDrawable is BitmapDrawable) {
+                        originalDrawable.bitmap?.let { originalBitmap ->
+                            val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, targetSize, targetSize, true)
+                            saveBitmapToCache(resizedBitmap, cacheFile)
+                            BitmapDrawable(context.resources, resizedBitmap)
+                        } ?: originalDrawable
+                    } else {
+                        originalDrawable
+                    }
+                }
+            } catch (e: Exception) {
                 null
             }
+        }
 
-            if (original is BitmapDrawable) {
-                val resized = Bitmap.createScaledBitmap(original.bitmap, targetSize, targetSize, true)
-                try {
-                    cacheFile.parentFile?.mkdirs()
-                    FileOutputStream(cacheFile).use {
-                        resized.compress(Bitmap.CompressFormat.PNG, 85, it)
-                    }
-                } catch (_: Exception) {}
-                return BitmapDrawable(context.resources, resized)
+        private fun saveBitmapToCache(bitmap: Bitmap, cacheFile: File) {
+            try {
+                cacheFile.parentFile?.mkdirs()
+                FileOutputStream(cacheFile).use {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 85, it)
+                }
+            } catch (_: Exception) {
             }
-
-            return original
         }
     }
 

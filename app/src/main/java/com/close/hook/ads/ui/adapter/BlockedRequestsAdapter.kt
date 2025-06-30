@@ -10,8 +10,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.annotation.AttrRes
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
@@ -38,37 +36,20 @@ class BlockedRequestsAdapter(
 
     var tracker: SelectionTracker<BlockedRequest>? = null
 
-    companion object {
-        @SuppressLint("SimpleDateFormat")
-        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-
-        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<BlockedRequest>() {
-            override fun areItemsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
-                oldItem.timestamp == newItem.timestamp
-
-            override fun areContentsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
-                oldItem == newItem
-        }
-    }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-        ViewHolder(
-            ItemBlockedRequestBinding.inflate(
-                LayoutInflater.from(parent.context),
-                parent,
-                false
-            )
-        )
+        ViewHolder(ItemBlockedRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false))
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
-        holder.bind(item)
+        holder.bind(item, tracker?.isSelected(item) ?: false)
     }
 
     inner class ViewHolder(private val binding: ItemBlockedRequestBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        private lateinit var currentRequest: BlockedRequest
+        init {
+            setupListeners()
+        }
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
             object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
@@ -76,56 +57,51 @@ class BlockedRequestsAdapter(
                 override fun getSelectionKey(): BlockedRequest? = getItem(bindingAdapterPosition)
             }
 
-        init {
-            setupListeners()
-        }
-
         @SuppressLint("SetTextI18n")
-        fun bind(request: BlockedRequest) = with(binding) {
-            currentRequest = request
-
-            val requestType = request.blockType ?: run {
-                if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
-            }
+        fun bind(request: BlockedRequest, isSelected: Boolean) = with(binding) {
+            root.tag = request
+            cardView.isChecked = isSelected
 
             appName.text = "${request.appName} ${if (request.stack.isNullOrEmpty()) "" else " LOG"}"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
 
-            CoroutineScope(Dispatchers.Main).launch {
-                val iconDrawable = withContext(Dispatchers.IO) {
-                    onGetAppIcon(request.packageName)
-                }
-                if (currentRequest.packageName == request.packageName) {
-                    icon.setImageDrawable(iconDrawable)
-                }
+            blockType.text = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
+                if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
             }
-
             blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
-            blockType.text = requestType
 
-            updateBlockStatusUI(request.isBlocked)
-
-            tracker?.let { cardView.isChecked = it.isSelected(request) }
+            updateBlockStatusUI(request)
+            loadAppIcon(request.packageName)
         }
 
         private fun setupListeners() {
             binding.apply {
                 cardView.setOnClickListener {
-                    openRequestInfoActivity(currentRequest)
+                    (root.tag as? BlockedRequest)?.let { openRequestInfoActivity(it) }
                 }
                 copy.setOnClickListener {
-                    currentRequest.request?.let { copyToClipboard(it) }
+                    (root.tag as? BlockedRequest)?.request?.let { copyToClipboard(it) }
                 }
                 block.setOnClickListener {
-                    toggleBlockStatus(currentRequest)
+                    (root.tag as? BlockedRequest)?.let { toggleBlockStatus(it) }
+                }
+            }
+        }
+
+        private fun loadAppIcon(packageName: String) {
+            CoroutineScope(Dispatchers.Main).launch {
+                val iconDrawable = withContext(Dispatchers.IO) {
+                    onGetAppIcon(packageName)
+                }
+                if ((binding.root.tag as? BlockedRequest)?.packageName == packageName) {
+                    binding.icon.setImageDrawable(iconDrawable)
                 }
             }
         }
 
         private fun openRequestInfoActivity(request: BlockedRequest) {
-            val context = itemView.context
-            Intent(context, RequestInfoActivity::class.java).apply {
+            Intent(itemView.context, RequestInfoActivity::class.java).apply {
                 putExtra("method", request.method)
                 putExtra("urlString", request.urlString)
                 putExtra("requestHeaders", request.requestHeaders)
@@ -135,24 +111,21 @@ class BlockedRequestsAdapter(
                 putExtra("stack", request.stack)
                 putExtra("dnsHost", request.dnsHost)
                 putExtra("fullAddress", request.fullAddress)
-            }.also {
-                context.startActivity(it)
-            }
+            }.also { itemView.context.startActivity(it) }
         }
 
         private fun copyToClipboard(text: String) {
             val context = itemView.context
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            clipboard?.setPrimaryClip(ClipData.newPlainText("request", text))
+            (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(ClipData.newPlainText("request", text))
             Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, text), Toast.LENGTH_SHORT).show()
         }
 
         private fun toggleBlockStatus(request: BlockedRequest) {
             CoroutineScope(Dispatchers.IO).launch {
-                val requestType = request.blockType ?: run {
+                val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
                     if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
                 }
-                val urlToToggle = request.url ?: request.request
+                val urlToToggle = request.url ?: request.request.orEmpty()
 
                 val newIsBlocked = if (request.isBlocked == true) {
                     dataSource.removeUrlString(requestType, urlToToggle)
@@ -165,31 +138,45 @@ class BlockedRequestsAdapter(
                 val updatedRequest = request.copy(isBlocked = newIsBlocked)
 
                 withContext(Dispatchers.Main) {
-                    val currentList = currentList.toMutableList()
-                    val index = currentList.indexOfFirst { it.timestamp == updatedRequest.timestamp }
+                    val currentListCopy = currentList.toMutableList()
+                    val index = currentListCopy.indexOfFirst { it.timestamp == updatedRequest.timestamp }
                     if (index != -1) {
-                        currentList[index] = updatedRequest
-                        submitList(currentList) {
-                        }
+                        currentListCopy[index] = updatedRequest
+                        submitList(currentListCopy)
                     }
                 }
             }
         }
 
-        private fun updateBlockStatusUI(isBlocked: Boolean?) {
+        private fun updateBlockStatusUI(request: BlockedRequest) {
             val context = itemView.context
-            binding.block.text = if (isBlocked == true) {
+            val isBlocked = request.isBlocked == true
+
+            binding.block.text = if (isBlocked) {
                 context.getString(R.string.remove_from_blocklist)
             } else {
                 context.getString(R.string.add_to_blocklist)
             }
 
-            val textColor = if (isBlocked == true) {
+            val textColor = if (isBlocked) {
                 MaterialColors.getColor(context, com.google.android.material.R.attr.colorError, 0)
             } else {
                 MaterialColors.getColor(context, com.google.android.material.R.attr.colorControlNormal, 0)
             }
             binding.request.setTextColor(textColor)
+        }
+    }
+
+    companion object {
+        @SuppressLint("SimpleDateFormat")
+        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+
+        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<BlockedRequest>() {
+            override fun areItemsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
+                oldItem.timestamp == newItem.timestamp
+
+            override fun areContentsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
+                oldItem == newItem
         }
     }
 }
