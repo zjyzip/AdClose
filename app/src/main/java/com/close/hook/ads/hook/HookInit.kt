@@ -1,6 +1,5 @@
 package com.close.hook.ads.hook
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.close.hook.ads.hook.gc.DisableClipboard
@@ -12,7 +11,7 @@ import com.close.hook.ads.hook.gc.network.RequestHook
 import com.close.hook.ads.hook.ha.AppAds
 import com.close.hook.ads.hook.ha.SDKAds
 import com.close.hook.ads.hook.ha.SDKAdsKit
-import com.close.hook.ads.hook.preference.PreferencesHelper
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexDumpUtil
 import com.close.hook.ads.hook.util.HookUtil
@@ -33,28 +32,20 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         ContextUtil.setupContextHooks()
     }
 
-    @SuppressLint("SuspiciousIndentation")
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
-        if (shouldIgnorePackage(lpparam)) return
+        if (lpparam.appInfo == null || !lpparam.isFirstApplication) return
 
         try {
-            val prefsHelper = PreferencesHelper()
-            val manager = SettingsManager(prefsHelper, lpparam.packageName)
-
-            applySettings(manager)
-
             ContextUtil.addOnApplicationContextInitializedCallback {
-                val ctx = ContextUtil.applicationContext ?: return@addOnApplicationContextInitializedCallback
-                setupAppHooks(ctx, manager)
-            }
+                val ctx = ContextUtil.applicationContext!!
+                val manager = SettingsManager(lpparam.packageName, HookPrefs(ctx))
 
+                setupAppHooks(ctx, manager)
+                applySettings(manager)
+            }
         } catch (e: Throwable) {
             XposedBridge.log("$TAG | handleLoadPackage error: ${Log.getStackTraceString(e)}")
         }
-    }
-
-    private fun shouldIgnorePackage(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
-        return lpparam.appInfo == null || !lpparam.isFirstApplication
     }
 
     private fun setupAppHooks(context: Context, manager: SettingsManager) {

@@ -77,7 +77,7 @@ class UrlContentProvider : ContentProvider() {
         Url(type = getAsString(Url.URL_TYPE).orEmpty(), url = getAsString(Url.URL_ADDRESS).orEmpty())
 
     companion object {
-        const val AUTHORITY = "com.close.hook.ads.provider"
+        const val AUTHORITY = "com.close.hook.ads.provider.url"
         const val URL_TABLE_NAME = "url_info"
         private const val ID_URL_DATA = 1
         private const val ID_URL_DATA_ITEM = 2

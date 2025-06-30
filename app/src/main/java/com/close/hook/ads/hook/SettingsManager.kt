@@ -1,33 +1,35 @@
 package com.close.hook.ads.hook
 
-import com.close.hook.ads.hook.preference.PreferencesHelper
+import com.close.hook.ads.preference.HookPrefs
 
 class SettingsManager(
-    private val prefsHelper: PreferencesHelper,
-    private val packageName: String
+    private val packageName: String,
+    private val prefsHelper: HookPrefs
 ) {
 
+    private fun key(suffix: String): String = "switch_${suffix}_$packageName"
+
     val isHandlePlatformAdEnabled: Boolean
-        get() = prefsHelper.getBoolean("switch_one_$packageName", false)
+        get() = prefsHelper.getBoolean(key("one"), false)
 
     val isRequestHookEnabled: Boolean
-        get() = prefsHelper.getBoolean("switch_two_$packageName", false)
+        get() = prefsHelper.getBoolean(key("two"), false)
 
     val isHideVPNStatusEnabled: Boolean
-        get() = prefsHelper.getBoolean("switch_three_$packageName", false)
+        get() = prefsHelper.getBoolean(key("three"), false)
 
     val isDisableFlagSecureEnabled: Boolean
-        get() = prefsHelper.getBoolean("switch_four_$packageName", false)
+        get() = prefsHelper.getBoolean(key("four"), false)
 
     val isDisableShakeAdEnabled: Boolean
-        get() = prefsHelper.getBoolean("switch_five_$packageName", false)
+        get() = prefsHelper.getBoolean(key("five"), false)
 
     val isHideEnivEnabled: Boolean
-        get() = prefsHelper.getBoolean("switch_six_$packageName", false)
+        get() = prefsHelper.getBoolean(key("six"), false)
 
     val isDisableClipboard: Boolean
-        get() = prefsHelper.getBoolean("switch_seven_$packageName", false)
+        get() = prefsHelper.getBoolean(key("seven"), false)
 
     val isHookTipEnabled: Boolean
-        get() = prefsHelper.getBoolean("switch_eight_$packageName", false)
+        get() = prefsHelper.getBoolean(key("eight"), false)
 }

@@ -22,7 +22,7 @@ import com.close.hook.ads.data.model.ConfiguredBean
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
-import com.close.hook.ads.hook.preference.PreferencesHelper
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.adapter.FooterAdapter
@@ -98,7 +98,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         "switch_eight_"
     )
     private val prefsHelper by lazy {
-        PreferencesHelper(requireContext())
+        HookPrefs(requireContext())
     }
 
     companion object {

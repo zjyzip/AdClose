@@ -20,7 +20,7 @@ import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
-import com.close.hook.ads.util.PrefManager
+import com.close.hook.ads.preference.PrefManager
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog

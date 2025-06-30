@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.model.AppFilterState
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
-import com.close.hook.ads.util.PrefManager
+import com.close.hook.ads.preference.PrefManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

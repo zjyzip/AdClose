@@ -19,7 +19,7 @@ import com.close.hook.ads.ui.fragment.settings.SettingsFragment;
 import com.close.hook.ads.util.INavContainer;
 import com.close.hook.ads.util.OnBackPressContainer;
 import com.close.hook.ads.util.OnBackPressListener;
-import com.close.hook.ads.util.PrefManager;
+import com.close.hook.ads.preference.PrefManager;
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 

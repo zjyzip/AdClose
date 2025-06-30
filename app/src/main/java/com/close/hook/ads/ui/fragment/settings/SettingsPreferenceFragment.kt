@@ -19,7 +19,7 @@ import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.util.CacheDataManager
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
-import com.close.hook.ads.util.PrefManager
+import com.close.hook.ads.preference.PrefManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.core.util.ResourceUtils
 import rikka.material.app.LocaleDelegate

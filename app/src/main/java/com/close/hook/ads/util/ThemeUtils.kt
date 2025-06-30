@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.StyleRes
 import com.close.hook.ads.R
 import com.google.android.material.color.DynamicColors
+import com.close.hook.ads.preference.PrefManager
 import rikka.core.util.ResourceUtils
 
 object ThemeUtils {

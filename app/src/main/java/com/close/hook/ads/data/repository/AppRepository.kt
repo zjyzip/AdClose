@@ -8,7 +8,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.model.AppFilterState
 import com.close.hook.ads.data.model.AppInfo
-import com.close.hook.ads.hook.preference.PreferencesHelper
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.activity.MainActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +18,7 @@ import java.io.File
 
 class AppRepository(private val packageManager: PackageManager) {
 
-    private val prefsHelper by lazy { PreferencesHelper(closeApp) }
+    private val prefsHelper by lazy { HookPrefs(closeApp) }
 
     private val enableKeys = arrayOf(
         "switch_one_", "switch_two_", "switch_three_", "switch_four_",

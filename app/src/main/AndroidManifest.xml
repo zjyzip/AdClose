@@ -24,8 +24,13 @@
 
         <provider
             android:name=".provider.UrlContentProvider"
-            android:authorities="com.close.hook.ads.provider"
+            android:authorities="com.close.hook.ads.provider.url"
             android:enabled="true"
+            android:exported="true" />
+        
+        <provider
+            android:name=".provider.HookPrefsProvider"
+            android:authorities="com.close.hook.ads.provider.prefs"
             android:exported="true" />
 
         <activity android:name=".debug.PerformanceActivity" />
