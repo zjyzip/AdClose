@@ -13,7 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
@@ -25,7 +24,6 @@ import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
-import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.AppUtils
@@ -39,7 +37,7 @@ import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
-import com.close.hook.ads.util.setSpaceFooterView
+import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
@@ -67,9 +65,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private var fragmentType: String = "user"
 
-    private var isFirstListSubmit = true
     private lateinit var mAdapter: AppsAdapter
-    private val footerAdapter = FooterAdapter()
+    private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private var appConfigDialog: BottomSheetDialog? = null
     private var appInfoDialog: BottomSheetDialog? = null
     private lateinit var configBinding: BottomDialogSwitchesBinding
@@ -254,14 +251,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private fun initView() {
         mAdapter = AppsAdapter(this)
+        footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
+
         binding.recyclerView.apply {
             setHasFixedSize(true)
             setItemViewCacheSize(30)
-            adapter = ConcatAdapter(mAdapter, footerAdapter)
-            layoutManager = LinearLayoutManager(requireContext()).apply {
-                stackFromEnd = false
-                reverseLayout = false
-            }
+            adapter = mAdapter
+            layoutManager = LinearLayoutManager(requireContext())
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
@@ -281,12 +277,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 }
             })
 
+            addItemDecoration(footerSpaceDecoration)
             addItemDecoration(LinearItemDecoration(4.dp))
             FastScrollerBuilder(this).useMd2Style().build()
-        }
-
-        binding.vfContainer.setOnDisplayedChildChangedListener {
-            binding.recyclerView.setSpaceFooterView(footerAdapter)
         }
     }
 
@@ -296,25 +289,15 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 val list = state.apps
                 val isLoading = state.isLoading
 
-                if (list.isEmpty()) {
-                    binding.vfContainer.displayedChild = 0
-                } else {
-                    binding.vfContainer.displayedChild = 1
+                _binding?.let { currentBinding ->
+                    currentBinding.vfContainer.displayedChild = if (list.isEmpty()) 0 else 1
+
+                    updateSearchHint(list.size)
+
+                    mAdapter.submitList(list)
+                    currentBinding.progressBar.isVisible = isLoading && list.isEmpty()
+                    currentBinding.swipeRefresh.isRefreshing = isLoading && list.isNotEmpty()
                 }
-
-                updateSearchHint(list.size)
-
-                mAdapter.submitList(list) {
-                    if (isFirstListSubmit && list.isNotEmpty()) {
-                        binding.recyclerView.post {
-                            binding.recyclerView.scrollToPosition(0)
-                        }
-                        isFirstListSubmit = false
-                    }
-                }
-
-                binding.progressBar.isVisible = isLoading && list.isEmpty()
-                binding.swipeRefresh.isRefreshing = isLoading && list.isNotEmpty() && !isFirstListSubmit
             }
         }
     }

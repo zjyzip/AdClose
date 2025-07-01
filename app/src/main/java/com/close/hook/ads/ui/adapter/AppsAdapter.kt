@@ -55,18 +55,17 @@ class AppsAdapter(
         private val loadingJobs: ConcurrentHashMap<String, Job>
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        private var iconLoadJob: Job? = null
         private val targetSizePx by lazy { (binding.root.context.resources.displayMetrics.density * 48).roundToInt() }
 
         init {
             binding.root.setOnClickListener {
-                (binding.root.tag as? AppInfo)?.let { appInfo ->
-                    onItemClickListener.onItemClick(appInfo, binding.appIcon.drawable)
+                (binding.root.tag as? AppInfo)?.let { app ->
+                    onItemClickListener.onItemClick(app, binding.appIcon.drawable)
                 }
             }
             binding.root.setOnLongClickListener {
-                (binding.root.tag as? AppInfo)?.let { appInfo ->
-                    onItemClickListener.onItemLongClick(appInfo, binding.appIcon.drawable)
+                (binding.root.tag as? AppInfo)?.let { app ->
+                    onItemClickListener.onItemLongClick(app, binding.appIcon.drawable)
                 }
                 true
             }
@@ -90,30 +89,26 @@ class AppsAdapter(
 
             (context as? LifecycleOwner)?.lifecycleScope?.launch(Dispatchers.Main.immediate) {
                 if (loadingJobs.containsKey(packageName)) return@launch
-
                 val job = launch(Dispatchers.IO) {
                     loadAndDisplayIcon(context, packageName, targetSizePx)
+                    loadingJobs.remove(packageName)
                 }
                 loadingJobs[packageName] = job
-                job.join()
-                loadingJobs.remove(packageName, job)
             }
         }
 
         fun cancelIconLoadJob() {
-            iconLoadJob?.cancel()
-            iconLoadJob = null
         }
 
         private suspend fun loadAndDisplayIcon(context: Context, packageName: String, targetSize: Int) {
             var icon: Drawable? = null
-            var loadTimeMs: Long = 0
+            var loadTime = 0L
             var sizeBytes = 0
             var width = 0
             var height = 0
             var memoryBytes = 0
 
-            loadTimeMs = measureTimeMillis {
+            loadTime = measureTimeMillis {
                 icon = loadAndCompressIcon(context, packageName, targetSize)?.also { drawable ->
                     if (drawable is BitmapDrawable) {
                         drawable.bitmap?.let { bmp ->
@@ -126,45 +121,41 @@ class AppsAdapter(
                 }
             }
 
-            icon?.let { drawable ->
-                iconCache.put(packageName, drawable)
+            icon?.let {
+                iconCache.put(packageName, it)
                 withContext(Dispatchers.Main) {
-                    binding.appIcon.setImageDrawable(drawable)
+                    binding.appIcon.setImageDrawable(it)
                 }
-                onIconLoadListener?.onIconLoaded(loadTimeMs, sizeBytes, width, height, memoryBytes)
+                onIconLoadListener?.onIconLoaded(loadTime, sizeBytes, width, height, memoryBytes)
             }
         }
 
         private fun loadAndCompressIcon(context: Context, packageName: String, targetSize: Int): Drawable? {
-            val cacheFile = File(context.cacheDir, "icons/$packageName.png")
-
-            cacheFile.takeIf { it.exists() }?.let {
-                BitmapFactory.decodeFile(it.absolutePath)?.let { bitmap ->
-                    return BitmapDrawable(context.resources, bitmap)
+            val file = File(context.cacheDir, "icons/$packageName.png")
+            file.takeIf { it.exists() }?.let {
+                BitmapFactory.decodeFile(it.absolutePath)?.let { bmp ->
+                    return BitmapDrawable(context.resources, bmp)
                 }
             }
-
             return try {
-                context.packageManager.getApplicationIcon(packageName)?.let { originalDrawable ->
-                    if (originalDrawable is BitmapDrawable) {
-                        originalDrawable.bitmap?.let { originalBitmap ->
-                            val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, targetSize, targetSize, true)
-                            saveBitmapToCache(resizedBitmap, cacheFile)
-                            BitmapDrawable(context.resources, resizedBitmap)
-                        } ?: originalDrawable
-                    } else {
-                        originalDrawable
-                    }
+                context.packageManager.getApplicationIcon(packageName)?.let { original ->
+                    if (original is BitmapDrawable) {
+                        original.bitmap?.let {
+                            val resized = Bitmap.createScaledBitmap(it, targetSize, targetSize, true)
+                            saveBitmapToCache(resized, file)
+                            BitmapDrawable(context.resources, resized)
+                        } ?: original
+                    } else original
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
 
-        private fun saveBitmapToCache(bitmap: Bitmap, cacheFile: File) {
+        private fun saveBitmapToCache(bitmap: Bitmap, file: File) {
             try {
-                cacheFile.parentFile?.mkdirs()
-                FileOutputStream(cacheFile).use {
+                file.parentFile?.mkdirs()
+                FileOutputStream(file).use {
                     bitmap.compress(Bitmap.CompressFormat.PNG, 85, it)
                 }
             } catch (_: Exception) {
@@ -185,7 +176,6 @@ class AppsAdapter(
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<AppInfo>() {
             override fun areItemsTheSame(oldItem: AppInfo, newItem: AppInfo): Boolean =
                 oldItem.packageName == newItem.packageName
-
             override fun areContentsTheSame(oldItem: AppInfo, newItem: AppInfo): Boolean =
                 oldItem == newItem
         }

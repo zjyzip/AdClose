@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -41,8 +40,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         )
     )
 
-    private val _refreshTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-
+    private val _refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
@@ -51,15 +49,16 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             _refreshTrigger
                 .onStart { emit(Unit) }
                 .flatMapLatest {
-                    flow {
-                        _uiState.update { it.copy(isLoading = true) }
-                        emit(repo.getAllAppsFlow().first())
-                    }
+                    repo.getAllAppsFlow()
+                        .onStart { _uiState.update { it.copy(isLoading = true) } }
                 }
-                .combine(_filterState) { apps, filter ->
-                    UiState(repo.filterAndSortApps(apps, filter), false)
+                .combine(_filterState) { rawApps, filter ->
+                    UiState(
+                        apps = repo.filterAndSortApps(rawApps, filter),
+                        isLoading = false
+                    )
                 }
-                .collect(_uiState::value::set)
+                .collect { _uiState.value = it }
         }
     }
 
@@ -73,7 +72,11 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateFilterAndSort(order: Int, keyword: String, reverse: Boolean) {
         _filterState.update {
-            it.copy(filterOrder = order, keyword = keyword, isReverse = reverse)
+            it.copy(
+                filterOrder = order,
+                keyword = keyword,
+                isReverse = reverse
+            )
         }
     }
 }

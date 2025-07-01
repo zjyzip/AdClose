@@ -23,7 +23,6 @@ import androidx.recyclerview.selection.Selection
 import androidx.recyclerview.selection.SelectionPredicates
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.selection.StorageStrategy
-import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
@@ -32,7 +31,6 @@ import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentHostsListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
-import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
@@ -46,7 +44,7 @@ import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
-import com.close.hook.ads.util.setSpaceFooterView
+import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
@@ -68,7 +66,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
     private val appsViewModel by viewModels<AppsViewModel>(ownerProducer = { requireActivity() })
     private lateinit var mAdapter: BlockedRequestsAdapter
-    private val footerAdapter = FooterAdapter()
+    private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private lateinit var type: String
     private var tracker: SelectionTracker<BlockedRequest>? = null
     private var selectedItems: Selection<BlockedRequest>? = null
@@ -116,10 +114,11 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             requireContext().packageManager.getApplicationIcon(packageName)
         }
 
-        binding.recyclerView.apply {
-            adapter = ConcatAdapter(mAdapter)
-            layoutManager = LinearLayoutManager(requireContext())
+        footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
+        binding.recyclerView.apply {
+            adapter = mAdapter
+            layoutManager = LinearLayoutManager(requireContext())
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
                 private val scrollThreshold = 20
@@ -138,11 +137,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                 }
             })
 
+            addItemDecoration(footerSpaceDecoration)
             FastScrollerBuilder(this).useMd2Style().build()
-        }
-
-        binding.vfContainer.setOnDisplayedChildChangedListener {
-            binding.recyclerView.setSpaceFooterView(footerAdapter)
         }
     }
 

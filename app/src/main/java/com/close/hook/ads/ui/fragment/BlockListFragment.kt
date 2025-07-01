@@ -36,7 +36,6 @@ import androidx.recyclerview.selection.Selection
 import androidx.recyclerview.selection.SelectionPredicates
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.selection.StorageStrategy
-import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
@@ -45,14 +44,13 @@ import com.close.hook.ads.databinding.FragmentBlockListBinding
 import com.close.hook.ads.databinding.ItemBlockListAddBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
-import com.close.hook.ads.ui.adapter.FooterAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.dp
-import com.close.hook.ads.util.setSpaceFooterView
+import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -66,7 +64,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private val viewModel by viewModels<BlockListViewModel>()
     private lateinit var mAdapter: BlockListAdapter
-    private val footerAdapter = FooterAdapter()
+    private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private var tracker: SelectionTracker<Url>? = null
     private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
@@ -84,12 +82,41 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         setUpTracker()
         addObserverToTracker()
     }
+    
+    private fun initView() {
+        mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
+        footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
+
+        binding.recyclerView.apply {
+            adapter = mAdapter
+            layoutManager = LinearLayoutManager(requireContext())
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                private var totalDy = 0
+                private val scrollThreshold = 20
+
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    totalDy += dy
+                    val navContainer = activity as? INavContainer
+                    if (totalDy > scrollThreshold) {
+                        navContainer?.hideNavigation()
+                        totalDy = 0
+                    } else if (totalDy < -scrollThreshold) {
+                        navContainer?.showNavigation()
+                        totalDy = 0
+                    }
+                }
+            })
+
+            addItemDecoration(footerSpaceDecoration)
+            FastScrollerBuilder(this).useMd2Style().build()
+        }
+    }
 
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.blackList.collectLatest { blackList ->
                 mAdapter.submitList(blackList) {
-                    updateFooterAdapterVisibility(blackList)
                     binding.progressBar.visibility = View.GONE
                     updateViewFlipper(blackList.size)
                 }
@@ -97,19 +124,10 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
-    private fun updateFooterAdapterVisibility(blackList: List<Url>) {
-        val adapter = binding.recyclerView.adapter as? ConcatAdapter
-        if (blackList.isEmpty()) {
-            adapter?.removeAdapter(footerAdapter)
-        } else if (adapter != null && !adapter.adapters.contains(footerAdapter)) {
-            adapter.addAdapter(footerAdapter)
-        }
-    }
-
     private fun updateViewFlipper(blackListSize: Int) {
         val targetChild = if (blackListSize == 0) 0 else 1
-        if (binding.vfContainer.displayedChild != blackListSize) {
-            binding.vfContainer.displayedChild = blackListSize
+        if (binding.vfContainer.displayedChild != targetChild) {
+            binding.vfContainer.displayedChild = targetChild
         }
     }
 
@@ -244,50 +262,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         mAdapter.tracker = tracker
     }
 
-    private fun initView() {
-        mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
-
-        binding.recyclerView.apply {
-            adapter = ConcatAdapter(mAdapter)
-            layoutManager = LinearLayoutManager(requireContext())
-            addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                private var totalDy = 0
-                private val scrollThreshold = 20
-
-                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                    super.onScrolled(recyclerView, dx, dy)
-                    totalDy += dy
-                    val navContainer = activity as? INavContainer
-                    if (totalDy > scrollThreshold) {
-                        navContainer?.hideNavigation()
-                        totalDy = 0
-                    } else if (totalDy < -scrollThreshold) {
-                        navContainer?.showNavigation()
-                        totalDy = 0
-                    }
-                }
-
-            })
-            FastScrollerBuilder(this).useMd2Style().build()
-        }
-
-        binding.vfContainer.setOnDisplayedChildChangedListener {
-            binding.recyclerView.setSpaceFooterView(footerAdapter)
-        }
-    }
-
-    private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
-        binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
-        (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
-        if (focus) {
-            binding.editText.requestFocus()
-            imm?.showSoftInput(binding.editText, 0)
-        } else {
-            binding.editText.clearFocus()
-            imm?.hideSoftInputFromWindow(binding.editText.windowToken, 0)
-        }
-    }
-
     private val textWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
 
@@ -309,6 +283,18 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 )
             }
         binding.editText.addTextChangedListener(textWatcher)
+    }
+
+    private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
+        binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
+        (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
+        if (focus) {
+            binding.editText.requestFocus()
+            imm?.showSoftInput(binding.editText, 0)
+        } else {
+            binding.editText.clearFocus()
+            imm?.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+        }
     }
 
     private fun initButton() {
