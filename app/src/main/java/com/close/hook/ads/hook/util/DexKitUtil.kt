@@ -1,6 +1,7 @@
 package com.close.hook.ads.hook.util
 
 import android.content.Context
+import android.os.Debug
 import com.close.hook.ads.util.AppUtils
 import com.google.common.cache.CacheBuilder
 import de.robv.android.xposed.XposedBridge
@@ -18,14 +19,19 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 object DexKitUtil {
-    private const val LOG_PREFIX = "[DexKitUtil]"
+    private const val LOG_TAG = "DexKitUtil"
+    private const val ENABLE_DEBUG_LOG = false
+
     private val bridgeRef = AtomicReference<DexKitBridge?>()
-    private val nativeLoaded = AtomicBoolean(false)
     private val usageCount = AtomicInteger(0)
     private val isReleasing = AtomicBoolean(false)
+    private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var releaseJob: Job? = null
 
-    private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private const val BASE_DELAY_MS = 2000L
+    private const val MAX_DELAY_MS = 30000L
+    private var releaseDelay = BASE_DELAY_MS
+    private var lastScheduleTime = 0L
 
     private val methodCache = CacheBuilder.newBuilder()
         .maximumSize(300)
@@ -34,143 +40,129 @@ object DexKitUtil {
         .build<String, List<MethodData>>()
 
     val context: Context
-        get() = ContextUtil.applicationContext
-            ?: error("$LOG_PREFIX Context is not initialized")
+        get() = ContextUtil.applicationContext ?: error("[$LOG_TAG] Context is not initialized")
+
+    private val nativeLoaded: Boolean by lazy {
+        runCatching {
+            val start = System.nanoTime()
+            System.loadLibrary("dexkit")
+            log("Native loaded in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+            true
+        }.getOrElse {
+            log("Native load failed: ${it.message}")
+            false
+        }
+    }
 
     fun <T> withBridge(block: (DexKitBridge) -> T): T? {
         if (!AppUtils.isMainProcess(context)) {
-            XposedBridge.log("$LOG_PREFIX Skipped in non-main process")
+            log("Skipped: non-main process PID=${android.os.Process.myPid()}")
             return null
         }
 
-        if (!ensureBridgeInitialized()) {
-            XposedBridge.log("$LOG_PREFIX DexKitBridge init failed")
-            return null
-        }
+        if (!nativeLoaded) return null
+        val start = System.nanoTime()
+
+        val bridge = bridgeRef.get() ?: synchronized(bridgeRef) {
+            bridgeRef.get() ?: createBridge(context)?.also {
+                bridgeRef.set(it)
+                releaseDelay = BASE_DELAY_MS
+                log("Bridge created in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+            }
+        } ?: return null
 
         cancelPendingRelease()
-        val count = usageCount.incrementAndGet()
-        XposedBridge.log("$LOG_PREFIX usageCount++ => $count")
+        usageCount.incrementAndGet()
 
         return try {
-            bridgeRef.get()?.let(block)
+            block(bridge)
         } finally {
-            val remaining = usageCount.updateAndGet { maxOf(it - 1, 0) }
-            XposedBridge.log("$LOG_PREFIX usageCount-- => $remaining")
-            if (remaining == 0) scheduleDelayedRelease()
+            if (usageCount.decrementAndGet() == 0) scheduleRelease()
+        }.also {
+            val elapsed = (System.nanoTime() - start) / 1_000_000.0
+            log("Bridge ready. Elapsed: %.2fms, usageCount=%d", elapsed, usageCount.get())
         }
     }
 
     fun getCachedOrFindMethods(key: String, findLogic: () -> List<MethodData>?): List<MethodData> {
-        return runCatching {
-            methodCache.get(key) {
-                val result = findLogic().orEmpty()
-                XposedBridge.log("$LOG_PREFIX Cached $key -> ${result.size} methods")
-                result
-            }
-        }.getOrElse {
-            XposedBridge.log("$LOG_PREFIX Cache fail for $key: ${it.message}")
-            emptyList()
-        }
-    }
-
-    private fun ensureBridgeInitialized(): Boolean {
-        if (!nativeLoaded.get()) {
-            synchronized(nativeLoaded) {
-                if (nativeLoaded.compareAndSet(false, true)) {
-                    runCatching {
-                        System.loadLibrary("dexkit")
-                        XposedBridge.log("$LOG_PREFIX Native library loaded")
-                    }.onFailure {
-                        XposedBridge.log("$LOG_PREFIX Bridge init failed: ${it.message}")
-                        nativeLoaded.set(false)
-                        return false
-                    }
-                }
-            }
-        }
-
-        if (bridgeRef.get() != null) return true
-
-        synchronized(this) {
-            if (bridgeRef.get() != null) return true
-
-            val bridge = runCatching {
-                createDexKitBridge(context)
-            }.onFailure {
-                XposedBridge.log("$LOG_PREFIX Bridge init failed: ${it.message}")
-            }.getOrNull()
-
-            if (bridge != null) {
-                bridgeRef.set(bridge)
-                return true
-            } else {
-                XposedBridge.log("$LOG_PREFIX DexKitBridge init failed")
-                return false
+        val start = System.nanoTime()
+        return methodCache.get(key) {
+            findLogic().orEmpty().also {
+                log("Cache miss '$key'. Found ${it.size}, took %.2fms", (System.nanoTime() - start) / 1_000_000.0)
             }
         }
     }
 
-    private fun createDexKitBridge(context: Context): DexKitBridge? {
+    private fun createBridge(context: Context): DexKitBridge? {
         val loader = context.classLoader
-        val loaderName = loader::class.java.name
-        XposedBridge.log("$LOG_PREFIX Bridge initialized with classLoader: $loaderName ($loader)")
-
-        return runCatching {
-            when {
-                loaderName.endsWith("PathClassLoader") -> {
-                    DexKitBridge.create(loader, true)
-                }
-                else -> {
-                    XposedBridge.log("$LOG_PREFIX Unknown ClassLoader: $loaderName, fallback to apkPath")
-                    DexKitBridge.create(context.applicationInfo.sourceDir)
-                }
+        return try {
+            if (loader::class.java.name.endsWith("PathClassLoader")) {
+                DexKitBridge.create(loader, true)
+            } else {
+                log("Unknown ClassLoader: ${loader::class.java.name}, fallback to apkPath")
+                DexKitBridge.create(context.applicationInfo.sourceDir)
             }
-        }.onFailure {
-            XposedBridge.log("$LOG_PREFIX Bridge init failed: ${it.message}")
-        }.getOrNull()
+        } catch (e: Exception) {
+            log("Bridge creation failed: ${e.message}")
+            null
+        }
     }
 
-    private fun scheduleDelayedRelease() {
-        if (releaseJob?.isActive == true) {
-            XposedBridge.log("$LOG_PREFIX Release already scheduled")
-            return
+    private fun scheduleRelease() {
+        if (releaseJob?.isActive == true) return
+
+        val now = System.currentTimeMillis()
+        releaseDelay = if (lastScheduleTime == 0L || now - lastScheduleTime > MAX_DELAY_MS) {
+            BASE_DELAY_MS
+        } else {
+            (releaseDelay * 1.5).toLong().coerceAtMost(MAX_DELAY_MS)
         }
+        lastScheduleTime = now
 
         releaseJob = releaseScope.launch {
-            delay(5000)
-            if (usageCount.get() <= 0) {
-                releaseBridge()
-            } else {
-                XposedBridge.log("$LOG_PREFIX Release cancelled, usageCount=${usageCount.get()}")
-            }
+            log("Scheduled release in ${releaseDelay / 1000}s")
+            delay(releaseDelay)
+            if (usageCount.get() <= 0) releaseBridge()
+            else log("Release skipped: usageCount=${usageCount.get()}")
         }
-
-        XposedBridge.log("$LOG_PREFIX Scheduled release in 5s")
     }
 
     private fun cancelPendingRelease() {
-        releaseJob?.cancel()
-        releaseJob = null
+        if (releaseJob?.isActive == true) {
+            releaseJob?.cancel()
+            releaseJob = null
+            releaseDelay = BASE_DELAY_MS
+            lastScheduleTime = 0L
+        }
     }
 
     private fun releaseBridge() {
         if (!isReleasing.compareAndSet(false, true)) {
-            XposedBridge.log("$LOG_PREFIX Already releasing, skipped")
+            log("Already releasing, skipped")
             return
         }
 
-        try {
-            bridgeRef.getAndSet(null)?.let {
-                runCatching {
-                    it.close()
-                    XposedBridge.log("$LOG_PREFIX Bridge released")
-                }.onFailure {
-                    XposedBridge.log("$LOG_PREFIX Release failed: ${it.message}")
-                }
-            }
-        } finally {
-            isReleasing.set(false)
+        val before = Debug.getNativeHeapAllocatedSize() shr 20
+        log("Memory before close: ${before}MB")
+
+        bridgeRef.getAndSet(null)?.run {
+            close()
+            log("Bridge released")
+        } ?: log("Release skipped: Bridge already null")
+
+        val after = Debug.getNativeHeapAllocatedSize() shr 20
+        log("Memory after close: ${after}MB")
+
+        isReleasing.set(false)
+        releaseDelay = BASE_DELAY_MS
+        lastScheduleTime = 0L
+    }
+
+    private fun log(msg: String, vararg args: Any?) {
+        if (ENABLE_DEBUG_LOG) {
+            val time = System.currentTimeMillis()
+            val mem = Debug.getNativeHeapAllocatedSize() shr 20
+            XposedBridge.log("[$LOG_TAG] T:$time M:${mem}MB ${msg.format(*args)}")
         }
     }
 }
