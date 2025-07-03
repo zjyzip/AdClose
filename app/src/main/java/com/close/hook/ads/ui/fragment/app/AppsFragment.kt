@@ -415,14 +415,20 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     override fun updateSortList(
-        filter: Pair<Int, List<Int>>,
+        filterOrder: Int,
         keyWord: String,
-        isReverse: Boolean
+        isReverse: Boolean,
+        showConfigured: Boolean, 
+        showUpdated: Boolean,
+        showDisabled: Boolean
     ) {
         viewModel.updateFilterAndSort(
-            filter.first,
+            filterOrder,
             keyWord,
-            isReverse
+            isReverse,
+            showConfigured,
+            showUpdated,
+            showDisabled
         )
     }
 

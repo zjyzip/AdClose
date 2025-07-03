@@ -66,17 +66,19 @@ class AppRepository(private val packageManager: PackageManager) {
         val now = System.currentTimeMillis()
         val comp = getComparator(filter.filterOrder, filter.isReverse)
         return apps.asSequence()
-            .filter {
-                (filter.appType == "user" && !it.isSystem) ||
-                (filter.appType == "system" && it.isSystem) ||
-                (filter.appType == "configured" && it.isEnable == 1) ||
-                (filter.appType != "user" && filter.appType != "system" && filter.appType != "configured")
+            .filter { app ->
+                when (filter.appType) {
+                    "user" -> !app.isSystem
+                    "system" -> app.isSystem
+                    "configured" -> app.isEnable == 1
+                    else -> true
+                }
             }
-            .filter {
-                (filter.keyword.isBlank() || it.appName.contains(filter.keyword, true) || it.packageName.contains(filter.keyword, true)) &&
-                (!filter.showConfigured || it.isEnable == 1) &&
-                (!filter.showUpdated || now - it.lastUpdateTime < 259200000L) &&
-                (!filter.showDisabled || it.isAppEnable == 0)
+            .filter { app ->
+                (filter.keyword.isBlank() || app.appName.contains(filter.keyword, true) || app.packageName.contains(filter.keyword, true)) &&
+                (!filter.showConfigured || app.isEnable == 1) &&
+                (!filter.showUpdated || now - app.lastUpdateTime < 259200000L) &&
+                (!filter.showDisabled || app.isAppEnable == 0)
             }
             .sortedWith(comp)
             .toList()

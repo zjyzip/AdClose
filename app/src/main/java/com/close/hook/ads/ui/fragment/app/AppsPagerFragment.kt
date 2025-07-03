@@ -175,15 +175,13 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     }
 
     private fun updateSortAndFilters() {
-        val filters = mutableListOf<Int>()
-        if (PrefManager.configured) filters.add(R.string.filter_configured)
-        if (PrefManager.updated) filters.add(R.string.filter_recent_update)
-        if (PrefManager.disabled) filters.add(R.string.filter_disabled)
-
         controller?.updateSortList(
-            Pair(PrefManager.order, filters),
+            PrefManager.order,
             binding.editText.text.toString(),
-            PrefManager.isReverse
+            PrefManager.isReverse,
+            PrefManager.configured,
+            PrefManager.updated,
+            PrefManager.disabled
         )
     }
 
