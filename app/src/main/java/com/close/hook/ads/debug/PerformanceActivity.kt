@@ -7,8 +7,8 @@ import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.close.hook.ads.databinding.ActivityPerformanceBinding
 import com.close.hook.ads.ui.activity.BaseActivity
-import com.close.hook.ads.debug.fragment.AdapterPerformanceFragment
 import com.close.hook.ads.debug.fragment.AppRepoPerformanceFragment
+import com.close.hook.ads.debug.fragment.RoomPerformanceFragment
 import com.google.android.material.tabs.TabLayoutMediator
 
 @RequiresApi(Build.VERSION_CODES.N)
@@ -18,12 +18,12 @@ class PerformanceActivity : BaseActivity() {
 
     private val fragments = listOf(
         AppRepoPerformanceFragment(),
-        AdapterPerformanceFragment()
+        RoomPerformanceFragment()
     )
 
     private val tabTitles = listOf(
         "应用Repository性能",
-        "列表Adapter性能"
+        "数据库Room性能",
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {

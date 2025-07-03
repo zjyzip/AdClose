@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    tools:context=".debug.fragments.AdapterPerformanceFragment">
+    android:padding="16dp">
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/runAdapterTestButton"
+        android:id="@+id/runTestButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:text="运行 Adapter 性能测试"
+        android:text="运行数据库测试"
         app:cornerRadius="8dp" />
 
     <com.google.android.material.card.MaterialCardView
@@ -25,7 +23,7 @@
         app:contentPadding="16dp">
 
         <TextView
-            android:id="@+id/timeSummaryAdapter"
+            android:id="@+id/timeSummary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="平均耗时：--"
@@ -42,11 +40,10 @@
         app:cardElevation="2dp"
         app:contentPadding="8dp">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerView"
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/memoryChart"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            tools:listitem="@layout/installs_item_app" />
+            android:layout_height="match_parent" />
 
     </com.google.android.material.card.MaterialCardView>
 
@@ -67,12 +64,12 @@
         app:contentPadding="8dp">
 
         <ScrollView
-            android:id="@+id/scrollViewAdapter"
+            android:id="@+id/scrollView"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
             <TextView
-                android:id="@+id/logViewAdapter"
+                android:id="@+id/logView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:lineSpacingExtra="4dp"
@@ -81,5 +78,4 @@
                 android:textColor="?attr/colorOnSurfaceVariant" />
         </ScrollView>
     </com.google.android.material.card.MaterialCardView>
-
 </LinearLayout>

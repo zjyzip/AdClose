@@ -40,7 +40,7 @@ object DexKitUtil {
         .build<String, List<MethodData>>()
 
     val context: Context
-        get() = ContextUtil.applicationContext ?: error("[$LOG_TAG] Context is not initialized")
+        get() = ContextUtil.applicationContext!!
 
     private val nativeLoaded: Boolean by lazy {
         runCatching {

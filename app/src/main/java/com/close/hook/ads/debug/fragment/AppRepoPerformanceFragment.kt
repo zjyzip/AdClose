@@ -207,12 +207,12 @@ class AppRepoPerformanceFragment : Fragment() {
             val gcCollectionCount = withContext(Dispatchers.Default) { getGcCollectionCount() }
 
             chartLabels.add("运行 $testRunId")
-            chartDataEntries[ChartMetric.JAVA_HEAP]?.add(Entry(index.toFloat(), memoryMetrics.javaHeapMb.toFloat()))
-            chartDataEntries[ChartMetric.NATIVE_HEAP]?.add(Entry(index.toFloat(), memoryMetrics.nativeHeapMb.toFloat()))
-            chartDataEntries[ChartMetric.PSS_USAGE]?.add(Entry(index.toFloat(), memoryMetrics.pssMb.toFloat()))
-            chartDataEntries[ChartMetric.THREAD_COUNT]?.add(Entry(index.toFloat(), currentThreadCount.toFloat()))
-            chartDataEntries[ChartMetric.GC_COUNT]?.add(Entry(index.toFloat(), gcCollectionCount.toFloat()))
-            chartDataEntries[ChartMetric.FPS]?.add(Entry(index.toFloat(), averageFps))
+            chartDataEntries[ChartMetric.JAVA_HEAP]?.add(Entry(index.toFloat(), normalizeValue(memoryMetrics.javaHeapMb.toFloat())))
+            chartDataEntries[ChartMetric.NATIVE_HEAP]?.add(Entry(index.toFloat(), normalizeValue(memoryMetrics.nativeHeapMb.toFloat())))
+            chartDataEntries[ChartMetric.PSS_USAGE]?.add(Entry(index.toFloat(), normalizeValue(memoryMetrics.pssMb.toFloat())))
+            chartDataEntries[ChartMetric.THREAD_COUNT]?.add(Entry(index.toFloat(), normalizeValue(currentThreadCount.toFloat())))
+            chartDataEntries[ChartMetric.GC_COUNT]?.add(Entry(index.toFloat(), normalizeValue(gcCollectionCount.toFloat())))
+            chartDataEntries[ChartMetric.FPS]?.add(Entry(index.toFloat(), normalizeValue(averageFps)))
 
             log("""
                 --- ✅ 第 $testRunId 次测试结果 ---
@@ -239,6 +239,12 @@ class AppRepoPerformanceFragment : Fragment() {
         binding.timeSummary.text = summary
         log(summary)
         log("\n🚀 应用数据获取与过滤性能测试完成。")
+    }
+
+    private fun normalizeValue(value: Float): Float {
+        val min = 0f
+        val max = 1f
+        return (value - min) / (max - min)
     }
 
     private fun clearAllPerformanceData() {
