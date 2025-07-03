@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Process
 import android.widget.Toast
 
@@ -20,6 +21,15 @@ object AppUtils {
             pm.getApplicationLabel(appInfo)
         } catch (e: PackageManager.NameNotFoundException) {
             packageName
+        }
+    }
+
+    fun extractHostOrSelf(input: String): String {
+        return try {
+            val uri = Uri.parse(input)
+            uri.host?.lowercase() ?: input.lowercase()
+        } catch (e: Exception) {
+            input.lowercase()
         }
     }
 

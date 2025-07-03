@@ -10,9 +10,11 @@ import android.net.Uri
 import com.close.hook.ads.data.dao.UrlDao
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
+import com.close.hook.ads.util.AppUtils
 import kotlinx.coroutines.runBlocking
 
 class UrlContentProvider : ContentProvider() {
+
     private lateinit var urlDao: UrlDao
 
     override fun onCreate(): Boolean = context?.let {
@@ -36,9 +38,16 @@ class UrlContentProvider : ContentProvider() {
         val columns = arrayOf("id", "type", "url")
         if (selectionArgs == null || selectionArgs.size < 2) return urlDao.findAllList()
         val queryValue = selectionArgs[1]
-        urlDao.findMatchByUrlPrefix(queryValue)?.let { return toMatrixCursor(columns, it) }
-        urlDao.findMatchByHost(queryValue)?.let { return toMatrixCursor(columns, it) }
-        urlDao.findMatchByKeyword(queryValue)?.let { return toMatrixCursor(columns, it) }
+        urlDao.findMatchByUrlPrefix(queryValue)
+            ?.takeIf { it.type.equals("url", ignoreCase = true) }
+            ?.let { return toMatrixCursor(columns, it) }
+        val host = AppUtils.extractHostOrSelf(queryValue)
+        urlDao.findDomainByHost(host)
+            ?.takeIf { it.type.equals("domain", ignoreCase = true) }
+            ?.let { return toMatrixCursor(columns, it) }
+        urlDao.findMatchByKeyword(queryValue)
+            ?.takeIf { it.type.equals("keyword", ignoreCase = true) }
+            ?.let { return toMatrixCursor(columns, it) }
         return MatrixCursor(columns)
     }
 

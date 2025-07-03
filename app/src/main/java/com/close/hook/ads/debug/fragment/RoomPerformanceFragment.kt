@@ -42,7 +42,7 @@ class RoomPerformanceFragment : Fragment() {
         QUERY_EXACT("精准URL前缀 (ms)", Color.parseColor("#00897B")),
         QUERY_LIKE("任意包含 (ms)", Color.parseColor("#43A047")),
         PREFIX("URL前缀查找 (ms)", Color.parseColor("#D81B60")),
-        HOST("Host包含查找 (ms)", Color.parseColor("#8E24AA")),
+        HOST("Domain包含查找 (ms)", Color.parseColor("#8E24AA")),
         KEYWORD("Keyword查找 (ms)", Color.parseColor("#3949AB")),
         DELETE("删除 (ms)", Color.parseColor("#FB8C00"))
     }
@@ -116,7 +116,7 @@ class RoomPerformanceFragment : Fragment() {
         var totalQueryExactTime = 0L
         var totalQueryLikeTime = 0L
         var totalPrefixTime = 0L
-        var totalHostTime = 0L
+        var totalDomainTime = 0L
         var totalKeywordTime = 0L
         var totalDeleteTime = 0L
         postText { binding.timeSummary.text = "" }
@@ -124,7 +124,7 @@ class RoomPerformanceFragment : Fragment() {
             val testRunId = index + 1
             postLog("--- ▶️ 第 $testRunId 次Room测试开始 ---")
             val urlList = List(TEST_DATA_SIZE) { i ->
-                Url(if (i % 2 == 0) "url" else "host", "https://test.com/$i", 0L)
+                Url(if (i % 2 == 0) "url" else "domain", "https://test.com/$i", 0L)
             }
             System.gc()
             val insertTime = measureTimeMillis { dataSource.insertAll(urlList) }
@@ -144,9 +144,9 @@ class RoomPerformanceFragment : Fragment() {
             val prefixTime = measureTimeMillis { dataSource.findMatchByUrlPrefix("https://test.com/1000") }
             totalPrefixTime += prefixTime
             postLog("🔷 URL前缀查找: ${prefixTime}ms")
-            val hostTime = measureTimeMillis { dataSource.findMatchByHost("https://test.com/1000") }
-            totalHostTime += hostTime
-            postLog("🔶 Host包含查找: ${hostTime}ms")
+            val domainTime = measureTimeMillis { dataSource.findMatchByDomain("https://test.com/1000") }
+            totalDomainTime += domainTime
+            postLog("🔶 Domain包含查找: ${domainTime}ms")
             val keywordTime = measureTimeMillis { dataSource.findMatchByKeyword("1000") }
             totalKeywordTime += keywordTime
             postLog("🔸 Keyword查找: ${keywordTime}ms")
@@ -159,7 +159,7 @@ class RoomPerformanceFragment : Fragment() {
             chartDataEntries[ChartMetric.QUERY_EXACT]?.add(Entry(index.toFloat(), queryExactTime.toFloat()))
             chartDataEntries[ChartMetric.QUERY_LIKE]?.add(Entry(index.toFloat(), queryLikeTime.toFloat()))
             chartDataEntries[ChartMetric.PREFIX]?.add(Entry(index.toFloat(), prefixTime.toFloat()))
-            chartDataEntries[ChartMetric.HOST]?.add(Entry(index.toFloat(), hostTime.toFloat()))
+            chartDataEntries[ChartMetric.HOST]?.add(Entry(index.toFloat(), domainTime.toFloat()))
             chartDataEntries[ChartMetric.KEYWORD]?.add(Entry(index.toFloat(), keywordTime.toFloat()))
             chartDataEntries[ChartMetric.DELETE]?.add(Entry(index.toFloat(), deleteTime.toFloat()))
             postLog("--- 第 $testRunId 次Room测试结束 ---\n")
@@ -174,7 +174,7 @@ class RoomPerformanceFragment : Fragment() {
             平均精准URL前缀: ${totalQueryExactTime / TEST_REPEAT_TIMES}ms
             平均任意包含: ${totalQueryLikeTime / TEST_REPEAT_TIMES}ms
             平均URL前缀查找: ${totalPrefixTime / TEST_REPEAT_TIMES}ms
-            平均Host包含查找: ${totalHostTime / TEST_REPEAT_TIMES}ms
+            平均Domain包含查找: ${totalDomainTime / TEST_REPEAT_TIMES}ms
             平均Keyword查找: ${totalKeywordTime / TEST_REPEAT_TIMES}ms
             平均删除: ${totalDeleteTime / TEST_REPEAT_TIMES}ms
             -----------------------

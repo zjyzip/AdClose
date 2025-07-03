@@ -32,17 +32,14 @@ interface UrlDao {
     @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' OR type LIKE '%' || :searchText || '%' ORDER BY id DESC")
     fun searchUrls(searchText: String): Flow<List<Url>>
 
-    @Query("SELECT * FROM url_info WHERE type = 'url' AND :testUrl LIKE url || '%' LIMIT 1")
+    @Query("SELECT * FROM url_info WHERE LOWER(type) = 'url' AND :testUrl LIKE url || '%' LIMIT 1")
     suspend fun findMatchByUrlPrefix(testUrl: String): Url?
 
-    @Query("SELECT * FROM url_info WHERE type = 'host' AND :testUrl LIKE '%' || url || '%' LIMIT 1")
-    suspend fun findMatchByHost(testUrl: String): Url?
+    @Query("SELECT * FROM url_info WHERE LOWER(type) = 'domain' AND url = :host LIMIT 1")
+    suspend fun findDomainByHost(host: String): Url?
 
-    @Query("SELECT * FROM url_info WHERE :testUrl LIKE '%' || url || '%' LIMIT 1")
+    @Query("SELECT * FROM url_info WHERE LOWER(type) = 'keyword' AND :testUrl LIKE '%' || url || '%' LIMIT 1")
     suspend fun findMatchByKeyword(testUrl: String): Url?
-
-    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE url = :url")
-    fun isExist(url: String): Boolean
 
     @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = :type AND url = :url")
     fun isExist(type: String, url: String): Boolean
