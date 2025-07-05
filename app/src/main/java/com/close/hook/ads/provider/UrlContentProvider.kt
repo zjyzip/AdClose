@@ -5,13 +5,10 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.UriMatcher
 import android.database.Cursor
-import android.database.MatrixCursor
 import android.net.Uri
 import com.close.hook.ads.data.dao.UrlDao
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
-import com.close.hook.ads.util.AppUtils
-import kotlinx.coroutines.runBlocking
 
 class UrlContentProvider : ContentProvider() {
 
@@ -29,32 +26,24 @@ class UrlContentProvider : ContentProvider() {
         selectionArgs: Array<String>?,
         sortOrder: String?
     ): Cursor? = when (uriMatcher.match(uri)) {
-        ID_URL_DATA -> runBlocking { handleQuery(selectionArgs) }
+        ID_URL_DATA -> handleQueryData(selectionArgs)
         ID_URL_DATA_ITEM -> null
         else -> null
     }
 
-    private suspend fun handleQuery(selectionArgs: Array<String>?): Cursor {
-        val columns = arrayOf("id", "type", "url")
-        if (selectionArgs == null || selectionArgs.size < 2) return urlDao.findAllList()
-        val queryValue = selectionArgs[1]
-        urlDao.findMatchByUrlPrefix(queryValue)
-            ?.takeIf { it.type.equals("url", ignoreCase = true) }
-            ?.let { return toMatrixCursor(columns, it) }
-        val host = AppUtils.extractHostOrSelf(queryValue)
-        urlDao.findDomainByHost(host)
-            ?.takeIf { it.type.equals("domain", ignoreCase = true) }
-            ?.let { return toMatrixCursor(columns, it) }
-        urlDao.findMatchByKeyword(queryValue)
-            ?.takeIf { it.type.equals("keyword", ignoreCase = true) }
-            ?.let { return toMatrixCursor(columns, it) }
-        return MatrixCursor(columns)
-    }
+    private fun handleQueryData(selectionArgs: Array<String>?): Cursor? {
+        if (selectionArgs == null || selectionArgs.size != 2) {
+            return urlDao.findAllList()
+        }
 
-    private fun toMatrixCursor(columns: Array<String>, url: Url): MatrixCursor {
-        val cursor = MatrixCursor(columns)
-        cursor.addRow(arrayOf(url.id, url.type, url.url))
-        return cursor
+        val (queryType, queryValue) = selectionArgs
+
+        return when (queryType) {
+            "URL" -> urlDao.findUrlMatch(queryValue)
+            "Domain" -> urlDao.findDomainMatch(queryValue)
+            "KeyWord" -> urlDao.findKeywordMatch(queryValue)
+            else -> null
+        }
     }
 
     override fun getType(uri: Uri): String? = when (uriMatcher.match(uri)) {
@@ -98,6 +87,7 @@ class UrlContentProvider : ContentProvider() {
         const val URL_TABLE_NAME = "url_info"
         private const val ID_URL_DATA = 1
         private const val ID_URL_DATA_ITEM = 2
+
         private val uriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
             addURI(AUTHORITY, URL_TABLE_NAME, ID_URL_DATA)
             addURI(AUTHORITY, "$URL_TABLE_NAME/#", ID_URL_DATA_ITEM)

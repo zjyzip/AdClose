@@ -135,21 +135,27 @@ class RoomPerformanceFragment : Fragment() {
             totalQueryAllTime += queryAllTime
             postLog("🔍 查询所有: ${queryAllTime}ms")
             delay(400)
-            val queryExactTime = measureTimeMillis { dataSource.findMatchByUrlPrefix("https://test.com/1") }
+
+            val queryExactTime = measureTimeMillis { dataSource.findUrlMatch("https://test.com/1").use { it.count } }
             totalQueryExactTime += queryExactTime
             postLog("🟢 精准URL前缀: ${queryExactTime}ms")
-            val queryLikeTime = measureTimeMillis { dataSource.findMatchByKeyword("test.com/9") }
+
+            val queryLikeTime = measureTimeMillis { dataSource.findKeywordMatch("test.com/9").use { it.count } }
             totalQueryLikeTime += queryLikeTime
             postLog("🟡 任意包含: ${queryLikeTime}ms")
-            val prefixTime = measureTimeMillis { dataSource.findMatchByUrlPrefix("https://test.com/1000") }
+
+            val prefixTime = measureTimeMillis { dataSource.findUrlMatch("https://test.com/1000").use { it.count } }
             totalPrefixTime += prefixTime
             postLog("🔷 URL前缀查找: ${prefixTime}ms")
-            val domainTime = measureTimeMillis { dataSource.findMatchByDomain("https://test.com/1000") }
+
+            val domainTime = measureTimeMillis { dataSource.findDomainMatch("https://test.com/1000").use { it.count } }
             totalDomainTime += domainTime
             postLog("🔶 Domain包含查找: ${domainTime}ms")
-            val keywordTime = measureTimeMillis { dataSource.findMatchByKeyword("1000") }
+
+            val keywordTime = measureTimeMillis { dataSource.findKeywordMatch("1000").use { it.count } }
             totalKeywordTime += keywordTime
             postLog("🔸 Keyword查找: ${keywordTime}ms")
+
             val deleteTime = measureTimeMillis { dataSource.deleteAll() }
             totalDeleteTime += deleteTime
             postLog("❌ 删除全部: ${deleteTime}ms")

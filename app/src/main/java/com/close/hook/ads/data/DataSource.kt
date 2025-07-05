@@ -2,6 +2,7 @@ package com.close.hook.ads.data
 
 import android.content.Context
 import android.database.Cursor
+import android.net.Uri
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.util.AppUtils
@@ -56,19 +57,20 @@ class DataSource(context: Context) {
     suspend fun deleteAll(): Int =
         withContext(Dispatchers.IO) { urlDao.deleteAll() }
 
-    suspend fun findMatchByUrlPrefix(testUrl: String): Url? =
-        withContext(Dispatchers.IO) { urlDao.findMatchByUrlPrefix(testUrl) }
-
-    suspend fun findMatchByDomain(input: String): Url? {
-        val host = AppUtils.extractHostOrSelf(input)
-        return withContext(Dispatchers.IO) { urlDao.findDomainByHost(host) }
-    }
-
-    suspend fun findMatchByKeyword(testUrl: String): Url? =
-        withContext(Dispatchers.IO) { urlDao.findMatchByKeyword(testUrl) }
-
     suspend fun getUrlListOnce(): List<Url> =
         withContext(Dispatchers.IO) { urlDao.loadAllList().first() }
+
+    suspend fun findUrlMatch(fullUrl: String): Cursor =
+        withContext(Dispatchers.IO) { urlDao.findUrlMatch(fullUrl) }
+
+    suspend fun findDomainMatch(inputUrl: String): Cursor =
+        withContext(Dispatchers.IO) {
+            val host = AppUtils.extractHostOrSelf(inputUrl)
+            urlDao.findDomainMatch(host)
+        }
+
+    suspend fun findKeywordMatch(value: String): Cursor =
+        withContext(Dispatchers.IO) { urlDao.findKeywordMatch(value) }
 
     companion object {
         @Volatile

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UrlDao {
+
     @Insert
     fun insert(url: Url): Long
 
@@ -32,14 +33,17 @@ interface UrlDao {
     @Query("SELECT * FROM url_info WHERE url LIKE '%' || :searchText || '%' OR type LIKE '%' || :searchText || '%' ORDER BY id DESC")
     fun searchUrls(searchText: String): Flow<List<Url>>
 
-    @Query("SELECT * FROM url_info WHERE LOWER(type) = 'url' AND :testUrl LIKE url || '%' LIMIT 1")
-    suspend fun findMatchByUrlPrefix(testUrl: String): Url?
+    @Query("SELECT * FROM url_info WHERE type = 'URL' AND :fullUrl LIKE url || '%' LIMIT 1")
+    fun findUrlMatch(fullUrl: String): Cursor
 
-    @Query("SELECT * FROM url_info WHERE LOWER(type) = 'domain' AND url = :host LIMIT 1")
-    suspend fun findDomainByHost(host: String): Url?
+    @Query("SELECT * FROM url_info WHERE type = 'Domain' AND url = :host LIMIT 1")
+    fun findDomainMatch(host: String): Cursor
 
-    @Query("SELECT * FROM url_info WHERE LOWER(type) = 'keyword' AND :testUrl LIKE '%' || url || '%' LIMIT 1")
-    suspend fun findMatchByKeyword(testUrl: String): Url?
+    @Query("SELECT * FROM url_info WHERE type = 'KeyWord' AND INSTR(:value, url) > 0 LIMIT 1")
+    fun findKeywordMatch(value: String): Cursor
+
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE url = :url")
+    fun isExist(url: String): Boolean
 
     @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = :type AND url = :url")
     fun isExist(type: String, url: String): Boolean

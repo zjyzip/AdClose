@@ -38,7 +38,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         try {
             ContextUtil.addOnApplicationContextInitializedCallback {
                 val ctx = ContextUtil.applicationContext!!
-                val manager = SettingsManager(lpparam.packageName, HookPrefs(ctx))
+                val manager = SettingsManager(ctx.packageName, HookPrefs(ctx))
 
                 setupAppHooks(ctx, manager)
                 applySettings(manager)

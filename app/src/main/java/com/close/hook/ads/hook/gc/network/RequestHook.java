@@ -17,6 +17,7 @@ import android.webkit.WebResourceResponse;
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
 import com.close.hook.ads.data.model.Url;
+import com.close.hook.ads.util.AppUtils;
 import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.HookUtil;
@@ -107,14 +108,21 @@ public class RequestHook {
         return "";
     }
 
-    private static boolean checkShouldBlockRequest(final String queryValue, final RequestDetails details, final String requestType, final String queryType) {
-        Triple<Boolean, String, String> triple = queryContentProvider(queryType, queryValue);
-        boolean shouldBlock = triple.getFirst();
-        String blockType = triple.getSecond();
-        String url = triple.getThird();
+    private static boolean checkShouldBlockRequest(final String requestValue, final RequestDetails details, final String requestType) {
+        String blockType = null;
+        String ruleUrl = null;
 
-        sendBroadcast(requestType, shouldBlock, blockType, url, queryValue, details);
-        return shouldBlock;
+        String[] queryTypes = {"URL", "Domain", "KeyWord"};
+        for (String queryType : queryTypes) {
+            Triple<Boolean, String, String> matchResult = queryContentProvider(queryType, queryType.equals("Domain") ? AppUtils.INSTANCE.extractHostOrSelf(requestValue) : requestValue);
+            if (matchResult.getFirst()) {
+                sendBroadcast(requestType, true, matchResult.getSecond(), matchResult.getThird(), requestValue, details);
+                return true;
+            }
+        }
+
+        sendBroadcast(requestType, false, null, null, requestValue, details);
+        return false;
     }
 
     private static Triple<Boolean, String, String> queryContentProvider(String queryType, String queryValue) {
@@ -203,7 +211,7 @@ public class RequestHook {
 
         RequestDetails details = new RequestDetails(host, fullAddress, stackTrace);
 
-        return checkShouldBlockRequest(host, details, " DNS", "host");
+        return checkShouldBlockRequest(host, details, " DNS");
     }
 
     private static void setupHttpRequestHook() {
@@ -331,7 +339,7 @@ public class RequestHook {
 
             RequestDetails details = new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders, stack);
 
-            return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, requestFrameworkType, "url");
+            return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, requestFrameworkType);
 
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Exception in shouldBlockHttpRequest: " + e.getMessage());
@@ -449,7 +457,7 @@ public class RequestHook {
             RequestDetails details = new RequestDetails(method, urlString, requestHeaders, responseCode, responseMessage, responseHeaders, stackTrace);
 
             if (urlString != null) {
-                return checkShouldBlockRequest(formatUrlWithoutQuery(Uri.parse(urlString)), details, " Web", "url");
+                return checkShouldBlockRequest(formatUrlWithoutQuery(Uri.parse(urlString)), details, " Web");
             }
             return false;
         } catch (Exception e) {
@@ -490,11 +498,11 @@ public class RequestHook {
         String dnsHost = details.getDnsHost();
         String urlString = details.getUrlString();
 
-        if (dnsHost != null && dnsHostCache.putIfAbsent(dnsHost, true) != null) {
+        if (dnsHost != null && !dnsHost.isEmpty() && dnsHostCache.putIfAbsent(dnsHost, true) != null) {
             return;
         }
 
-        if (urlString != null && urlStringCache.putIfAbsent(urlString, true) != null) {
+        if (urlString != null && !urlString.isEmpty() && urlStringCache.putIfAbsent(urlString, true) != null) {
             return;
         }
 
