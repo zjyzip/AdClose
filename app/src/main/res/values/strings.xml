@@ -6,6 +6,8 @@
     <string name="bottom_item_1">Apps</string>
     <string name="bottom_item_2">Request</string>
     <string name="bottom_item_3">Setting</string>
+    <string name="bottom_item_4">Block</string>
+    <string name="bottom_item_5">Home</string>
 
     <string name="search_hint">Search</string>
     <string name="search_hint_with_count">Search %1$d apps</string>
@@ -74,6 +76,75 @@
     <string name="color_brown">Brown</string>
     <string name="color_blue_grey">Blue grey</string>
 
+    <string name="none">None</string>
+    <string name="hint_search_hooks">Search</string>
+
+    <string name="title_custom_hook">Custom Hooks</string>
+    <string name="global_title_custom_hook">Global customization Hook</string>
+    <string name="hook_configs">Hook Configurations</string>
+    <string name="title_global_hook_configs">Global Hook Configurations</string>
+
+    <string name="app_version_format">%1$s (%2$d)</string>
+    <string name="selected_items_count">%d items selected</string>
+    <string name="deleted_hooks_count">%d hooks deleted</string>
+    <string name="copied_hooks_count">%d hooks copied</string>
+
+    <string name="delete_selected_hooks_title">Delete Selected Hooks?</string>
+    <string name="delete_selected_hooks_message">Are you sure you want to delete all selected hook configurations?</string>
+    <string name="no_hook_selected_to_copy">No hook configuration selected to copy.</string>
+    <string name="hook_configurations_label">Hook Configurations</string>
+    <string name="clear_all_hooks_title">Clear All Hooks?</string>
+    <string name="clear_all_hooks_message">Are you sure you want to clear all hook configurations? This action cannot be undone.</string>
+    <string name="all_hooks_cleared">All hooks cleared.</string>
+    <string name="empty_hook_configs">No custom hook configurations yet.</string>
+    <string name="hook_added_successfully">Hook added successfully.</string>
+    <string name="hook_updated_successfully">Hook updated successfully.</string>
+    <string name="delete_hook_title">Delete Hook?</string>
+    <string name="delete_hook_message">Are you sure you want to delete this hook configuration?</string>
+    <string name="hook_deleted_successfully">Hook deleted successfully.</string>
+    <string name="select_valid_hook_method">Please select a valid Hook method.</string>
+
+    <string name="add_hook_config_title">Add Hook Configuration</string>
+    <string name="edit_hook_config_title">Edit Hook Configuration</string>
+
+    <string name="hook_method_type_format">Hook Method: %1$s</string>
+    <string name="class_name_format">Class Name: %1$s</string>
+    <string name="method_names_format">Method Names: %1$s</string>
+    <string name="parameter_types_format">Parameter Types: %1$s</string>
+    <string name="return_value_format">Return Value: %1$s</string>
+    <string name="field_name_format">Field Name: %1$s</string>
+    <string name="field_value_format">Field Value: %1$s</string>
+
+    <string name="hint_hook_method_type">Hook Method Type</string>
+    <string name="hint_class_name">Class Name</string>
+    <string name="hint_method_names">Method Names (comma separated)</string>
+    <string name="hint_parameter_types">Parameter Types (full class name or primitive, comma separated)</string>
+    <string name="hint_return_value">Return Value (true/false/null/number/string)</string>
+    <string name="hint_field_name">Field Name</string>
+    <string name="hint_field_value">Field Value (true/false/null/number/string)</string>
+
+    <string name="error_class_name_empty">Class name cannot be empty.</string>
+    <string name="error_method_name_empty">Method name cannot be empty.</string>
+    <string name="error_parameter_types_empty">Parameter types cannot be empty.</string>
+    <string name="error_field_name_empty">Field name cannot be empty.</string>
+
+    <string name="enabled">Enabled</string>
+    <string name="disabled">Disabled</string>
+    <string name="enabled_format">Enabled: %s</string>
+
+    <string name="import_global_rules_title">Import Global Rules?</string>
+    <string name="import_global_rules_message">This configuration includes global Hook rules. Do you want to import them?</string>
+    <string name="import_to_global">Import</string>
+    <string name="imported_to_global_successfully">Global Hook rules imported successfully.</string>
+    <string name="imported_global_rules_app_specific_skipped">Global Hook rules imported. %d app-specific rules were skipped as this is a global page.</string>
+    <string name="no_new_hooks_to_import">No app Hook rules to import.</string>
+    <string name="error_empty_or_invalid_json">JSON file is empty or invalid format.</string>
+    <string name="no_new_hooks_to_import_global">No global Hook rules to import.</string>
+    <string name="no_global_hooks_found_to_import">No global Hook rules found in the configuration.</string>
+
+    <string name="add_hook">Add Hook</string>
+    <string name="clear_all_hooks">Clear All Hooks</string>
+
     <string name="others">Others</string>
     <string name="about">About</string>
     <string name="feedback">FeedBack</string>
@@ -90,9 +161,7 @@
     <string name="edit">edit</string>
     <string name="settings_language">Language</string>
     <string name="delete">Delete</string>
-    <string name="bottom_item_4">Block</string>
     <string name="add">add</string>
-    <string name="bottom_item_5">Home</string>
     <string name="info">Info</string>
     <string name="android_version">Android Version</string>
     <string name="sdk_level">SDK Level</string>

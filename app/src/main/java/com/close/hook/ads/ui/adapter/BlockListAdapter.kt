@@ -27,7 +27,7 @@ class BlockListAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding =
             ItemBlockListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ViewHolder(binding, onRemoveUrl, onEditUrl)
+        return ViewHolder(binding, onRemoveUrl, onEditUrl, tracker)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -40,7 +40,8 @@ class BlockListAdapter(
     inner class ViewHolder(
         private val binding: ItemBlockListBinding,
         private val onRemoveUrl: (Url) -> Unit,
-        private val onEditUrl: (Url) -> Unit
+        private val onEditUrl: (Url) -> Unit,
+        private val tracker: SelectionTracker<Url>?
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<Url> =
@@ -58,22 +59,22 @@ class BlockListAdapter(
                 edit.setOnClickListener {
                     val position = bindingAdapterPosition
                     if (position != RecyclerView.NO_POSITION) {
-                        val item = getItem(position)
-                        onEditUrl(item)
+                        onEditUrl(getItem(position))
                     }
                 }
                 delete.setOnClickListener {
                     val position = bindingAdapterPosition
                     if (position != RecyclerView.NO_POSITION) {
-                        val item = getItem(position)
-                        onRemoveUrl(item)
+                        onRemoveUrl(getItem(position))
                     }
                 }
                 cardView.setOnClickListener {
-                    val position = bindingAdapterPosition
-                    if (position != RecyclerView.NO_POSITION) {
-                        val item = getItem(position)
-                        copyToClipboard(item.type, item.url)
+                    if (tracker == null || !tracker.hasSelection()) {
+                        val position = bindingAdapterPosition
+                        if (position != RecyclerView.NO_POSITION) {
+                            val item = getItem(position)
+                            copyToClipboard(item.type, item.url)
+                        }
                     }
                 }
             }

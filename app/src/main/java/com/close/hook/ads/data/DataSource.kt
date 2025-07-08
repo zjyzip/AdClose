@@ -2,7 +2,6 @@ package com.close.hook.ads.data
 
 import android.content.Context
 import android.database.Cursor
-import android.net.Uri
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.util.AppUtils
@@ -25,7 +24,9 @@ class DataSource(context: Context) {
     }
 
     suspend fun removeList(list: List<Url>) {
-        urlDao.deleteList(list)
+        if (list.isNotEmpty()) {
+            urlDao.deleteList(list)
+        }
     }
 
     suspend fun removeUrl(url: Url) {
@@ -37,7 +38,9 @@ class DataSource(context: Context) {
     }
 
     suspend fun addListUrl(list: List<Url>) {
-        urlDao.insertAll(list)
+        if (list.isNotEmpty()) {
+            urlDao.insertAll(list)
+        }
     }
 
     suspend fun updateUrl(url: Url) {
@@ -78,7 +81,7 @@ class DataSource(context: Context) {
 
         fun getDataSource(context: Context): DataSource {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: DataSource(context).also { INSTANCE = it }
+                INSTANCE ?: DataSource(context.applicationContext).also { INSTANCE = it }
             }
         }
     }

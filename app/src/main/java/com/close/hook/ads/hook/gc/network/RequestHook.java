@@ -348,23 +348,12 @@ public class RequestHook {
     }
 
     public static void setupWebViewRequestHook() {
-        String packageName = applicationContext.getPackageName();
-
-        if ("com.UCMobile".equals(packageName) || "com.UCMobile.intl".equals(packageName)) {
-            setupWebViewRequestHookInternal(
-                "com.uc.webview.export.WebView",
-                "com.uc.webview.export.WebViewClient",
-                "com.uc.webview.export.WebResourceRequest",
-                applicationContext.getClassLoader()
-            );
-        } else {
-            setupWebViewRequestHookInternal(
-                WebView.class.getName(),
-                WebViewClient.class.getName(),
-                WebResourceRequest.class.getName(),
-                applicationContext.getClassLoader()
-            );
-        }
+        setupWebViewRequestHookInternal(
+            WebView.class.getName(),
+            WebViewClient.class.getName(),
+            WebResourceRequest.class.getName(),
+            applicationContext.getClassLoader()
+        );
     }
 
     private static void setupWebViewRequestHookInternal(

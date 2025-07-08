@@ -25,7 +25,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         val isLoading: Boolean = false
     )
 
-    private val repo = AppRepository(application.packageManager)
+    private val repo = AppRepository(application.packageManager, application.applicationContext)
     private val _filterState = MutableStateFlow(createDefaultFilterState())
     private val _uiState = MutableStateFlow(UiState())
 
@@ -60,9 +60,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshApps() {
         viewModelScope.launch {
             combineFlows()
-                .collectLatest { uiState ->
-                    _uiState.value = uiState
-                }
+                .collectLatest { _uiState.value = it }
         }
     }
 

@@ -29,14 +29,12 @@ public class HookUtil {
     }
 
     private static Class<?> resolveClass(Object clazzObj, ClassLoader classLoader) {
-        Class<?> actualClass = null;
         if (clazzObj instanceof String) {
-            actualClass = XposedHelpers.findClassIfExists((String) clazzObj, classLoader);
+            return XposedHelpers.findClassIfExists((String) clazzObj, classLoader);
         } else if (clazzObj instanceof Class<?>) {
-            actualClass = (Class<?>) clazzObj;
+            return (Class<?>) clazzObj;
         }
-
-        return actualClass;
+        return null;
     }
 
     private static <T extends java.lang.reflect.Member> void performHook(T hookTarget, XC_MethodHook methodHook) {
@@ -107,7 +105,10 @@ public class HookUtil {
             ClassLoader classLoader) {
 
         Class<?> actualClass = resolveClass(clazz, classLoader);
-        if (actualClass == null) return;
+        if (actualClass == null) {
+            XposedBridge.log("HookUtil: Class not found for " + clazz);
+            return;
+        }
 
         Class<?>[] classParams = (parameterTypes == null) ? new Class<?>[0] :
                 Arrays.stream(parameterTypes)
@@ -149,7 +150,10 @@ public class HookUtil {
             ClassLoader classLoader) {
 
         Class<?> actualClass = resolveClass(clazz, classLoader);
-        if (actualClass == null) return;
+        if (actualClass == null) {
+            XposedBridge.log("HookUtil: Class not found for " + clazz);
+            return;
+        }
 
         try {
             XposedBridge.hookAllMethods(actualClass, methodName, createMethodHook(hookType, action));
@@ -172,7 +176,10 @@ public class HookUtil {
             ClassLoader classLoader) {
 
         Class<?> actualClass = resolveClass(clazz, classLoader);
-        if (actualClass == null) return;
+        if (actualClass == null) {
+            XposedBridge.log("HookUtil: Class not found for " + clazz);
+            return;
+        }
 
         XC_MethodHook methodHook = createMethodHook(hookType, action);
         for (Constructor<?> constructor : actualClass.getDeclaredConstructors()) {
@@ -222,6 +229,8 @@ public class HookUtil {
         Class<?> actualClass = resolveClass(clazz, classLoader);
         if (actualClass != null) {
             setStaticObjectField(actualClass, fieldName, value);
+        } else {
+            XposedBridge.log("HookUtil - setStaticObjectField: Class not found for " + clazz);
         }
     }
 
@@ -254,21 +263,18 @@ public class HookUtil {
 
     public static String getFormattedStackTrace() {
         StackTraceElement[] stackElements = Thread.currentThread().getStackTrace();
-        StringBuilder stackTrace = new StringBuilder("Stack Trace:\n");
+        StringBuilder stackTrace = new StringBuilder(stackElements.length * 100);
+
+        stackTrace.append("Stack Trace:\n");
 
         for (int i = 3; i < stackElements.length; i++) {
             StackTraceElement element = stackElements[i];
-
-            String className = element.getClassName();
-            String methodName = element.getMethodName();
-            int lineNumber = element.getLineNumber();
-
             stackTrace.append("  ")
-                      .append(className)
+                      .append(element.getClassName())
                       .append(".")
-                      .append(methodName)
+                      .append(element.getMethodName())
                       .append("(line: ")
-                      .append(lineNumber)
+                      .append(element.getLineNumber())
                       .append(")\n");
         }
         return stackTrace.toString();

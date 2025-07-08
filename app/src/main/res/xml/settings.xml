@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <PreferenceCategory android:title="Beta">
+        <Preference
+            android:icon="@drawable/outline_tune_24"
+            android:key="custom_hook_sdk_ads"
+            android:title="@string/global_title_custom_hook" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/settings_language">
         <rikka.preference.SimpleMenuPreference
             android:defaultValue="SYSTEM"

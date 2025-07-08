@@ -6,6 +6,8 @@
     <string name="bottom_item_1">Apps</string>
     <string name="bottom_item_2">Request</string>
     <string name="bottom_item_3">Setting</string>
+    <string name="bottom_item_4">Block</string>
+    <string name="bottom_item_5">Home</string>
 
     <string name="search_hint">搜索</string>
     <string name="search_hint_with_count">搜索 %1$d 个应用</string>
@@ -74,6 +76,73 @@
     <string name="color_brown">棕色</string>
     <string name="color_blue_grey">灰蓝</string>
 
+    <string name="none">无</string>
+    <string name="hint_search_hooks">搜索 Hook 配置</string>
+
+    <string name="title_custom_hook">自定义 Hook</string>
+    <string name="global_title_custom_hook">全局自定义 Hook</string>
+    <string name="hook_configs">Hook 配置</string>
+    <string name="title_global_hook_configs">全局 Hook 配置</string>
+
+    <string name="app_version_format">%1$s (%2$d)</string>
+    <string name="selected_items_count">已选择 %d 项</string>
+    <string name="delete_selected_hooks_title">删除选中 Hook?</string>
+    <string name="delete_selected_hooks_message">您确定要删除所有选中的 Hook 配置吗？</string>
+    <string name="deleted_hooks_count">已删除 %d 个 Hook</string>
+    <string name="no_hook_selected_to_copy">未选择任何 Hook 配置进行复制</string>
+    <string name="hook_configurations_label">Hook 配置</string>
+    <string name="copied_hooks_count">已复制 %d 个 Hook</string>
+    <string name="clear_all_hooks_title">清空所有 Hook?</string>
+    <string name="clear_all_hooks_message">您确定要清空所有 Hook 配置吗？此操作无法撤销。</string>
+    <string name="all_hooks_cleared">所有 Hook 已清空</string>
+    <string name="empty_hook_configs">暂无自定义 Hook 配置</string>
+    <string name="hook_added_successfully">Hook 添加成功</string>
+    <string name="hook_updated_successfully">Hook 更新成功</string>
+    <string name="delete_hook_title">删除 Hook?</string>
+    <string name="delete_hook_message">您确定要删除此 Hook 配置吗？</string>
+    <string name="hook_deleted_successfully">Hook 删除成功</string>
+    <string name="select_valid_hook_method">请选择有效的 Hook 方法</string>
+
+    <string name="add_hook_config_title">添加 Hook 配置</string>
+    <string name="edit_hook_config_title">编辑 Hook 配置</string>
+
+    <string name="hook_method_type_format">Hook 方法: %1$s</string>
+    <string name="class_name_format">类名: %1$s</string>
+    <string name="method_names_format">方法名: %1$s</string>
+    <string name="parameter_types_format">参数类型: %1$s</string>
+    <string name="return_value_format">返回值: %1$s</string>
+    <string name="field_name_format">字段名: %1$s</string>
+    <string name="field_value_format">字段值: %1$s</string>
+
+    <string name="hint_hook_method_type">Hook 方法类型</string>
+    <string name="hint_class_name">类名</string>
+    <string name="hint_method_names">方法名 (多个用逗号分隔)</string>
+    <string name="hint_parameter_types">参数类型 (完整类名或基本类型，多个用逗号分隔)</string>
+    <string name="hint_return_value">返回值 (true/false/null/数字/字符串)</string>
+    <string name="hint_field_name">字段名</string>
+    <string name="hint_field_value">字段值 (true/false/null/数字/字符串)</string>
+
+    <string name="error_class_name_empty">类名不能为空</string>
+    <string name="error_method_name_empty">方法名不能为空</string>
+    <string name="error_parameter_types_empty">参数类型不能为空</string>
+    <string name="error_field_name_empty">字段名不能为空</string>
+
+    <string name="enabled">启用</string>
+    <string name="disabled">禁用</string>
+    <string name="enabled_format">启用状态: %s</string>
+    <string name="add_hook">添加 Hook</string>
+    <string name="clear_all_hooks">清空所有 Hook</string>
+
+    <string name="import_global_rules_title">导入全局规则？</string>
+    <string name="import_global_rules_message">该配置属于全局 Hook 规则，是否继续导入？</string>
+    <string name="import_to_global">导入</string>
+    <string name="imported_to_global_successfully">全局 Hook 规则导入成功。</string>
+    <string name="imported_global_rules_app_specific_skipped">全局 Hook 规则已导入。因当前为全局页面，跳过 %d 条应用规则。</string>
+    <string name="no_new_hooks_to_import">无应用 Hook 规则可导入。</string>
+    <string name="error_empty_or_invalid_json">JSON 文件为空或格式无效。</string>
+    <string name="no_new_hooks_to_import_global">无全局 Hook 规则可导入。</string>
+    <string name="no_global_hooks_found_to_import">配置中未找到全局 Hook 规则。</string>
+
     <string name="others">其他</string>
     <string name="about">关于</string>
     <string name="feedback">反馈</string>
@@ -90,7 +159,6 @@
     <string name="edit">编辑</string>
     <string name="settings_language">语言</string>
     <string name="delete">删除</string>
-    <string name="bottom_item_4">Block</string>
     <string name="add">添加</string>
     <string name="info">基本信息</string>
     <string name="android_version">安卓版本</string>

@@ -5,87 +5,93 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 
 import java.net.NetworkInterface;
-import java.util.Random;
 import java.util.regex.Pattern;
 
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 import com.close.hook.ads.hook.util.HookUtil;
 
 public class HideVPNStatus {
 
     public static void proxy() {
+        bypassSystemProxyCheck();
+        modifyNetworkInfo();
+        modifyNetworkCapabilities();
+        modifyNetworkInterface();
+    }
+
+    private static void bypassSystemProxyCheck() {
+        hookSystemProperty("http.proxyHost", "");
+        hookSystemProperty("http.proxyPort", "-1");
+    }
+
+    private static void hookSystemProperty(String propertyName, String value) {
         HookUtil.hookAllMethods(System.class, "getProperty", "before", param -> {
-            String property = (String) param.args[0];
-            if (property.equals("http.proxyHost") || property.equals("http.proxyPort")) {
-                param.setResult("-1");
+            if (param.args.length > 0 && param.args[0] instanceof String && propertyName.equals(param.args[0])) {
+                param.setResult(value);
             }
         });
-
         HookUtil.hookAllMethods(System.class, "setProperty", "before", param -> {
-            String property = (String) param.args[0];
-            if (property.equals("http.proxyHost") || property.equals("http.proxyPort")) {
-                param.setResult("");
+            if (param.args.length > 0 && param.args[0] instanceof String && propertyName.equals(param.args[0])) {
+                param.setResult(null);
             }
         });
+    }
 
-        HookUtil.hookAllMethods(NetworkInfo.class, "getType", "before", param -> {
-            if (param.getResult().equals(ConnectivityManager.TYPE_VPN)) {
-                param.setResult(ConnectivityManager.TYPE_WIFI);
-            }
-        });
-
-        HookUtil.hookAllMethods(NetworkInfo.class, "getTypeName", "before", param -> {
-            if (param.getResult().equals("VPN")) {
-                param.setResult("WIFI");
-            }
-        });
-
-        HookUtil.hookAllMethods(NetworkInfo.class, "getSubtypeName", "before", param -> {
-            if (param.getResult().equals("VPN")) {
-                param.setResult("WIFI");
-            }
-        });
-
+    private static void modifyNetworkInfo() {
+        hookNetworkInfoProperty("getType", ConnectivityManager.TYPE_VPN, ConnectivityManager.TYPE_WIFI);
+        hookNetworkInfoProperty("getTypeName", "VPN", "WIFI");
+        hookNetworkInfoProperty("getSubtypeName", "VPN", "WIFI");
+        
         HookUtil.hookAllMethods(ConnectivityManager.class, "getNetworkInfo", "before", param -> {
             if (param.args.length > 0 && param.args[0] instanceof Integer && (int) param.args[0] == ConnectivityManager.TYPE_VPN) {
                 param.setResult(null);
             }
         });
+    }
 
-        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasTransport", "before", param -> {
-            if (param.args[0].equals(NetworkCapabilities.TRANSPORT_VPN)) {
-                param.setResult(false);
-            }
-        });
-
-        HookUtil.hookAllMethods(NetworkCapabilities.class, "hasCapability", "before", param -> {
-            if (param.args[0].equals(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
-                param.setResult(true);
-            }
-        });
-
-        HookUtil.hookAllMethods(NetworkInterface.class, "isVirtual", "before", param -> param.setResult(false));
-        HookUtil.hookAllMethods(NetworkInterface.class, "isUp", "before", param -> {
-            NetworkInterface networkInterface = (NetworkInterface) param.thisObject;
-            if (networkInterface != null && Pattern.compile("^(tun[0-9]+|ppp[0-9]+)").matcher(networkInterface.getName()).matches()) {
-                param.setResult(false);
-            }
-        });
-
-        HookUtil.hookAllMethods(NetworkInterface.class, "getName", "before", param -> {
-            String originalName = (String) param.getResult();
-            if (originalName != null && Pattern.compile("^(tun[0-9]+|ppp[0-9]+)").matcher(originalName).matches()) {
-                param.setResult(getRandomString(originalName.length()));
+    private static void hookNetworkInfoProperty(String methodName, Object targetValue, Object replacementValue) {
+        HookUtil.hookAllMethods(NetworkInfo.class, methodName, "before", param -> {
+            if (param.getResult() != null && targetValue.equals(param.getResult())) {
+                param.setResult(replacementValue);
             }
         });
     }
 
-    private static String getRandomString(int length) {
-        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        StringBuilder sb = new StringBuilder(length);
-        Random random = new Random();
-        for (int i = 0; i < length; i++) {
-            sb.append(alphabet.charAt(random.nextInt(alphabet.length())));
-        }
-        return sb.toString();
+    private static void modifyNetworkCapabilities() {
+        hookNetworkCapabilitiesBoolean("hasTransport", NetworkCapabilities.TRANSPORT_VPN, false);
+        hookNetworkCapabilitiesBoolean("hasCapability", NetworkCapabilities.NET_CAPABILITY_NOT_VPN, true);
+    }
+
+    private static void hookNetworkCapabilitiesBoolean(String methodName, int capabilityOrTransport, boolean resultValue) {
+        HookUtil.hookAllMethods(NetworkCapabilities.class, methodName, "before", param -> {
+            if (param.args.length > 0 && param.args[0] instanceof Integer && (int) param.args[0] == capabilityOrTransport) {
+                param.setResult(resultValue);
+            }
+        });
+    }
+
+    private static void modifyNetworkInterface() {
+        Pattern vpnInterfacePattern = Pattern.compile("^(tun[0-9]+|ppp[0-9]+)");
+
+        HookUtil.hookAllMethods(NetworkInterface.class, "isVirtual", "before", param -> param.setResult(false));
+
+        HookUtil.hookAllMethods(NetworkInterface.class, "isUp", "before", param -> {
+            if (param.thisObject instanceof NetworkInterface) {
+                NetworkInterface networkInterface = (NetworkInterface) param.thisObject;
+                if (vpnInterfacePattern.matcher(networkInterface.getName()).matches()) {
+                    param.setResult(false);
+                }
+            }
+        });
+
+        HookUtil.hookAllMethods(NetworkInterface.class, "getName", "before", param -> {
+            if (param.getResult() instanceof String) {
+                String originalName = (String) param.getResult();
+                if (originalName != null && vpnInterfacePattern.matcher(originalName).matches()) {
+                    param.setResult("");
+                }
+            }
+        });
     }
 }

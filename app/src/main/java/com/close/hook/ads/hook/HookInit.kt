@@ -9,6 +9,7 @@ import com.close.hook.ads.hook.gc.HideEnvi
 import com.close.hook.ads.hook.gc.network.HideVPNStatus
 import com.close.hook.ads.hook.gc.network.RequestHook
 import com.close.hook.ads.hook.ha.AppAds
+import com.close.hook.ads.hook.ha.CustomHookAds
 import com.close.hook.ads.hook.ha.SDKAds
 import com.close.hook.ads.hook.ha.SDKAdsKit
 import com.close.hook.ads.preference.HookPrefs
@@ -53,6 +54,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
             val classLoader = context.classLoader
             val packageName = context.packageName
             val appName = AppUtils.getAppName(context, packageName)
+            val hookPrefs = HookPrefs(context)
 
             if (packageName == TAG) {
                 activateModule(classLoader)
@@ -70,6 +72,8 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 XposedBridge.log("$TAG | App: $appName Package: $packageName")
             }
 
+            applyCustomHooks(classLoader, hookPrefs, packageName)
+
             AppAds.progress(classLoader, packageName)
 
         } catch (e: Throwable) {
@@ -84,6 +88,15 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
             "isModuleActivated",
             true
         )
+    }
+
+    private fun applyCustomHooks(classLoader: ClassLoader, hookPrefs: HookPrefs, packageName: String) {
+        val globalCustomConfigs = hookPrefs.getCustomHookConfigs(null)
+        CustomHookAds.hookCustomAds(classLoader, globalCustomConfigs, true)
+
+        val appSpecificCustomConfigs = hookPrefs.getCustomHookConfigs(packageName)
+        val isOverallHookEnabledForPackage = hookPrefs.getOverallHookEnabled(packageName)
+        CustomHookAds.hookCustomAds(classLoader, appSpecificCustomConfigs, isOverallHookEnabledForPackage)
     }
 
     private fun applySettings(manager: SettingsManager) {

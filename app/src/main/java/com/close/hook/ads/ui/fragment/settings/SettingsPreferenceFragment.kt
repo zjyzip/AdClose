@@ -16,6 +16,7 @@ import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
 import com.close.hook.ads.ui.activity.AboutActivity
+import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.util.CacheDataManager
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
@@ -107,10 +108,18 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         preferenceManager.preferenceDataStore = SettingsPreferenceDataStore()
         setPreferencesFromResource(R.xml.settings, rootKey)
 
+        setupCustomHookPreference()
         setupLanguagePreference()
         setupThemePreferences()
         setupCacheClearing()
         setupAboutPreference()
+    }
+
+    private fun setupCustomHookPreference() {
+        findPreference<Preference>("custom_hook_sdk_ads")?.setOnPreferenceClickListener {
+            startActivity(Intent(requireContext(), CustomHookActivity::class.java))
+            true
+        }
     }
 
     private fun setupLanguagePreference() {

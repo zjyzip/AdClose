@@ -68,7 +68,7 @@ class RoomPerformanceFragment : Fragment() {
     private fun setupListeners() {
         binding.runTestButton.setOnClickListener {
             it.isEnabled = false
-            viewLifecycleOwner.lifecycleScope.launch {
+            lifecycleScope.launch {
                 try { runAllPerformanceTests() } finally { it.isEnabled = true }
             }
         }
@@ -111,83 +111,85 @@ class RoomPerformanceFragment : Fragment() {
 
     private suspend fun runAllPerformanceTests() = withContext(Dispatchers.IO) {
         clearAllPerformanceData()
-        var totalInsertTime = 0L
-        var totalQueryAllTime = 0L
-        var totalQueryExactTime = 0L
-        var totalQueryLikeTime = 0L
-        var totalPrefixTime = 0L
-        var totalDomainTime = 0L
-        var totalKeywordTime = 0L
-        var totalDeleteTime = 0L
+        val totalTimes = ChartMetric.values().associateWith { 0L }.toMutableMap()
+
         postText { binding.timeSummary.text = "" }
+
         repeat(TEST_REPEAT_TIMES) { index ->
             val testRunId = index + 1
             postLog("--- ▶️ 第 $testRunId 次Room测试开始 ---")
             val urlList = List(TEST_DATA_SIZE) { i ->
                 Url(if (i % 2 == 0) "url" else "domain", "https://test.com/$i", 0L)
             }
+
             System.gc()
-            val insertTime = measureTimeMillis { dataSource.insertAll(urlList) }
-            totalInsertTime += insertTime
+            val insertTime = measurePerformance(ChartMetric.INSERT) { dataSource.insertAll(urlList) }
             postLog("📦 批量插入$TEST_DATA_SIZE 条: ${insertTime}ms")
+            totalTimes[ChartMetric.INSERT] = totalTimes[ChartMetric.INSERT]!! + insertTime
             delay(400)
-            val queryAllTime = measureTimeMillis { dataSource.getUrlListOnce() }
-            totalQueryAllTime += queryAllTime
+
+            val queryAllTime = measurePerformance(ChartMetric.QUERY_ALL) { dataSource.getUrlListOnce() }
             postLog("🔍 查询所有: ${queryAllTime}ms")
+            totalTimes[ChartMetric.QUERY_ALL] = totalTimes[ChartMetric.QUERY_ALL]!! + queryAllTime
             delay(400)
 
-            val queryExactTime = measureTimeMillis { dataSource.findUrlMatch("https://test.com/1").use { it.count } }
-            totalQueryExactTime += queryExactTime
+            val queryExactTime = measurePerformance(ChartMetric.QUERY_EXACT) { dataSource.findUrlMatch("https://test.com/1").use { it.count } }
             postLog("🟢 精准URL前缀: ${queryExactTime}ms")
+            totalTimes[ChartMetric.QUERY_EXACT] = totalTimes[ChartMetric.QUERY_EXACT]!! + queryExactTime
 
-            val queryLikeTime = measureTimeMillis { dataSource.findKeywordMatch("test.com/9").use { it.count } }
-            totalQueryLikeTime += queryLikeTime
+            val queryLikeTime = measurePerformance(ChartMetric.QUERY_LIKE) { dataSource.findKeywordMatch("test.com/9").use { it.count } }
             postLog("🟡 任意包含: ${queryLikeTime}ms")
+            totalTimes[ChartMetric.QUERY_LIKE] = totalTimes[ChartMetric.QUERY_LIKE]!! + queryLikeTime
 
-            val prefixTime = measureTimeMillis { dataSource.findUrlMatch("https://test.com/1000").use { it.count } }
-            totalPrefixTime += prefixTime
+            val prefixTime = measurePerformance(ChartMetric.PREFIX) { dataSource.findUrlMatch("https://test.com/1000").use { it.count } }
             postLog("🔷 URL前缀查找: ${prefixTime}ms")
+            totalTimes[ChartMetric.PREFIX] = totalTimes[ChartMetric.PREFIX]!! + prefixTime
 
-            val domainTime = measureTimeMillis { dataSource.findDomainMatch("https://test.com/1000").use { it.count } }
-            totalDomainTime += domainTime
+            val domainTime = measurePerformance(ChartMetric.HOST) { dataSource.findDomainMatch("https://test.com/1000").use { it.count } }
             postLog("🔶 Domain包含查找: ${domainTime}ms")
+            totalTimes[ChartMetric.HOST] = totalTimes[ChartMetric.HOST]!! + domainTime
 
-            val keywordTime = measureTimeMillis { dataSource.findKeywordMatch("1000").use { it.count } }
-            totalKeywordTime += keywordTime
+            val keywordTime = measurePerformance(ChartMetric.KEYWORD) { dataSource.findKeywordMatch("1000").use { it.count } }
             postLog("🔸 Keyword查找: ${keywordTime}ms")
+            totalTimes[ChartMetric.KEYWORD] = totalTimes[ChartMetric.KEYWORD]!! + keywordTime
 
-            val deleteTime = measureTimeMillis { dataSource.deleteAll() }
-            totalDeleteTime += deleteTime
+            val deleteTime = measurePerformance(ChartMetric.DELETE) { dataSource.deleteAll() }
             postLog("❌ 删除全部: ${deleteTime}ms")
+            totalTimes[ChartMetric.DELETE] = totalTimes[ChartMetric.DELETE]!! + deleteTime
+
             chartLabels.add("运行 $testRunId")
-            chartDataEntries[ChartMetric.INSERT]?.add(Entry(index.toFloat(), insertTime.toFloat()))
-            chartDataEntries[ChartMetric.QUERY_ALL]?.add(Entry(index.toFloat(), queryAllTime.toFloat()))
-            chartDataEntries[ChartMetric.QUERY_EXACT]?.add(Entry(index.toFloat(), queryExactTime.toFloat()))
-            chartDataEntries[ChartMetric.QUERY_LIKE]?.add(Entry(index.toFloat(), queryLikeTime.toFloat()))
-            chartDataEntries[ChartMetric.PREFIX]?.add(Entry(index.toFloat(), prefixTime.toFloat()))
-            chartDataEntries[ChartMetric.HOST]?.add(Entry(index.toFloat(), domainTime.toFloat()))
-            chartDataEntries[ChartMetric.KEYWORD]?.add(Entry(index.toFloat(), keywordTime.toFloat()))
-            chartDataEntries[ChartMetric.DELETE]?.add(Entry(index.toFloat(), deleteTime.toFloat()))
+            updateChartDataEntries(index, insertTime, queryAllTime, queryExactTime, queryLikeTime, prefixTime, domainTime, keywordTime, deleteTime)
+            
             postLog("--- 第 $testRunId 次Room测试结束 ---\n")
             delay(500)
             System.gc()
         }
         withContext(Dispatchers.Main) { updatePerformanceChart() }
-        val summary = """
-            --- 🎯 Room性能测试总结 ---
-            平均批量插入: ${totalInsertTime / TEST_REPEAT_TIMES}ms
-            平均查询所有: ${totalQueryAllTime / TEST_REPEAT_TIMES}ms
-            平均精准URL前缀: ${totalQueryExactTime / TEST_REPEAT_TIMES}ms
-            平均任意包含: ${totalQueryLikeTime / TEST_REPEAT_TIMES}ms
-            平均URL前缀查找: ${totalPrefixTime / TEST_REPEAT_TIMES}ms
-            平均Domain包含查找: ${totalDomainTime / TEST_REPEAT_TIMES}ms
-            平均Keyword查找: ${totalKeywordTime / TEST_REPEAT_TIMES}ms
-            平均删除: ${totalDeleteTime / TEST_REPEAT_TIMES}ms
-            -----------------------
-        """.trimIndent()
+        postSummary(totalTimes)
+        postLog("\n🚀 Room性能测试完成。")
+    }
+
+    private suspend fun measurePerformance(metric: ChartMetric, block: suspend () -> Unit): Long {
+        return measureTimeMillis { block() }
+    }
+
+    private fun updateChartDataEntries(index: Int, vararg times: Long) {
+        val metrics = ChartMetric.values()
+        times.forEachIndexed { i, time ->
+            chartDataEntries[metrics[i]]?.add(Entry(index.toFloat(), time.toFloat()))
+        }
+    }
+
+    private fun postSummary(totalTimes: Map<ChartMetric, Long>) {
+        val summary = StringBuilder().apply {
+            append("--- 🎯 Room性能测试总结 ---\n")
+            ChartMetric.values().forEach { metric ->
+                append("平均${metric.label.replace(" (ms)", "")}: ${totalTimes[metric]?.div(TEST_REPEAT_TIMES)}ms\n")
+            }
+            append("-----------------------\n")
+        }.toString()
         postText { binding.timeSummary.text = summary }
         postLog(summary)
-        postLog("\n🚀 Room性能测试完成。")
     }
 
     private fun clearAllPerformanceData() {

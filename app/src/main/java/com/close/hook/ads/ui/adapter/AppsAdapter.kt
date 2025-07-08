@@ -1,11 +1,6 @@
 package com.close.hook.ads.ui.adapter
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.lifecycle.LifecycleOwner
@@ -15,22 +10,18 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.databinding.InstallsItemAppBinding
+import com.close.hook.ads.util.AppIconLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import kotlin.math.roundToInt
 
 class AppsAdapter(
     private val onItemClickListener: OnItemClickListener
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
 
-    private val iconCache = object : LruCache<String, Drawable>(200) {}
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
         val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return AppViewHolder(binding, onItemClickListener, iconCache)
+        return AppViewHolder(binding, onItemClickListener)
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
@@ -43,11 +34,10 @@ class AppsAdapter(
 
     class AppViewHolder(
         private val binding: InstallsItemAppBinding,
-        private val onItemClickListener: OnItemClickListener,
-        private val iconCache: LruCache<String, Drawable>
+        private val onItemClickListener: OnItemClickListener
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        private val targetSizePx by lazy { (binding.root.context.resources.displayMetrics.density * 48).roundToInt() }
+        private val targetSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
 
         init {
             binding.root.setOnClickListener {
@@ -72,56 +62,16 @@ class AppsAdapter(
             val context = binding.root.context
             val packageName = appInfo.packageName
 
-            iconCache[packageName]?.let {
-                binding.appIcon.setImageDrawable(it)
-                return
-            }
-
             binding.appIcon.setImageDrawable(null)
 
             (context as? LifecycleOwner)?.lifecycleScope?.launch {
-                val icon = loadAndCompressIcon(context, packageName, targetSizePx)
-                if (icon != null) {
-                    iconCache.put(packageName, icon)
-                    if (binding.root.tag == appInfo) {
-                        withContext(Dispatchers.Main) {
-                            binding.appIcon.setImageDrawable(icon)
-                        }
-                    }
-                }
-            }
-        }
+                val icon = AppIconLoader.loadAndCompressIcon(context, packageName, targetSizePx)
 
-        private suspend fun loadAndCompressIcon(context: Context, packageName: String, targetSize: Int): Drawable? =
-            withContext(Dispatchers.IO) {
-                val file = File(context.cacheDir, "icons/$packageName.png")
-                file.takeIf { it.exists() }?.let {
-                    BitmapFactory.decodeFile(it.absolutePath)?.let { bmp ->
-                        return@withContext BitmapDrawable(context.resources, bmp)
+                if (binding.root.tag == appInfo) {
+                    withContext(Dispatchers.Main) {
+                        binding.appIcon.setImageDrawable(icon)
                     }
                 }
-                return@withContext try {
-                    context.packageManager.getApplicationIcon(packageName)?.let { original ->
-                        if (original is BitmapDrawable) {
-                            original.bitmap?.let {
-                                val resized = Bitmap.createScaledBitmap(it, targetSize, targetSize, true)
-                                saveBitmapToCache(resized, file)
-                                BitmapDrawable(context.resources, resized)
-                            } ?: original
-                        } else original
-                    }
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-        private fun saveBitmapToCache(bitmap: Bitmap, file: File) {
-            try {
-                file.parentFile?.mkdirs()
-                FileOutputStream(file).use {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-                }
-            } catch (e: Exception) {
             }
         }
     }

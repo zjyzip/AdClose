@@ -22,6 +22,7 @@ import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.preference.HookPrefs
+import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
@@ -98,6 +99,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         HookPrefs(requireContext())
     }
 
+    private var currentAppPackageName: String? = null
+
     companion object {
         @JvmStatic
         fun newInstance(type: String) =
@@ -162,6 +165,18 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initAppConfig() {
         configBinding.apply {
             buttonClose.setOnClickListener {
+                appConfigDialog?.dismiss()
+            }
+
+            buttonCustomHook.setOnClickListener {
+                currentAppPackageName?.let { pkgName ->
+                    val intent = Intent(requireContext(), CustomHookActivity::class.java).apply {
+                        putExtra("packageName", pkgName)
+                    }
+                    startActivity(intent)
+                } ?: run {
+                    Toast.makeText(requireContext(), "无法获取包名，请重试", Toast.LENGTH_SHORT).show()
+                }
                 appConfigDialog?.dismiss()
             }
 
@@ -313,6 +328,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             AppUtils.showToast(requireContext(), getString(R.string.module_not_activated))
             return
         }
+
+        currentAppPackageName = appInfo.packageName
+
         configBinding.apply {
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
@@ -412,13 +430,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appInfoDialog?.dismiss()
         appConfigDialog = null
         appInfoDialog = null
+        currentAppPackageName = null
     }
 
     override fun updateSortList(
         filterOrder: Int,
         keyWord: String,
         isReverse: Boolean,
-        showConfigured: Boolean, 
+        showConfigured: Boolean,
         showUpdated: Boolean,
         showDisabled: Boolean
     ) {

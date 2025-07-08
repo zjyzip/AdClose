@@ -37,15 +37,17 @@ class BlockedRequestsAdapter(
     var tracker: SelectionTracker<BlockedRequest>? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-        ViewHolder(ItemBlockedRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+        ViewHolder(ItemBlockedRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false), tracker)
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
         holder.bind(item, tracker?.isSelected(item) ?: false)
     }
 
-    inner class ViewHolder(private val binding: ItemBlockedRequestBinding) :
-        RecyclerView.ViewHolder(binding.root) {
+    inner class ViewHolder(
+        private val binding: ItemBlockedRequestBinding,
+        private val tracker: SelectionTracker<BlockedRequest>?
+    ) : RecyclerView.ViewHolder(binding.root) {
 
         init {
             setupListeners()
@@ -62,7 +64,7 @@ class BlockedRequestsAdapter(
             root.tag = request
             cardView.isChecked = isSelected
 
-            appName.text = "${request.appName} ${if (request.stack.isNullOrEmpty()) "" else " LOG"}"
+            appName.text = request.appName + if (request.stack.isNullOrEmpty()) "" else " LOG"
             this.request.text = request.request
             timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
 
@@ -78,7 +80,9 @@ class BlockedRequestsAdapter(
         private fun setupListeners() {
             binding.apply {
                 cardView.setOnClickListener {
-                    (root.tag as? BlockedRequest)?.let { openRequestInfoActivity(it) }
+                    if (tracker == null || !tracker.hasSelection()) {
+                        (root.tag as? BlockedRequest)?.let { openRequestInfoActivity(it) }
+                    }
                 }
                 copy.setOnClickListener {
                     (root.tag as? BlockedRequest)?.request?.let { copyToClipboard(it) }
@@ -135,13 +139,11 @@ class BlockedRequestsAdapter(
                     true
                 }
 
-                val updatedRequest = request.copy(isBlocked = newIsBlocked)
-
                 withContext(Dispatchers.Main) {
                     val currentListCopy = currentList.toMutableList()
-                    val index = currentListCopy.indexOfFirst { it.timestamp == updatedRequest.timestamp }
+                    val index = currentListCopy.indexOfFirst { it.timestamp == request.timestamp }
                     if (index != -1) {
-                        currentListCopy[index] = updatedRequest
+                        currentListCopy[index] = request.copy(isBlocked = newIsBlocked)
                         submitList(currentListCopy)
                     }
                 }

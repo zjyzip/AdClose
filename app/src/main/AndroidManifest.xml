@@ -22,28 +22,6 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <provider
-            android:name=".provider.UrlContentProvider"
-            android:authorities="com.close.hook.ads.provider.url"
-            android:enabled="true"
-            android:exported="true" />
-        
-        <provider
-            android:name=".provider.HookPrefsProvider"
-            android:authorities="com.close.hook.ads.provider.prefs"
-            android:exported="true" />
-
-        <activity android:name=".debug.PerformanceActivity" />
-
-        <activity
-            android:name=".ui.activity.RequestInfoActivity"
-            android:exported="true" />
-
-        <activity
-            android:name=".ui.activity.AboutActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme.About" />
-
         <activity
             android:name=".ui.activity.MainActivity"
             android:exported="true"
@@ -65,10 +43,36 @@
             </intent-filter>
         </activity-alias>
 
+        <activity android:name=".ui.activity.CustomHookActivity"
+            android:exported="true" />
+
+        <activity android:name=".debug.PerformanceActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".ui.activity.RequestInfoActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".ui.activity.AboutActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.About" />
+
         <activity
             android:name=".crash.activity.DefaultErrorActivity"
             android:process=":error_activity"
             android:exported="false" />
+
+        <provider
+            android:name=".provider.UrlContentProvider"
+            android:authorities="com.close.hook.ads.provider.url"
+            android:enabled="true"
+            android:exported="true" />
+        
+        <provider
+            android:name=".provider.HookPrefsProvider"
+            android:authorities="com.close.hook.ads.provider.prefs"
+            android:exported="true" />
 
         <provider
             android:name=".crash.provider.CrashInitProvider"

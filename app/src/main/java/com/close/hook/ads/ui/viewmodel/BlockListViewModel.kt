@@ -73,11 +73,11 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addUrl(url: Url) = viewModelScope.launch(Dispatchers.IO) {
-        if (!dataSource.isExist(url.type, url.url)) dataSource.addUrl(url)
+        dataSource.addUrl(url)
     }
 
     fun removeList(list: List<Url>) = viewModelScope.launch(Dispatchers.IO) {
-        if (list.isNotEmpty()) dataSource.removeList(list)
+        dataSource.removeList(list)
     }
 
     fun removeUrl(url: Url) = viewModelScope.launch(Dispatchers.IO) {
@@ -89,7 +89,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addListUrl(list: List<Url>) = viewModelScope.launch(Dispatchers.IO) {
-        if (list.isNotEmpty()) dataSource.addListUrl(list)
+        dataSource.addListUrl(list)
     }
 
     fun updateUrl(url: Url) = viewModelScope.launch(Dispatchers.IO) {

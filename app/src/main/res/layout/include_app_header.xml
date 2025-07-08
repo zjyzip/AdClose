@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="8dp"
+    android:paddingTop="8dp">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/app_icon_header"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:src="#000000" />
+
+    <TextView
+        android:id="@+id/app_name_header"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/app_version_header"
+        app:layout_constraintEnd_toStartOf="@id/switch_global_enable"
+        app:layout_constraintStart_toEndOf="@id/app_icon_header"
+        app:layout_constraintTop_toTopOf="@id/app_icon_header"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="App Name" />
+
+    <TextView
+        android:id="@+id/app_version_header"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="@id/app_icon_header"
+        app:layout_constraintEnd_toStartOf="@id/switch_global_enable"
+        app:layout_constraintStart_toEndOf="@id/app_icon_header"
+        app:layout_constraintTop_toBottomOf="@id/app_name_header"
+        tools:text="Version 1.0 (100)" />
+
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/switch_global_enable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:text="@string/enabled"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -7,6 +7,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("dev.rikka.tools.autoresconfig")
     id("kotlin-parcelize")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 autoResConfig {
@@ -146,6 +147,8 @@ dependencies {
     implementation(libs.fastscroll)
     implementation(libs.rikkaMaterial)
     implementation(libs.rikkaMaterialPreference)
+
+    implementation(libs.kotlinxSerializationJson)
 
     implementation(libs.gson)
     implementation(libs.guava)

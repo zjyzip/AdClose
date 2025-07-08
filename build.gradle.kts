@@ -5,6 +5,7 @@ plugins plugins {
     alias(libs.plugins.materialThemeBuilder)
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.autoresconfig) apply false
+    alias(libs.plugins.kotlin.plugin.serialization) apply false
 }
 
 tasks.register<Delete>("clean") {

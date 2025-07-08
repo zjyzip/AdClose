@@ -1,10 +1,10 @@
 package com.close.hook.ads.data.repository
 
+import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import com.close.hook.ads.R
-import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.model.AppFilterState
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.preference.HookPrefs
@@ -17,9 +17,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
 
-class AppRepository(private val packageManager: PackageManager) {
+class AppRepository(private val packageManager: PackageManager, context: Context) {
 
-    private val prefsHelper by lazy { HookPrefs(closeApp) }
+    private val prefsHelper by lazy { HookPrefs(context) }
 
     private val enableKeys = arrayOf(
         "switch_one_", "switch_two_", "switch_three_", "switch_four_",

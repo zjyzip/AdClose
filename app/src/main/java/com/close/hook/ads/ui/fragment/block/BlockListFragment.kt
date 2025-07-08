@@ -1,4 +1,4 @@
-package com.close.hook.ads.ui.fragment
+package com.close.hook.ads.ui.fragment.block
 
 import android.content.ClipData
 import android.content.ClipboardManager
