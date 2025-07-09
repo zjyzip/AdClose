@@ -3,6 +3,8 @@ package com.close.hook.ads.hook.util;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;   
 import java.util.function.Consumer;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -72,17 +74,16 @@ public class HookUtil {
         Class<?> actualClass = resolveClass(className, classLoader);
         if (actualClass == null) return;
 
+        Set<String> targetMethodNamesSet = new HashSet<>(Arrays.asList(methodNames));
+
         for (Method method : actualClass.getDeclaredMethods()) {
-            for (String targetMethodName : methodNames) {
-                if (method.getName().equals(targetMethodName)) {
-                    performHook(method, new XC_MethodReplacement() {
-                        @Override
-                        protected Object replaceHookedMethod(MethodHookParam param) {
-                            return returnValue;
-                        }
-                    });
-                    break;
-                }
+            if (targetMethodNamesSet.contains(method.getName())) {
+                performHook(method, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) {
+                        return returnValue;
+                    }
+                });
             }
         }
     }

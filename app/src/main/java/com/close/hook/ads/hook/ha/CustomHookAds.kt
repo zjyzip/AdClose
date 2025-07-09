@@ -5,6 +5,7 @@ import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
+import java.lang.NumberFormatException
 
 object CustomHookAds {
 
@@ -42,11 +43,11 @@ object CustomHookAds {
                                 customConfig.className,
                                 methodName,
                                 paramTypes,
-                                "after"
+                                customConfig.hookPoint
                             ) { param ->
                                 param.setResult(parsedReturnValue)
                             }
-                            XposedBridge.log("Custom Hook: findAndHookMethod - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}, Return=${parsedReturnValue}")
+                            XposedBridge.log("Custom Hook: findAndHookMethod - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
                         } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for FIND_AND_HOOK_METHOD config: $customConfig")
                     }
                     HookMethodType.HOOK_ALL_METHODS -> {
@@ -56,11 +57,11 @@ object CustomHookAds {
                             HookUtil.hookAllMethods(
                                 customConfig.className,
                                 methodName,
-                                "after"
+                                customConfig.hookPoint
                             ) { param ->
                                 param.setResult(parsedReturnValue)
                             }
-                            XposedBridge.log("Custom Hook: hookAllMethods - Class=${customConfig.className}, Method=${methodName}, Return=${parsedReturnValue}")
+                            XposedBridge.log("Custom Hook: hookAllMethods - Class=${customConfig.className}, Method=${methodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
                         } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for HOOK_ALL_METHODS config: $customConfig")
                     }
                     HookMethodType.SET_STATIC_OBJECT_FIELD -> {

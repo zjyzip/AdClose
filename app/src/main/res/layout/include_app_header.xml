@@ -28,8 +28,7 @@
         app:layout_constraintEnd_toStartOf="@id/switch_global_enable"
         app:layout_constraintStart_toEndOf="@id/app_icon_header"
         app:layout_constraintTop_toTopOf="@id/app_icon_header"
-        app:layout_constraintVertical_chainStyle="packed"
-        tools:text="App Name" />
+        app:layout_constraintVertical_chainStyle="packed" />
 
     <TextView
         android:id="@+id/app_version_header"
@@ -41,8 +40,7 @@
         app:layout_constraintBottom_toBottomOf="@id/app_icon_header"
         app:layout_constraintEnd_toStartOf="@id/switch_global_enable"
         app:layout_constraintStart_toEndOf="@id/app_icon_header"
-        app:layout_constraintTop_toBottomOf="@id/app_name_header"
-        tools:text="Version 1.0 (100)" />
+        app:layout_constraintTop_toBottomOf="@id/app_name_header" />
 
     <com.google.android.material.materialswitch.MaterialSwitch
         android:id="@+id/switch_global_enable"

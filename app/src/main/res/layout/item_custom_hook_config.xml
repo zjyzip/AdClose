@@ -40,13 +40,20 @@
 
         </LinearLayout>
 
-
         <TextView
             android:id="@+id/tv_class_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceBody1"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_hook_point"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textAppearance="?attr/textAppearanceCaption"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/tv_method_names"

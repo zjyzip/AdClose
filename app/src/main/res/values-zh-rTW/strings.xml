@@ -122,6 +122,13 @@
     <string name="hint_field_name">欄位名稱</string>
     <string name="hint_field_value">欄位值 (true/false/null/數字/字串)</string>
 
+    <string name="hint_hook_point">Hook 時機</string>
+    <string-array name="hook_points_array">
+        <item>方法執行後 (after)</item>
+        <item>方法執行前 (before)</item>
+    </string-array>
+    <string name="hook_point_format">Hook 時機: %1$s</string>
+
     <string name="error_class_name_empty">類別名稱不能為空</string>
     <string name="error_method_name_empty">方法名稱不能為空</string>
     <string name="error_parameter_types_empty">參數類型不能為空</string>

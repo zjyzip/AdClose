@@ -125,6 +125,19 @@ class CustomHookAdapter(
             binding.tvParameterTypes.visibility = View.GONE
             binding.tvFieldName.visibility = View.GONE
             binding.tvFieldValue.visibility = View.GONE
+            binding.tvHookPoint.visibility = View.GONE
+
+            config.hookPoint?.takeIf { it.isNotBlank() }?.let {
+                val displayHookPoint = when (it) {
+                    "before" -> context.resources.getStringArray(R.array.hook_points_array)[1]
+                    "after" -> context.resources.getStringArray(R.array.hook_points_array)[0]
+                    else -> it
+                }
+                binding.tvHookPoint.apply {
+                    text = highlightText(context.getString(R.string.hook_point_format, displayHookPoint), searchQuery)
+                    visibility = View.VISIBLE
+                }
+            }
 
             when (config.hookMethodType) {
                 HookMethodType.HOOK_MULTIPLE_METHODS,

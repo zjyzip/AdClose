@@ -7,8 +7,6 @@ import android.net.NetworkInfo;
 import java.net.NetworkInterface;
 import java.util.regex.Pattern;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 import com.close.hook.ads.hook.util.HookUtil;
 
 public class HideVPNStatus {

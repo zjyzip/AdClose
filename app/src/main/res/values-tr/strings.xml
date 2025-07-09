@@ -122,6 +122,13 @@
     <string name="hint_field_name">Alan Adı</string>
     <string name="hint_field_value">Alan Değeri (doğru/yanlış/boş/sayı/metin)</string>
 
+    <string name="hint_hook_point">Hook Noktası</string>
+    <string-array name="hook_points_array">
+        <item>Metod yürütme sonrası</item>
+        <item>Metod yürütme öncesi</item>
+    </string-array>
+    <string name="hook_point_format">Hook Noktası: %1$s</string>
+
     <string name="error_class_name_empty">Sınıf adı boş olamaz.</string>
     <string name="error_method_name_empty">Yöntem adı boş olamaz.</string>
     <string name="error_parameter_types_empty">Parametre türleri boş olamaz.</string>

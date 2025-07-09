@@ -123,6 +123,18 @@
     <string name="hint_field_name">Field Name</string>
     <string name="hint_field_value">Field Value (true/false/null/number/string)</string>
 
+    <string name="hint_hook_point">Hook Point</string>
+    <string-array name="hook_points_array">
+        <item>After method execution</item>
+        <item>Before method execution</item>
+    </string-array>
+    <string name="hook_point_format">Hook Point: %1$s</string>
+
+    <string name="hook_action_type_format">Action Type: %s</string>
+    <string name="hook_action_type_title">Hook Action Type</string>
+    <string name="action_type_before">Before Method Execution</string>
+    <string name="action_type_after">After Method Execution</string>
+
     <string name="error_class_name_empty">Class name cannot be empty.</string>
     <string name="error_method_name_empty">Method name cannot be empty.</string>
     <string name="error_parameter_types_empty">Parameter types cannot be empty.</string>

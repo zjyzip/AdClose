@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
+import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.data.repository.CustomHookRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +49,8 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
                     hook.returnValue?.lowercase()?.contains(lowerCaseQuery) == true ||
                     hook.parameterTypes?.any { it.lowercase().contains(lowerCaseQuery) } == true ||
                     hook.fieldName?.lowercase()?.contains(lowerCaseQuery) == true ||
-                    hook.fieldValue?.lowercase()?.contains(lowerCaseQuery) == true
+                    hook.fieldValue?.lowercase()?.contains(lowerCaseQuery) == true ||
+                    hook.hookPoint?.lowercase()?.contains(lowerCaseQuery) == true
                 }
             }
         }.stateIn(
