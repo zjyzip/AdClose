@@ -1,9 +1,12 @@
 package com.close.hook.ads.ui.fragment.hook
 
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.core.view.isVisible
@@ -13,11 +16,14 @@ import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.databinding.DialogAddCustomHookBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputLayout
+import java.util.UUID
 
 class CustomHookDialogFragment : DialogFragment() {
 
-    private var initialConfig: CustomHookInfo? = null
     private lateinit var onPositiveAction: (CustomHookInfo) -> Unit
+    private lateinit var binding: DialogAddCustomHookBinding
+    private var initialConfig: CustomHookInfo? = null
 
     companion object {
         const val TAG = "CustomHookDialogFragment"
@@ -28,17 +34,11 @@ class CustomHookDialogFragment : DialogFragment() {
             onPositive: (CustomHookInfo) -> Unit
         ): CustomHookDialogFragment =
             CustomHookDialogFragment().apply {
-                initialConfig = config
                 arguments = Bundle().apply {
                     putParcelable(ARG_CONFIG, config)
                 }
-                onPositiveAction = onPositive
+                (this as CustomHookDialogFragment).onPositiveAction = onPositive
             }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        initialConfig = arguments?.getParcelable(ARG_CONFIG)
     }
 
     override fun onCreateView(
@@ -50,14 +50,11 @@ class CustomHookDialogFragment : DialogFragment() {
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): android.app.Dialog {
-        val binding = DialogAddCustomHookBinding.inflate(LayoutInflater.from(context))
+        binding = DialogAddCustomHookBinding.inflate(LayoutInflater.from(context))
+        initialConfig = arguments?.getParcelable(ARG_CONFIG)
 
         val hookMethodTypeAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, HookMethodType.values().map { it.displayName })
-        binding.spinnerHookMethodType.setAdapter(hookMethodTypeAdapter)
-
-        val hookPointsDisplay = resources.getStringArray(R.array.hook_points_array).toList()
-        val hookPointAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, hookPointsDisplay)
-        binding.spinnerHookPoint.setAdapter(hookPointAdapter)
+        binding.spinnerHookMethodType.adapter = hookMethodTypeAdapter
 
         initialConfig?.let { config ->
             binding.etClassName.setText(config.className)
@@ -66,38 +63,55 @@ class CustomHookDialogFragment : DialogFragment() {
             binding.etParameterTypes.setText(config.parameterTypes?.joinToString(", "))
             binding.etFieldName.setText(config.fieldName)
             binding.etFieldValue.setText(config.fieldValue)
-            binding.spinnerHookMethodType.setText(config.hookMethodType.displayName, false)
 
-            val selectedHookPointIndex = when (config.hookPoint) {
-                "before" -> hookPointsDisplay.indexOf(resources.getStringArray(R.array.hook_points_array)[1])
-                "after" -> hookPointsDisplay.indexOf(resources.getStringArray(R.array.hook_points_array)[0])
-                else -> 0
-            }
-            if (selectedHookPointIndex != -1) {
-                binding.spinnerHookPoint.setText(hookPointsDisplay[selectedHookPointIndex], false)
+            val initialMethodTypeIndex = HookMethodType.values().indexOfFirst { it == config.hookMethodType }
+            if (initialMethodTypeIndex != -1) {
+                binding.spinnerHookMethodType.setSelection(initialMethodTypeIndex)
             } else {
-                binding.spinnerHookPoint.setText(hookPointsDisplay[0], false)
+                binding.spinnerHookMethodType.setSelection(0)
+            }
+
+            when (config.hookPoint) {
+                "after" -> binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
+                "before" -> binding.toggleGroupHookPoint.check(R.id.btn_hook_before)
+                else -> binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
             }
         } ?: run {
-            binding.spinnerHookMethodType.setText(HookMethodType.HOOK_MULTIPLE_METHODS.displayName, false)
-            binding.spinnerHookPoint.setText(hookPointsDisplay[0], false)
+            binding.spinnerHookMethodType.setSelection(HookMethodType.values().indexOf(HookMethodType.HOOK_MULTIPLE_METHODS))
+            binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
         }
 
         val updateVisibility = { selectedType: HookMethodType ->
-            binding.tilHookPoint.isVisible = selectedType != HookMethodType.HOOK_MULTIPLE_METHODS
-            binding.tilMethodName.isVisible = selectedType in listOf(HookMethodType.HOOK_MULTIPLE_METHODS, HookMethodType.FIND_AND_HOOK_METHOD, HookMethodType.HOOK_ALL_METHODS)
-            binding.tilReturnValue.isVisible = selectedType in listOf(HookMethodType.HOOK_MULTIPLE_METHODS, HookMethodType.FIND_AND_HOOK_METHOD, HookMethodType.HOOK_ALL_METHODS)
-            binding.tilParameterTypes.isVisible = selectedType == HookMethodType.FIND_AND_HOOK_METHOD
-            binding.tilFieldName.isVisible = selectedType == HookMethodType.SET_STATIC_OBJECT_FIELD
-            binding.tilFieldValue.isVisible = selectedType == HookMethodType.SET_STATIC_OBJECT_FIELD
+            val showMethodRelated = selectedType in listOf(HookMethodType.HOOK_MULTIPLE_METHODS, HookMethodType.FIND_AND_HOOK_METHOD, HookMethodType.HOOK_ALL_METHODS)
+            val showParameterTypes = selectedType == HookMethodType.FIND_AND_HOOK_METHOD
+            val showFieldRelated = selectedType == HookMethodType.SET_STATIC_OBJECT_FIELD
+            val showHookPoint = selectedType in listOf(HookMethodType.FIND_AND_HOOK_METHOD, HookMethodType.HOOK_ALL_METHODS)
+
+            binding.tilMethodName.isVisible = showMethodRelated
+            binding.tilReturnValue.isVisible = showMethodRelated
+            binding.tilParameterTypes.isVisible = showParameterTypes
+            binding.tilFieldName.isVisible = showFieldRelated
+            binding.tilFieldValue.isVisible = showFieldRelated
+
+            binding.toggleGroupHookPoint.isVisible = showHookPoint
+            binding.tvHookPointLabel.isVisible = showHookPoint
         }
 
         val initialHookMethodType = initialConfig?.hookMethodType ?: HookMethodType.HOOK_MULTIPLE_METHODS
         updateVisibility(initialHookMethodType)
 
-        binding.spinnerHookMethodType.setOnItemClickListener { _, _, position, _ ->
-            updateVisibility(HookMethodType.values()[position])
+        binding.spinnerHookMethodType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateVisibility(HookMethodType.values()[position])
+                binding.tilMethodName.error = null
+                binding.tilParameterTypes.error = null
+                binding.tilFieldName.error = null
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+            }
         }
+
+        setupInputValidation()
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root)
@@ -109,29 +123,108 @@ class CustomHookDialogFragment : DialogFragment() {
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
             positiveButton.setOnClickListener {
-                handlePositiveButtonClick(binding, dialog)
+                if (validateInputs()) {
+                    handlePositiveButtonClick(dialog)
+                }
             }
         }
-
         return dialog
     }
 
-    private fun handlePositiveButtonClick(binding: DialogAddCustomHookBinding, dialog: android.app.Dialog) {
+    private fun setupInputValidation() {
+        val classNameInputLayout = binding.etClassName.parent.parent as? TextInputLayout
+        classNameInputLayout?.let { til ->
+            binding.etClassName.addTextChangedListener(createValidationTextWatcher(til) { it.isNotBlank() })
+        }
+        binding.etMethodName.addTextChangedListener(createValidationTextWatcher(binding.tilMethodName) { it.isNotBlank() || !binding.tilMethodName.isVisible })
+        binding.etParameterTypes.addTextChangedListener(createValidationTextWatcher(binding.tilParameterTypes) { it.isNotBlank() || !binding.tilParameterTypes.isVisible })
+        binding.etFieldName.addTextChangedListener(createValidationTextWatcher(binding.tilFieldName) { it.isNotBlank() || !binding.tilFieldName.isVisible })
+    }
+
+    private fun createValidationTextWatcher(inputLayout: TextInputLayout, validation: (String) -> Boolean): TextWatcher {
+        return object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (inputLayout.isVisible) {
+                    if (!validation(s.toString().trim())) {
+                        inputLayout.error = context?.getString(R.string.error_field_name_empty)
+                    } else {
+                        inputLayout.error = null
+                    }
+                } else {
+                    inputLayout.error = null
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        }
+    }
+
+    private fun validateInputs(): Boolean {
         val className = binding.etClassName.text.toString().trim()
-        val selectedHookMethodTypeDisplayName = binding.spinnerHookMethodType.text.toString().trim()
-        val selectedHookMethodType = HookMethodType.values().firstOrNull { it.displayName == selectedHookMethodTypeDisplayName }
+        val selectedHookMethodType = HookMethodType.values().firstOrNull { it.displayName == binding.spinnerHookMethodType.selectedItem?.toString()?.trim() }
+
+        val classNameInputLayout = binding.etClassName.parent.parent as? TextInputLayout
+
+        if (className.isBlank()) {
+            classNameInputLayout?.error = getString(R.string.error_class_name_empty)
+            return false
+        } else {
+            classNameInputLayout?.error = null
+        }
 
         if (selectedHookMethodType == null) {
             Toast.makeText(requireContext(), getString(R.string.select_valid_hook_method), Toast.LENGTH_SHORT).show()
-            return
+            return false
         }
 
-        val selectedHookPointText = binding.spinnerHookPoint.text.toString().trim()
-        val hookPointsArray = resources.getStringArray(R.array.hook_points_array)
-        val hookPoint = when {
-            selectedHookPointText.contains(hookPointsArray[0]) -> "after"
-            selectedHookPointText.contains(hookPointsArray[1]) -> "before"
-            else -> "after"
+        var isValid = true
+
+        when (selectedHookMethodType) {
+            HookMethodType.HOOK_MULTIPLE_METHODS,
+            HookMethodType.HOOK_ALL_METHODS -> {
+                if (binding.tilMethodName.isVisible && binding.etMethodName.text.isNullOrBlank()) {
+                    binding.tilMethodName.error = getString(R.string.error_method_name_empty)
+                    isValid = false
+                } else {
+                    binding.tilMethodName.error = null
+                }
+            }
+            HookMethodType.FIND_AND_HOOK_METHOD -> {
+                if (binding.tilMethodName.isVisible && binding.etMethodName.text.isNullOrBlank()) {
+                    binding.tilMethodName.error = getString(R.string.error_method_name_empty)
+                    isValid = false
+                } else {
+                    binding.tilMethodName.error = null
+                }
+                if (binding.tilParameterTypes.isVisible && binding.etParameterTypes.text.isNullOrBlank()) {
+                    binding.tilParameterTypes.error = getString(R.string.error_parameter_types_empty)
+                    isValid = false
+                } else {
+                    binding.tilParameterTypes.error = null
+                }
+            }
+            HookMethodType.SET_STATIC_OBJECT_FIELD -> {
+                if (binding.tilFieldName.isVisible && binding.etFieldName.text.isNullOrBlank()) {
+                    binding.tilFieldName.error = getString(R.string.error_field_name_empty)
+                    isValid = false
+                } else {
+                    binding.tilFieldName.error = null
+                }
+            }
+        }
+
+        return isValid
+    }
+
+    private fun handlePositiveButtonClick(dialog: android.app.Dialog) {
+        val className = binding.etClassName.text.toString().trim()
+        val selectedHookMethodTypeDisplayName = binding.spinnerHookMethodType.selectedItem?.toString()?.trim()
+        val selectedHookMethodType = HookMethodType.values().firstOrNull { it.displayName == selectedHookMethodTypeDisplayName }
+
+        val hookPoint = when (binding.toggleGroupHookPoint.checkedButtonId) {
+            R.id.btn_hook_after -> "after"
+            R.id.btn_hook_before -> "before"
+            else -> null
         }
 
         val methodNames = binding.etMethodName.text.toString().trim()
@@ -148,53 +241,20 @@ class CustomHookDialogFragment : DialogFragment() {
         val fieldName = binding.etFieldName.text.toString().trim().takeIf { it.isNotBlank() }
         val fieldValue = binding.etFieldValue.text.toString().trim().takeIf { it.isNotBlank() }
 
-        var errorMessage: String? = null
-
-        if (className.isBlank()) {
-            errorMessage = getString(R.string.error_class_name_empty)
-        } else {
-            when (selectedHookMethodType) {
-                HookMethodType.HOOK_MULTIPLE_METHODS -> {
-                    if (methodNames.isNullOrEmpty()) {
-                        errorMessage = getString(R.string.error_method_name_empty)
-                    }
-                }
-                HookMethodType.HOOK_ALL_METHODS,
-                HookMethodType.FIND_AND_HOOK_METHOD -> {
-                    if (methodNames.isNullOrEmpty()) {
-                        errorMessage = getString(R.string.error_method_name_empty)
-                    }
-                    if (selectedHookMethodType == HookMethodType.FIND_AND_HOOK_METHOD && parameterTypes.isNullOrEmpty()) {
-                        errorMessage = getString(R.string.error_parameter_types_empty)
-                    }
-                }
-                HookMethodType.SET_STATIC_OBJECT_FIELD -> {
-                    if (fieldName == null) {
-                        errorMessage = getString(R.string.error_field_name_empty)
-                    }
-                }
-            }
-        }
-
-        if (errorMessage != null) {
-            Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show()
-            return
-        } else {
-            val newConfig = CustomHookInfo(
-                id = initialConfig?.id ?: java.util.UUID.randomUUID().toString(),
-                className = className,
-                methodNames = methodNames,
-                returnValue = returnValue,
-                hookMethodType = selectedHookMethodType,
-                parameterTypes = parameterTypes,
-                fieldName = fieldName,
-                fieldValue = fieldValue,
-                isEnabled = initialConfig?.isEnabled ?: false,
-                packageName = initialConfig?.packageName,
-                hookPoint = hookPoint
-            )
-            onPositiveAction(newConfig)
-            dialog.dismiss()
-        }
+        val newConfig = CustomHookInfo(
+            id = initialConfig?.id ?: UUID.randomUUID().toString(),
+            className = className,
+            methodNames = methodNames,
+            returnValue = returnValue,
+            hookMethodType = selectedHookMethodType!!,
+            parameterTypes = parameterTypes,
+            fieldName = fieldName,
+            fieldValue = fieldValue,
+            isEnabled = initialConfig?.isEnabled ?: true,
+            packageName = initialConfig?.packageName,
+            hookPoint = hookPoint
+        )
+        onPositiveAction(newConfig)
+        dialog.dismiss()
     }
 }

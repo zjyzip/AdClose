@@ -122,6 +122,9 @@
     <string name="hint_field_name">欄位名稱</string>
     <string name="hint_field_value">欄位值 (true/false/null/數字/字串)</string>
 
+    <string name="hook_point_after">方法執行後</string>
+    <string name="hook_point_before">方法執行前</string>
+
     <string name="hint_hook_point">Hook 時機</string>
     <string-array name="hook_points_array">
         <item>方法執行後 (after)</item>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -9,26 +10,49 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="@string/hint_hook_method_type"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-        <AutoCompleteTextView
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <Spinner
             android:id="@+id/spinner_hook_method_type"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="none" />
+            android:spinnerMode="dropdown" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_hook_point"
+    <TextView
+        android:id="@+id/tv_hook_point_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/hint_hook_point"
+        android:layout_marginTop="16dp"
+        android:labelFor="@id/toggle_group_hook_point"
+        android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/toggle_group_hook_point"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/hint_hook_point"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-        <AutoCompleteTextView
-            android:id="@+id/spinner_hook_point"
-            android:layout_width="match_parent"
+        android:layout_marginTop="8dp"
+        app:selectionRequired="true"
+        app:singleSelection="true"
+        android:visibility="gone">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_hook_after"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:inputType="none" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_weight="1"
+            style="?attr/materialButtonOutlinedStyle"
+            android:text="@string/hook_point_after" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_hook_before"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            style="?attr/materialButtonOutlinedStyle"
+            android:text="@string/hook_point_before" />
+
+    </com.google.android.material.button.MaterialButtonToggleGroup>
 
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"

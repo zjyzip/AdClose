@@ -123,6 +123,9 @@
     <string name="hint_field_name">Field Name</string>
     <string name="hint_field_value">Field Value (true/false/null/number/string)</string>
 
+    <string name="hook_point_after">After Method Execution</string>
+    <string name="hook_point_before">Before Method Execution</string>
+
     <string name="hint_hook_point">Hook Point</string>
     <string-array name="hook_points_array">
         <item>After method execution</item>

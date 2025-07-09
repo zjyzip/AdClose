@@ -16,10 +16,10 @@ import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.databinding.ItemCustomHookConfigBinding
 
 class CustomHookAdapter(
-    private val onItemDelete: (CustomHookInfo) -> Unit,
-    private val onItemEdit: (CustomHookInfo) -> Unit,
-    private val onItemLongClick: (CustomHookInfo) -> Unit,
-    private val onItemClick: (CustomHookInfo) -> Unit,
+    private val onDeleteItem: (CustomHookInfo) -> Unit,
+    private val onEditItem: (CustomHookInfo) -> Unit,
+    private val onLongClickItem: (CustomHookInfo) -> Unit,
+    private val onClickItem: (CustomHookInfo) -> Unit,
     private val onToggleEnabled: (CustomHookInfo, Boolean) -> Unit
 ) : ListAdapter<CustomHookInfo, CustomHookAdapter.HookViewHolder>(DIFF_CALLBACK) {
 
@@ -37,10 +37,10 @@ class CustomHookAdapter(
         val currentItem = getItem(position)
         holder.bind(
             currentItem,
-            onItemDelete,
-            onItemEdit,
-            onItemLongClick,
-            onItemClick,
+            onDeleteItem,
+            onEditItem,
+            onLongClickItem,
+            onClickItem,
             onToggleEnabled,
             currentSelectedItems.contains(currentItem),
             currentSearchQuery,
@@ -58,7 +58,7 @@ class CustomHookAdapter(
         (added + removed).forEach { config ->
             val index = currentList.indexOfFirst { it.id == config.id }
             if (index != -1) {
-                notifyItemChanged(index)
+                notifyItemChanged(index, PAYLOAD_SELECTION_CHANGED)
             }
         }
     }
@@ -66,17 +66,50 @@ class CustomHookAdapter(
     fun setMultiSelectMode(enabled: Boolean) {
         if (isInMultiSelectMode != enabled) {
             isInMultiSelectMode = enabled
-            notifyDataSetChanged()
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_MULTI_SELECT_MODE_CHANGED)
         }
     }
 
     fun setSearchQuery(query: String) {
-        currentSearchQuery = query
-        notifyDataSetChanged()
+        if (currentSearchQuery != query) {
+            currentSearchQuery = query
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_SEARCH_QUERY_CHANGED)
+        }
+    }
+
+    override fun onBindViewHolder(holder: HookViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+        } else {
+            payloads.forEach { payload ->
+                when (payload) {
+                    PAYLOAD_SELECTION_CHANGED -> {
+                        val currentItem = getItem(position)
+                        holder.updateSelectionState(currentItem.isEnabled, currentSelectedItems.contains(currentItem), isInMultiSelectMode)
+                    }
+                    PAYLOAD_MULTI_SELECT_MODE_CHANGED, PAYLOAD_SEARCH_QUERY_CHANGED -> {
+                        val currentItem = getItem(position)
+                        holder.bind(
+                            currentItem,
+                            onDeleteItem,
+                            onEditItem,
+                            onLongClickItem,
+                            onClickItem,
+                            onToggleEnabled,
+                            currentSelectedItems.contains(currentItem),
+                            currentSearchQuery,
+                            isInMultiSelectMode
+                        )
+                    }
+                }
+            }
+        }
     }
 
     class HookViewHolder(private val binding: ItemCustomHookConfigBinding) :
         RecyclerView.ViewHolder(binding.root) {
+
+        private val highlightColor = Color.YELLOW
 
         private fun highlightText(fullText: String, query: String): SpannableString {
             if (query.isBlank()) {
@@ -90,9 +123,8 @@ class CustomHookAdapter(
             while (lastIndex != -1) {
                 lastIndex = lowerCaseFullText.indexOf(lowerCaseQuery, lastIndex)
                 if (lastIndex != -1) {
-                    val backgroundColor = Color.parseColor("#FFFF00")
                     spannableString.setSpan(
-                        BackgroundColorSpan(backgroundColor),
+                        BackgroundColorSpan(highlightColor),
                         lastIndex,
                         lastIndex + query.length,
                         Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -105,10 +137,10 @@ class CustomHookAdapter(
 
         fun bind(
             config: CustomHookInfo,
-            onItemDelete: (CustomHookInfo) -> Unit,
-            onItemEdit: (CustomHookInfo) -> Unit,
-            onItemLongClick: (CustomHookInfo) -> Unit,
-            onItemClick: (CustomHookInfo) -> Unit,
+            onDeleteItem: (CustomHookInfo) -> Unit,
+            onEditItem: (CustomHookInfo) -> Unit,
+            onLongClickItem: (CustomHookInfo) -> Unit,
+            onClickItem: (CustomHookInfo) -> Unit,
             onToggleEnabled: (CustomHookInfo, Boolean) -> Unit,
             isSelected: Boolean,
             searchQuery: String,
@@ -177,24 +209,37 @@ class CustomHookAdapter(
                 }
             }
 
-            binding.switchEnabled.visibility = if (isInMultiSelectMode) View.GONE else View.VISIBLE
-            binding.switchEnabled.isChecked = config.isEnabled
             binding.switchEnabled.setOnCheckedChangeListener(null)
-            if (!isInMultiSelectMode) {
-                binding.switchEnabled.setOnCheckedChangeListener { _, isChecked ->
-                    onToggleEnabled(config, isChecked)
-                }
+            binding.switchEnabled.isChecked = config.isEnabled
+            binding.switchEnabled.setOnCheckedChangeListener { _, isChecked ->
+                onToggleEnabled(config, isChecked)
             }
 
-            binding.root.isChecked = isSelected
+            updateSelectionState(config.isEnabled, isSelected, isInMultiSelectMode)
 
-            binding.btnDelete.setOnClickListener { onItemDelete(config) }
-            binding.btnEdit.setOnClickListener { onItemEdit(config) }
+            binding.btnDelete.setOnClickListener { onDeleteItem(config) }
+            binding.btnEdit.setOnClickListener { onEditItem(config) }
             binding.root.setOnLongClickListener {
-                onItemLongClick(config)
+                onLongClickItem(config)
                 true
             }
-            binding.root.setOnClickListener { onItemClick(config) }
+            binding.root.setOnClickListener {
+                if (isInMultiSelectMode) {
+                    onClickItem(config)
+                } else {
+                    binding.switchEnabled.performClick()
+                }
+            }
+        }
+
+        fun updateSelectionState(isEnabled: Boolean, isSelected: Boolean, isInMultiSelectMode: Boolean) {
+            binding.switchEnabled.visibility = if (isInMultiSelectMode) View.GONE else View.VISIBLE
+            binding.root.isChecked = isSelected
+
+            if (isInMultiSelectMode) {
+            } else {
+                binding.switchEnabled.isChecked = isEnabled
+            }
         }
     }
 
@@ -205,8 +250,12 @@ class CustomHookAdapter(
             }
 
             override fun areContentsTheSame(oldItem: CustomHookInfo, newItem: CustomHookInfo): Boolean {
-                return oldItem == newItem
+                return oldItem == newItem && oldItem.isEnabled == newItem.isEnabled
             }
         }
+
+        const val PAYLOAD_SELECTION_CHANGED = "selection_changed"
+        const val PAYLOAD_MULTI_SELECT_MODE_CHANGED = "multi_select_mode_changed"
+        const val PAYLOAD_SEARCH_QUERY_CHANGED = "search_query_changed"
     }
 }

@@ -122,6 +122,9 @@
     <string name="hint_field_name">Alan Adı</string>
     <string name="hint_field_value">Alan Değeri (doğru/yanlış/boş/sayı/metin)</string>
 
+    <string name="hook_point_after">Metot Yürütme Sonrası</string>
+    <string name="hook_point_before">Metot Yürütme Öncesi</string>
+
     <string name="hint_hook_point">Hook Noktası</string>
     <string-array name="hook_points_array">
         <item>Metod yürütme sonrası</item>
