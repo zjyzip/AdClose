@@ -126,6 +126,9 @@
     <string name="hook_point_after">After Method Execution</string>
     <string name="hook_point_before">Before Method Execution</string>
 
+    <string name="auto_detect_from_clipboard">Auto-detect from clipboard</string>
+    <string name="clipboard_content_unrecognized">Clipboard content format unrecognized</string>
+
     <string name="hint_hook_point">Hook Point</string>
     <string-array name="hook_points_array">
         <item>After method execution</item>

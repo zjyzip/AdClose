@@ -125,6 +125,9 @@
     <string name="hook_point_after">Metot Yürütme Sonrası</string>
     <string name="hook_point_before">Metot Yürütme Öncesi</string>
 
+    <string name="auto_detect_from_clipboard">Panodan otomatik algıla</string>
+    <string name="clipboard_content_unrecognized">Pano içeriği formatı tanınmıyor</string>
+
     <string name="hint_hook_point">Hook Noktası</string>
     <string-array name="hook_points_array">
         <item>Metod yürütme sonrası</item>

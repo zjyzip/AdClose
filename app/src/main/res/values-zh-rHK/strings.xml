@@ -125,6 +125,9 @@
     <string name="hook_point_after">方法执行前</string>
     <string name="hook_point_before">方法执行后</string>
 
+    <string name="auto_detect_from_clipboard">从剪贴板自动检测</string>
+    <string name="clipboard_content_unrecognized">剪贴板内容格式无法识别</string>
+
     <string name="hint_hook_point">Hook 时机</string>
     <string-array name="hook_points_array">
         <item>方法执行后 (after)</item>

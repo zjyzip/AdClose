@@ -1,5 +1,7 @@
 package com.close.hook.ads.ui.fragment.hook
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
@@ -13,15 +15,18 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
+import androidx.core.os.BundleCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.fragment.app.FragmentResultListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -31,11 +36,12 @@ import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.databinding.FragmentCustomHookManagerBinding
 import com.close.hook.ads.ui.adapter.CustomHookAdapter
+import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.CustomHookViewModel
 import com.close.hook.ads.ui.viewmodel.ImportResult
-import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.util.AppIconLoader
 import com.close.hook.ads.util.AppUtils
+import com.close.hook.ads.util.ClipboardHookParser
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.dp
@@ -56,6 +62,9 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
 
     private var currentActionMode: ActionMode? = null
     private var inputMethodManager: InputMethodManager? = null
+    private var clipboardManager: ClipboardManager? = null
+
+    private var editingConfig: CustomHookInfo? = null
 
     private val actionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
@@ -111,6 +120,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         inputMethodManager = requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        clipboardManager = requireActivity().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
         val targetPkgName = arguments?.getString(ARG_PACKAGE_NAME)
         viewModel.init(targetPkgName)
@@ -121,6 +131,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         setupFabButtons()
         observeViewModel()
         setupHeaderDisplay(targetPkgName)
+        setupFragmentResultListener()
+    }
+
+    private fun showAutoDetectedHookDialog(hookInfo: CustomHookInfo) {
+        editingConfig = null
+        CustomHookDialogFragment.newInstance(hookInfo).show(childFragmentManager, CustomHookDialogFragment.TAG)
     }
 
     private fun setupToolbar() {
@@ -274,6 +290,31 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         val baseMargin = 16.dp
         val fabHeightWithMargin = 56.dp + 16.dp
 
+        binding.fabClipboardAutoDetect.apply {
+            val params = CoordinatorLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.END
+                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
+                rightMargin = 25.dp
+                bottomMargin = navBarHeight + baseMargin + (fabHeightWithMargin * 2)
+            }
+            layoutParams = params
+            visibility = View.VISIBLE
+            setOnClickListener {
+                clipboardManager?.primaryClip?.getItemAt(0)?.text?.toString()?.let { clipText ->
+                    ClipboardHookParser.parseClipboardContent(clipText, viewModel.getTargetPackageName())?.let { hookInfo ->
+                        showAutoDetectedHookDialog(hookInfo)
+                    } ?: run {
+                        Toast.makeText(requireContext(), getString(R.string.clipboard_content_unrecognized), Toast.LENGTH_SHORT).show()
+                    }
+                } ?: run {
+                    Toast.makeText(requireContext(), getString(R.string.clipboard_content_unrecognized), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
         binding.fabAddHook.apply {
             val params = CoordinatorLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -333,18 +374,44 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .show()
     }
 
+    /**
+     * 顯示添加 Hook 的對話框。
+     */
     private fun showAddHookDialog() {
-        CustomHookDialogFragment.newInstance(null) { newConfig ->
-            viewModel.addHook(newConfig)
-            showSnackbar(getString(R.string.hook_added_successfully))
-        }.show(childFragmentManager, CustomHookDialogFragment.TAG)
+        editingConfig = null
+        CustomHookDialogFragment.newInstance(null).show(childFragmentManager, CustomHookDialogFragment.TAG)
     }
 
+    /**
+     * 顯示編輯 Hook 的對話框。
+     */
     private fun showEditHookDialog(config: CustomHookInfo) {
-        CustomHookDialogFragment.newInstance(config) { updatedConfig ->
-            viewModel.updateHook(config, updatedConfig)
-            showSnackbar(getString(R.string.hook_updated_successfully))
-        }.show(childFragmentManager, CustomHookDialogFragment.TAG)
+        editingConfig = config
+        CustomHookDialogFragment.newInstance(config).show(childFragmentManager, CustomHookDialogFragment.TAG)
+    }
+
+    /**
+     * 設置 FragmentResultListener 來監聽 CustomHookDialogFragment 的結果。
+     */
+    private fun setupFragmentResultListener() {
+        childFragmentManager.setFragmentResultListener(
+            CustomHookDialogFragment.REQUEST_KEY_HOOK_CONFIG,
+            viewLifecycleOwner
+        ) { requestKey, bundle ->
+            if (requestKey == CustomHookDialogFragment.REQUEST_KEY_HOOK_CONFIG) {
+                val updatedConfig = BundleCompat.getParcelable(bundle, CustomHookDialogFragment.BUNDLE_KEY_HOOK_CONFIG, CustomHookInfo::class.java)
+                updatedConfig?.let { newOrUpdatedConfig ->
+                    if (editingConfig != null) {
+                        viewModel.updateHook(editingConfig!!, newOrUpdatedConfig)
+                        showSnackbar(getString(R.string.hook_updated_successfully))
+                    } else {
+                        viewModel.addHook(newOrUpdatedConfig)
+                        showSnackbar(getString(R.string.hook_added_successfully))
+                    }
+                    editingConfig = null
+                }
+            }
+        }
     }
 
     private fun setupSearchInput() {
@@ -519,6 +586,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
 
     override fun onDestroyView() {
         binding.editTextSearch.removeTextChangedListener(searchTextWatcher)
+        childFragmentManager.clearFragmentResultListener(CustomHookDialogFragment.REQUEST_KEY_HOOK_CONFIG)
         super.onDestroyView()
     }
 }

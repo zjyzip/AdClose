@@ -4,7 +4,7 @@ import com.close.hook.ads.preference.HookPrefs
 
 class SettingsManager(
     private val packageName: String,
-    private val prefsHelper: HookPrefs
+    internal val prefsHelper: HookPrefs
 ) {
 
     private fun key(suffix: String): String = "switch_${suffix}_$packageName"

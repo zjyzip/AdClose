@@ -29,6 +29,20 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         private const val ENABLE_DEX_DUMP = false
     }
 
+    init {
+        ContextUtil.addOnApplicationContextInitializedCallback {
+            val ctx = ContextUtil.applicationContext!!
+            val manager = SettingsManager(ctx.packageName, HookPrefs())
+
+            try {
+                setupAppHooks(ctx, manager)
+                applySettings(manager)
+            } catch (e: Throwable) {
+                XposedBridge.log("$TAG | ContextUtil.applicationContextInitializedCallback error: ${Log.getStackTraceString(e)}")
+            }
+        }
+    }
+
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         ContextUtil.setupContextHooks()
     }
@@ -36,16 +50,8 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if (lpparam.appInfo == null || !lpparam.isFirstApplication) return
 
-        try {
-            ContextUtil.addOnApplicationContextInitializedCallback {
-                val ctx = ContextUtil.applicationContext!!
-                val manager = SettingsManager(ctx.packageName, HookPrefs(ctx))
-
-                setupAppHooks(ctx, manager)
-                applySettings(manager)
-            }
-        } catch (e: Throwable) {
-            XposedBridge.log("$TAG | handleLoadPackage error: ${Log.getStackTraceString(e)}")
+        if (lpparam.packageName == TAG) {
+            activateModule(lpparam.classLoader)
         }
     }
 
@@ -54,12 +60,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
             val classLoader = context.classLoader
             val packageName = context.packageName
             val appName = AppUtils.getAppName(context, packageName)
-            val hookPrefs = HookPrefs(context)
-
-            if (packageName == TAG) {
-                activateModule(classLoader)
-                return
-            }
+            val hookPrefs = manager.prefsHelper
 
             if (ENABLE_DEX_DUMP) {
                 DexDumpUtil.dumpDexFilesByPackageName(packageName)
@@ -88,6 +89,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
             "isModuleActivated",
             true
         )
+        XposedBridge.log("$TAG | Module activated for package: $TAG")
     }
 
     private fun applyCustomHooks(classLoader: ClassLoader, hookPrefs: HookPrefs, packageName: String) {

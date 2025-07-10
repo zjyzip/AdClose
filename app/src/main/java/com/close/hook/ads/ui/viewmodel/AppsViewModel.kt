@@ -56,7 +56,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             }
             .distinctUntilChanged()
     }
-    
+
     fun refreshApps() {
         viewModelScope.launch {
             combineFlows()
