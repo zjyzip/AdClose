@@ -153,7 +153,6 @@
             android:paddingTop="4dp"
             android:paddingBottom="4dp"
             android:text="@string/delete"
-            android:textColor="?attr/colorError"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@+id/btn_edit" />
 

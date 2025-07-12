@@ -91,7 +91,6 @@
     <string name="deleted_hooks_count">%d Hooks deleted</string>
     <string name="no_hook_selected_to_copy">No Hook configuration selected to copy</string>
     <string name="hook_configurations_label">Hook Configurations</string>
-    <string name="hook_enabled_label">启用状态</string>
     <string name="copied_hooks_count">%d Hooks copied</string>
     <string name="clear_all_hooks_title">Clear all Hooks?</string>
     <string name="clear_all_hooks_message">Are you sure you want to clear all Hook configurations? This action cannot be undone.</string>

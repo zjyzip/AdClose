@@ -69,12 +69,9 @@ class CustomHookDialogFragment : DialogFragment() {
                 else -> binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
             }
 
-            binding.switchDialogEnabled.isChecked = config.isEnabled
-
         } ?: run {
             binding.spinnerHookMethodType.setSelection(HookMethodType.values().indexOf(HookMethodType.HOOK_MULTIPLE_METHODS))
             binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
-            binding.switchDialogEnabled.isChecked = true
         }
 
         val updateVisibility = { selectedType: HookMethodType ->
@@ -287,8 +284,6 @@ class CustomHookDialogFragment : DialogFragment() {
             .filter { it.isNotBlank() }
             .takeIf { it.isNotEmpty() && binding.tilSearchStrings.isVisible }
 
-        val isEnabled = binding.switchDialogEnabled.isChecked
-
         val newConfig = CustomHookInfo(
             id = initialConfig?.id ?: UUID.randomUUID().toString(),
             className = className,
@@ -298,7 +293,7 @@ class CustomHookDialogFragment : DialogFragment() {
             parameterTypes = parameterTypes,
             fieldName = fieldName,
             fieldValue = fieldValue,
-            isEnabled = isEnabled,
+            isEnabled = true,
             packageName = initialConfig?.packageName,
             hookPoint = hookPoint,
             searchStrings = searchStrings
