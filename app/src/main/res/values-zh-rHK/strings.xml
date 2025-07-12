@@ -113,6 +113,7 @@
     <string name="return_value_format">返回值: %1$s</string>
     <string name="field_name_format">字段名: %1$s</string>
     <string name="field_value_format">字段值: %1$s</string>
+    <string name="search_strings_format">查找字符串: %1$s</string>
 
     <string name="hint_hook_method_type">Hook 方法类型</string>
     <string name="hint_class_name">类名</string>
@@ -121,9 +122,10 @@
     <string name="hint_return_value">返回值 (true/false/null/数字/字符串)</string>
     <string name="hint_field_name">字段名</string>
     <string name="hint_field_value">字段值 (true/false/null/数字/字符串)</string>
+    <string name="hint_search_strings">查找字符串 (多个用逗号分隔)</string>
 
-    <string name="hook_point_after">方法执行前</string>
-    <string name="hook_point_before">方法执行后</string>
+    <string name="hook_point_after">方法执行后</string>
+    <string name="hook_point_before">方法执行前</string>
 
     <string name="auto_detect_from_clipboard">从剪贴板自动检测</string>
     <string name="clipboard_content_unrecognized">剪贴板内容格式无法识别</string>
@@ -139,6 +141,7 @@
     <string name="error_method_name_empty">方法名不能为空</string>
     <string name="error_parameter_types_empty">参数类型不能为空</string>
     <string name="error_field_name_empty">字段名不能为空</string>
+    <string name="error_search_strings_empty">查找字符串不能为空</string>
 
     <string name="enabled">启用</string>
     <string name="disabled">禁用</string>

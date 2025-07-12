@@ -9,14 +9,15 @@ import java.util.UUID
 @Serializable
 data class CustomHookInfo(
     val id: String = UUID.randomUUID().toString(),
-    val className: String,
-    val methodNames: List<String>? = null,
-    val returnValue: String? = null,
     val hookMethodType: HookMethodType,
+    val packageName: String? = null,
+    val isEnabled: Boolean = false,
+    val className: String,
+    val hookPoint: String? = null,
+    val searchStrings: List<String>? = null,
+    val methodNames: List<String>? = null,
     val parameterTypes: List<String>? = null,
     val fieldName: String? = null,
     val fieldValue: String? = null,
-    val isEnabled: Boolean = false,
-    val packageName: String? = null,
-    val hookPoint: String? = null
+    val returnValue: String? = null
 ) : Parcelable

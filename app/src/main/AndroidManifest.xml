@@ -70,6 +70,11 @@
             android:exported="true" />
         
         <provider
+            android:name=".provider.HookPrefsProvider"
+            android:authorities="com.close.hook.ads.provider.prefs"
+            android:exported="true" />
+
+        <provider
             android:name=".crash.provider.CrashInitProvider"
             android:authorities="com.close.hook.ads.crashinitprovider"
             android:exported="false"

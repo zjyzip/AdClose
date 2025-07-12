@@ -63,17 +63,17 @@ class DataSource(context: Context) {
     suspend fun getUrlListOnce(): List<Url> =
         withContext(Dispatchers.IO) { urlDao.loadAllList().first() }
 
-    suspend fun findUrlMatch(fullUrl: String): Cursor =
-        withContext(Dispatchers.IO) { urlDao.findUrlMatch(fullUrl) }
+    suspend fun existsUrlMatch(fullUrl: String): Boolean =
+        withContext(Dispatchers.IO) { urlDao.existsUrlMatch(fullUrl) }
 
-    suspend fun findDomainMatch(inputUrl: String): Cursor =
+    suspend fun existsDomainMatch(inputUrl: String): Boolean =
         withContext(Dispatchers.IO) {
             val host = AppUtils.extractHostOrSelf(inputUrl)
-            urlDao.findDomainMatch(host)
+            urlDao.existsDomainMatch(host)
         }
 
-    suspend fun findKeywordMatch(value: String): Cursor =
-        withContext(Dispatchers.IO) { urlDao.findKeywordMatch(value) }
+    suspend fun existsKeywordMatch(value: String): Boolean =
+        withContext(Dispatchers.IO) { urlDao.existsKeywordMatch(value) }
 
     companion object {
         @Volatile

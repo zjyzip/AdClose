@@ -42,6 +42,15 @@ interface UrlDao {
     @Query("SELECT * FROM url_info WHERE type = 'KeyWord' AND INSTR(:value, url) > 0 LIMIT 1")
     fun findKeywordMatch(value: String): Cursor
 
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'URL' AND :fullUrl LIKE url || '%' LIMIT 1")
+    fun existsUrlMatch(fullUrl: String): Boolean
+
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'Domain' AND url = :host LIMIT 1")
+    fun existsDomainMatch(host: String): Boolean
+
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'KeyWord' AND INSTR(:value, url) > 0 LIMIT 1")
+    fun existsKeywordMatch(value: String): Boolean
+
     @Query("SELECT COUNT(*) > 0 FROM url_info WHERE url = :url")
     fun isExist(url: String): Boolean
 

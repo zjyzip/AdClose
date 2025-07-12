@@ -3,6 +3,8 @@ package com.close.hook.ads.hook.ha
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
+import com.close.hook.ads.hook.ha.SDKAdsKit
+import com.close.hook.ads.hook.util.StringFinderKit
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import java.lang.NumberFormatException
@@ -45,7 +47,7 @@ object CustomHookAds {
                                 paramTypes,
                                 customConfig.hookPoint
                             ) { param ->
-                                param.setResult(parsedReturnValue)
+                                param.result = parsedReturnValue
                             }
                             XposedBridge.log("Custom Hook: findAndHookMethod - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
                         } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for FIND_AND_HOOK_METHOD config: $customConfig")
@@ -59,7 +61,7 @@ object CustomHookAds {
                                 methodName,
                                 customConfig.hookPoint
                             ) { param ->
-                                param.setResult(parsedReturnValue)
+                                param.result = parsedReturnValue
                             }
                             XposedBridge.log("Custom Hook: hookAllMethods - Class=${customConfig.className}, Method=${methodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
                         } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for HOOK_ALL_METHODS config: $customConfig")
@@ -75,6 +77,31 @@ object CustomHookAds {
                             )
                             XposedBridge.log("Custom Hook: setStaticObjectField - Class=${customConfig.className}, Field=${fieldName}, Value=${fieldParsedValue}")
                         } ?: XposedBridge.log("Custom Hook Error: Field name is null or empty for SET_STATIC_OBJECT_FIELD config: $customConfig")
+                    }
+                    HookMethodType.HOOK_METHODS_BY_STRING_MATCH -> {
+                        customConfig.searchStrings?.takeIf { it.isNotEmpty() }?.let { searchStrings ->
+                            SDKAdsKit.hookMethodsByStringMatch(customConfig.id, searchStrings) { method ->
+                                HookUtil.hookMethod(method, customConfig.hookPoint) { param ->
+                                    param.result = parsedReturnValue
+                                }
+                                XposedBridge.log("Custom Hook: hookMethodsByStringMatch - ID=${customConfig.id}, Strings=${searchStrings}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, MethodData: $method")
+                            }
+                        } ?: XposedBridge.log("Custom Hook Error: Search strings are null or empty for HOOK_METHODS_BY_STRING_MATCH config: $customConfig")
+                    }
+                    HookMethodType.FIND_METHODS_WITH_STRING -> {
+                        customConfig.searchStrings?.takeIf { it.isNotEmpty() }?.let { searchStrings ->
+                            customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let { methodNames ->
+                                val targetMethodName = methodNames[0]
+                                StringFinderKit.findMethodsWithString(customConfig.id, searchStrings[0], targetMethodName)?.forEach { methodData ->
+                                    methodData.getMethodInstance(classLoader)?.let { method ->
+                                        HookUtil.hookMethod(method, customConfig.hookPoint) { param ->
+                                            param.result = parsedReturnValue
+                                        }
+                                        XposedBridge.log("Custom Hook: findMethodsWithString - ID=${customConfig.id}, String=${searchStrings[0]}, MethodName=${targetMethodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, FoundMethod=${methodData}")
+                                    } ?: XposedBridge.log("Custom Hook Error: Could not get method instance for FIND_METHODS_WITH_STRING config: $customConfig, MethodData: $methodData")
+                                }
+                            } ?: XposedBridge.log("Custom Hook Error: Method name is null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
+                        } ?: XposedBridge.log("Custom Hook Error: Search strings are null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
                     }
                 }
             } catch (e: Throwable) {

@@ -38,7 +38,7 @@ import com.close.hook.ads.databinding.FragmentCustomHookManagerBinding
 import com.close.hook.ads.ui.adapter.CustomHookAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.CustomHookViewModel
-import com.close.hook.ads.ui.viewmodel.ImportResult
+import com.close.hook.ads.ui.viewmodel.ImportAction
 import com.close.hook.ads.util.AppIconLoader
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.ClipboardHookParser
@@ -54,6 +54,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>(), OnBackPressListener {
 
@@ -61,8 +63,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private lateinit var hookAdapter: CustomHookAdapter
 
     private var currentActionMode: ActionMode? = null
-    private var inputMethodManager: InputMethodManager? = null
-    private var clipboardManager: ClipboardManager? = null
+    private val inputMethodManager: InputMethodManager by lazy {
+        requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    }
+    private val clipboardManager: ClipboardManager by lazy {
+        requireActivity().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    }
 
     private var editingConfig: CustomHookInfo? = null
 
@@ -119,8 +125,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        inputMethodManager = requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        clipboardManager = requireActivity().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
         val targetPkgName = arguments?.getString(ARG_PACKAGE_NAME)
         viewModel.init(targetPkgName)
@@ -203,7 +207,11 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             onEditItem = { config -> showEditHookDialog(config) },
             onLongClickItem = { config -> handleItemLongClick(config) },
             onClickItem = { config -> handleItemClick(config) },
-            onToggleEnabled = { config, isEnabled -> viewModel.toggleHookActivation(config, isEnabled) }
+            onToggleEnabled = { config, isEnabled ->
+                lifecycleScope.launch {
+                    viewModel.toggleHookActivation(config, isEnabled)
+                }
+            }
         )
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(context)
@@ -269,10 +277,11 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .setMessage(R.string.delete_selected_hooks_message)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val selectedCount = viewModel.selectedConfigs.value.size
-                viewModel.deleteSelectedHookConfigs()
-                showSnackbar(getString(R.string.deleted_hooks_count, selectedCount))
-                currentActionMode?.finish()
+                lifecycleScope.launch {
+                    val deletedCount = viewModel.deleteSelectedHookConfigs()
+                    showSnackbar(getString(R.string.deleted_hooks_count, deletedCount))
+                    currentActionMode?.finish()
+                }
             }
             .show()
     }
@@ -280,71 +289,47 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun copySelectedHooks() {
         lifecycleScope.launch {
             val message = viewModel.copySelectedHooksToJson()
-            showSnackbar(message)
+            message?.let { showSnackbar(it) }
             currentActionMode?.finish()
         }
     }
 
-    private fun setupFabButtons() {
+    private fun setupFab(fab: FloatingActionButton, baseMargin: Int, fabOffsetIndex: Int, onClick: () -> Unit) {
         val navBarHeight = ViewCompat.getRootWindowInsets(binding.root)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
-        val baseMargin = 16.dp
         val fabHeightWithMargin = 56.dp + 16.dp
+        val params = CoordinatorLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.END
+            behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
+            rightMargin = 25.dp
+            bottomMargin = navBarHeight + baseMargin + (fabHeightWithMargin * fabOffsetIndex)
+        }
+        fab.layoutParams = params
+        fab.visibility = View.VISIBLE
+        fab.setOnClickListener { onClick() }
+    }
 
-        binding.fabClipboardAutoDetect.apply {
-            val params = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
-                rightMargin = 25.dp
-                bottomMargin = navBarHeight + baseMargin + (fabHeightWithMargin * 2)
-            }
-            layoutParams = params
-            visibility = View.VISIBLE
-            setOnClickListener {
-                clipboardManager?.primaryClip?.getItemAt(0)?.text?.toString()?.let { clipText ->
-                    ClipboardHookParser.parseClipboardContent(clipText, viewModel.getTargetPackageName())?.let { hookInfo ->
-                        showAutoDetectedHookDialog(hookInfo)
-                    } ?: run {
-                        Toast.makeText(requireContext(), getString(R.string.clipboard_content_unrecognized), Toast.LENGTH_SHORT).show()
-                    }
+    private fun setupFabButtons() {
+        val baseMargin = 16.dp
+
+        setupFab(binding.fabClipboardAutoDetect, baseMargin, 2) {
+            clipboardManager.primaryClip?.getItemAt(0)?.text?.toString()?.let { clipText ->
+                ClipboardHookParser.parseClipboardContent(clipText, viewModel.getTargetPackageName())?.let { hookInfo ->
+                    showAutoDetectedHookDialog(hookInfo)
                 } ?: run {
                     Toast.makeText(requireContext(), getString(R.string.clipboard_content_unrecognized), Toast.LENGTH_SHORT).show()
                 }
+            } ?: run {
+                Toast.makeText(requireContext(), getString(R.string.clipboard_content_unrecognized), Toast.LENGTH_SHORT).show()
             }
         }
 
-        binding.fabAddHook.apply {
-            val params = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
-                rightMargin = 25.dp
-                bottomMargin = navBarHeight + baseMargin + fabHeightWithMargin
-            }
-            layoutParams = params
-            visibility = View.VISIBLE
-            setOnClickListener { showAddHookDialog() }
-        }
-
-        binding.fabClearAllHooks.apply {
-            val params = CoordinatorLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
-                rightMargin = 25.dp
-                bottomMargin = navBarHeight + baseMargin
-            }
-            layoutParams = params
-            visibility = View.VISIBLE
-            setOnClickListener { showClearAllConfirmDialog() }
-        }
+        setupFab(binding.fabAddHook, baseMargin, 1) { showAddHookDialog() }
+        setupFab(binding.fabClearAllHooks, baseMargin, 0) { showClearAllConfirmDialog() }
     }
+
 
     private fun showClearAllConfirmDialog() {
         MaterialAlertDialogBuilder(requireContext())
@@ -352,8 +337,10 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .setMessage(R.string.clear_all_hooks_message)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                viewModel.clearAllHooks()
-                showSnackbar(getString(R.string.all_hooks_cleared))
+                lifecycleScope.launch {
+                    viewModel.clearAllHooks()
+                    showSnackbar(getString(R.string.all_hooks_cleared))
+                }
             }
             .show()
     }
@@ -368,39 +355,32 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .setMessage(R.string.delete_hook_message)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                viewModel.deleteHook(config)
-                showSnackbar(getString(R.string.hook_deleted_successfully))
+                lifecycleScope.launch {
+                    viewModel.deleteHook(config)
+                    showSnackbar(getString(R.string.hook_deleted_successfully))
+                }
             }
             .show()
     }
 
-    /**
-     * 顯示添加 Hook 的對話框。
-     */
     private fun showAddHookDialog() {
         editingConfig = null
         CustomHookDialogFragment.newInstance(null).show(childFragmentManager, CustomHookDialogFragment.TAG)
     }
 
-    /**
-     * 顯示編輯 Hook 的對話框。
-     */
     private fun showEditHookDialog(config: CustomHookInfo) {
         editingConfig = config
         CustomHookDialogFragment.newInstance(config).show(childFragmentManager, CustomHookDialogFragment.TAG)
     }
 
-    /**
-     * 設置 FragmentResultListener 來監聽 CustomHookDialogFragment 的結果。
-     */
     private fun setupFragmentResultListener() {
         childFragmentManager.setFragmentResultListener(
             CustomHookDialogFragment.REQUEST_KEY_HOOK_CONFIG,
             viewLifecycleOwner
-        ) { requestKey, bundle ->
-            if (requestKey == CustomHookDialogFragment.REQUEST_KEY_HOOK_CONFIG) {
-                val updatedConfig = BundleCompat.getParcelable(bundle, CustomHookDialogFragment.BUNDLE_KEY_HOOK_CONFIG, CustomHookInfo::class.java)
-                updatedConfig?.let { newOrUpdatedConfig ->
+        ) { _, bundle ->
+            val updatedConfig = BundleCompat.getParcelable(bundle, CustomHookDialogFragment.BUNDLE_KEY_HOOK_CONFIG, CustomHookInfo::class.java)
+            updatedConfig?.let { newOrUpdatedConfig ->
+                lifecycleScope.launch {
                     if (editingConfig != null) {
                         viewModel.updateHook(editingConfig!!, newOrUpdatedConfig)
                         showSnackbar(getString(R.string.hook_updated_successfully))
@@ -458,10 +438,10 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
         if (focus) {
             binding.editTextSearch.requestFocus()
-            inputMethodManager?.showSoftInput(binding.editTextSearch, 0)
+            inputMethodManager.showSoftInput(binding.editTextSearch, 0)
         } else {
             binding.editTextSearch.clearFocus()
-            inputMethodManager?.hideSoftInputFromWindow(binding.editTextSearch.windowToken, 0)
+            inputMethodManager.hideSoftInputFromWindow(binding.editTextSearch.windowToken, 0)
         }
     }
 
@@ -485,13 +465,17 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun importHooks(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
-                val jsonString = requireContext().contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                val jsonString = requireContext().contentResolver.openInputStream(uri)?.bufferedReader()?.use(BufferedReader::readText)
                 if (jsonString.isNullOrEmpty()) {
                     throw IllegalArgumentException(getString(R.string.error_empty_or_invalid_json))
                 }
 
                 val importedConfigs = Json.decodeFromString<List<CustomHookInfo>>(jsonString)
-                handleImportResult(viewModel.handleImport(importedConfigs))
+                val importAction = viewModel.getImportAction(importedConfigs)
+
+                withContext(Dispatchers.Main) {
+                    handleImportAction(importAction)
+                }
 
             }.onFailure {
                 withContext(Dispatchers.Main) {
@@ -501,26 +485,52 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         }
     }
 
-    private fun handleImportResult(result: ImportResult) {
-        when (result) {
-            is ImportResult.ShowSnackbar -> {
-                showSnackbar(getString(if (result.isUpdated) R.string.import_success else R.string.no_new_hooks_to_import))
+    private suspend fun handleImportAction(action: ImportAction) {
+        when (action) {
+            is ImportAction.DirectImport -> {
+                val updated = viewModel.importHooks(action.configs)
+                showSnackbar(
+                    if (updated) getString(R.string.import_success)
+                    else getString(R.string.no_new_hooks_to_import)
+                )
             }
-            is ImportResult.ShowDialog -> {
-                showMessageDialog(result.titleResId, result.message, result.throwable)
+            is ImportAction.PromptImportGlobal -> {
+                showImportGlobalRulesDialog(action.configs)
             }
-            is ImportResult.ShowGlobalRulesImportDialog -> {
-                showImportGlobalRulesDialog(result.importedConfigs)
-            }
-            is ImportResult.ShowAppSpecificRulesSkippedSnackbar -> {
-                showSnackbar(getString(R.string.imported_global_rules_app_specific_skipped, result.skippedCount))
-                if (result.isUpdated) {
-                    showSnackbar(getString(R.string.import_success))
+            is ImportAction.ImportGlobalAndNotifySkipped -> {
+                val updated = viewModel.importGlobalHooksToStorage(action.globalConfigs)
+                val baseMessage = if (updated) getString(R.string.import_success) else getString(R.string.no_new_hooks_to_import_global)
+                if (action.skippedAppSpecificCount > 0) {
+                    showSnackbar(getString(R.string.imported_global_rules_app_specific_skipped, action.skippedAppSpecificCount))
                 } else {
-                    showSnackbar(getString(R.string.no_new_hooks_to_import))
+                    showSnackbar(baseMessage)
                 }
             }
         }
+    }
+
+
+    private fun showMessageDialog(titleResId: Int, message: String, throwable: Throwable?) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(titleResId)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok, null)
+            .apply {
+                if (throwable != null) {
+                    setNegativeButton(R.string.crash_log) { _, _ ->
+                        MaterialAlertDialogBuilder(requireContext())
+                            .setTitle(R.string.crash_log)
+                            .setMessage(throwable.stackTraceToString() ?: "No stack trace available.")
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show()
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun showSnackbar(message: String) {
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
     }
 
     private fun showImportGlobalRulesDialog(importedConfigs: List<CustomHookInfo>) {
@@ -529,32 +539,21 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .setMessage(R.string.import_global_rules_message)
             .setPositiveButton(R.string.import_to_global) { dialog, _ ->
                 lifecycleScope.launch {
-                    val updated = viewModel.confirmGlobalHooksImport(importedConfigs)
-                    showSnackbar(getString(if (updated) R.string.imported_to_global_successfully else R.string.no_new_hooks_to_import_global))
+                    val globalOnlyImported = importedConfigs.filter { it.packageName.isNullOrEmpty() }
+                    if (globalOnlyImported.isEmpty()) {
+                        showSnackbar(getString(R.string.no_global_hooks_found_to_import))
+                    } else {
+                        val updated = viewModel.importGlobalHooksToStorage(globalOnlyImported)
+                        showSnackbar(
+                            if (updated) getString(R.string.imported_to_global_successfully)
+                            else getString(R.string.no_new_hooks_to_import_global)
+                        )
+                    }
                 }
                 dialog.dismiss()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
-    }
-
-    private fun showMessageDialog(titleResId: Int, message: String, throwable: Throwable?) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(titleResId)
-            .setMessage(message)
-            .setPositiveButton(android.R.string.ok, null)
-            .setNegativeButton(R.string.crash_log) { _, _ ->
-                MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.crash_log)
-                    .setMessage(throwable?.stackTraceToString() ?: "No stack trace available.")
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show()
-            }
-            .show()
-    }
-
-    private fun showSnackbar(message: String) {
-        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
     }
 
     override fun onBackPressed(): Boolean {
@@ -576,7 +575,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         super.onPause()
         (activity as? OnBackPressContainer)?.backController = null
         currentActionMode?.finish()
-        inputMethodManager?.hideSoftInputFromWindow(binding.editTextSearch.windowToken, 0)
+        inputMethodManager.hideSoftInputFromWindow(binding.editTextSearch.windowToken, 0)
     }
 
     override fun onResume() {

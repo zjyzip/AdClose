@@ -8,7 +8,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
-import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.data.repository.CustomHookRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,12 +16,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.decodeFromString
+import java.util.UUID
 
 class CustomHookViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -36,6 +34,9 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
     private val _isGlobalEnabled = MutableStateFlow(false)
 
     val isGlobalEnabled: StateFlow<Boolean> = _isGlobalEnabled.asStateFlow()
+    val selectedConfigs: StateFlow<Set<CustomHookInfo>> = _selectedConfigs.asStateFlow()
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     val filteredConfigs: StateFlow<List<CustomHookInfo>> =
         combine(_hookConfigs, _searchQuery) { configs, currentQuery ->
@@ -45,12 +46,13 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
                 val lowerCaseQuery = currentQuery.lowercase()
                 configs.filter { config ->
                     config.className.lowercase().contains(lowerCaseQuery) ||
-                    config.methodNames?.any { it.lowercase().contains(lowerCaseQuery) } == true ||
-                    config.returnValue?.lowercase()?.contains(lowerCaseQuery) == true ||
-                    config.parameterTypes?.any { it.lowercase().contains(lowerCaseQuery) } == true ||
-                    config.fieldName?.lowercase()?.contains(lowerCaseQuery) == true ||
-                    config.fieldValue?.lowercase()?.contains(lowerCaseQuery) == true ||
-                    config.hookPoint?.lowercase()?.contains(lowerCaseQuery) == true
+                            config.methodNames?.any { it.lowercase().contains(lowerCaseQuery) } == true ||
+                            config.returnValue?.lowercase()?.contains(lowerCaseQuery) == true ||
+                            config.parameterTypes?.any { it.lowercase().contains(lowerCaseQuery) } == true ||
+                            config.fieldName?.lowercase()?.contains(lowerCaseQuery) == true ||
+                            config.fieldValue?.lowercase()?.contains(lowerCaseQuery) == true ||
+                            config.hookPoint?.lowercase()?.contains(lowerCaseQuery) == true ||
+                            config.searchStrings?.any { it.lowercase().contains(lowerCaseQuery) } == true
                 }
             }
         }.stateIn(
@@ -59,9 +61,7 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
             initialValue = emptyList()
         )
 
-    val selectedConfigs: StateFlow<Set<CustomHookInfo>> = _selectedConfigs.asStateFlow()
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val prettyJson = Json { prettyPrint = true }
 
     fun init(packageName: String?) {
         currentPackageName = packageName
@@ -94,49 +94,42 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         _searchQuery.value = query
     }
 
-    fun addHook(hookConfig: CustomHookInfo) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val configWithPackage = hookConfig.copy(packageName = currentPackageName)
-            val updatedList = _hookConfigs.value.toMutableList().apply { add(configWithPackage) }
+    suspend fun addHook(hookConfig: CustomHookInfo) = withContext(Dispatchers.IO) {
+        val newConfigWithPackage = hookConfig.copy(
+            id = UUID.randomUUID().toString(),
+            packageName = currentPackageName
+        )
+        val updatedList = _hookConfigs.value.toMutableList().apply { add(newConfigWithPackage) }
+        saveAndRefreshHooks(updatedList)
+    }
+
+    suspend fun updateHook(oldConfig: CustomHookInfo, newConfig: CustomHookInfo) = withContext(Dispatchers.IO) {
+        val updatedList = _hookConfigs.value.toMutableList()
+        val index = updatedList.indexOfFirst { it.id == oldConfig.id }
+        if (index != -1) {
+            updatedList[index] = newConfig.copy(id = oldConfig.id, packageName = currentPackageName)
             saveAndRefreshHooks(updatedList)
         }
     }
 
-    fun updateHook(oldConfig: CustomHookInfo, newConfig: CustomHookInfo) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val updatedList = _hookConfigs.value.toMutableList()
-            val index = updatedList.indexOfFirst { it.id == oldConfig.id }
-            if (index != -1) {
-                updatedList[index] = newConfig.copy(id = oldConfig.id, isEnabled = oldConfig.isEnabled, packageName = currentPackageName)
-                saveAndRefreshHooks(updatedList)
-            }
-        }
-    }
-
-    fun toggleHookActivation(hookConfig: CustomHookInfo, isEnabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val updatedList = _hookConfigs.value.toMutableList()
-            val index = updatedList.indexOfFirst { it.id == hookConfig.id }
-            if (index != -1) {
-                updatedList[index] = hookConfig.copy(isEnabled = isEnabled, packageName = currentPackageName)
-                saveAndRefreshHooks(updatedList)
-            }
-        }
-    }
-
-    fun deleteHook(hookConfig: CustomHookInfo) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val updatedList = _hookConfigs.value.toMutableList().apply { removeIf { it.id == hookConfig.id } }
+    suspend fun toggleHookActivation(hookConfig: CustomHookInfo, isEnabled: Boolean) = withContext(Dispatchers.IO) {
+        val updatedList = _hookConfigs.value.toMutableList()
+        val index = updatedList.indexOfFirst { it.id == hookConfig.id }
+        if (index != -1) {
+            updatedList[index] = hookConfig.copy(isEnabled = isEnabled, packageName = currentPackageName)
             saveAndRefreshHooks(updatedList)
-            _selectedConfigs.value = _selectedConfigs.value.minus(hookConfig)
         }
     }
 
-    fun clearAllHooks() {
-        viewModelScope.launch(Dispatchers.IO) {
-            saveAndRefreshHooks(emptyList())
-            _selectedConfigs.value = emptySet()
-        }
+    suspend fun deleteHook(hookConfig: CustomHookInfo) = withContext(Dispatchers.IO) {
+        val updatedList = _hookConfigs.value.toMutableList().apply { removeIf { it.id == hookConfig.id } }
+        saveAndRefreshHooks(updatedList)
+        _selectedConfigs.value = _selectedConfigs.value.minus(hookConfig)
+    }
+
+    suspend fun clearAllHooks() = withContext(Dispatchers.IO) {
+        saveAndRefreshHooks(emptyList())
+        _selectedConfigs.value = emptySet()
     }
 
     fun toggleSelection(hookConfig: CustomHookInfo) {
@@ -151,32 +144,36 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         _selectedConfigs.value = emptySet()
     }
 
-    fun deleteSelectedHookConfigs() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val updatedList = _hookConfigs.value.toMutableList()
-            updatedList.removeAll(_selectedConfigs.value)
-            saveAndRefreshHooks(updatedList)
-            _selectedConfigs.value = emptySet()
-        }
+    suspend fun deleteSelectedHookConfigs(): Int = withContext(Dispatchers.IO) {
+        val updatedList = _hookConfigs.value.toMutableList()
+        val deletedCount = _selectedConfigs.value.size
+        updatedList.removeAll(_selectedConfigs.value)
+        saveAndRefreshHooks(updatedList)
+        _selectedConfigs.value = emptySet()
+        deletedCount
     }
 
-    suspend fun copySelectedHooksToJson(): String = withContext(Dispatchers.IO) {
+    fun copySelectedHooksToJson(): String? {
         val context = getApplication<Application>()
         if (_selectedConfigs.value.isEmpty()) {
-            return@withContext context.getString(R.string.no_hook_selected_to_copy)
+            return context.getString(R.string.no_hook_selected_to_copy)
         }
 
-        val configsToCopy = _selectedConfigs.value.map { it.copy(packageName = currentPackageName) }
-        val jsonString = Json.encodeToString(configsToCopy)
+        return try {
+            val configsToCopy = _selectedConfigs.value.toList()
+            val jsonString = prettyJson.encodeToString(configsToCopy)
 
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText(context.getString(R.string.hook_configurations_label), jsonString)
-        clipboard.setPrimaryClip(clip)
-        return@withContext context.getString(R.string.copied_hooks_count, _selectedConfigs.value.size)
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText(context.getString(R.string.hook_configurations_label), jsonString)
+            clipboard.setPrimaryClip(clip)
+            context.getString(R.string.copied_hooks_count, _selectedConfigs.value.size)
+        } catch (e: Exception) {
+            "Error copying hooks: ${e.localizedMessage ?: "Unknown error"}"
+        }
     }
 
     fun getExportableHooks(): List<CustomHookInfo> {
-        return _hookConfigs.value.map { it.copy(packageName = currentPackageName) }
+        return _hookConfigs.value.toList()
     }
 
     suspend fun importHooks(importedConfigs: List<CustomHookInfo>): Boolean = withContext(Dispatchers.IO) {
@@ -227,46 +224,32 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
     fun getTargetPackageName(): String? = currentPackageName
 
-    suspend fun getAllHooksBlocking(): List<CustomHookInfo> {
-        return _hookConfigs.first()
-    }
-
     private suspend fun saveAndRefreshHooks(configs: List<CustomHookInfo>) {
         repository.saveHookConfigs(currentPackageName, configs)
         _hookConfigs.value = configs.toList()
     }
 
-    suspend fun handleImport(importedConfigs: List<CustomHookInfo>): ImportResult {
+    suspend fun getImportAction(importedConfigs: List<CustomHookInfo>): ImportAction {
         val isCurrentPageGlobal = currentPackageName.isNullOrEmpty()
         val containsGlobalConfigs = importedConfigs.any { it.packageName.isNullOrEmpty() }
         val containsAppSpecificConfigs = importedConfigs.any { !it.packageName.isNullOrEmpty() }
-        val context = getApplication<Application>()
 
         return when {
-            !isCurrentPageGlobal && containsGlobalConfigs -> {
-                ImportResult.ShowGlobalRulesImportDialog(importedConfigs)
-            }
+            !isCurrentPageGlobal && containsGlobalConfigs -> ImportAction.PromptImportGlobal(importedConfigs)
+
             isCurrentPageGlobal && containsAppSpecificConfigs -> {
                 val globalOnlyConfigs = importedConfigs.filter { it.packageName.isNullOrEmpty() }
-                val updated = importHooks(globalOnlyConfigs)
-                ImportResult.ShowAppSpecificRulesSkippedSnackbar(importedConfigs.count { !it.packageName.isNullOrEmpty() }, updated)
+                val skippedCount = importedConfigs.count { !it.packageName.isNullOrEmpty() }
+                ImportAction.ImportGlobalAndNotifySkipped(globalOnlyConfigs, skippedCount)
             }
-            else -> {
-                val updated = importHooks(importedConfigs)
-                ImportResult.ShowSnackbar(updated)
-            }
-        }
-    }
 
-    suspend fun confirmGlobalHooksImport(importedConfigs: List<CustomHookInfo>): Boolean {
-        val globalOnlyImported = importedConfigs.filter { it.packageName.isNullOrEmpty() }
-        return importGlobalHooksToStorage(globalOnlyImported)
+            else -> ImportAction.DirectImport(importedConfigs)
+        }
     }
 }
 
-sealed class ImportResult {
-    data class ShowSnackbar(val isUpdated: Boolean) : ImportResult()
-    data class ShowDialog(val titleResId: Int, val message: String, val throwable: Throwable? = null) : ImportResult()
-    data class ShowGlobalRulesImportDialog(val importedConfigs: List<CustomHookInfo>) : ImportResult()
-    data class ShowAppSpecificRulesSkippedSnackbar(val skippedCount: Int, val isUpdated: Boolean) : ImportResult()
+sealed class ImportAction {
+    data class DirectImport(val configs: List<CustomHookInfo>) : ImportAction()
+    data class PromptImportGlobal(val configs: List<CustomHookInfo>) : ImportAction()
+    data class ImportGlobalAndNotifySkipped(val globalConfigs: List<CustomHookInfo>, val skippedAppSpecificCount: Int) : ImportAction()
 }

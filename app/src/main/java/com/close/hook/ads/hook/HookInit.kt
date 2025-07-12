@@ -29,20 +29,6 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         private const val ENABLE_DEX_DUMP = false
     }
 
-    init {
-        ContextUtil.addOnApplicationContextInitializedCallback {
-            val ctx = ContextUtil.applicationContext!!
-            val manager = SettingsManager(ctx.packageName, HookPrefs())
-
-            try {
-                setupAppHooks(ctx, manager)
-                applySettings(manager)
-            } catch (e: Throwable) {
-                XposedBridge.log("$TAG | ContextUtil.applicationContextInitializedCallback error: ${Log.getStackTraceString(e)}")
-            }
-        }
-    }
-
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         ContextUtil.setupContextHooks()
     }
@@ -52,7 +38,29 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         if (lpparam.packageName == TAG) {
             activateModule(lpparam.classLoader)
+            return
         }
+
+        try {
+            ContextUtil.addOnApplicationContextInitializedCallback {
+                val ctx = ContextUtil.applicationContext!!
+                val manager = SettingsManager(ctx.packageName, HookPrefs(ctx))
+
+                setupAppHooks(ctx, manager)
+                applySettings(manager)
+            }
+        } catch (e: Throwable) {
+            XposedBridge.log("$TAG | handleLoadPackage error: ${Log.getStackTraceString(e)}")
+        }
+    }
+
+    private fun activateModule(classLoader: ClassLoader) {
+        HookUtil.hookSingleMethod(
+            classLoader,
+            "com.close.hook.ads.ui.activity.MainActivity",
+            "isModuleActivated",
+            true
+        )
     }
 
     private fun setupAppHooks(context: Context, manager: SettingsManager) {
@@ -82,23 +90,11 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private fun activateModule(classLoader: ClassLoader) {
-        HookUtil.hookSingleMethod(
-            classLoader,
-            "com.close.hook.ads.ui.activity.MainActivity",
-            "isModuleActivated",
-            true
-        )
-        XposedBridge.log("$TAG | Module activated for package: $TAG")
-    }
-
     private fun applyCustomHooks(classLoader: ClassLoader, hookPrefs: HookPrefs, packageName: String) {
-        val globalCustomConfigs = hookPrefs.getCustomHookConfigs(null)
-        CustomHookAds.hookCustomAds(classLoader, globalCustomConfigs, true)
+        CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(null), true)
 
-        val appSpecificCustomConfigs = hookPrefs.getCustomHookConfigs(packageName)
         val isOverallHookEnabledForPackage = hookPrefs.getOverallHookEnabled(packageName)
-        CustomHookAds.hookCustomAds(classLoader, appSpecificCustomConfigs, isOverallHookEnabledForPackage)
+        CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(packageName), isOverallHookEnabledForPackage)
     }
 
     private fun applySettings(manager: SettingsManager) {

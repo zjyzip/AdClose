@@ -76,32 +76,31 @@
     <string name="color_blue_grey">Mavi Gri</string>
 
     <string name="none">Yok</string>
-    <string name="hint_search_hooks">Ara</string>
+    <string name="hint_search_hooks">Hook Yapılandırmalarını Ara</string>
 
-    <string name="title_custom_hook">Özel Hooklar</string>
-    <string name="global_title_custom_hook">Global Özelleştirme Kancası</string>
+    <string name="title_custom_hook">Özel Hook</string>
+    <string name="global_title_custom_hook">Genel Özel Hook</string>
     <string name="hook_configs">Hook Yapılandırmaları</string>
     <string name="title_global_hook_configs">Genel Hook Yapılandırmaları</string>
 
     <string name="app_version_format">%1$s (%2$d)</string>
     <string name="selected_items_count">%d öğe seçildi</string>
-    <string name="deleted_hooks_count">%d hook silindi</string>
-    <string name="copied_hooks_count">%d hook kopyalandı</string>
-
-    <string name="delete_selected_hooks_title">Seçili Hookları Sil?</string>
-    <string name="delete_selected_hooks_message">Seçili tüm hook yapılandırmalarını silmek istediğinizden emin misiniz?</string>
-    <string name="no_hook_selected_to_copy">Kopyalanacak hook yapılandırması seçilmedi.</string>
+    <string name="delete_selected_hooks_title">Seçilen Hook\'ları silinsin mi?</string>
+    <string name="delete_selected_hooks_message">Seçilen tüm Hook yapılandırmalarını silmek istediğinizden emin misiniz?</string>
+    <string name="deleted_hooks_count">%d Hook silindi</string>
+    <string name="no_hook_selected_to_copy">Kopyalanacak Hook yapılandırması seçilmedi</string>
     <string name="hook_configurations_label">Hook Yapılandırmaları</string>
-    <string name="clear_all_hooks_title">Tüm Hookları Temizle?</string>
-    <string name="clear_all_hooks_message">Tüm hook yapılandırmalarını temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.</string>
-    <string name="all_hooks_cleared">Tüm hooklar temizlendi.</string>
-    <string name="empty_hook_configs">Henüz özel hook yapılandırması yok.</string>
-    <string name="hook_added_successfully">Hook başarıyla eklendi.</string>
-    <string name="hook_updated_successfully">Hook başarıyla güncellendi.</string>
-    <string name="delete_hook_title">Hook Sil?</string>
-    <string name="delete_hook_message">Bu hook yapılandırmasını silmek istediğinizden emin misiniz?</string>
-    <string name="hook_deleted_successfully">Hook başarıyla silindi.</string>
-    <string name="select_valid_hook_method">Lütfen geçerli bir Hook yöntemi seçin.</string>
+    <string name="copied_hooks_count">%d Hook kopyalandı</string>
+    <string name="clear_all_hooks_title">Tüm Hook\'lar temizlensin mi?</string>
+    <string name="clear_all_hooks_message">Tüm Hook yapılandırmalarını temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.</string>
+    <string name="all_hooks_cleared">Tüm Hook\'lar temizlendi</string>
+    <string name="empty_hook_configs">Henüz özel Hook yapılandırması yok</string>
+    <string name="hook_added_successfully">Hook başarıyla eklendi</string>
+    <string name="hook_updated_successfully">Hook başarıyla güncellendi</string>
+    <string name="delete_hook_title">Hook silinsin mi?</string>
+    <string name="delete_hook_message">Bu Hook yapılandırmasını silmek istediğinizden emin misiniz?</string>
+    <string name="hook_deleted_successfully">Hook başarıyla silindi</string>
+    <string name="select_valid_hook_method">Lütfen geçerli bir Hook yöntemi seçin</string>
 
     <string name="add_hook_config_title">Hook Yapılandırması Ekle</string>
     <string name="edit_hook_config_title">Hook Yapılandırmasını Düzenle</string>
@@ -113,44 +112,47 @@
     <string name="return_value_format">Dönüş Değeri: %1$s</string>
     <string name="field_name_format">Alan Adı: %1$s</string>
     <string name="field_value_format">Alan Değeri: %1$s</string>
+    <string name="search_strings_format">Arama Dizileri: %1$s</string>
 
     <string name="hint_hook_method_type">Hook Yöntem Türü</string>
     <string name="hint_class_name">Sınıf Adı</string>
     <string name="hint_method_names">Yöntem Adları (virgülle ayrılmış)</string>
-    <string name="hint_parameter_types">Parametre Türleri (tam sınıf adı veya temel, virgülle ayrılmış)</string>
-    <string name="hint_return_value">Dönüş Değeri (doğru/yanlış/boş/sayı/metin)</string>
+    <string name="hint_parameter_types">Parametre Türleri (tam sınıf adı veya ilkel, virgülle ayrılmış)</string>
+    <string name="hint_return_value">Dönüş Değeri (true/false/null/sayı/metin)</string>
     <string name="hint_field_name">Alan Adı</string>
-    <string name="hint_field_value">Alan Değeri (doğru/yanlış/boş/sayı/metin)</string>
+    <string name="hint_field_value">Alan Değeri (true/false/null/sayı/metin)</string>
+    <string name="hint_search_strings">Arama Dizileri (virgülle ayrılmış)</string>
 
-    <string name="hook_point_after">Metot Yürütme Sonrası</string>
-    <string name="hook_point_before">Metot Yürütme Öncesi</string>
+    <string name="hook_point_after">Yöntem Yürütüldükten Sonra</string>
+    <string name="hook_point_before">Yöntem Yürütülmeden Önce</string>
 
     <string name="auto_detect_from_clipboard">Panodan otomatik algıla</string>
-    <string name="clipboard_content_unrecognized">Pano içeriği formatı tanınmıyor</string>
+    <string name="clipboard_content_unrecognized">Pano içeriği biçimi tanınmıyor</string>
 
     <string name="hint_hook_point">Hook Noktası</string>
     <string-array name="hook_points_array">
-        <item>Metod yürütme sonrası</item>
-        <item>Metod yürütme öncesi</item>
+        <item>Yöntem Yürütüldükten Sonra (after)</item>
+        <item>Yöntem Yürütülmeden Önce (before)</item>
     </string-array>
     <string name="hook_point_format">Hook Noktası: %1$s</string>
 
-    <string name="error_class_name_empty">Sınıf adı boş olamaz.</string>
-    <string name="error_method_name_empty">Yöntem adı boş olamaz.</string>
-    <string name="error_parameter_types_empty">Parametre türleri boş olamaz.</string>
-    <string name="error_field_name_empty">Alan adı boş olamaz.</string>
+    <string name="error_class_name_empty">Sınıf adı boş olamaz</string>
+    <string name="error_method_name_empty">Yöntem adı boş olamaz</string>
+    <string name="error_parameter_types_empty">Parametre türleri boş olamaz</string>
+    <string name="error_field_name_empty">Alan adı boş olamaz</string>
+    <string name="error_search_strings_empty">Arama dizileri boş olamaz</string>
 
-    <string name="enabled">Olanak vermek</string>
-    <string name="disabled">Engelli</string>
-    <string name="enabled_format">Etkin: %s</string>
+    <string name="enabled">Etkin</string>
+    <string name="disabled">Devre Dışı</string>
+    <string name="enabled_format">Etkin Durum: %s</string>
     <string name="add_hook">Hook Ekle</string>
-    <string name="clear_all_hooks">Tüm Hookları Temizle</string>
+    <string name="clear_all_hooks">Tüm Hook\'ları Temizle</string>
 
     <string name="import_global_rules_title">Genel Kurallar İçe Aktarılsın mı?</string>
-    <string name="import_global_rules_message">Bu yapılandırma genel Hook kurallarına aittir, içe aktarmaya devam edilsin mi?</string>
+    <string name="import_global_rules_message">Bu yapılandırma genel Hook kurallarına aittir. İçe aktarmaya devam etmek istiyor musunuz?</string>
     <string name="import_to_global">İçe Aktar</string>
     <string name="imported_to_global_successfully">Genel Hook kuralları başarıyla içe aktarıldı.</string>
-    <string name="imported_global_rules_app_specific_skipped">Genel Hook kuralları içe aktarıldı. Bu sayfa genel bir sayfa olduğundan %d uygulamaya özel kural atlandı.</string>
+    <string name="imported_global_rules_app_specific_skipped">Genel Hook kuralları içe aktarıldı. Bu genel bir sayfa olduğu için %d uygulamaya özel kural atlandı.</string>
     <string name="no_new_hooks_to_import">İçe aktarılacak uygulama Hook kuralı yok.</string>
     <string name="error_empty_or_invalid_json">JSON dosyası boş veya geçersiz biçimde.</string>
     <string name="no_new_hooks_to_import_global">İçe aktarılacak genel Hook kuralı yok.</string>

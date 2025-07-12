@@ -70,6 +70,21 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_search_strings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/hint_search_strings"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:visibility="gone">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_search_strings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textMultiLine" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/til_method_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -94,21 +109,6 @@
         android:visibility="gone">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/et_parameter_types"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_return_value"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_return_value"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:visibility="gone">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_return_value"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="text" />
@@ -143,5 +143,28 @@
             android:layout_height="wrap_content"
             android:inputType="text" />
     </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_return_value"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/hint_return_value"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:visibility="gone">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_return_value"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/switch_dialog_enabled"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/hook_enabled_label"
+        android:checked="true" />
 
 </LinearLayout>

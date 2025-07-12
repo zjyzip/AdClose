@@ -77,32 +77,32 @@
     <string name="color_blue_grey">Blue grey</string>
 
     <string name="none">None</string>
-    <string name="hint_search_hooks">Search</string>
+    <string name="hint_search_hooks">Search Hook Configurations</string>
 
-    <string name="title_custom_hook">Custom Hooks</string>
-    <string name="global_title_custom_hook">Global customization Hook</string>
+    <string name="title_custom_hook">Custom Hook</string>
+    <string name="global_title_custom_hook">Global Custom Hook</string>
     <string name="hook_configs">Hook Configurations</string>
     <string name="title_global_hook_configs">Global Hook Configurations</string>
 
     <string name="app_version_format">%1$s (%2$d)</string>
     <string name="selected_items_count">%d items selected</string>
-    <string name="deleted_hooks_count">%d hooks deleted</string>
-    <string name="copied_hooks_count">%d hooks copied</string>
-
-    <string name="delete_selected_hooks_title">Delete Selected Hooks?</string>
-    <string name="delete_selected_hooks_message">Are you sure you want to delete all selected hook configurations?</string>
-    <string name="no_hook_selected_to_copy">No hook configuration selected to copy.</string>
+    <string name="delete_selected_hooks_title">Delete selected Hooks?</string>
+    <string name="delete_selected_hooks_message">Are you sure you want to delete all selected Hook configurations?</string>
+    <string name="deleted_hooks_count">%d Hooks deleted</string>
+    <string name="no_hook_selected_to_copy">No Hook configuration selected to copy</string>
     <string name="hook_configurations_label">Hook Configurations</string>
-    <string name="clear_all_hooks_title">Clear All Hooks?</string>
-    <string name="clear_all_hooks_message">Are you sure you want to clear all hook configurations? This action cannot be undone.</string>
-    <string name="all_hooks_cleared">All hooks cleared.</string>
-    <string name="empty_hook_configs">No custom hook configurations yet.</string>
-    <string name="hook_added_successfully">Hook added successfully.</string>
-    <string name="hook_updated_successfully">Hook updated successfully.</string>
+    <string name="hook_enabled_label">启用状态</string>
+    <string name="copied_hooks_count">%d Hooks copied</string>
+    <string name="clear_all_hooks_title">Clear all Hooks?</string>
+    <string name="clear_all_hooks_message">Are you sure you want to clear all Hook configurations? This action cannot be undone.</string>
+    <string name="all_hooks_cleared">All Hooks cleared</string>
+    <string name="empty_hook_configs">No custom Hook configurations yet</string>
+    <string name="hook_added_successfully">Hook added successfully</string>
+    <string name="hook_updated_successfully">Hook updated successfully</string>
     <string name="delete_hook_title">Delete Hook?</string>
-    <string name="delete_hook_message">Are you sure you want to delete this hook configuration?</string>
-    <string name="hook_deleted_successfully">Hook deleted successfully.</string>
-    <string name="select_valid_hook_method">Please select a valid Hook method.</string>
+    <string name="delete_hook_message">Are you sure you want to delete this Hook configuration?</string>
+    <string name="hook_deleted_successfully">Hook deleted successfully</string>
+    <string name="select_valid_hook_method">Please select a valid Hook method</string>
 
     <string name="add_hook_config_title">Add Hook Configuration</string>
     <string name="edit_hook_config_title">Edit Hook Configuration</string>
@@ -114,14 +114,16 @@
     <string name="return_value_format">Return Value: %1$s</string>
     <string name="field_name_format">Field Name: %1$s</string>
     <string name="field_value_format">Field Value: %1$s</string>
+    <string name="search_strings_format">Search Strings: %1$s</string>
 
     <string name="hint_hook_method_type">Hook Method Type</string>
     <string name="hint_class_name">Class Name</string>
-    <string name="hint_method_names">Method Names (comma separated)</string>
-    <string name="hint_parameter_types">Parameter Types (full class name or primitive, comma separated)</string>
+    <string name="hint_method_names">Method Names (comma-separated)</string>
+    <string name="hint_parameter_types">Parameter Types (full class name or primitive, comma-separated)</string>
     <string name="hint_return_value">Return Value (true/false/null/number/string)</string>
     <string name="hint_field_name">Field Name</string>
     <string name="hint_field_value">Field Value (true/false/null/number/string)</string>
+    <string name="hint_search_strings">Search Strings (comma-separated)</string>
 
     <string name="hook_point_after">After Method Execution</string>
     <string name="hook_point_before">Before Method Execution</string>
@@ -131,37 +133,32 @@
 
     <string name="hint_hook_point">Hook Point</string>
     <string-array name="hook_points_array">
-        <item>After method execution</item>
-        <item>Before method execution</item>
+        <item>After Method Execution (after)</item>
+        <item>Before Method Execution (before)</item>
     </string-array>
     <string name="hook_point_format">Hook Point: %1$s</string>
 
-    <string name="hook_action_type_format">Action Type: %s</string>
-    <string name="hook_action_type_title">Hook Action Type</string>
-    <string name="action_type_before">Before Method Execution</string>
-    <string name="action_type_after">After Method Execution</string>
-
-    <string name="error_class_name_empty">Class name cannot be empty.</string>
-    <string name="error_method_name_empty">Method name cannot be empty.</string>
-    <string name="error_parameter_types_empty">Parameter types cannot be empty.</string>
-    <string name="error_field_name_empty">Field name cannot be empty.</string>
+    <string name="error_class_name_empty">Class name cannot be empty</string>
+    <string name="error_method_name_empty">Method name cannot be empty</string>
+    <string name="error_parameter_types_empty">Parameter types cannot be empty</string>
+    <string name="error_field_name_empty">Field name cannot be empty</string>
+    <string name="error_search_strings_empty">Search strings cannot be empty</string>
 
     <string name="enabled">Enabled</string>
     <string name="disabled">Disabled</string>
-    <string name="enabled_format">Enabled: %s</string>
-
-    <string name="import_global_rules_title">Import Global Rules?</string>
-    <string name="import_global_rules_message">This configuration includes global Hook rules. Do you want to import them?</string>
-    <string name="import_to_global">Import</string>
-    <string name="imported_to_global_successfully">Global Hook rules imported successfully.</string>
-    <string name="imported_global_rules_app_specific_skipped">Global Hook rules imported. %d app-specific rules were skipped as this is a global page.</string>
-    <string name="no_new_hooks_to_import">No app Hook rules to import.</string>
-    <string name="error_empty_or_invalid_json">JSON file is empty or invalid format.</string>
-    <string name="no_new_hooks_to_import_global">No global Hook rules to import.</string>
-    <string name="no_global_hooks_found_to_import">No global Hook rules found in the configuration.</string>
-
+    <string name="enabled_format">Enabled Status: %s</string>
     <string name="add_hook">Add Hook</string>
     <string name="clear_all_hooks">Clear All Hooks</string>
+
+    <string name="import_global_rules_title">Import Global Rules?</string>
+    <string name="import_global_rules_message">This configuration belongs to global Hook rules. Do you want to proceed with importing?</string>
+    <string name="import_to_global">Import</string>
+    <string name="imported_to_global_successfully">Global Hook rules imported successfully.</string>
+    <string name="imported_global_rules_app_specific_skipped">Global Hook rules imported. %d app-specific rules skipped as this is a global page.</string>
+    <string name="no_new_hooks_to_import">No application Hook rules to import.</string>
+    <string name="error_empty_or_invalid_json">JSON file is empty or invalid format.</string>
+    <string name="no_new_hooks_to_import_global">No global Hook rules to import.</string>
+    <string name="no_global_hooks_found_to_import">No global Hook rules found in configuration.</string>
 
     <string name="others">Others</string>
     <string name="about">About</string>

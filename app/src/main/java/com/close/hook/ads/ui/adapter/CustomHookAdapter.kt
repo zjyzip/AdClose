@@ -25,23 +25,18 @@ class CustomHookAdapter(
 
     private var currentSearchQuery: String = ""
     private var currentSelectedItems: Set<CustomHookInfo> = emptySet()
-    private var isInMultiSelectMode: Boolean = false
+    var isInMultiSelectMode: Boolean = false
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HookViewHolder {
         val binding = ItemCustomHookConfigBinding.inflate(
             LayoutInflater.from(parent.context), parent, false)
-        return HookViewHolder(binding)
+        return HookViewHolder(binding, onDeleteItem, onEditItem, onLongClickItem, onClickItem, onToggleEnabled)
     }
 
     override fun onBindViewHolder(holder: HookViewHolder, position: Int) {
         val currentItem = getItem(position)
         holder.bind(
             currentItem,
-            onDeleteItem,
-            onEditItem,
-            onLongClickItem,
-            onClickItem,
-            onToggleEnabled,
             currentSelectedItems.contains(currentItem),
             currentSearchQuery,
             isInMultiSelectMode
@@ -84,10 +79,7 @@ class CustomHookAdapter(
             val currentItem = getItem(position)
             payloads.forEach { payload ->
                 when (payload) {
-                    PAYLOAD_SELECTION_CHANGED -> {
-                        holder.updateSelectionState(currentItem.isEnabled, currentSelectedItems.contains(currentItem), isInMultiSelectMode)
-                    }
-                    PAYLOAD_MULTI_SELECT_MODE_CHANGED -> {
+                    PAYLOAD_SELECTION_CHANGED, PAYLOAD_MULTI_SELECT_MODE_CHANGED -> {
                         holder.updateSelectionState(currentItem.isEnabled, currentSelectedItems.contains(currentItem), isInMultiSelectMode)
                     }
                     PAYLOAD_SEARCH_QUERY_CHANGED -> {
@@ -98,10 +90,48 @@ class CustomHookAdapter(
         }
     }
 
-    class HookViewHolder(private val binding: ItemCustomHookConfigBinding) :
-        RecyclerView.ViewHolder(binding.root) {
+    class HookViewHolder(
+        private val binding: ItemCustomHookConfigBinding,
+        private val onDeleteItem: (CustomHookInfo) -> Unit,
+        private val onEditItem: (CustomHookInfo) -> Unit,
+        private val onLongClickItem: (CustomHookInfo) -> Unit,
+        private val onClickItem: (CustomHookInfo) -> Unit,
+        private val onToggleEnabled: (CustomHookInfo, Boolean) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
 
         private val highlightColor = Color.YELLOW
+        private val context = binding.root.context
+        private val noneString = context.getString(R.string.none)
+        private val hookPointsArray = context.resources.getStringArray(R.array.hook_points_array)
+        private val afterHookPoint = hookPointsArray.getOrNull(0) ?: ""
+        private val beforeHookPoint = hookPointsArray.getOrNull(1) ?: ""
+
+        private var currentIsInMultiSelectMode: Boolean = false
+
+        init {
+            binding.btnDelete.setOnClickListener { onDeleteItem(getItem(bindingAdapterPosition)) }
+            binding.btnEdit.setOnClickListener { onEditItem(getItem(bindingAdapterPosition)) }
+            binding.root.setOnLongClickListener {
+                onLongClickItem(getItem(bindingAdapterPosition))
+                true
+            }
+            binding.root.setOnClickListener {
+                if (currentIsInMultiSelectMode) {
+                    onClickItem(getItem(bindingAdapterPosition))
+                } else {
+                    binding.switchEnabled.performClick()
+                }
+            }
+            binding.switchEnabled.setOnCheckedChangeListener { _, isChecked ->
+                onToggleEnabled(getItem(bindingAdapterPosition), isChecked)
+            }
+        }
+
+        private fun getItem(position: Int): CustomHookInfo {
+            return (bindingAdapter as? CustomHookAdapter)?.getItem(position)
+                ?: throw IllegalStateException("Adapter not attached or is not CustomHookAdapter")
+        }
+
 
         private fun highlightText(fullText: String, query: String): SpannableString {
             if (query.isBlank()) {
@@ -127,36 +157,45 @@ class CustomHookAdapter(
             return spannableString
         }
 
+        private fun getDisplayHookPoint(hookPoint: String?): String? {
+            return hookPoint?.takeIf { it.isNotBlank() }?.let {
+                when (it) {
+                    "before" -> beforeHookPoint
+                    "after" -> afterHookPoint
+                    else -> it
+                }
+            }
+        }
+
         fun bind(
             config: CustomHookInfo,
-            onDeleteItem: (CustomHookInfo) -> Unit,
-            onEditItem: (CustomHookInfo) -> Unit,
-            onLongClickItem: (CustomHookInfo) -> Unit,
-            onClickItem: (CustomHookInfo) -> Unit,
-            onToggleEnabled: (CustomHookInfo, Boolean) -> Unit,
             isSelected: Boolean,
             searchQuery: String,
             isInMultiSelectMode: Boolean
         ) {
-            val context = binding.root.context
-            val noneString = context.getString(R.string.none)
+            this.currentIsInMultiSelectMode = isInMultiSelectMode
 
-            binding.tvClassName.text = highlightText(context.getString(R.string.class_name_format, config.className), searchQuery)
             binding.tvHookMethodType.text = highlightText(context.getString(R.string.hook_method_type_format, config.hookMethodType.displayName), searchQuery)
 
+            binding.tvClassName.apply {
+                visibility = if (config.hookMethodType !in listOf(HookMethodType.HOOK_METHODS_BY_STRING_MATCH, HookMethodType.FIND_METHODS_WITH_STRING)) View.VISIBLE else View.GONE
+                text = highlightText(context.getString(R.string.class_name_format, config.className), searchQuery)
+            }
+
+            updateContentVisibilityAndText(config, searchQuery)
+            updateSelectionState(config.isEnabled, isSelected, isInMultiSelectMode)
+        }
+
+        private fun updateContentVisibilityAndText(config: CustomHookInfo, searchQuery: String) {
             binding.tvMethodNames.visibility = View.GONE
             binding.tvReturnValue.visibility = View.GONE
             binding.tvParameterTypes.visibility = View.GONE
             binding.tvFieldName.visibility = View.GONE
             binding.tvFieldValue.visibility = View.GONE
             binding.tvHookPoint.visibility = View.GONE
+            binding.tvSearchStrings.visibility = View.GONE
 
-            config.hookPoint?.takeIf { it.isNotBlank() }?.let {
-                val displayHookPoint = when (it) {
-                    "before" -> context.resources.getStringArray(R.array.hook_points_array)[1]
-                    "after" -> context.resources.getStringArray(R.array.hook_points_array)[0]
-                    else -> it
-                }
+            getDisplayHookPoint(config.hookPoint)?.let { displayHookPoint ->
                 binding.tvHookPoint.apply {
                     text = highlightText(context.getString(R.string.hook_point_format, displayHookPoint), searchQuery)
                     visibility = View.VISIBLE
@@ -199,27 +238,29 @@ class CustomHookAdapter(
                         visibility = View.VISIBLE
                     }
                 }
-            }
-
-            binding.switchEnabled.setOnCheckedChangeListener(null)
-            binding.switchEnabled.isChecked = config.isEnabled
-            binding.switchEnabled.setOnCheckedChangeListener { _, isChecked ->
-                onToggleEnabled(config, isChecked)
-            }
-
-            updateSelectionState(config.isEnabled, isSelected, isInMultiSelectMode)
-
-            binding.btnDelete.setOnClickListener { onDeleteItem(config) }
-            binding.btnEdit.setOnClickListener { onEditItem(config) }
-            binding.root.setOnLongClickListener {
-                onLongClickItem(config)
-                true
-            }
-            binding.root.setOnClickListener {
-                if (isInMultiSelectMode) {
-                    onClickItem(config)
-                } else {
-                    binding.switchEnabled.performClick()
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH -> {
+                    binding.tvSearchStrings.apply {
+                        text = highlightText(context.getString(R.string.search_strings_format, config.searchStrings?.joinToString(", ") ?: noneString), searchQuery)
+                        visibility = View.VISIBLE
+                    }
+                    binding.tvReturnValue.apply {
+                        text = highlightText(context.getString(R.string.return_value_format, config.returnValue ?: noneString), searchQuery)
+                        visibility = View.VISIBLE
+                    }
+                }
+                HookMethodType.FIND_METHODS_WITH_STRING -> {
+                    binding.tvSearchStrings.apply {
+                        text = highlightText(context.getString(R.string.search_strings_format, config.searchStrings?.joinToString(", ") ?: noneString), searchQuery)
+                        visibility = View.VISIBLE
+                    }
+                    binding.tvMethodNames.apply {
+                        text = highlightText(context.getString(R.string.method_names_format, config.methodNames?.joinToString(", ") ?: noneString), searchQuery)
+                        visibility = View.VISIBLE
+                    }
+                    binding.tvReturnValue.apply {
+                        text = highlightText(context.getString(R.string.return_value_format, config.returnValue ?: noneString), searchQuery)
+                        visibility = View.VISIBLE
+                    }
                 }
             }
         }
@@ -234,18 +275,15 @@ class CustomHookAdapter(
         }
 
         fun updateSearchHighlight(config: CustomHookInfo, searchQuery: String) {
-            val context = binding.root.context
-            val noneString = context.getString(R.string.none)
+            if (config.hookMethodType !in listOf(HookMethodType.HOOK_METHODS_BY_STRING_MATCH, HookMethodType.FIND_METHODS_WITH_STRING)) {
+                binding.tvClassName.text = highlightText(context.getString(R.string.class_name_format, config.className), searchQuery)
+            } else {
+                binding.tvClassName.text = ""
+            }
 
-            binding.tvClassName.text = highlightText(context.getString(R.string.class_name_format, config.className), searchQuery)
             binding.tvHookMethodType.text = highlightText(context.getString(R.string.hook_method_type_format, config.hookMethodType.displayName), searchQuery)
 
-            config.hookPoint?.takeIf { it.isNotBlank() }?.let {
-                val displayHookPoint = when (it) {
-                    "before" -> context.resources.getStringArray(R.array.hook_points_array)[1]
-                    "after" -> context.resources.getStringArray(R.array.hook_points_array)[0]
-                    else -> it
-                }
+            getDisplayHookPoint(config.hookPoint)?.let { displayHookPoint ->
                 binding.tvHookPoint.text = highlightText(context.getString(R.string.hook_point_format, displayHookPoint), searchQuery)
             }
 
@@ -263,6 +301,15 @@ class CustomHookAdapter(
                 HookMethodType.SET_STATIC_OBJECT_FIELD -> {
                     binding.tvFieldName.text = highlightText(context.getString(R.string.field_name_format, config.fieldName ?: noneString), searchQuery)
                     binding.tvFieldValue.text = highlightText(context.getString(R.string.field_value_format, config.fieldValue ?: noneString), searchQuery)
+                }
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH -> {
+                    binding.tvSearchStrings.text = highlightText(context.getString(R.string.search_strings_format, config.searchStrings?.joinToString(", ") ?: noneString), searchQuery)
+                    binding.tvReturnValue.text = highlightText(context.getString(R.string.return_value_format, config.returnValue ?: noneString), searchQuery)
+                }
+                HookMethodType.FIND_METHODS_WITH_STRING -> {
+                    binding.tvSearchStrings.text = highlightText(context.getString(R.string.search_strings_format, config.searchStrings?.joinToString(", ") ?: noneString), searchQuery)
+                    binding.tvMethodNames.text = highlightText(context.getString(R.string.method_names_format, config.methodNames?.joinToString(", ") ?: noneString), searchQuery)
+                    binding.tvReturnValue.text = highlightText(context.getString(R.string.return_value_format, config.returnValue ?: noneString), searchQuery)
                 }
             }
         }

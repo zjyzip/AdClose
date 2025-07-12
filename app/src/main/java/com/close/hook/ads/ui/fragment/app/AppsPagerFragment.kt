@@ -122,7 +122,6 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         initFilterSheet()
-        updateSortAndFilters()
     }
 
     override fun initButton() {

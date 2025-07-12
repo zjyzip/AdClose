@@ -39,17 +39,15 @@ object ContextUtil {
     private const val TAG = "ContextUtil"
 
     fun setupContextHooks() {
-
         HookUtil.hookAllMethods(
             "android.app.ActivityThread",
             "performLaunchActivity",
             "after"
         ) { param ->
-            val activity = param.result
-            if (activity is Context) {
-                activityThreadContext = activity
+            (param.result as? Context)?.let { context ->
+                activityThreadContext = context
                 triggerCallbacksIfInitialized(
-                    activityThreadContext,
+                    context,
                     isActivityThreadContextInitialized,
                     activityThreadContextCallbacks,
                     "ActivityThreadContext"
@@ -63,13 +61,15 @@ object ContextUtil {
             arrayOf(Context::class.java),
             "after"
         ) { param ->
-            applicationContext = param.args[0] as Context
-            triggerCallbacksIfInitialized(
-                applicationContext,
-                isApplicationContextInitialized,
-                applicationContextCallbacks,
-                "ApplicationContext"
-            )
+            (param.args[0] as? Context)?.let { context ->
+                applicationContext = context
+                triggerCallbacksIfInitialized(
+                    context,
+                    isApplicationContextInitialized,
+                    applicationContextCallbacks,
+                    "ApplicationContext"
+                )
+            }
         }
 
         HookUtil.findAndHookMethod(
@@ -78,13 +78,15 @@ object ContextUtil {
             arrayOf(Context::class.java),
             "after"
         ) { param ->
-            contextWrapperContext = param.args[0] as Context
-            triggerCallbacksIfInitialized(
-                contextWrapperContext,
-                isContextWrapperContextInitialized,
-                contextWrapperContextCallbacks,
-                "ContextWrapperContext"
-            )
+            (param.args[0] as? Context)?.let { context ->
+                contextWrapperContext = context
+                triggerCallbacksIfInitialized(
+                    context,
+                    isContextWrapperContextInitialized,
+                    contextWrapperContextCallbacks,
+                    "ContextWrapperContext"
+                )
+            }
         }
 
         HookUtil.findAndHookMethod(
@@ -93,13 +95,15 @@ object ContextUtil {
             arrayOf(Application::class.java),
             "after"
         ) { param ->
-            instrumentationContext = param.args[0] as Application
-            triggerCallbacksIfInitialized(
-                instrumentationContext,
-                isInstrumentationContextInitialized,
-                instrumentationContextCallbacks,
-                "InstrumentationContext"
-            )
+            (param.args[0] as? Application)?.let { context ->
+                instrumentationContext = context
+                triggerCallbacksIfInitialized(
+                    context,
+                    isInstrumentationContextInitialized,
+                    instrumentationContextCallbacks,
+                    "InstrumentationContext"
+                )
+            }
         }
     }
 
@@ -111,10 +115,8 @@ object ContextUtil {
     ) {
         if (context != null && isInitialized.compareAndSet(false, true)) {
             XposedBridge.log("$TAG | Context Initialized ($contextType): $context")
-            while (true) {
-                val callback = callbacks.poll() ?: break
-                callback.run()
-            }
+            callbacks.forEach { it.run() }
+            callbacks.clear()
         }
     }
 
