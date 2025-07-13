@@ -57,7 +57,7 @@ object PrefManager {
         }
 
     var order: Int
-        get() = pref.getInt(PREF_ORDER_ID, R.string.sort_by_app_name)
+        get() = pref.getInt(PREF_ORDER_ID, 0)
         set(value) = pref.edit().putInt(PREF_ORDER_ID, value).apply()
 
     var configured: Boolean

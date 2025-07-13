@@ -17,13 +17,21 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
 
-class AppRepository(private val packageManager: PackageManager, context: Context) {
+class AppRepository(private val packageManager: PackageManager, private val context: Context) {
 
     private val prefsHelper by lazy { HookPrefs(context) }
 
     private val enableKeys = arrayOf(
         "switch_one_", "switch_two_", "switch_three_", "switch_four_",
         "switch_five_", "switch_six_", "switch_seven_", "switch_eight_"
+    )
+
+    private val SORT_OPTIONS = listOf(
+        R.string.sort_by_app_name,
+        R.string.sort_by_app_size,
+        R.string.sort_by_last_update,
+        R.string.sort_by_install_date,
+        R.string.sort_by_target_version
     )
 
     fun getAllAppsFlow(): Flow<List<AppInfo>> = flow {
@@ -64,7 +72,8 @@ class AppRepository(private val packageManager: PackageManager, context: Context
 
     fun filterAndSortApps(apps: List<AppInfo>, filter: AppFilterState): List<AppInfo> {
         val now = System.currentTimeMillis()
-        val comp = getComparator(filter.filterOrder, filter.isReverse)
+        val sortByResId = SORT_OPTIONS.getOrElse(filter.filterOrder) { R.string.sort_by_app_name }
+        val comp = getComparator(sortByResId, filter.isReverse)
         return apps.asSequence()
             .filter { app ->
                 when (filter.appType) {

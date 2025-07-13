@@ -44,6 +44,14 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     companion object {
         @JvmStatic
         fun newInstance() = AppsPagerFragment()
+
+        private val SORT_OPTION_RES_IDS = listOf(
+            R.string.sort_by_app_name,
+            R.string.sort_by_app_size,
+            R.string.sort_by_last_update,
+            R.string.sort_by_install_date,
+            R.string.sort_by_target_version
+        )
     }
 
     override fun onCreateView(
@@ -157,13 +165,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
             }
         }
 
-        val sortByItems = listOf(
-            R.string.sort_by_app_name,
-            R.string.sort_by_app_size,
-            R.string.sort_by_last_update,
-            R.string.sort_by_install_date,
-            R.string.sort_by_target_version
-        )
+        val sortByItems = SORT_OPTION_RES_IDS
         val filterItems = listOf(
             R.string.filter_configured,
             R.string.filter_recent_update,
@@ -187,13 +189,16 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun resetFilters() {
         with(filerBinding) {
-            (sortBy.getChildAt(0) as? Chip)?.let { sortBy.check(it.id) }
+            val defaultSortIndex = 0
+            if (sortBy.childCount > defaultSortIndex) {
+                (sortBy.getChildAt(defaultSortIndex) as? Chip)?.let { sortBy.check(it.id) }
+            }
             filter.clearCheck()
             reverseSwitch.isChecked = false
         }
 
         PrefManager.isReverse = false
-        PrefManager.order = R.string.sort_by_app_name
+        PrefManager.order = 0
         PrefManager.configured = false
         PrefManager.updated = false
         PrefManager.disabled = false
@@ -203,21 +208,20 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun setupChipGroup(chipGroup: ChipGroup, titles: List<Int>, isSortBy: Boolean) {
         chipGroup.isSingleSelection = isSortBy
-        titles.forEach { titleResId ->
+        titles.forEachIndexed { index, titleResId ->
             val chip = Chip(requireContext()).apply {
                 text = getString(titleResId)
                 isCheckable = true
                 isClickable = true
-                isChecked = getChipCheckedState(titleResId, isSortBy)
-                setOnClickListener { handleChipClick(this, titleResId, isSortBy) }
+                isChecked = if (isSortBy) index == PrefManager.order else getChipCheckedState(titleResId, isSortBy)
+                setOnClickListener { handleChipClick(this, titleResId, isSortBy, index) }
             }
             chipGroup.addView(chip)
         }
     }
 
     private fun getChipCheckedState(titleResId: Int, isSortBy: Boolean): Boolean {
-        return if (isSortBy) titleResId == PrefManager.order
-        else when (titleResId) {
+        return when (titleResId) {
             R.string.filter_configured -> PrefManager.configured
             R.string.filter_recent_update -> PrefManager.updated
             R.string.filter_disabled -> PrefManager.disabled
@@ -225,7 +229,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         }
     }
 
-    private fun handleChipClick(chip: Chip, titleResId: Int, isSortBy: Boolean) {
+    private fun handleChipClick(chip: Chip, titleResId: Int, isSortBy: Boolean, index: Int) {
         if (!isSortBy && titleResId == R.string.filter_configured && !MainActivity.isModuleActivated()) {
             showSnackbar(getString(R.string.module_not_activated))
             chip.isChecked = false
@@ -233,7 +237,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         }
 
         if (isSortBy) {
-            PrefManager.order = titleResId
+            PrefManager.order = index
         } else {
             when (titleResId) {
                 R.string.filter_configured -> PrefManager.configured = chip.isChecked
