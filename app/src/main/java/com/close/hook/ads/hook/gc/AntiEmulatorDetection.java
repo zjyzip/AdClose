@@ -10,6 +10,7 @@ import android.opengl.GLES10;
 import android.view.Display;
 import android.view.WindowManager;
 import android.util.DisplayMetrics;
+import android.text.TextUtils;
 
 import java.io.File;
 import java.io.BufferedReader;
@@ -17,42 +18,47 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.Set;
+import java.util.HashSet;
 
 import com.close.hook.ads.hook.util.HookUtil;
 
 public class AntiEmulatorDetection {
 
-    private static final Set<String> EMULATOR_FILE_PATHS = Set.of(
+    private static final Set<String> EMULATOR_SPECIFIC_FILE_PATHS = Set.of(
             "/system/bin/qemud",
             "/system/bin/qemu_pipe",
             "/system/lib/libc_malloc_debug_qemu.so",
             "/system/lib/lib_dl_qemu.so",
             "/data/misc/qemu_pipes",
             "/dev/qemu_pipe",
-            "/dev/socket/qemud"
+            "/dev/socket/qemud",
+            "/vendor/etc/vbox_properties.xml"
     );
 
-    private static final Set<String> EMULATOR_BUILD_KEYS = Set.of(
-            "ro.kernel.qemu",
+    private static final Set<String> EMULATOR_SPECIFIC_BUILD_KEYS_VALUES = Set.of(
+            "ro.kernel.qemu=1",
             "qemu.sf.lcd_density",
             "qemu.hw.mainkeys",
-            "ro.boot.qemu",
-            "ro.hardware.qemu"
+            "ro.boot.qemu=1",
+            "ro.hardware.qemu",
+            "ro.build.description=generic"
     );
 
-    private static final Set<String> COMMON_EMULATOR_MODELS = Set.of(
-            "google_sdk",
-            "Emulator",
-            "Android SDK built for x86",
-            "Genymotion",
-            "sdk",
-            "sdk_x86",
-            "vbox86p",
+    private static final Set<String> EMULATOR_BUILD_KEYWORDS = Set.of(
+            "generic",
             "emulator",
-            "simulator",
+            "sdk", "vbox86",
             "goldfish",
             "x86",
-            "x86_64"
+            "x86_64",
+            "unknown"
+    );
+
+    private static final Set<String> EMULATOR_GL_RENDERER_KEYWORDS = Set.of(
+            "swiftshader",
+            "androidemulator",
+            "virtualbox",
+            "vmware"
     );
 
     public static void handle() {
@@ -74,7 +80,7 @@ public class AntiEmulatorDetection {
                 File file = (File) param.thisObject;
                 if (file != null) {
                     String path = file.getPath().toLowerCase();
-                    for (String emuPath : EMULATOR_FILE_PATHS) {
+                    for (String emuPath : EMULATOR_SPECIFIC_FILE_PATHS) {
                         if (path.contains(emuPath.toLowerCase())) {
                             param.setResult(false);
                             return;
@@ -86,11 +92,11 @@ public class AntiEmulatorDetection {
             HookUtil.hookAllMethods(System.class, "getProperty", "before", param -> {
                 String key = (String) param.args[0];
                 if (key != null) {
-                    if (EMULATOR_BUILD_KEYS.contains(key)) {
+                    if (EMULATOR_SPECIFIC_BUILD_KEYS_VALUES.contains(key + "=" + System.getProperty(key))) {
                         param.setResult("0");
                         return;
                     }
-                    if (key.startsWith("init.svc.") || key.startsWith("qemu.")) {
+                    if (key.startsWith("init.svc.qemu") || key.startsWith("qemu.")) {
                         param.setResult("0");
                         return;
                     }
@@ -181,50 +187,69 @@ public class AntiEmulatorDetection {
     }
 
     public static boolean isEmulator() {
-        if (Build.FINGERPRINT.toLowerCase().contains("generic") && Build.FINGERPRINT.toLowerCase().contains("sdk") ||
-            Build.FINGERPRINT.toLowerCase().contains("genymotion") ||
-            Build.MODEL.toLowerCase().contains("google_sdk") ||
-            Build.MODEL.toLowerCase().contains("emulator") ||
+        int emulatorDetectionScore = 0;
+
+        if (Build.FINGERPRINT.toLowerCase().contains("generic/vbox86") ||
+            Build.FINGERPRINT.toLowerCase().contains("generic_x86/vbox86") ||
             Build.MODEL.toLowerCase().contains("android sdk built for x86") ||
             Build.MANUFACTURER.toLowerCase().contains("genymotion") ||
-            Build.PRODUCT.toLowerCase().contains("sdk") ||
-            Build.PRODUCT.toLowerCase().contains("google_sdk") ||
-            Build.PRODUCT.toLowerCase().contains("sdk_x86") ||
-            Build.PRODUCT.toLowerCase().contains("vbox86p") ||
-            Build.PRODUCT.toLowerCase().contains("emulator") ||
-            Build.PRODUCT.toLowerCase().contains("simulator") ||
+            Build.BRAND.toLowerCase().contains("genymotion") ||
+            Build.PRODUCT.toLowerCase().contains("genymotion") ||
+            Build.HARDWARE.toLowerCase().equals("vbox86") ||
+            Build.BOARD.toLowerCase().equals("vbox86") ||
             "qemu".equals(Build.HARDWARE.toLowerCase()) ||
             "goldfish".equals(Build.HARDWARE.toLowerCase()) ||
-            "vbox86".equals(Build.HARDWARE.toLowerCase())) {
-            return true;
+            Build.FINGERPRINT.toLowerCase().contains("generic/sdk") ||
+            Build.MODEL.toLowerCase().contains("google_sdk") ||
+            Build.PRODUCT.toLowerCase().contains("sdk_x86")) {
+            emulatorDetectionScore += 10;
         }
 
-        if (System.getProperty("ro.kernel.qemu") != null ||
-            System.getProperty("qemu.sf.lcd_density") != null ||
-            System.getProperty("ro.boot.qemu") != null ||
-            System.getProperty("ro.hardware.qemu") != null) {
-            return true;
-        }
+        for (String key_value : EMULATOR_SPECIFIC_BUILD_KEYS_VALUES) {
+            String[] parts = key_value.split("=", 2);
+            String key = parts[0];
+            String expectedValue = (parts.length > 1) ? parts[1] : null;
+            String actualValue = System.getProperty(key);
 
-        for (String file : EMULATOR_FILE_PATHS) {
-            if (new File(file).exists()) {
-                return true;
+            if (!TextUtils.isEmpty(actualValue)) {
+                if (expectedValue != null) {
+                    if (actualValue.equals(expectedValue)) {
+                        emulatorDetectionScore += 5;
+                    }
+                } else {
+                    emulatorDetectionScore += 3;
+                }
             }
         }
 
-        if (isCPUEmulator()) {
-            return true;
+        for (String file : EMULATOR_SPECIFIC_FILE_PATHS) {
+            if (new File(file).exists()) {
+                emulatorDetectionScore += 5;
+            }
         }
 
-        if (checkTracerPid()) {
-            return true;
+        String buildInfo = (Build.FINGERPRINT + Build.MODEL + Build.BRAND +
+                            Build.DEVICE + Build.PRODUCT + Build.HARDWARE).toLowerCase();
+        
+        for (String keyword : EMULATOR_BUILD_KEYWORDS) {
+            if (buildInfo.contains(keyword)) {
+                emulatorDetectionScore += 1;
+            }
+        }
+        
+        if (isCPUEmulator()) {
+            emulatorDetectionScore += 3;
         }
 
         if (isEmulatorByOpenGL()) {
-             return true;
+            emulatorDetectionScore += 2;
         }
 
-        return false;
+        if (checkTracerPid()) {
+            emulatorDetectionScore += 1;
+        }
+        
+        return emulatorDetectionScore >= 5;
     }
 
     private static boolean isCPUEmulator() {
@@ -244,7 +269,7 @@ public class AntiEmulatorDetection {
         try (BufferedReader br = new BufferedReader(new FileReader("/proc/self/status"))) {
             String line;
             while ((line = br.readLine()) != null) {
-                if (line.contains("TracerPid:")) {
+                if (line.startsWith("TracerPid:")) {
                     int tracerPid = Integer.parseInt(line.substring(line.indexOf(":") + 1).trim());
                     return tracerPid != 0;
                 }
@@ -259,11 +284,15 @@ public class AntiEmulatorDetection {
         String vendor = GLES10.glGetString(GLES10.GL_VENDOR);
 
         if (renderer != null && vendor != null) {
-            if (renderer.toLowerCase().contains("swiftshader") ||
-                renderer.toLowerCase().contains("androidemulator") ||
-                renderer.toLowerCase().contains("virtualbox") ||
-                renderer.toLowerCase().contains("vmware") ||
-                (vendor.toLowerCase().contains("google") && renderer.toLowerCase().contains("android"))) {
+            String lowerRenderer = renderer.toLowerCase();
+            String lowerVendor = vendor.toLowerCase();
+
+            for (String keyword : EMULATOR_GL_RENDERER_KEYWORDS) {
+                if (lowerRenderer.contains(keyword)) {
+                    return true;
+                }
+            }
+            if (lowerVendor.contains("google") && lowerRenderer.contains("android")) {
                 return true;
             }
         }
