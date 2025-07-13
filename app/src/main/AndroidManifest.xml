@@ -72,6 +72,7 @@
         <provider
             android:name=".provider.HookPrefsProvider"
             android:authorities="com.close.hook.ads.provider.prefs"
+            android:enabled="true"
             android:exported="true" />
 
         <provider
@@ -79,6 +80,11 @@
             android:authorities="com.close.hook.ads.crashinitprovider"
             android:exported="false"
             android:initOrder="101" />
+
+        <service
+            android:name=".service.HookPrefsService"
+            android:exported="false"
+            android:process=":hookprefs_service" />
 
         <meta-data
             android:name="xposedmodule"
