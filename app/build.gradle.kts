@@ -73,7 +73,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = calculateVersionCode()
-        versionName = "3.7.0"
+        versionName = "3.8.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -111,7 +111,6 @@ android {
     }
 
     buildFeatures {
-        aidl = true
         viewBinding = true
         buildConfig = true
     }
