@@ -453,11 +453,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onExport() {
         lifecycleScope.launch(Dispatchers.IO) {
+            val allPrefs = prefsHelper.getAll()
+
             val configuredList = viewModel.uiState.value.apps.filter { it.isEnable == 1 }.map { appInfo ->
                 ConfiguredBean(
                     appInfo.packageName,
-                    prefKeys.map { key ->
-                        prefsHelper.getBoolean(key + appInfo.packageName, false)
+                    prefKeys.map { keyPrefix ->
+                        (allPrefs[keyPrefix + appInfo.packageName] as? Boolean) ?: false
                     })
             }
 

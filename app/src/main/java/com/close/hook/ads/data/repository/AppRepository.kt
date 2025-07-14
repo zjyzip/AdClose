@@ -40,6 +40,8 @@ class AppRepository(private val packageManager: PackageManager, private val cont
         }.getOrElse { emptyList() }
 
         val modActive = MainActivity.isModuleActivated()
+        
+        val allPrefs = prefsHelper.getAll()
 
         val result = coroutineScope {
             pkgs.map { pkg ->
@@ -48,7 +50,11 @@ class AppRepository(private val packageManager: PackageManager, private val cont
                     val verCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) pkg.longVersionCode.toInt() else pkg.versionCode
                     val isSys = (app.flags and ApplicationInfo.FLAG_SYSTEM != 0) || (app.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0)
                     val isEn = packageManager.getApplicationEnabledSetting(pkg.packageName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                    val enabled = if (modActive && enableKeys.any { prefsHelper.getBoolean(it + pkg.packageName, false) }) 1 else 0
+                    
+                    val enabled = if (modActive && enableKeys.any { keyPrefix ->
+                        (allPrefs[keyPrefix + pkg.packageName] as? Boolean) == true
+                    }) 1 else 0
+
                     AppInfo(
                         appName = app.loadLabel(packageManager).toString(),
                         packageName = pkg.packageName,
