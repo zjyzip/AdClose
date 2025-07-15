@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.repository.CustomHookRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -71,20 +70,20 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun loadHookConfigs() {
         _isLoading.value = true
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _hookConfigs.value = repository.getHookConfigs(currentPackageName)
             _isLoading.value = false
         }
     }
 
     private fun loadGlobalHookStatus() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _isGlobalEnabled.value = repository.getHookEnabledStatus(currentPackageName)
         }
     }
 
     fun setGlobalHookStatus(isEnabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             repository.setHookEnabledStatus(currentPackageName, isEnabled)
             _isGlobalEnabled.value = isEnabled
         }
@@ -94,7 +93,7 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         _searchQuery.value = query
     }
 
-    suspend fun addHook(hookConfig: CustomHookInfo) = withContext(Dispatchers.IO) {
+    suspend fun addHook(hookConfig: CustomHookInfo) {
         val newConfigWithPackage = hookConfig.copy(
             id = UUID.randomUUID().toString(),
             packageName = currentPackageName
@@ -103,7 +102,7 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         saveAndRefreshHooks(updatedList)
     }
 
-    suspend fun updateHook(oldConfig: CustomHookInfo, newConfig: CustomHookInfo) = withContext(Dispatchers.IO) {
+    suspend fun updateHook(oldConfig: CustomHookInfo, newConfig: CustomHookInfo) {
         val updatedList = _hookConfigs.value.toMutableList()
         val index = updatedList.indexOfFirst { it.id == oldConfig.id }
         if (index != -1) {
@@ -112,7 +111,7 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    suspend fun toggleHookActivation(hookConfig: CustomHookInfo, isEnabled: Boolean) = withContext(Dispatchers.IO) {
+    suspend fun toggleHookActivation(hookConfig: CustomHookInfo, isEnabled: Boolean) {
         val updatedList = _hookConfigs.value.toMutableList()
         val index = updatedList.indexOfFirst { it.id == hookConfig.id }
         if (index != -1) {
@@ -121,13 +120,13 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    suspend fun deleteHook(hookConfig: CustomHookInfo) = withContext(Dispatchers.IO) {
+    suspend fun deleteHook(hookConfig: CustomHookInfo) {
         val updatedList = _hookConfigs.value.toMutableList().apply { removeIf { it.id == hookConfig.id } }
         saveAndRefreshHooks(updatedList)
         _selectedConfigs.value = _selectedConfigs.value.minus(hookConfig)
     }
 
-    suspend fun clearAllHooks() = withContext(Dispatchers.IO) {
+    suspend fun clearAllHooks() {
         saveAndRefreshHooks(emptyList())
         _selectedConfigs.value = emptySet()
     }
@@ -144,13 +143,13 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         _selectedConfigs.value = emptySet()
     }
 
-    suspend fun deleteSelectedHookConfigs(): Int = withContext(Dispatchers.IO) {
+    suspend fun deleteSelectedHookConfigs(): Int {
         val updatedList = _hookConfigs.value.toMutableList()
         val deletedCount = _selectedConfigs.value.size
         updatedList.removeAll(_selectedConfigs.value)
         saveAndRefreshHooks(updatedList)
         _selectedConfigs.value = emptySet()
-        deletedCount
+        return deletedCount
     }
 
     fun copySelectedHooksToJson(): String? {
@@ -176,50 +175,48 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         return _hookConfigs.value.toList()
     }
 
-    suspend fun importHooks(importedConfigs: List<CustomHookInfo>): Boolean = withContext(Dispatchers.IO) {
-        val currentConfigs = _hookConfigs.value.toMutableList()
+    private fun updateConfigsList(
+        currentConfigs: MutableList<CustomHookInfo>,
+        importedConfigs: List<CustomHookInfo>,
+        targetPackageName: String?
+    ): Boolean {
         var updated = false
-
         for (importedConfig in importedConfigs) {
-            val configForCurrentContext = importedConfig.copy(packageName = currentPackageName)
-            val existingConfigIndex = currentConfigs.indexOfFirst { it.id == configForCurrentContext.id }
+            val configToAddOrUpdate = importedConfig.copy(
+                packageName = targetPackageName
+            )
+            val existingConfigIndex = currentConfigs.indexOfFirst { it.id == configToAddOrUpdate.id }
 
             if (existingConfigIndex == -1) {
-                currentConfigs.add(configForCurrentContext)
+                currentConfigs.add(configToAddOrUpdate)
                 updated = true
-            } else if (currentConfigs[existingConfigIndex] != configForCurrentContext) {
-                currentConfigs[existingConfigIndex] = configForCurrentContext
+            } else if (currentConfigs[existingConfigIndex] != configToAddOrUpdate) {
+                currentConfigs[existingConfigIndex] = configToAddOrUpdate
                 updated = true
             }
         }
+        return updated
+    }
+
+    suspend fun importHooks(importedConfigs: List<CustomHookInfo>): Boolean {
+        val currentConfigs = _hookConfigs.value.toMutableList()
+        val updated = updateConfigsList(currentConfigs, importedConfigs, currentPackageName)
 
         if (updated) {
             saveAndRefreshHooks(currentConfigs)
         }
-        return@withContext updated
+        return updated
     }
 
-    suspend fun importGlobalHooksToStorage(globalConfigs: List<CustomHookInfo>): Boolean = withContext(Dispatchers.IO) {
+    suspend fun importGlobalHooksToStorage(globalConfigs: List<CustomHookInfo>): Boolean {
         val existingGlobalConfigs = repository.getHookConfigs(null).toMutableList()
-        var updated = false
-
-        for (importedConfig in globalConfigs) {
-            val configForGlobal = importedConfig.copy(packageName = null)
-            val existingConfigIndex = existingGlobalConfigs.indexOfFirst { it.id == configForGlobal.id }
-
-            if (existingConfigIndex == -1) {
-                existingGlobalConfigs.add(configForGlobal)
-                updated = true
-            } else if (existingGlobalConfigs[existingConfigIndex] != configForGlobal) {
-                existingGlobalConfigs[existingConfigIndex] = configForGlobal
-                updated = true
-            }
-        }
+        val globalOnlyConfigsProcessed = globalConfigs.map { it.copy(packageName = null) }
+        val updated = updateConfigsList(existingGlobalConfigs, globalOnlyConfigsProcessed, null)
 
         if (updated) {
             repository.saveHookConfigs(null, existingGlobalConfigs)
         }
-        return@withContext updated
+        return updated
     }
 
     fun getTargetPackageName(): String? = currentPackageName
@@ -236,13 +233,11 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
         return when {
             !isCurrentPageGlobal && containsGlobalConfigs -> ImportAction.PromptImportGlobal(importedConfigs)
-
             isCurrentPageGlobal && containsAppSpecificConfigs -> {
                 val globalOnlyConfigs = importedConfigs.filter { it.packageName.isNullOrEmpty() }
-                val skippedCount = importedConfigs.count { !it.packageName.isNullOrEmpty() }
-                ImportAction.ImportGlobalAndNotifySkipped(globalOnlyConfigs, skippedCount)
+                val skippedAppSpecificCount = importedConfigs.count { !it.packageName.isNullOrEmpty() }
+                ImportAction.ImportGlobalAndNotifySkipped(globalOnlyConfigs, skippedAppSpecificCount)
             }
-
             else -> ImportAction.DirectImport(importedConfigs)
         }
     }

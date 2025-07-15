@@ -18,6 +18,7 @@ import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.databinding.DialogAddCustomHookBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import java.util.UUID
 
@@ -44,9 +45,44 @@ class CustomHookDialogFragment : DialogFragment() {
         binding = DialogAddCustomHookBinding.inflate(LayoutInflater.from(context))
         initialConfig = arguments?.let { BundleCompat.getParcelable(it, ARG_CONFIG, CustomHookInfo::class.java) }
 
+        setupSpinner()
+        setupInitialConfig()
+        setupFieldVisibilityLogic()
+        setupInputValidationListeners()
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(binding.root)
+            .setTitle(if (initialConfig == null) getString(R.string.add_hook_config_title) else getString(R.string.edit_hook_config_title))
+            .setPositiveButton(android.R.string.ok, null)
+            .setNegativeButton(android.R.string.cancel) { d, _ -> d.cancel() }
+            .create()
+
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(Dialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                if (validateInputs()) {
+                    handlePositiveButtonClick(dialog)
+                }
+            }
+        }
+        return dialog
+    }
+
+    private fun setupSpinner() {
         val hookMethodTypeAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, HookMethodType.values().map { it.displayName })
         binding.spinnerHookMethodType.adapter = hookMethodTypeAdapter
 
+        binding.spinnerHookMethodType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateFieldVisibility(HookMethodType.values()[position])
+                clearAllErrors()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+            }
+        }
+    }
+
+    private fun setupInitialConfig() {
         initialConfig?.let { config ->
             binding.etClassName.setText(config.className)
             binding.etMethodName.setText(config.methodNames?.joinToString(", "))
@@ -68,109 +104,68 @@ class CustomHookDialogFragment : DialogFragment() {
                 "before" -> binding.toggleGroupHookPoint.check(R.id.btn_hook_before)
                 else -> binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
             }
-
         } ?: run {
             binding.spinnerHookMethodType.setSelection(HookMethodType.values().indexOf(HookMethodType.HOOK_MULTIPLE_METHODS))
             binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
         }
+    }
 
-        val updateVisibility = { selectedType: HookMethodType ->
-            val showClassName = selectedType !in listOf(
-                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
-                HookMethodType.FIND_METHODS_WITH_STRING
-            )
-            val showMethodNames = selectedType in listOf(
-                HookMethodType.HOOK_MULTIPLE_METHODS,
-                HookMethodType.FIND_AND_HOOK_METHOD,
-                HookMethodType.HOOK_ALL_METHODS,
-                HookMethodType.FIND_METHODS_WITH_STRING
-            )
-            val showParameterTypes = selectedType == HookMethodType.FIND_AND_HOOK_METHOD
-            val showFieldRelated = selectedType == HookMethodType.SET_STATIC_OBJECT_FIELD
-            val showHookPoint = selectedType in listOf(
-                HookMethodType.HOOK_MULTIPLE_METHODS,
-                HookMethodType.FIND_AND_HOOK_METHOD,
-                HookMethodType.HOOK_ALL_METHODS,
-                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
-                HookMethodType.FIND_METHODS_WITH_STRING
-            )
-            val showSearchStrings = selectedType in listOf(
-                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
-                HookMethodType.FIND_METHODS_WITH_STRING
-            )
-            val showReturnValue = selectedType in listOf(
-                HookMethodType.HOOK_MULTIPLE_METHODS,
-                HookMethodType.FIND_AND_HOOK_METHOD,
-                HookMethodType.HOOK_ALL_METHODS,
-                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
-                HookMethodType.FIND_METHODS_WITH_STRING
-            )
-
-            binding.tilClassName.isVisible = showClassName
-            binding.tilMethodName.isVisible = showMethodNames
-            binding.tilParameterTypes.isVisible = showParameterTypes
-            binding.tilReturnValue.isVisible = showReturnValue
-            binding.tilFieldName.isVisible = showFieldRelated
-            binding.tilFieldValue.isVisible = showFieldRelated
-            binding.tilSearchStrings.isVisible = showSearchStrings
-
-            binding.toggleGroupHookPoint.isVisible = showHookPoint
-            binding.tvHookPointLabel.isVisible = showHookPoint
-
-            if (!showClassName) binding.tilClassName.error = null
-            if (!showMethodNames) binding.tilMethodName.error = null
-            if (!showParameterTypes) binding.tilParameterTypes.error = null
-            if (!showReturnValue) binding.tilReturnValue.error = null
-            if (!showFieldRelated) {
-                binding.tilFieldName.error = null
-                binding.tilFieldValue.error = null
-            }
-            if (!showSearchStrings) binding.tilSearchStrings.error = null
-        }
-
+    private fun setupFieldVisibilityLogic() {
         val initialHookMethodType = initialConfig?.hookMethodType ?: HookMethodType.HOOK_MULTIPLE_METHODS
-        updateVisibility(initialHookMethodType)
-
-        binding.spinnerHookMethodType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                updateVisibility(HookMethodType.values()[position])
-                clearAllErrors()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-            }
-        }
-
-        setupInputValidation()
-
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(binding.root)
-            .setTitle(if (initialConfig == null) getString(R.string.add_hook_config_title) else getString(R.string.edit_hook_config_title))
-            .setPositiveButton(android.R.string.ok, null)
-            .setNegativeButton(android.R.string.cancel) { d, _ -> d.cancel() }
-            .create()
-
-        dialog.setOnShowListener {
-            val positiveButton = dialog.getButton(Dialog.BUTTON_POSITIVE)
-            positiveButton.setOnClickListener {
-                if (validateInputs()) {
-                    handlePositiveButtonClick(dialog)
-                }
-            }
-        }
-        return dialog
+        updateFieldVisibility(initialHookMethodType)
     }
 
-    private fun clearAllErrors() {
-        binding.tilClassName.error = null
-        binding.tilMethodName.error = null
-        binding.tilParameterTypes.error = null
-        binding.tilFieldName.error = null
-        binding.tilReturnValue.error = null
-        binding.tilFieldValue.error = null
-        binding.tilSearchStrings.error = null
+    private fun updateFieldVisibility(selectedType: HookMethodType) {
+        val fieldVisibilityMap = mapOf(
+            binding.tilClassName to (selectedType !in listOf(
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            )),
+            binding.tilMethodName to (selectedType in listOf(
+                HookMethodType.HOOK_MULTIPLE_METHODS,
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.HOOK_ALL_METHODS,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            )),
+            binding.tilParameterTypes to (selectedType == HookMethodType.FIND_AND_HOOK_METHOD),
+            binding.tilReturnValue to (selectedType in listOf(
+                HookMethodType.HOOK_MULTIPLE_METHODS,
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.HOOK_ALL_METHODS,
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            )),
+            binding.tilFieldName to (selectedType == HookMethodType.SET_STATIC_OBJECT_FIELD),
+            binding.tilFieldValue to (selectedType == HookMethodType.SET_STATIC_OBJECT_FIELD),
+            binding.tilSearchStrings to (selectedType in listOf(
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            )),
+            binding.toggleGroupHookPoint to (selectedType in listOf(
+                HookMethodType.HOOK_MULTIPLE_METHODS,
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.HOOK_ALL_METHODS,
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            )),
+            binding.tvHookPointLabel to (selectedType in listOf(
+                HookMethodType.HOOK_MULTIPLE_METHODS,
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.HOOK_ALL_METHODS,
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            ))
+        )
+
+        fieldVisibilityMap.forEach { (view, isVisible) ->
+            view.isVisible = isVisible
+            if (!isVisible && view is TextInputLayout) {
+                view.error = null
+            }
+        }
     }
 
-    private fun setupInputValidation() {
+    private fun setupInputValidationListeners() {
         binding.etClassName.addTextChangedListener(createValidationTextWatcher(binding.tilClassName, R.string.error_class_name_empty))
         binding.etMethodName.addTextChangedListener(createValidationTextWatcher(binding.tilMethodName, R.string.error_method_name_empty))
         binding.etParameterTypes.addTextChangedListener(createValidationTextWatcher(binding.tilParameterTypes, R.string.error_parameter_types_empty))
@@ -197,14 +192,14 @@ class CustomHookDialogFragment : DialogFragment() {
     }
 
     private fun validateInputs(): Boolean {
-        val className = binding.etClassName.text.toString().trim()
-        val selectedHookMethodType = HookMethodType.values().first { it.displayName == binding.spinnerHookMethodType.selectedItem?.toString()?.trim() }
-
         clearAllErrors()
+
+        val selectedHookMethodType = HookMethodType.fromDisplayName(binding.spinnerHookMethodType.selectedItem?.toString().orEmpty())
+            ?: return false
 
         var isValid = true
 
-        if (binding.tilClassName.isVisible && className.isBlank()) {
+        if (binding.tilClassName.isVisible && binding.etClassName.text.isNullOrBlank()) {
             binding.tilClassName.error = getString(R.string.error_class_name_empty)
             isValid = false
         }
@@ -249,40 +244,39 @@ class CustomHookDialogFragment : DialogFragment() {
                     isValid = false
                 }
             }
+            else -> {}
         }
         return isValid
     }
 
+    private fun clearAllErrors() {
+        binding.tilClassName.error = null
+        binding.tilMethodName.error = null
+        binding.tilParameterTypes.error = null
+        binding.tilFieldName.error = null
+        binding.tilReturnValue.error = null
+        binding.tilFieldValue.error = null
+        binding.tilSearchStrings.error = null
+    }
+
     private fun handlePositiveButtonClick(dialog: Dialog) {
-        val className = binding.etClassName.text.toString().trim().takeIf { binding.tilClassName.isVisible } ?: ""
-        val selectedHookMethodTypeDisplayName = binding.spinnerHookMethodType.selectedItem?.toString()?.trim()
-        val selectedHookMethodType = HookMethodType.values().firstOrNull { it.displayName == selectedHookMethodTypeDisplayName }
+        val className = binding.etClassName.getTextIfVisibleAndNotBlank() ?: ""
+
+        val selectedHookMethodType = HookMethodType.fromDisplayName(binding.spinnerHookMethodType.selectedItem?.toString().orEmpty())
             ?: return
 
         val hookPoint = when (binding.toggleGroupHookPoint.checkedButtonId) {
             R.id.btn_hook_after -> "after"
             R.id.btn_hook_before -> "before"
             else -> null
-        }
+        }.takeIf { binding.toggleGroupHookPoint.isVisible }
 
-        val methodNames = binding.etMethodName.text.toString().trim()
-            .split(",")
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .takeIf { it.isNotEmpty() && binding.tilMethodName.isVisible }
-        val returnValue = binding.etReturnValue.text.toString().trim().takeIf { it.isNotBlank() && binding.tilReturnValue.isVisible }
-        val parameterTypes = binding.etParameterTypes.text.toString().trim()
-            .split(",")
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .takeIf { it.isNotEmpty() && binding.tilParameterTypes.isVisible }
-        val fieldName = binding.etFieldName.text.toString().trim().takeIf { it.isNotBlank() && binding.tilFieldName.isVisible }
-        val fieldValue = binding.etFieldValue.text.toString().trim().takeIf { it.isNotBlank() && binding.tilFieldValue.isVisible }
-        val searchStrings = binding.etSearchStrings.text.toString().trim()
-            .split(",")
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .takeIf { it.isNotEmpty() && binding.tilSearchStrings.isVisible }
+        val methodNames = binding.etMethodName.getTextListIfVisibleAndNotBlank()
+        val returnValue = binding.etReturnValue.getTextIfVisibleAndNotBlank()
+        val parameterTypes = binding.etParameterTypes.getTextListIfVisibleAndNotBlank()
+        val fieldName = binding.etFieldName.getTextIfVisibleAndNotBlank()
+        val fieldValue = binding.etFieldValue.getTextIfVisibleAndNotBlank()
+        val searchStrings = binding.etSearchStrings.getTextListIfVisibleAndNotBlank()
 
         val newConfig = CustomHookInfo(
             id = initialConfig?.id ?: UUID.randomUUID().toString(),
@@ -306,4 +300,16 @@ class CustomHookDialogFragment : DialogFragment() {
 
         dialog.dismiss()
     }
+}
+
+private fun TextInputEditText.getTextIfVisibleAndNotBlank(): String? {
+    return text.toString().trim().takeIf { it.isNotBlank() && (parent.parent as? View)?.isVisible == true }
+}
+
+private fun TextInputEditText.getTextListIfVisibleAndNotBlank(): List<String>? {
+    return text.toString().trim()
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .takeIf { it.isNotEmpty() && (parent.parent as? View)?.isVisible == true }
 }

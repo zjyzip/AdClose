@@ -6,12 +6,9 @@ import java.util.regex.Pattern
 
 object ClipboardHookParser {
 
-    private val METHOD_NO_PARAM_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*)\\(\\)([ZBCSIFJDV]|L[\\w/$]+;|[)]\\[(ZBCSIFJD)|L[\\w/$]+;)")
-
-    private val METHOD_WITH_PARAMS_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$<>][a-zA-Z0-9_\\$]*)\\((.*)\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+[ZBCSIFJD]|L[\\w/$]+;)")
-
-    private val FIELD_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*):([ZBCSIFJD]|L[\\w/$]+;|\\[+[ZBCSIFJD]|L[\\w/$]+;)")
-
+    private val METHOD_NO_PARAM_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*)\\(\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
+    private val METHOD_WITH_PARAMS_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$<>][a-zA-Z0-9_\\$]*)\\((.*)\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
+    private val FIELD_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*):([ZBCSIFJD]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
 
     fun parseClipboardContent(content: String, targetPackageName: String? = null): CustomHookInfo? {
         val methodNoParamMatcher = METHOD_NO_PARAM_PATTERN.matcher(content)

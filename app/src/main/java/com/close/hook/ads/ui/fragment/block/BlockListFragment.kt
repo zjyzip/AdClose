@@ -68,11 +68,12 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private var tracker: SelectionTracker<Url>? = null
     private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
-    private var imm: InputMethodManager? = null
+    private val imm: InputMethodManager by lazy {
+        requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        imm = requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
 
         initView()
         initEditText()
@@ -131,24 +132,25 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
-    private fun initFabMarginParams(): CoordinatorLayout.LayoutParams =
-        CoordinatorLayout.LayoutParams(
+    private fun getFabLayoutParams(): CoordinatorLayout.LayoutParams {
+        return CoordinatorLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.END
             behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
         }
+    }
 
     private fun initFab() {
         binding.delete.apply {
-            layoutParams = initFabMarginParams()
+            layoutParams = getFabLayoutParams()
             visibility = View.VISIBLE
             setOnClickListener { clearBlockList() }
         }
 
         binding.add.apply {
-            layoutParams = initFabMarginParams()
+            layoutParams = getFabLayoutParams()
             visibility = View.VISIBLE
             setOnClickListener { addRule() }
         }
@@ -290,18 +292,18 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
         if (focus) {
             binding.editText.requestFocus()
-            imm?.showSoftInput(binding.editText, 0)
+            imm.showSoftInput(binding.editText, 0)
         } else {
             binding.editText.clearFocus()
-            imm?.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+            imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
         }
     }
 
     private fun initButton() {
         binding.apply {
             searchIcon.setOnClickListener {
-                if (binding.editText.isFocused) {
-                    binding.editText.setText("")
+                if (editText.isFocused) {
+                    editText.setText("")
                     setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
                 } else {
                     setIconAndFocus(R.drawable.ic_magnifier_to_back, true)
@@ -317,18 +319,18 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }
 
             clear.setOnClickListener {
-                binding.editText.text = null
+                editText.text = null
             }
         }
     }
 
     private fun showRuleDialog(url: Url? = null) {
-        val binding = ItemBlockListAddBinding.inflate(LayoutInflater.from(requireContext()))
+        val dialogBinding = ItemBlockListAddBinding.inflate(LayoutInflater.from(requireContext()))
 
-        binding.editText.setText(url?.url ?: "")
-        binding.type.setText(url?.type ?: "URL")
+        dialogBinding.editText.setText(url?.url ?: "")
+        dialogBinding.type.setText(url?.type ?: "URL")
 
-        binding.type.setAdapter(
+        dialogBinding.type.setAdapter(
             ArrayAdapter(
                 requireContext(),
                 android.R.layout.simple_spinner_dropdown_item,
@@ -340,11 +342,11 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(title)
-            .setView(binding.root)
+            .setView(dialogBinding.root)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val newType = binding.type.text.toString()
-                val newUrl = binding.editText.text.toString().trim()
+                val newType = dialogBinding.type.text.toString()
+                val newUrl = dialogBinding.editText.text.toString().trim()
 
                 if (newUrl.isEmpty()) {
                     Toast.makeText(requireContext(), getString(R.string.value_empty_error), Toast.LENGTH_SHORT).show()
@@ -368,7 +370,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }
             .create().apply {
                 window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-                binding.editText.requestFocus()
+                dialogBinding.editText.requestFocus()
             }.show()
     }
 
@@ -387,10 +389,10 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private fun prepareDataForExport(): List<String> {
         return viewModel.blackList.value
-            ?.map { "${it.type}, ${it.url}" }
-            ?.distinct()
-            ?.filter { it.contains(",") }
-            ?.sorted() ?: emptyList()
+            .map { "${it.type}, ${it.url}" }
+            .distinct()
+            .filter { it.contains(",") }
+            .sorted()
     }
 
     private val restoreSAFLauncher =
@@ -398,7 +400,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             uri?.let { uri ->
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        val currentList: List<Url> = viewModel.blackList.value ?: emptyList()
+                        val currentList: List<Url> = viewModel.blackList.value
                         val contentResolver = requireContext().contentResolver
 
                         val fileName = contentResolver.query(uri, null, null, null, null)?.use { cursor ->

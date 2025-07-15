@@ -19,7 +19,7 @@ import java.io.File
 
 class AppRepository(private val packageManager: PackageManager, private val context: Context) {
 
-    private val prefsHelper by lazy { HookPrefs(context) }
+    private val prefsHelper by lazy { HookPrefs.getInstance(context) }
 
     private val enableKeys = arrayOf(
         "switch_one_", "switch_two_", "switch_three_", "switch_four_",
@@ -40,7 +40,6 @@ class AppRepository(private val packageManager: PackageManager, private val cont
         }.getOrElse { emptyList() }
 
         val modActive = MainActivity.isModuleActivated()
-        
         val allPrefs = prefsHelper.getAll()
 
         val result = coroutineScope {
@@ -51,9 +50,9 @@ class AppRepository(private val packageManager: PackageManager, private val cont
                     val isSys = (app.flags and ApplicationInfo.FLAG_SYSTEM != 0) || (app.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0)
                     val isEn = packageManager.getApplicationEnabledSetting(pkg.packageName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                     
-                    val enabled = if (modActive && enableKeys.any { keyPrefix ->
-                        (allPrefs[keyPrefix + pkg.packageName] as? Boolean) == true
-                    }) 1 else 0
+                    val enabled = if (modActive) {
+                        enableKeys.any { keyPrefix -> (allPrefs["$keyPrefix${pkg.packageName}"] as? Boolean) == true }.let { if (it) 1 else 0 }
+                    } else 0
 
                     AppInfo(
                         appName = app.loadLabel(packageManager).toString(),
@@ -80,33 +79,38 @@ class AppRepository(private val packageManager: PackageManager, private val cont
         val now = System.currentTimeMillis()
         val sortByResId = SORT_OPTIONS.getOrElse(filter.filterOrder) { R.string.sort_by_app_name }
         val comp = getComparator(sortByResId, filter.isReverse)
+
         return apps.asSequence()
             .filter { app ->
-                when (filter.appType) {
+                val typeMatch = when (filter.appType) {
                     "user" -> !app.isSystem
                     "system" -> app.isSystem
                     "configured" -> app.isEnable == 1
                     else -> true
                 }
-            }
-            .filter { app ->
-                (filter.keyword.isBlank() || app.appName.contains(filter.keyword, true) || app.packageName.contains(filter.keyword, true)) &&
-                (!filter.showConfigured || app.isEnable == 1) &&
-                (!filter.showUpdated || now - app.lastUpdateTime < 259200000L) &&
-                (!filter.showDisabled || app.isAppEnable == 0)
+
+                val keywordMatch = filter.keyword.isBlank() ||
+                                   app.appName.contains(filter.keyword, true) ||
+                                   app.packageName.contains(filter.keyword, true)
+                
+                val configuredMatch = !filter.showConfigured || app.isEnable == 1
+                val updatedMatch = !filter.showUpdated || (now - app.lastUpdateTime < 259200000L)
+                val disabledMatch = !filter.showDisabled || app.isAppEnable == 0
+
+                typeMatch && keywordMatch && configuredMatch && updatedMatch && disabledMatch
             }
             .sortedWith(comp)
             .toList()
     }
 
     private fun getComparator(sortBy: Int, reverse: Boolean): Comparator<AppInfo> {
-        val c = when (sortBy) {
+        val comparator = when (sortBy) {
             R.string.sort_by_app_size -> compareBy<AppInfo> { it.size }
             R.string.sort_by_last_update -> compareBy { it.lastUpdateTime }
             R.string.sort_by_install_date -> compareBy { it.firstInstallTime }
             R.string.sort_by_target_version -> compareBy { it.targetSdk }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
         }
-        return if (reverse) c.reversed() else c
+        return if (reverse) comparator.reversed() else comparator
     }
 }

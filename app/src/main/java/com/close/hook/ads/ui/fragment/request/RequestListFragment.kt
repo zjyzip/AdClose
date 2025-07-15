@@ -60,9 +60,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     IOnTabClickListener, IOnFabClickListener, OnBackPressListener {
 
     private val viewModel by lazy {
-        ViewModelProvider(
-            owner = requireParentFragment()
-        )[BlockListViewModel::class.java]
+        ViewModelProvider(requireActivity())[BlockListViewModel::class.java]
     }
     private val appsViewModel by viewModels<AppsViewModel>(ownerProducer = { requireActivity() })
     private lateinit var mAdapter: BlockedRequestsAdapter
@@ -71,6 +69,16 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     private var tracker: SelectionTracker<BlockedRequest>? = null
     private var selectedItems: Selection<BlockedRequest>? = null
     private var mActionMode: ActionMode? = null
+
+    private val snackbarLayoutParams: CoordinatorLayout.LayoutParams by lazy {
+        CoordinatorLayout.LayoutParams(
+            CoordinatorLayout.LayoutParams.MATCH_PARENT,
+            CoordinatorLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.BOTTOM
+            setMargins(10.dp, 0, 10.dp, 90.dp)
+        }
+    }
 
     companion object {
         @JvmStatic
@@ -85,6 +93,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         type = arguments?.getString("type") ?: throw IllegalArgumentException("type is required")
+        viewModel.setRequestFilterType(type)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -98,7 +107,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.getFilteredRequestList(type).collectLatest { filteredList ->
+            viewModel.filteredRequestList.collectLatest { filteredList ->
                 mAdapter.submitList(filteredList) {
                     val targetChild = if (filteredList.isEmpty()) 0 else 1
                     if (binding.vfContainer.displayedChild != targetChild) {
@@ -239,26 +248,20 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun saveFile(content: String): Boolean {
         return try {
-            val dir = File(requireContext().cacheDir.toString())
-            if (!dir.exists())
-                dir.mkdir()
-            val file = File("${requireContext().cacheDir}/request_list.json")
-            if (!file.exists()) {
-                file.createNewFile()
-            } else {
-                file.delete()
-                file.createNewFile()
+            val dir = File(requireContext().cacheDir, "temp_exports")
+            if (!dir.exists()) {
+                dir.mkdirs()
             }
-            FileOutputStream(file).use { it.write(content.toByteArray()) }
+            val file = File(dir, "request_list.json")
+            file.writeText(content)
             true
         } catch (e: IOException) {
-            e.printStackTrace()
             false
         }
     }
 
     override fun onExport() {
-        if (viewModel.requestList.value.isNullOrEmpty()) {
+        if (viewModel.requestList.value.isEmpty()) {
             Toast.makeText(requireContext(), getString(R.string.export_empty_request_list), Toast.LENGTH_SHORT).show()
             return
         }
@@ -284,10 +287,8 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             if (selection.size() != 0) {
                 lifecycleScope.launch(Dispatchers.IO) {
                     val updateList = selection.toList().map {
-                        Url(
-                            if (it.appName.trim().endsWith("DNS")) "Domain" else "URL",
-                            it.request
-                        )
+                        val type = if (it.appName.trim().endsWith("DNS")) "Domain" else "URL"
+                        Url(type, it.request)
                     }.filterNot {
                         viewModel.dataSource.isExist(it.type, it.url)
                     }
@@ -308,13 +309,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             message,
             Snackbar.LENGTH_SHORT
         )
-        val lp = CoordinatorLayout.LayoutParams(
-            CoordinatorLayout.LayoutParams.MATCH_PARENT,
-            CoordinatorLayout.LayoutParams.WRAP_CONTENT
-        )
-        lp.gravity = Gravity.BOTTOM
-        lp.setMargins(10.dp, 0, 10.dp, 90.dp)
-        snackBar.view.layoutParams = lp
+        snackBar.view.layoutParams = snackbarLayoutParams
         snackBar.show()
     }
 
@@ -331,19 +326,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             val clip = ClipData.newPlainText("copied_requests", combinedText)
             clipboard.setPrimaryClip(clip)
             tracker?.clearSelection()
-            val snackBar = Snackbar.make(
-                requireParentFragment().requireView(),
-                getString(R.string.copied_to_clipboard_batch),
-                Snackbar.LENGTH_SHORT
-            )
-            val lp = CoordinatorLayout.LayoutParams(
-                CoordinatorLayout.LayoutParams.MATCH_PARENT,
-                CoordinatorLayout.LayoutParams.WRAP_CONTENT
-            )
-            lp.gravity = Gravity.BOTTOM
-            lp.setMargins(10.dp, 0, 10.dp, 90.dp)
-            snackBar.view.layoutParams = lp
-            snackBar.show()
+            showSnackbar(getString(R.string.copied_to_clipboard_batch))
         }
     }
 
@@ -351,18 +334,21 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
             if (uri == null) return@backup
             try {
-                File("${requireContext().cacheDir}/request_list.json").inputStream().use { input ->
-                    requireContext().contentResolver.openOutputStream(uri).use { output ->
-                        if (output == null) {
-                            Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-                        } else {
-                            input.copyTo(output)
-                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                val cachedFile = File(requireContext().cacheDir, "temp_exports/request_list.json")
+                if (!cachedFile.exists()) {
+                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                    return@backup
                 }
+
+                requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    cachedFile.inputStream().copyTo(outputStream)
+                    Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                } ?: run {
+                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                }
+
             } catch (e: IOException) {
-                e.printStackTrace()
+                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
             }
         }
 

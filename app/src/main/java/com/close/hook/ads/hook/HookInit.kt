@@ -31,7 +31,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         ContextUtil.setupContextHooks()
-        HookPrefs.initAndReloadXPrefs()
+        HookPrefs.initXPrefs()
     }
 
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
@@ -45,7 +45,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         try {
             ContextUtil.addOnApplicationContextInitializedCallback {
                 val ctx = ContextUtil.applicationContext!!
-                val manager = SettingsManager(ctx.packageName, HookPrefs())
+                val manager = SettingsManager(ctx.packageName, HookPrefs.getXpInstance())
 
                 setupAppHooks(ctx, manager)
                 applySettings(manager)

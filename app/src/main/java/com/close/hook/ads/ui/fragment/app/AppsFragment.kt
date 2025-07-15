@@ -27,7 +27,6 @@ import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
-import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.CacheDataManager.getFormatSize
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnFabClickContainer
@@ -95,8 +94,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         "switch_seven_",
         "switch_eight_"
     )
+
     private val prefsHelper by lazy {
-        HookPrefs(requireContext())
+        HookPrefs.getInstance(requireContext())
     }
 
     private var currentAppPackageName: String? = null
@@ -124,9 +124,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        initSheet()
         initView()
         initRefresh()
-        initSheet()
         initObserve()
     }
 
@@ -231,7 +231,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         try {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            AppUtils.showToast(requireContext(), getString(R.string.open_app_details_failed))
+            Toast.makeText(requireContext(), getString(R.string.open_app_details_failed), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -241,10 +241,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             try {
                 startActivity(intent)
             } catch (e: ActivityNotFoundException) {
-                AppUtils.showToast(requireContext(), getString(R.string.launch_app_failed))
+                Toast.makeText(requireContext(), getString(R.string.launch_app_failed), Toast.LENGTH_SHORT).show()
             }
         } else {
-            AppUtils.showToast(requireContext(), getString(R.string.launch_app_failed))
+            Toast.makeText(requireContext(), getString(R.string.launch_app_failed), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -304,14 +304,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 val list = state.apps
                 val isLoading = state.isLoading
 
-                _binding?.let { currentBinding ->
-                    currentBinding.vfContainer.displayedChild = if (list.isEmpty()) 0 else 1
-
+                binding.apply {
+                    vfContainer.displayedChild = if (list.isEmpty()) 0 else 1
                     updateSearchHint(list.size)
-
                     mAdapter.submitList(list)
-                    currentBinding.progressBar.isVisible = isLoading && list.isEmpty()
-                    currentBinding.swipeRefresh.isRefreshing = isLoading && list.isNotEmpty()
+                    progressBar.isVisible = isLoading && list.isEmpty()
+                    swipeRefresh.isRefreshing = isLoading && list.isNotEmpty()
                 }
             }
         }
@@ -325,7 +323,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     @SuppressLint("SetText18n")
     override fun onItemClick(appInfo: AppInfo, icon: Drawable?) {
         if (!MainActivity.isModuleActivated()) {
-            AppUtils.showToast(requireContext(), getString(R.string.module_not_activated))
+            Toast.makeText(requireContext(), getString(R.string.module_not_activated), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -334,12 +332,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         configBinding.apply {
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
-
-            icon?.let { drawable ->
-                this.icon.setImageDrawable(drawable)
-            } ?: run {
-                this.icon.setImageDrawable(null)
-            }
+            this.icon.setImageDrawable(icon)
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName
@@ -351,7 +344,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     val key = prefKeys[index] + appInfo.packageName
                     prefsHelper.setBoolean(key, checkBox.isChecked)
                 }
-                AppUtils.showToast(requireContext(), getString(R.string.save_success))
+                Toast.makeText(requireContext(), getString(R.string.save_success), Toast.LENGTH_SHORT).show()
                 appConfigDialog?.dismiss()
             }
         }
@@ -363,11 +356,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
-            icon?.let { drawable ->
-                this.icon.setImageDrawable(drawable)
-            } ?: run {
-                this.icon.setImageDrawable(null)
-            }
+            this.icon.setImageDrawable(icon)
 
             appName.text = appInfo.appName
             packageName.apply {
@@ -472,7 +461,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
             try {
                 val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
-                val tempFileSaved = saveFile(content)
+                val tempFileSaved = saveTempFileForExport(content)
                 if (tempFileSaved) {
                     withContext(Dispatchers.Main) {
                         backupSAFLauncher.launch("configured_list.json")
@@ -486,15 +475,15 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         requireContext(),
-                        getString(R.string.export_failed),
-                        Toast.LENGTH_SHORT
+                        "${getString(R.string.export_failed)}: ${e.message ?: "Unknown error"}",
+                        Toast.LENGTH_LONG
                     ).show()
                 }
             }
         }
     }
 
-    private fun saveFile(content: String): Boolean {
+    private fun saveTempFileForExport(content: String): Boolean {
         return try {
             val dir = File(requireContext().cacheDir, "export_temp")
             if (!dir.exists()) {
@@ -502,15 +491,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             }
 
             val file = File(dir, "configured_list.json")
-            if (file.exists()) {
-                file.delete()
-            }
-            file.createNewFile()
-
-            FileOutputStream(file).use { fileOutputStream ->
-                fileOutputStream.write(content.toByteArray())
-                fileOutputStream.flush()
-            }
+            file.writeText(content)
             true
         } catch (e: IOException) {
             false

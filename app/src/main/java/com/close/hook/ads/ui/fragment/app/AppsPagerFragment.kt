@@ -138,9 +138,10 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     }
 
     private fun initFilterSheet() {
-        bottomSheet = BottomSheetDialog(requireContext())
-        filerBinding = BottomDialogSearchFilterBinding.inflate(layoutInflater, null, false)
-        bottomSheet?.setContentView(filerBinding.root)
+        bottomSheet = BottomSheetDialog(requireContext()).apply {
+            filerBinding = BottomDialogSearchFilterBinding.inflate(layoutInflater)
+            setContentView(filerBinding.root)
+        }
 
         setupToolbar()
         setupSwitchesAndChips()
@@ -208,19 +209,20 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun setupChipGroup(chipGroup: ChipGroup, titles: List<Int>, isSortBy: Boolean) {
         chipGroup.isSingleSelection = isSortBy
+        chipGroup.removeAllViews()
         titles.forEachIndexed { index, titleResId ->
             val chip = Chip(requireContext()).apply {
                 text = getString(titleResId)
                 isCheckable = true
                 isClickable = true
-                isChecked = if (isSortBy) index == PrefManager.order else getChipCheckedState(titleResId, isSortBy)
+                isChecked = if (isSortBy) index == PrefManager.order else getChipCheckedState(titleResId)
                 setOnClickListener { handleChipClick(this, titleResId, isSortBy, index) }
             }
             chipGroup.addView(chip)
         }
     }
 
-    private fun getChipCheckedState(titleResId: Int, isSortBy: Boolean): Boolean {
+    private fun getChipCheckedState(titleResId: Int): Boolean {
         return when (titleResId) {
             R.string.filter_configured -> PrefManager.configured
             R.string.filter_recent_update -> PrefManager.updated

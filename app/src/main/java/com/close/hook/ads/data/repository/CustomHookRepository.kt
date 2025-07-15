@@ -8,7 +8,7 @@ import kotlinx.coroutines.withContext
 
 class CustomHookRepository(context: Context) {
 
-    private val hookPrefs = HookPrefs(context)
+    private val hookPrefs = HookPrefs.getInstance(context)
 
     suspend fun getHookConfigs(packageName: String?): List<CustomHookInfo> = withContext(Dispatchers.IO) {
         hookPrefs.getCustomHookConfigs(packageName)

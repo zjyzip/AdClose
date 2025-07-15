@@ -16,6 +16,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -42,8 +43,6 @@ import com.close.hook.ads.ui.viewmodel.ImportAction
 import com.close.hook.ads.util.AppIconLoader
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.ClipboardHookParser
-import com.close.hook.ads.util.OnBackPressContainer
-import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -57,9 +56,10 @@ import kotlinx.serialization.json.Json
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
-class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>(), OnBackPressListener {
+class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>() {
 
     private val viewModel: CustomHookViewModel by viewModels()
+
     private lateinit var hookAdapter: CustomHookAdapter
 
     private var currentActionMode: ActionMode? = null
@@ -71,6 +71,8 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private var editingConfig: CustomHookInfo? = null
+
+    private val prettyJson = Json { prettyPrint = true }
 
     private val actionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
@@ -123,6 +125,23 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requireActivity().onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (binding.editTextSearch.isFocused) {
+                    binding.editTextSearch.setText("")
+                    setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
+                } else if (viewModel.selectedConfigs.value.isNotEmpty()) {
+                    currentActionMode?.finish()
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -168,16 +187,21 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun observeGlobalHookToggle() {
+        binding.appHeaderInclude.switchGlobalEnable.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setGlobalHookStatus(isChecked)
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isGlobalEnabled.collect { isEnabled ->
-                    binding.appHeaderInclude.switchGlobalEnable.isChecked = isEnabled
+                    if (binding.appHeaderInclude.switchGlobalEnable.isChecked != isEnabled) {
+                        binding.appHeaderInclude.switchGlobalEnable.jumpDrawablesToCurrentState()
+                        binding.appHeaderInclude.switchGlobalEnable.isChecked = isEnabled
+                        binding.appHeaderInclude.switchGlobalEnable.jumpDrawablesToCurrentState()
+                    }
                     binding.appHeaderInclude.switchGlobalEnable.text = if (isEnabled) getString(R.string.enabled) else getString(R.string.disabled)
                 }
             }
-        }
-        binding.appHeaderInclude.switchGlobalEnable.setOnCheckedChangeListener { _, isChecked ->
-            viewModel.setGlobalHookStatus(isChecked)
         }
     }
 
@@ -185,7 +209,10 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         lifecycleScope.launch {
             val appName = withContext(Dispatchers.IO) { AppUtils.getAppName(requireContext(), packageName) }
             val appInfo = withContext(Dispatchers.IO) {
-                try { requireContext().packageManager.getPackageInfo(packageName, 0) } catch (_: Exception) { null }
+                try { requireContext().packageManager.getPackageInfo(packageName, 0) } catch (e: Exception) {
+                    android.util.Log.e("CustomHookManager", "Failed to get package info for $packageName", e)
+                    null
+                }
             }
 
             val versionName = appInfo?.versionName ?: "N/A"
@@ -449,7 +476,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
                 val exportableHooks = viewModel.getExportableHooks()
-                val jsonString = Json.encodeToString(exportableHooks)
+                val jsonString = prettyJson.encodeToString(exportableHooks)
                 requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
                     writer?.write(jsonString)
                 }
@@ -509,7 +536,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         }
     }
 
-
     private fun showMessageDialog(titleResId: Int, message: String, throwable: Throwable?) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(titleResId)
@@ -556,31 +582,10 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .show()
     }
 
-    override fun onBackPressed(): Boolean {
-        return when {
-            binding.editTextSearch.isFocused -> {
-                binding.editTextSearch.setText("")
-                setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
-                true
-            }
-            viewModel.selectedConfigs.value.isNotEmpty() -> {
-                currentActionMode?.finish()
-                true
-            }
-            else -> false
-        }
-    }
-
     override fun onPause() {
         super.onPause()
-        (activity as? OnBackPressContainer)?.backController = null
         currentActionMode?.finish()
         inputMethodManager.hideSoftInputFromWindow(binding.editTextSearch.windowToken, 0)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        (activity as? OnBackPressContainer)?.backController = this
     }
 
     override fun onDestroyView() {

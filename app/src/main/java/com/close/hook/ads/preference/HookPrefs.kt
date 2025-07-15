@@ -7,48 +7,62 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import de.robv.android.xposed.XSharedPreferences
 
-class HookPrefs {
+class HookPrefs private constructor(
+    private val context: Context?,
+    private val isXp: Boolean
+) {
 
     companion object {
         private const val PREF_NAME = "com.close.hook.ads_preferences"
         private const val MODULE_PACKAGE_NAME = "com.close.hook.ads"
 
-        private const val CUSTOM_HOOK_CONFIGS_KEY_PREFIX = "custom_hook_configs_"
-        private const val OVERALL_HOOK_ENABLED_KEY_PREFIX = "overall_hook_enabled_"
+        private const val KEY_PREFIX_CUSTOM_HOOK = "custom_hook_configs_"
+        private const val KEY_PREFIX_OVERALL_HOOK = "overall_hook_enabled_"
         private val GSON = Gson()
 
+        @Volatile
         private var sXPrefs: XSharedPreferences? = null
 
-        fun getOverallHookEnabledKey(packageName: String?): String {
-            return if (packageName.isNullOrEmpty()) OVERALL_HOOK_ENABLED_KEY_PREFIX + "global"
-                   else OVERALL_HOOK_ENABLED_KEY_PREFIX + packageName
+        private fun buildKey(prefix: String, packageName: String?): String {
+            return prefix + (if (packageName.isNullOrEmpty()) "global" else packageName)
         }
 
-        fun initAndReloadXPrefs() {
+        fun getXpInstance(): HookPrefs {
+            return HookPrefs(null, true).apply {
+                initXPrefs()
+            }
+        }
+
+        fun getInstance(context: Context): HookPrefs {
+            return HookPrefs(context, false)
+        }
+
+        fun initXPrefs() {
             if (sXPrefs == null) {
-                sXPrefs = XSharedPreferences(MODULE_PACKAGE_NAME, PREF_NAME).also {
-                    it.makeWorldReadable()
+                synchronized(this) {
+                    if (sXPrefs == null) {
+                        sXPrefs = XSharedPreferences(MODULE_PACKAGE_NAME, PREF_NAME).also {
+                            @Suppress("SetWorldReadable")
+                            it.makeWorldReadable()
+                        }
+                    }
                 }
             }
             sXPrefs?.reload()
         }
     }
 
-    private val prefs: SharedPreferences?
-    private val isXp: Boolean
-
-    constructor(context: Context) {
-        this.prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        this.isXp = false
-    }
-
-    constructor() {
-        this.prefs = null
-        this.isXp = true
-    }
+    @Suppress("DEPRECATION")
+    private val appPrefs: SharedPreferences? = context?.getSharedPreferences(PREF_NAME, Context.MODE_WORLD_READABLE)
 
     private fun getActivePrefs(): SharedPreferences? {
-        return if (isXp) sXPrefs else prefs
+        return if (isXp) sXPrefs else appPrefs
+    }
+
+    private inline fun editAndApply(action: SharedPreferences.Editor.() -> Unit) {
+        if (!isXp) {
+            appPrefs?.edit()?.apply(action)?.apply()
+        }
     }
 
     fun getBoolean(key: String, defaultValue: Boolean): Boolean {
@@ -56,7 +70,7 @@ class HookPrefs {
     }
 
     fun setBoolean(key: String, value: Boolean) {
-        prefs?.edit()?.putBoolean(key, value)?.apply()
+        editAndApply { putBoolean(key, value) }
     }
 
     fun getInt(key: String, defaultValue: Int): Int {
@@ -64,7 +78,7 @@ class HookPrefs {
     }
 
     fun setInt(key: String, value: Int) {
-        prefs?.edit()?.putInt(key, value)?.apply()
+        editAndApply { putInt(key, value) }
     }
 
     fun getLong(key: String, defaultValue: Long): Long {
@@ -72,7 +86,7 @@ class HookPrefs {
     }
 
     fun setLong(key: String, value: Long) {
-        prefs?.edit()?.putLong(key, value)?.apply()
+        editAndApply { putLong(key, value) }
     }
 
     fun getFloat(key: String, defaultValue: Float): Float {
@@ -80,15 +94,15 @@ class HookPrefs {
     }
 
     fun setFloat(key: String, value: Float) {
-        prefs?.edit()?.putFloat(key, value)?.apply()
+        editAndApply { putFloat(key, value) }
     }
 
-    fun getString(key: String, defaultValue: String): String {
+    fun getString(key: String, defaultValue: String): String? {
         return getActivePrefs()?.getString(key, defaultValue) ?: defaultValue
     }
 
-    fun setString(key: String, value: String) {
-        prefs?.edit()?.putString(key, value)?.apply()
+    fun setString(key: String, value: String?) {
+        editAndApply { putString(key, value) }
     }
 
     fun contains(key: String): Boolean {
@@ -96,36 +110,36 @@ class HookPrefs {
     }
 
     fun remove(key: String) {
-        prefs?.edit()?.remove(key)?.apply()
+        editAndApply { remove(key) }
     }
 
     fun clear() {
-        prefs?.edit()?.clear()?.apply()
+        editAndApply { clear() }
     }
 
     fun getCustomHookConfigs(packageName: String?): List<CustomHookInfo> {
-        val key = if (packageName.isNullOrEmpty()) CUSTOM_HOOK_CONFIGS_KEY_PREFIX + "global" else CUSTOM_HOOK_CONFIGS_KEY_PREFIX + packageName
+        val key = buildKey(KEY_PREFIX_CUSTOM_HOOK, packageName)
         val json = getString(key, "[]")
         return try {
-            GSON.fromJson(json, object : TypeToken<List<CustomHookInfo>>() {}.type)
+            GSON.fromJson(json, object : TypeToken<List<CustomHookInfo>>() {}.type) ?: emptyList()
         } catch (e: Exception) {
             emptyList()
         }
     }
 
     fun setCustomHookConfigs(packageName: String?, configs: List<CustomHookInfo>) {
-        val key = if (packageName.isNullOrEmpty()) CUSTOM_HOOK_CONFIGS_KEY_PREFIX + "global" else CUSTOM_HOOK_CONFIGS_KEY_PREFIX + packageName
+        val key = buildKey(KEY_PREFIX_CUSTOM_HOOK, packageName)
         val json = GSON.toJson(configs)
         setString(key, json)
     }
 
     fun getOverallHookEnabled(packageName: String?): Boolean {
-        val key = getOverallHookEnabledKey(packageName)
+        val key = buildKey(KEY_PREFIX_OVERALL_HOOK, packageName)
         return getBoolean(key, false)
     }
 
     fun setOverallHookEnabled(packageName: String?, isEnabled: Boolean) {
-        val key = getOverallHookEnabledKey(packageName)
+        val key = buildKey(KEY_PREFIX_OVERALL_HOOK, packageName)
         setBoolean(key, isEnabled)
     }
 

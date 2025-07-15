@@ -32,7 +32,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressContainer {
 
     private val viewModel by lazy {
-        ViewModelProvider(this)[BlockListViewModel::class.java]
+        ViewModelProvider(requireActivity())[BlockListViewModel::class.java]
     }
     override val tabList: List<Int> =
         listOf(R.string.tab_domain_list, R.string.tab_host_list, R.string.tab_host_whitelist)
@@ -47,25 +47,33 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
         savedInstanceState: Bundle?
     ): View {
         _binding = BaseTablayoutViewpagerBinding.inflate(inflater, container, false)
-        setupFab()
         return binding.root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        setupFab()
+        initBar()
+        setupBroadcastReceiver()
+    }
+
     private fun setupFab() {
-        fab = FloatingActionButton(requireContext()).apply {
-            layoutParams = CoordinatorLayout.LayoutParams(
-                CoordinatorLayout.LayoutParams.WRAP_CONTENT,
-                CoordinatorLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                behavior = fabViewBehavior
+        if (!::fab.isInitialized) {
+            fab = FloatingActionButton(requireContext()).apply {
+                layoutParams = CoordinatorLayout.LayoutParams(
+                    CoordinatorLayout.LayoutParams.WRAP_CONTENT,
+                    CoordinatorLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = Gravity.BOTTOM or Gravity.END
+                    behavior = fabViewBehavior
+                }
+                setImageResource(R.drawable.ic_export)
+                tooltipText = getString(R.string.export)
+                setOnClickListener { fabController?.onExport() }
             }
-            setImageResource(R.drawable.ic_export)
-            tooltipText = getString(R.string.export)
-            setOnClickListener { fabController?.onExport() }
+            binding.root.addView(fab)
+            updateFabMargin()
         }
-        updateFabMargin()
-        binding.root.addView(fab)
     }
 
     private fun updateFabMargin() {
@@ -77,12 +85,6 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
             }
             insets
         }
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        initBar()
-        setupBroadcastReceiver()
     }
 
     private fun setupBroadcastReceiver() {
