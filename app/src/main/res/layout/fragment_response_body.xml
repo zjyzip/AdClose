@@ -1,31 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="16dp">
+    android:layout_height="match_parent">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp"
+        android:fillViewport="true">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Response Body (JSON)"
+                android:textStyle="bold"
+                android:paddingBottom="8dp"/>
+
+            <TextView
+                android:id="@+id/responseBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textIsSelectable="true"
+                android:fontFamily="monospace"
+                android:lineSpacingExtra="4dp"
+                android:gravity="start"
+                android:padding="8dp"
+                android:background="@android:color/transparent"
+                android:breakStrategy="simple" />
+            </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/exportFab"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Response Body (JSON)"
-            android:textStyle="bold"
-            android:paddingBottom="8dp"/>
-
-        <TextView
-            android:id="@+id/responseBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textIsSelectable="true"
-            android:fontFamily="monospace"
-            android:lineSpacingExtra="4dp"
-            android:gravity="start"
-            android:padding="8dp"
-            android:background="@android:color/transparent"/>
-
-    </LinearLayout>
-</ScrollView>
+        android:src="@drawable/ic_export"
+        android:tooltipText="@string/export"
+        android:visibility="gone" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
