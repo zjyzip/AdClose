@@ -78,7 +78,7 @@ public class RequestHook {
         .softValues()
         .build();
 
-    private static final int COMPRESSION_THRESHOLD_BYTES = 200 * 1024;
+    private static final int COMPRESSION_THRESHOLD_BYTES = 100 * 1024;
 
     public static void init() {
         try {
@@ -273,7 +273,7 @@ public class RequestHook {
                         Object httpUrl = XposedHelpers.callMethod(request, "urlString");
                         URL url = new URL(httpUrl.toString());
 
-                        String responseBodyString = processHttpResponseBody(userResponse);
+                        String responseBodyString = readOkioHttpResponseBody(userResponse);
                         String stackTrace = HookUtil.getFormattedStackTrace();
 
                         if (shouldBlockHttpRequest(url, " HTTP", request, userResponse, responseBodyString, stackTrace)) {
@@ -326,7 +326,7 @@ public class RequestHook {
         return builderClass.getMethod("build").invoke(builder);
     }
 
-    private static String processHttpResponseBody(Object response) {
+    private static String readOkioHttpResponseBody(Object response) {
         String responseBodyString = null;
         Object originalResponseBody = XposedHelpers.callMethod(response, "body");
 
@@ -336,7 +336,6 @@ public class RequestHook {
             if (isJson(mediaTypeObj)) {
                 try {
                     Class<?> okioBufferClass = XposedHelpers.findClass("com.android.okhttp.okio.Buffer", applicationContext.getClassLoader());
-                    Class<?> okioOkioClass = XposedHelpers.findClass("com.android.okhttp.okio.Okio", applicationContext.getClassLoader());
                     Class<?> okioSourceClass = XposedHelpers.findClass("com.android.okhttp.okio.Source", applicationContext.getClassLoader());
                     Class<?> bufferedSourceClass = XposedHelpers.findClass("com.android.okhttp.okio.BufferedSource", applicationContext.getClassLoader());
                     Class<?> okioSinkClass = XposedHelpers.findClass("com.android.okhttp.okio.Sink", applicationContext.getClassLoader());
@@ -378,6 +377,7 @@ public class RequestHook {
             for (MethodData methodData : foundMethods) {
                 try {
                     Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
+                    XposedBridge.log(LOG_PREFIX + "setupOkHttpRequestHook" + methodData);
                     HookUtil.hookMethod(method, "after", param -> {
                         try {
                             Object response = param.getResult();
@@ -391,10 +391,15 @@ public class RequestHook {
 
                             String stackTrace = HookUtil.getFormattedStackTrace();
 
-                            String responseBodyString = processOkHttpResponseBody(response);
+                            Triple<String, Object, Object> bodyData = getOkHttpResponseBodyAndMediaType(response, url);
+                            String responseBodyString = bodyData.getFirst();
+                            Object mediaTypeObj = bodyData.getSecond();
+                            Object originalResponseBody = bodyData.getThird();
 
                             if (shouldBlockHttpRequest(url, " OKHTTP", request, response, responseBodyString, stackTrace)) {
                                 param.setThrowable(new IOException("Request blocked by AdClose"));
+                            } else {
+                                recreateOkHttpResponse(param, response, responseBodyString, mediaTypeObj, url);
                             }
                         } catch (IOException e) {
                             param.setThrowable(e);
@@ -409,46 +414,41 @@ public class RequestHook {
         }
     }
 
-    private static String processOkHttpResponseBody(Object response) {
+    private static Triple<String, Object, Object> getOkHttpResponseBodyAndMediaType(Object response, URL url) {
         String responseBodyString = null;
         Object originalResponseBody = XposedHelpers.callMethod(response, "body");
+        Object mediaTypeObj = null;
 
         if (originalResponseBody != null) {
-            Object mediaTypeObj = XposedHelpers.callMethod(originalResponseBody, "contentType");
-
+            mediaTypeObj = XposedHelpers.callMethod(originalResponseBody, "contentType");
             if (isJson(mediaTypeObj)) {
                 try {
                     responseBodyString = (String) XposedHelpers.callMethod(originalResponseBody, "string");
-
-                    Class<?> okhttp3ResponseBodyClass = XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.getClassLoader());
-                    Class<?> okhttp3MediaTypeClass = XposedHelpers.findClass("okhttp3.MediaType", applicationContext.getClassLoader());
-
-                    Object companionInstance = XposedHelpers.getStaticObjectField(okhttp3ResponseBodyClass, "Companion");
-
-                    Method createMethod = null;
-                    Object newResponseBody = null;
-
-                    try {
-                        createMethod = XposedHelpers.findMethodExact(companionInstance.getClass(), "create", okhttp3MediaTypeClass, String.class);
-                        newResponseBody = createMethod.invoke(companionInstance, mediaTypeObj, responseBodyString);
-                    } catch (NoSuchMethodError | IllegalArgumentException e1) {
-                        createMethod = XposedHelpers.findMethodExact(companionInstance.getClass(), "create", String.class, okhttp3MediaTypeClass);
-                        newResponseBody = createMethod.invoke(companionInstance, responseBodyString, mediaTypeObj);
-                    }
-
-                    if (newResponseBody != null) {
-                        XposedHelpers.setObjectField(response, "body", newResponseBody);
-                    } else {
-                        XposedBridge.log(LOG_PREFIX + "Failed to recreate Response Body after all attempts. Original Response Body remains.");
-                    }
-
                 } catch (Throwable e) {
-                    XposedBridge.log(LOG_PREFIX + "Error reading or recreating Response Body: " + e.getMessage());
-                    responseBodyString = null; 
+                    XposedBridge.log(LOG_PREFIX + "Error reading OkHttp Response Body for URL " + url + ": " + e.getMessage());
+                    responseBodyString = null;
                 }
             }
         }
-        return responseBodyString;
+        return new Triple<>(responseBodyString, mediaTypeObj, originalResponseBody);
+    }
+
+    private static void recreateOkHttpResponse(XC_MethodHook.MethodHookParam param, Object response,
+                                               String responseBodyString, Object mediaTypeObj, URL url) {
+        if (responseBodyString != null && mediaTypeObj != null) {
+            try {
+                Class<?> okhttp3ResponseBodyClass = XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.getClassLoader());
+
+                Method createMethod = XposedHelpers.findMethodExact(okhttp3ResponseBodyClass, "create", mediaTypeObj.getClass(), String.class);
+                Object newResponseBody = createMethod.invoke(null, mediaTypeObj, responseBodyString);
+
+                Object responseBuilder = XposedHelpers.callMethod(response, "newBuilder");
+                XposedHelpers.callMethod(responseBuilder, "body", newResponseBody);
+                param.setResult(XposedHelpers.callMethod(responseBuilder, "build"));
+            } catch (Throwable e) {
+                XposedBridge.log(LOG_PREFIX + "Failed to recreate OkHttp Response Body for unblocked request (URL: " + url + "): " + e.getMessage());
+            }
+        }
     }
 
     private static boolean shouldBlockHttpRequest(final URL url, final String requestFrameworkType,
@@ -606,9 +606,9 @@ public class RequestHook {
             return data;
         }
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        GZIPOutputStream gzip = new GZIPOutputStream(bos);
-        gzip.write(data.getBytes(StandardCharsets.UTF_8));
-        gzip.close();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(bos)) {
+            gzip.write(data.getBytes(StandardCharsets.UTF_8));
+        }
         byte[] compressed = bos.toByteArray();
         return Base64.encodeToString(compressed, Base64.DEFAULT);
     }

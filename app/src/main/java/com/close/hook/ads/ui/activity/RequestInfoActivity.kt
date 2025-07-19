@@ -35,6 +35,7 @@ class RequestInfoActivity : BaseActivity() {
         val responseMessage = intent.getStringExtra("responseMessage") ?: ""
         val responseHeaders = intent.getStringExtra("responseHeaders") ?: ""
         val responseBody = intent.getStringExtra("responseBody")
+        val isBodyCompressed = intent.getBooleanExtra("isBodyCompressed", false)
         val stack = intent.getStringExtra("stack") ?: ""
         val dnsHost = intent.getStringExtra("dnsHost")
         val fullAddress = intent.getStringExtra("fullAddress")
@@ -42,7 +43,7 @@ class RequestInfoActivity : BaseActivity() {
         val sectionsPagerAdapter = SectionsPagerAdapter(
             this, supportFragmentManager, lifecycle,
             method, urlString, requestHeaders,
-            responseCode, responseMessage, responseHeaders, responseBody,
+            responseCode, responseMessage, responseHeaders, responseBody, isBodyCompressed,
             stack, dnsHost, fullAddress
         )
         val viewPager: ViewPager2 = findViewById(R.id.view_pager)
@@ -65,9 +66,10 @@ class RequestInfoActivity : BaseActivity() {
         private val responseMessage: String,
         private val responseHeaders: String,
         private val responseBody: String?,
+        private val isBodyCompressed: Boolean,
         private val stack: String,
         private val dnsHost: String?,
-        private val fullAddress: String?,
+        private val fullAddress: String?
     ) : FragmentStateAdapter(fm, lifecycle) {
 
         private val fragments = mutableListOf<Fragment>()
@@ -87,7 +89,7 @@ class RequestInfoActivity : BaseActivity() {
                 fragmentTitles.add("Response")
             }
             if (!responseBody.isNullOrEmpty()) {
-                fragments.add(ResponseBodyInfoFragment.newInstance(responseBody))
+                fragments.add(ResponseBodyInfoFragment.newInstance(responseBody, isBodyCompressed))
                 fragmentTitles.add("Body")
             }
             if (stack.isNotEmpty()) {
