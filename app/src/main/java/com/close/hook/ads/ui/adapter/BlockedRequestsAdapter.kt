@@ -112,6 +112,7 @@ class BlockedRequestsAdapter(
                 putExtra("responseCode", request.responseCode)
                 putExtra("responseMessage", request.responseMessage)
                 putExtra("responseHeaders", request.responseHeaders)
+                putExtra("responseBody", request.responseBody)
                 putExtra("stack", request.stack)
                 putExtra("dnsHost", request.dnsHost)
                 putExtra("fullAddress", request.fullAddress)

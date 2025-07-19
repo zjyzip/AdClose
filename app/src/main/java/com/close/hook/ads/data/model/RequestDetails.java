@@ -7,24 +7,24 @@ public class RequestDetails {
     private final int responseCode;
     private final String responseMessage;
     private final Object responseHeaders;
+    private final String responseBody;
     private final String stack;
     private final String dnsHost;
     private final String fullAddress;
 
-    // WebView | HTTP/HTTPS 请求构造函数
-    public RequestDetails(String method, String urlString, Object requestHeaders, int responseCode, String responseMessage, Object responseHeaders, String stack) {
+    public RequestDetails(String method, String urlString, Object requestHeaders, int responseCode, String responseMessage, Object responseHeaders, String responseBody, String stack) {
         this.method = method;
         this.urlString = urlString;
         this.requestHeaders = requestHeaders;
         this.responseCode = responseCode;
         this.responseMessage = responseMessage;
         this.responseHeaders = responseHeaders;
+        this.responseBody = responseBody;
         this.stack = stack;
         this.dnsHost = null;
         this.fullAddress = null;
     }
 
-    // DNS 请求构造函数
     public RequestDetails(String dnsHost, String fullAddress, String stack) {
         this.method = null;
         this.urlString = null;
@@ -32,6 +32,7 @@ public class RequestDetails {
         this.responseCode = -1;
         this.responseMessage = null;
         this.responseHeaders = null;
+        this.responseBody = null;
         this.stack = stack;
         this.dnsHost = dnsHost;
         this.fullAddress = fullAddress;
@@ -59,6 +60,10 @@ public class RequestDetails {
 
     public Object getResponseHeaders() {
         return responseHeaders;
+    }
+
+    public String getResponseBody() {
+        return responseBody;
     }
 
     public String getStack() {

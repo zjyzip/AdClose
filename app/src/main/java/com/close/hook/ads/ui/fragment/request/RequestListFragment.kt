@@ -93,7 +93,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         type = arguments?.getString("type") ?: throw IllegalArgumentException("type is required")
-        viewModel.setRequestFilterType(type)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -107,7 +106,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.filteredRequestList.collectLatest { filteredList ->
+            viewModel.getFilteredRequestList(type).collectLatest { filteredList ->
                 mAdapter.submitList(filteredList) {
                     val targetChild = if (filteredList.isEmpty()) 0 else 1
                     if (binding.vfContainer.displayedChild != targetChild) {

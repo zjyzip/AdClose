@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -39,17 +38,13 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     private val _requestSearchQuery = MutableStateFlow("")
     val requestSearchQuery: StateFlow<String> = _requestSearchQuery.asStateFlow()
 
-    private val _requestFilterType = MutableStateFlow("all")
-    val requestFilterType: StateFlow<String> = _requestFilterType.asStateFlow()
-
-    val filteredRequestList: StateFlow<List<BlockedRequest>> =
-        combine(
+    fun getFilteredRequestList(filterType: String): StateFlow<List<BlockedRequest>> {
+        return combine(
             _requestList,
-            _requestSearchQuery.debounce(300L),
-            _requestFilterType
-        ) { requests, query, currentType ->
+            _requestSearchQuery.debounce(300L)
+        ) { requests, query ->
             requests.filter { request ->
-                val matchesType = when (currentType) {
+                val matchesType = when (filterType) {
                     "all" -> true
                     "block" -> request.isBlocked == true
                     "pass" -> request.isBlocked == false
@@ -65,7 +60,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
         }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
+    }
 
     fun setBlackListSearchQuery(query: String) {
         _blackListSearchQuery.value = query
@@ -73,10 +68,6 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setRequestSearchQuery(query: String) {
         _requestSearchQuery.value = query
-    }
-
-    fun setRequestFilterType(type: String) {
-        _requestFilterType.value = type
     }
 
     fun addUrl(url: Url) = viewModelScope.launch(Dispatchers.IO) {

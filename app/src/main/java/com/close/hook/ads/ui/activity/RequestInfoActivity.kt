@@ -12,6 +12,7 @@ import com.close.hook.ads.ui.fragment.request.DnsInfoFragment
 import com.close.hook.ads.ui.fragment.request.RequestInfoFragment
 import com.close.hook.ads.ui.fragment.request.RequestStackFragment
 import com.close.hook.ads.ui.fragment.request.ResponseInfoFragment
+import com.close.hook.ads.ui.fragment.request.ResponseBodyInfoFragment
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -33,6 +34,7 @@ class RequestInfoActivity : BaseActivity() {
         val responseCode = intent.getStringExtra("responseCode") ?: ""
         val responseMessage = intent.getStringExtra("responseMessage") ?: ""
         val responseHeaders = intent.getStringExtra("responseHeaders") ?: ""
+        val responseBody = intent.getStringExtra("responseBody")
         val stack = intent.getStringExtra("stack") ?: ""
         val dnsHost = intent.getStringExtra("dnsHost")
         val fullAddress = intent.getStringExtra("fullAddress")
@@ -40,7 +42,7 @@ class RequestInfoActivity : BaseActivity() {
         val sectionsPagerAdapter = SectionsPagerAdapter(
             this, supportFragmentManager, lifecycle,
             method, urlString, requestHeaders,
-            responseCode, responseMessage, responseHeaders,
+            responseCode, responseMessage, responseHeaders, responseBody,
             stack, dnsHost, fullAddress
         )
         val viewPager: ViewPager2 = findViewById(R.id.view_pager)
@@ -62,6 +64,7 @@ class RequestInfoActivity : BaseActivity() {
         private val responseCode: String,
         private val responseMessage: String,
         private val responseHeaders: String,
+        private val responseBody: String?,
         private val stack: String,
         private val dnsHost: String?,
         private val fullAddress: String?,
@@ -82,6 +85,10 @@ class RequestInfoActivity : BaseActivity() {
             if (responseCode.isNotEmpty() || responseMessage.isNotEmpty() || responseHeaders.isNotEmpty()) {
                 fragments.add(ResponseInfoFragment.newInstance(responseCode, responseMessage, responseHeaders))
                 fragmentTitles.add("Response")
+            }
+            if (!responseBody.isNullOrEmpty()) {
+                fragments.add(ResponseBodyInfoFragment.newInstance(responseBody))
+                fragmentTitles.add("Body")
             }
             if (stack.isNotEmpty()) {
                 fragments.add(RequestStackFragment.newInstance(stack))
