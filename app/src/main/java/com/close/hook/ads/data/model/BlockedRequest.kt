@@ -22,6 +22,5 @@ data class BlockedRequest(
     var responseBody: String?,
     var stack: String?,
     var dnsHost: String?,
-    var fullAddress: String?,
-    var isBodyCompressed: Boolean = false
+    var fullAddress: String?
 ) : Parcelable

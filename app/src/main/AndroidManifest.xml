@@ -71,6 +71,11 @@
             android:exported="true" />
 
         <provider
+            android:name=".provider.ResponseBodyContentProvider"
+            android:authorities="com.close.hook.ads.provider.responsebody"
+            android:exported="true" />
+
+        <provider
             android:name=".crash.provider.CrashInitProvider"
             android:authorities="com.close.hook.ads.crashinitprovider"
             android:exported="false"

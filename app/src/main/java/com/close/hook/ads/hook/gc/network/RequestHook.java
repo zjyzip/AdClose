@@ -1,12 +1,12 @@
 package com.close.hook.ads.hook.gc.network;
 
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.util.Log;
-import android.util.Base64;
 
 import androidx.annotation.Nullable;
 
@@ -19,11 +19,13 @@ import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
 import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.util.AppUtils;
+import com.close.hook.ads.util.EncryptionUtil;
 import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.HookUtil;
 import com.close.hook.ads.hook.util.StringFinderKit;
 import com.close.hook.ads.provider.UrlContentProvider;
+import com.close.hook.ads.provider.ResponseBodyContentProvider;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -32,12 +34,8 @@ import org.luckypray.dexkit.result.MethodData;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ByteArrayOutputStream;
-import java.util.zip.GZIPOutputStream;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -66,19 +64,19 @@ public class RequestHook {
 
     private static Context applicationContext;
 
-    private static final Uri CONTENT_URI = new Uri.Builder()
+    private static final Uri URL_CONTENT_URI = new Uri.Builder()
         .scheme("content")
         .authority(UrlContentProvider.AUTHORITY)
         .appendPath(UrlContentProvider.URL_TABLE_NAME)
         .build();
+
+    private static final Uri RESPONSE_BODY_CONTENT_URI = ResponseBodyContentProvider.CONTENT_URI;
 
     private static final Cache<String, Triple<Boolean, String, String>> queryCache = CacheBuilder.newBuilder()
         .maximumSize(8192)
         .expireAfterAccess(4, TimeUnit.HOURS)
         .softValues()
         .build();
-
-    private static final int COMPRESSION_THRESHOLD_BYTES = 100 * 1024;
 
     public static void init() {
         try {
@@ -178,7 +176,7 @@ public class RequestHook {
         String selection = null; 
         String[] selectionArgs = {queryType, queryValue};
 
-        try (Cursor cursor = contentResolver.query(CONTENT_URI, projection, selection, selectionArgs, null)) {
+        try (Cursor cursor = contentResolver.query(URL_CONTENT_URI, projection, selection, selectionArgs, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 int urlTypeIndex = cursor.getColumnIndexOrThrow(Url.URL_TYPE);
                 int urlAddressIndex = cursor.getColumnIndexOrThrow(Url.URL_ADDRESS);
@@ -394,7 +392,6 @@ public class RequestHook {
                             Triple<String, Object, Object> bodyData = getOkHttpResponseBodyAndMediaType(response, url);
                             String responseBodyString = bodyData.getFirst();
                             Object mediaTypeObj = bodyData.getSecond();
-                            Object originalResponseBody = bodyData.getThird();
 
                             if (shouldBlockHttpRequest(url, " OKHTTP", request, response, responseBodyString, stackTrace)) {
                                 param.setThrowable(new IOException("Request blocked by AdClose"));
@@ -601,18 +598,6 @@ public class RequestHook {
         }
     }
 
-    private static String compressString(String data) throws IOException {
-        if (data == null || data.isEmpty()) {
-            return data;
-        }
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try (GZIPOutputStream gzip = new GZIPOutputStream(bos)) {
-            gzip.write(data.getBytes(StandardCharsets.UTF_8));
-        }
-        byte[] compressed = bos.toByteArray();
-        return Base64.encodeToString(compressed, Base64.DEFAULT);
-    }
-
     private static void sendBroadcast(
         String requestType, boolean shouldBlock, String blockRuleType, String ruleUrl,
         String requestValue, RequestDetails details) {
@@ -655,18 +640,25 @@ public class RequestHook {
             int responseCode = details.getResponseCode();
             String responseMessage = details.getResponseMessage();
             String responseHeaders = details.getResponseHeaders() != null ? details.getResponseHeaders().toString() : null;
-            String responseBody = details.getResponseBody();
             String stackTrace = details.getStack();
             String fullAddress = details.getFullAddress();
 
-            boolean isBodyCompressed = false;
-            if (responseBody != null && responseBody.getBytes(StandardCharsets.UTF_8).length > COMPRESSION_THRESHOLD_BYTES) {
+            String responseBodyContent = details.getResponseBody();
+            String responseBodyUriString = null;
+
+            if (responseBodyContent != null && !responseBodyContent.isEmpty()) {
                 try {
-                    responseBody = compressString(responseBody);
-                    isBodyCompressed = true;
-                } catch (IOException e) {
-                    Log.e(LOG_PREFIX, "Failed to compress response body", e);
-                    isBodyCompressed = false; 
+                    String encryptedResponseBody = EncryptionUtil.encrypt(responseBodyContent);
+                    ContentValues values = new ContentValues();
+                    values.put("body_content", encryptedResponseBody);
+                    Uri uri = applicationContext.getContentResolver().insert(RESPONSE_BODY_CONTENT_URI, values);
+                    if (uri != null) {
+                        responseBodyUriString = uri.toString();
+                    } else {
+                        Log.e(LOG_PREFIX, "Failed to insert encrypted response body into Content Provider.");
+                    }
+                } catch (Exception e) {
+                    Log.e(LOG_PREFIX, "Error encrypting response body: " + e.getMessage(), e);
                 }
             }
 
@@ -685,11 +677,10 @@ public class RequestHook {
                 responseCode,
                 responseMessage,
                 responseHeaders,
-                responseBody,
+                responseBodyUriString,
                 stackTrace,
                 dnsHost,
-                fullAddress,
-                isBodyCompressed
+                fullAddress
             );
 
             intent.putExtra("request", blockedRequest);

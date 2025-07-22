@@ -34,8 +34,7 @@ class RequestInfoActivity : BaseActivity() {
         val responseCode = intent.getStringExtra("responseCode") ?: ""
         val responseMessage = intent.getStringExtra("responseMessage") ?: ""
         val responseHeaders = intent.getStringExtra("responseHeaders") ?: ""
-        val responseBody = intent.getStringExtra("responseBody")
-        val isBodyCompressed = intent.getBooleanExtra("isBodyCompressed", false)
+        val responseBodyUriString = intent.getStringExtra("responseBody")
         val stack = intent.getStringExtra("stack") ?: ""
         val dnsHost = intent.getStringExtra("dnsHost")
         val fullAddress = intent.getStringExtra("fullAddress")
@@ -43,7 +42,7 @@ class RequestInfoActivity : BaseActivity() {
         val sectionsPagerAdapter = SectionsPagerAdapter(
             this, supportFragmentManager, lifecycle,
             method, urlString, requestHeaders,
-            responseCode, responseMessage, responseHeaders, responseBody, isBodyCompressed,
+            responseCode, responseMessage, responseHeaders, responseBodyUriString,
             stack, dnsHost, fullAddress
         )
         val viewPager: ViewPager2 = findViewById(R.id.view_pager)
@@ -65,8 +64,7 @@ class RequestInfoActivity : BaseActivity() {
         private val responseCode: String,
         private val responseMessage: String,
         private val responseHeaders: String,
-        private val responseBody: String?,
-        private val isBodyCompressed: Boolean,
+        private val responseBodyUriString: String?,
         private val stack: String,
         private val dnsHost: String?,
         private val fullAddress: String?
@@ -88,8 +86,8 @@ class RequestInfoActivity : BaseActivity() {
                 fragments.add(ResponseInfoFragment.newInstance(responseCode, responseMessage, responseHeaders))
                 fragmentTitles.add("Response")
             }
-            if (!responseBody.isNullOrEmpty()) {
-                fragments.add(ResponseBodyInfoFragment.newInstance(responseBody, isBodyCompressed))
+            if (!responseBodyUriString.isNullOrEmpty()) {
+                fragments.add(ResponseBodyInfoFragment.newInstance(responseBodyUriString))
                 fragmentTitles.add("Body")
             }
             if (stack.isNotEmpty()) {
