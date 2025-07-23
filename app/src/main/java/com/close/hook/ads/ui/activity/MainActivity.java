@@ -126,6 +126,10 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
         }
     }
 
+    public BottomNavigationView getBottomNavigationView() {
+        return bottomNavigationView;
+    }
+
     static class BottomFragmentStateAdapter extends FragmentStateAdapter {
 
         private final List<Supplier<Fragment>> fragmentSuppliers;

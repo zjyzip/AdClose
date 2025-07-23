@@ -274,20 +274,35 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             adapter = mAdapter
             layoutManager = LinearLayoutManager(requireContext())
 
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
+                setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
+                clipToPadding = false
+            }
+
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
                 private val scrollThreshold = 20.dp
 
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
-                    totalDy += dy
                     val navContainer = activity as? INavContainer
-                    if (totalDy > scrollThreshold) {
-                        navContainer?.hideNavigation()
-                        totalDy = 0
-                    } else if (totalDy < -scrollThreshold) {
-                        navContainer?.showNavigation()
-                        totalDy = 0
+
+                    if (dy > 0) {
+                        totalDy += dy
+                        if (totalDy > scrollThreshold) {
+                            navContainer?.hideNavigation()
+                            totalDy = 0
+                        }
+                    } else if (dy < 0) {
+                        totalDy += dy
+                        if (totalDy < -scrollThreshold) {
+                            val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
+                            recyclerView.setPadding(recyclerView.paddingLeft, recyclerView.paddingTop, recyclerView.paddingRight, bottomNavHeight)
+                            
+                            navContainer?.showNavigation()
+                            totalDy = 0
+                        }
                     }
                 }
             })
