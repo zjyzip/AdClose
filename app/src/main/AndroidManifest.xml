@@ -24,6 +24,16 @@
         android:theme="@style/AppTheme">
 
         <activity
+            android:name=".ui.activity.SplashActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".ui.activity.MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustPan">
@@ -33,16 +43,9 @@
             </intent-filter>
         </activity>
 
-        <activity-alias
-            android:name=".MainActivityLauncher"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:targetActivity=".ui.activity.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+        <activity
+            android:name=".ui.activity.ModuleNotActivatedActivity"
+            android:exported="false" />
 
         <activity android:name=".ui.activity.CustomHookActivity"
             android:exported="true" />

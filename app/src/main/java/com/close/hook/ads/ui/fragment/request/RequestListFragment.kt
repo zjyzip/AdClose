@@ -118,9 +118,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun initView() {
-        mAdapter = BlockedRequestsAdapter(viewModel.dataSource) { packageName ->
-            requireContext().packageManager.getApplicationIcon(packageName)
-        }
+        mAdapter = BlockedRequestsAdapter(viewModel.dataSource) 
 
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 

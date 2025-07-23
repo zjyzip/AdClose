@@ -62,8 +62,6 @@ class AppsAdapter(
             val context = binding.root.context
             val packageName = appInfo.packageName
 
-            binding.appIcon.setImageDrawable(null)
-
             (context as? LifecycleOwner)?.lifecycleScope?.launch {
                 val icon = AppIconLoader.loadAndCompressIcon(context, packageName, targetSizePx)
 

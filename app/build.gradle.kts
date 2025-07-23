@@ -73,7 +73,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = calculateVersionCode()
-        versionName = "3.8.0"
+        versionName = "3.8.3"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -133,6 +133,7 @@ dependencies {
     implementation(libs.dexkit)
 
     implementation(libs.appcompat)
+    implementation(libs.splashscreen)
     implementation(libs.preferenceKtx)
     implementation(libs.constraintLayout)
     implementation(libs.recyclerviewSelection)

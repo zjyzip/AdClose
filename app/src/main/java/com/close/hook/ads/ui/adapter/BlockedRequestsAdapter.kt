@@ -10,6 +10,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.DiffUtil
@@ -21,6 +23,7 @@ import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockedRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
+import com.close.hook.ads.util.AppIconLoader
 import com.google.android.material.color.MaterialColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,8 +33,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 class BlockedRequestsAdapter(
-    private val dataSource: DataSource,
-    private val onGetAppIcon: suspend (String) -> Drawable?
+    private val dataSource: DataSource
 ) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<BlockedRequest>? = null
@@ -48,6 +50,8 @@ class BlockedRequestsAdapter(
         private val binding: ItemBlockedRequestBinding,
         private val tracker: SelectionTracker<BlockedRequest>?
     ) : RecyclerView.ViewHolder(binding.root) {
+
+        private val targetIconSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
 
         init {
             setupListeners()
@@ -94,12 +98,12 @@ class BlockedRequestsAdapter(
         }
 
         private fun loadAppIcon(packageName: String) {
-            CoroutineScope(Dispatchers.Main).launch {
-                val iconDrawable = withContext(Dispatchers.IO) {
-                    onGetAppIcon(packageName)
-                }
+            (binding.root.context as? LifecycleOwner)?.lifecycleScope?.launch {
+                val iconDrawable = AppIconLoader.loadAndCompressIcon(binding.root.context, packageName, targetIconSizePx)
                 if ((binding.root.tag as? BlockedRequest)?.packageName == packageName) {
-                    binding.icon.setImageDrawable(iconDrawable)
+                    withContext(Dispatchers.Main) {
+                        binding.icon.setImageDrawable(iconDrawable)
+                    }
                 }
             }
         }
