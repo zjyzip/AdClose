@@ -125,15 +125,21 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         binding.recyclerView.apply {
             adapter = mAdapter
             layoutManager = LinearLayoutManager(requireContext())
+
+            val initialBottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
+            setPadding(paddingLeft, paddingTop, paddingRight, initialBottomNavHeight)
+            clipToPadding = false
+
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
-                setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
-                clipToPadding = false
+                val currentBottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
+                if (paddingBottom != currentBottomNavHeight) {
+                    setPadding(paddingLeft, paddingTop, paddingRight, currentBottomNavHeight)
+                }
             }
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
-                private val scrollThreshold = 20
+                private val scrollThreshold = 20.dp
 
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
@@ -148,8 +154,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     } else if (dy < 0) {
                         totalDy += dy
                         if (totalDy < -scrollThreshold) {
-                            val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
-                            recyclerView.setPadding(recyclerView.paddingLeft, recyclerView.paddingTop, recyclerView.paddingRight, bottomNavHeight)
                             navContainer?.showNavigation()
                             totalDy = 0
                         }
