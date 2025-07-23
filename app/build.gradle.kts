@@ -133,7 +133,6 @@ dependencies {
     implementation(libs.dexkit)
 
     implementation(libs.appcompat)
-    implementation(libs.splashscreen)
     implementation(libs.preferenceKtx)
     implementation(libs.constraintLayout)
     implementation(libs.recyclerviewSelection)
