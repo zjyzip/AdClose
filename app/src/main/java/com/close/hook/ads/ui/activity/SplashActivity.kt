@@ -1,9 +1,10 @@
 package com.close.hook.ads.ui.activity
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 
-class SplashActivity : BaseActivity() {
+class SplashActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
