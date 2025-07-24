@@ -2,6 +2,7 @@ package com.close.hook.ads.hook.util
 
 import android.content.Context
 import android.os.Debug
+import android.os.Process
 import com.close.hook.ads.util.AppUtils
 import com.google.common.cache.CacheBuilder
 import de.robv.android.xposed.XposedBridge
@@ -39,10 +40,17 @@ object DexKitUtil {
         .softValues()
         .build<String, List<MethodData>>()
 
-    val context: Context
-        get() = ContextUtil.applicationContext!!
+    val context: Context by lazy {
+        ContextUtil.applicationContext
+            ?: throw IllegalStateException("ContextUtil.applicationContext is null")
+    }
 
     private val nativeLoaded: Boolean by lazy {
+        if (!AppUtils.isMainProcess(context)) {
+            log("Skipped: non-main process PID=${Process.myPid()}")
+            return@lazy false
+        }
+        
         runCatching {
             val start = System.nanoTime()
             System.loadLibrary("dexkit")
@@ -55,18 +63,17 @@ object DexKitUtil {
     }
 
     fun <T> withBridge(block: (DexKitBridge) -> T): T? {
-        if (!AppUtils.isMainProcess(context)) {
-            log("Skipped: non-main process PID=${android.os.Process.myPid()}")
+        if (!nativeLoaded) {
             return null
         }
 
-        if (!nativeLoaded) return null
         val start = System.nanoTime()
 
-        val bridge = bridgeRef.get() ?: synchronized(bridgeRef) {
+        val bridge = bridgeRef.get() ?: synchronized(this) {
             bridgeRef.get() ?: createBridge(context)?.also {
                 bridgeRef.set(it)
                 releaseDelay = BASE_DELAY_MS
+                lastScheduleTime = System.currentTimeMillis()
                 log("Bridge created in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
             }
         } ?: return null
@@ -77,8 +84,9 @@ object DexKitUtil {
         return try {
             block(bridge)
         } finally {
-            if (usageCount.decrementAndGet() == 0) scheduleRelease()
-        }.also {
+            if (usageCount.decrementAndGet() == 0) {
+                scheduleRelease()
+            }
             val elapsed = (System.nanoTime() - start) / 1_000_000.0
             log("Bridge ready. Elapsed: %.2fms, usageCount=%d", elapsed, usageCount.get())
         }
@@ -88,7 +96,7 @@ object DexKitUtil {
         val start = System.nanoTime()
         return methodCache.get(key) {
             findLogic().orEmpty().also {
-                log("Cache miss '$key'. Found ${it.size}, took %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+                log("Cache miss '%s'. Found %d, took %.2fms", key, it.size, (System.nanoTime() - start) / 1_000_000.0)
             }
         }
     }
@@ -112,7 +120,7 @@ object DexKitUtil {
         if (releaseJob?.isActive == true) return
 
         val now = System.currentTimeMillis()
-        releaseDelay = if (lastScheduleTime == 0L || now - lastScheduleTime > MAX_DELAY_MS) {
+        releaseDelay = if (now - lastScheduleTime > MAX_DELAY_MS) {
             BASE_DELAY_MS
         } else {
             (releaseDelay * 1.5).toLong().coerceAtMost(MAX_DELAY_MS)
@@ -122,18 +130,19 @@ object DexKitUtil {
         releaseJob = releaseScope.launch {
             log("Scheduled release in ${releaseDelay / 1000}s")
             delay(releaseDelay)
-            if (usageCount.get() <= 0) releaseBridge()
-            else log("Release skipped: usageCount=${usageCount.get()}")
+            if (usageCount.get() <= 0) {
+                releaseBridge()
+            } else {
+                log("Release skipped: usageCount=${usageCount.get()}")
+            }
         }
     }
 
     private fun cancelPendingRelease() {
-        if (releaseJob?.isActive == true) {
-            releaseJob?.cancel()
-            releaseJob = null
-            releaseDelay = BASE_DELAY_MS
-            lastScheduleTime = 0L
-        }
+        releaseJob?.cancel()
+        releaseJob = null
+        releaseDelay = BASE_DELAY_MS
+        lastScheduleTime = 0L
     }
 
     private fun releaseBridge() {

@@ -10,6 +10,32 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object ContextUtil {
 
+    private class ContextState {
+        val isInitialized = AtomicBoolean(false)
+        val callbacks = ConcurrentLinkedQueue<Runnable>()
+
+        fun triggerCallbacks(context: Context, contextType: String) {
+            if (isInitialized.compareAndSet(false, true)) {
+                XposedBridge.log("$TAG | Context Initialized ($contextType): $context")
+                callbacks.forEach { it.run() }
+                callbacks.clear()
+            }
+        }
+
+        fun addCallback(callback: Runnable, currentContext: Context?) {
+            if (isInitialized.get() && currentContext != null) {
+                callback.run()
+            } else {
+                callbacks.offer(callback)
+            }
+        }
+    }
+
+    private val activityThreadState = ContextState()
+    private val applicationState = ContextState()
+    private val contextWrapperState = ContextState()
+    private val instrumentationState = ContextState()
+
     @JvmField
     @Volatile
     var activityThreadContext: Context? = null
@@ -26,16 +52,6 @@ object ContextUtil {
     @Volatile
     var instrumentationContext: Context? = null
 
-    private val activityThreadContextCallbacks = ConcurrentLinkedQueue<Runnable>()
-    private val applicationContextCallbacks = ConcurrentLinkedQueue<Runnable>()
-    private val contextWrapperContextCallbacks = ConcurrentLinkedQueue<Runnable>()
-    private val instrumentationContextCallbacks = ConcurrentLinkedQueue<Runnable>()
-
-    private val isActivityThreadContextInitialized = AtomicBoolean(false)
-    private val isApplicationContextInitialized = AtomicBoolean(false)
-    private val isContextWrapperContextInitialized = AtomicBoolean(false)
-    private val isInstrumentationContextInitialized = AtomicBoolean(false)
-
     private const val TAG = "ContextUtil"
 
     fun setupContextHooks() {
@@ -46,12 +62,7 @@ object ContextUtil {
         ) { param ->
             (param.result as? Context)?.let { context ->
                 activityThreadContext = context
-                triggerCallbacksIfInitialized(
-                    context,
-                    isActivityThreadContextInitialized,
-                    activityThreadContextCallbacks,
-                    "ActivityThreadContext"
-                )
+                activityThreadState.triggerCallbacks(context, "ActivityThreadContext")
             }
         }
 
@@ -63,12 +74,7 @@ object ContextUtil {
         ) { param ->
             (param.args[0] as? Context)?.let { context ->
                 applicationContext = context
-                triggerCallbacksIfInitialized(
-                    context,
-                    isApplicationContextInitialized,
-                    applicationContextCallbacks,
-                    "ApplicationContext"
-                )
+                applicationState.triggerCallbacks(context, "ApplicationContext")
             }
         }
 
@@ -80,12 +86,7 @@ object ContextUtil {
         ) { param ->
             (param.args[0] as? Context)?.let { context ->
                 contextWrapperContext = context
-                triggerCallbacksIfInitialized(
-                    context,
-                    isContextWrapperContextInitialized,
-                    contextWrapperContextCallbacks,
-                    "ContextWrapperContext"
-                )
+                contextWrapperState.triggerCallbacks(context, "ContextWrapperContext")
             }
         }
 
@@ -97,55 +98,24 @@ object ContextUtil {
         ) { param ->
             (param.args[0] as? Application)?.let { context ->
                 instrumentationContext = context
-                triggerCallbacksIfInitialized(
-                    context,
-                    isInstrumentationContextInitialized,
-                    instrumentationContextCallbacks,
-                    "InstrumentationContext"
-                )
+                instrumentationState.triggerCallbacks(context, "InstrumentationContext")
             }
         }
     }
 
-    private fun triggerCallbacksIfInitialized(
-        context: Context?,
-        isInitialized: AtomicBoolean,
-        callbacks: ConcurrentLinkedQueue<Runnable>,
-        contextType: String
-    ) {
-        if (context != null && isInitialized.compareAndSet(false, true)) {
-            XposedBridge.log("$TAG | Context Initialized ($contextType): $context")
-            callbacks.forEach { it.run() }
-            callbacks.clear()
-        }
-    }
-
     fun addOnActivityThreadContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isActivityThreadContextInitialized, activityThreadContextCallbacks, activityThreadContext)
+        activityThreadState.addCallback(callback, activityThreadContext)
     }
 
     fun addOnApplicationContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isApplicationContextInitialized, applicationContextCallbacks, applicationContext)
+        applicationState.addCallback(callback, applicationContext)
     }
 
     fun addOnContextWrapperContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isContextWrapperContextInitialized, contextWrapperContextCallbacks, contextWrapperContext)
+        contextWrapperState.addCallback(callback, contextWrapperContext)
     }
 
     fun addOnInstrumentationContextInitializedCallback(callback: Runnable) {
-        addCallback(callback, isInstrumentationContextInitialized, instrumentationContextCallbacks, instrumentationContext)
-    }
- 
-    private fun addCallback(
-        callback: Runnable,
-        isInitialized: AtomicBoolean,
-        callbacks: ConcurrentLinkedQueue<Runnable>,
-        currentContext: Context?
-    ) {
-        if (isInitialized.get() && currentContext != null) {
-            callback.run()
-        } else {
-            callbacks.offer(callback)
-        }
+        instrumentationState.addCallback(callback, instrumentationContext)
     }
 }
