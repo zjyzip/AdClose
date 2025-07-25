@@ -135,7 +135,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                 } else if (viewModel.selectedConfigs.value.isNotEmpty()) {
                     currentActionMode?.finish()
                 } else {
-                    isEnabled = false
+                    this.isEnabled = false
                     requireActivity().onBackPressedDispatcher.onBackPressed()
                 }
             }
@@ -177,9 +177,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun setupHeaderDisplay(targetPkgName: String?) {
         if (targetPkgName.isNullOrEmpty()) {
             binding.headerContainer.visibility = View.GONE
-            (activity as? AppCompatActivity)?.supportActionBar?.title = getString(R.string.title_global_hook_configs)
         } else {
             binding.headerContainer.visibility = View.VISIBLE
+            binding.appHeaderInclude.appNameHeader.text = ""
+            binding.appHeaderInclude.appVersionHeader.text = ""
+            binding.appHeaderInclude.appIconHeader.setImageDrawable(null)
+
             loadAppInfoIntoHeader(targetPkgName)
             binding.appHeaderInclude.switchGlobalEnable.visibility = View.VISIBLE
             observeGlobalHookToggle()
@@ -207,12 +210,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
 
     private fun loadAppInfoIntoHeader(packageName: String) {
         lifecycleScope.launch {
-            val appName = withContext(Dispatchers.IO) { AppUtils.getAppName(requireContext(), packageName) }
+            val appName = withContext(Dispatchers.IO) {
+                runCatching { AppUtils.getAppName(requireContext(), packageName) }.getOrDefault(packageName)
+            }
+
             val appInfo = withContext(Dispatchers.IO) {
-                try { requireContext().packageManager.getPackageInfo(packageName, 0) } catch (e: Exception) {
-                    android.util.Log.e("CustomHookManager", "Failed to get package info for $packageName", e)
-                    null
-                }
+                runCatching { requireContext().packageManager.getPackageInfo(packageName, 0) }.getOrNull()
             }
 
             val versionName = appInfo?.versionName ?: "N/A"
@@ -224,7 +227,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             val targetSizePx = AppIconLoader.calculateTargetIconSizePx(requireContext())
             val icon = withContext(Dispatchers.IO) { AppIconLoader.loadAndCompressIcon(requireContext(), packageName, targetSizePx) }
             binding.appHeaderInclude.appIconHeader.setImageDrawable(icon)
-            (activity as? AppCompatActivity)?.supportActionBar?.title = appName
         }
     }
 
@@ -356,7 +358,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         setupFab(binding.fabAddHook, baseMargin, 1) { showAddHookDialog() }
         setupFab(binding.fabClearAllHooks, baseMargin, 0) { showClearAllConfirmDialog() }
     }
-
 
     private fun showClearAllConfirmDialog() {
         MaterialAlertDialogBuilder(requireContext())
