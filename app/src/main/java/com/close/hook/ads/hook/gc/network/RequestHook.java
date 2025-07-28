@@ -15,47 +15,43 @@ import android.webkit.WebViewClient;
 import com.close.hook.ads.data.model.BlockedRequest;
 import com.close.hook.ads.data.model.RequestDetails;
 import com.close.hook.ads.data.model.Url;
-import com.close.hook.ads.util.AppUtils;
-import com.close.hook.ads.util.EncryptionUtil;
 import com.close.hook.ads.hook.util.ContextUtil;
-import com.close.hook.ads.hook.util.DexKitUtil;
 import com.close.hook.ads.hook.util.HookUtil;
-import com.close.hook.ads.hook.util.StringFinderKit;
 import com.close.hook.ads.provider.UrlContentProvider;
 import com.close.hook.ads.provider.ResponseBodyContentProvider;
+import com.close.hook.ads.util.AppUtils;
+import com.close.hook.ads.util.EncryptionUtil;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import org.luckypray.dexkit.result.MethodData;
-
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.BufferedReader;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
 import kotlin.Triple;
 
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-import de.robv.android.xposed.XC_MethodHook;
 
 public class RequestHook {
 
     private static final String LOG_PREFIX = "[RequestHook] ";
+    private static final Charset UTF8 = StandardCharsets.UTF_8;
 
     private static volatile Object EMPTY_WEB_RESPONSE = null;
 
@@ -63,6 +59,17 @@ public class RequestHook {
     private static final ConcurrentHashMap<String, Boolean> urlStringCache = new ConcurrentHashMap<>();
 
     private static Context applicationContext;
+
+    private static Class<?> responseCls;
+    private static Class<?> responseBodyCls;
+    private static Class<?> mediaTypeCls;
+    private static Class<?> headersCls;
+    private static Class<?> okioBufferCls;
+
+    private static Class<?> androidOkioBufferClass;
+    private static Class<?> androidOkioSourceClass;
+    private static Class<?> androidBufferedSourceClass;
+    private static Class<?> androidOkioSinkClass;
 
     private static final Uri URL_CONTENT_URI = new Uri.Builder()
             .scheme("content")
@@ -88,7 +95,32 @@ public class RequestHook {
                 setupWebViewRequestHook();
             });
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error during initialization: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Init error: " + e.getMessage());
+        }
+    }
+
+    private static boolean isJson(Object mediaTypeObj) {
+        if (mediaTypeObj == null) {
+            return false;
+        }
+
+        try {
+            String type = (String) XposedHelpers.callMethod(mediaTypeObj, "type");
+            String subtype = (String) XposedHelpers.callMethod(mediaTypeObj, "subtype");
+
+            if (type == null || subtype == null) {
+                return false;
+            }
+
+            type = type.toLowerCase();
+            subtype = subtype.toLowerCase();
+
+            return "application".equals(type) && "json".equals(subtype) ||
+                   "text".equals(type) && "json".equals(subtype) ||
+                   subtype.contains("json") || subtype.contains("javascript") || subtype.contains("x-www-form-urlencoded");
+        } catch (Throwable t) {
+            XposedBridge.log(LOG_PREFIX + "Error calling MediaType methods via reflection: " + t.getMessage());
+            return false;
         }
     }
 
@@ -110,33 +142,9 @@ public class RequestHook {
                         .toString();
             }
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error formatting URL: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "URL format error: " + e.getMessage());
         }
         return urlObject != null ? urlObject.toString() : "";
-    }
-
-    private static boolean isJson(Object mediaTypeObj) {
-        if (mediaTypeObj == null) {
-            return false;
-        }
-
-        try {
-            String type = (String) XposedHelpers.callMethod(mediaTypeObj, "type");
-            String subtype = (String) XposedHelpers.callMethod(mediaTypeObj, "subtype");
-
-            if (type == null || subtype == null) {
-                return false;
-            }
-
-            type = type.toLowerCase();
-            subtype = subtype.toLowerCase();
-            return ("application".equals(type) && "json".equals(subtype)) ||
-                    ("text".equals(type) && "json".equals(subtype)) ||
-                    subtype.contains("json") || subtype.contains("javascript") || subtype.contains("x-www-form-urlencoded");
-        } catch (Throwable t) {
-            XposedBridge.log(LOG_PREFIX + "Error calling MediaType methods via reflection: " + t.getMessage());
-            return false;
-        }
     }
 
     private static boolean checkShouldBlockRequest(final String requestValue, final RequestDetails details, final String requestType) {
@@ -180,7 +188,7 @@ public class RequestHook {
                 return new Triple<>(true, urlType, urlValue);
             }
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error querying content provider for " + queryType + ": " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Query error: " + e.getMessage());
         }
         return new Triple<>(false, null, null);
     }
@@ -242,40 +250,49 @@ public class RequestHook {
 
     private static void setupHttpRequestHook() {
         try {
-            HookUtil.hookAllMethods(
-                "com.android.okhttp.internal.huc.HttpURLConnectionImpl",
-                "getResponse",
-                "after",
-                param -> {
-                    try {
-                        Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
-                        if (!((boolean) XposedHelpers.callMethod(httpEngine, "hasResponse"))) {
-                            return;
-                        }
-
-                        Object userResponse = XposedHelpers.getObjectField(httpEngine, "userResponse");
-                        Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
-                        URL url = new URL(XposedHelpers.callMethod(request, "urlString").toString());
-                        String responseBodyString = readOkioHttpResponseBody(userResponse);
-                        String stackTrace = HookUtil.getFormattedStackTrace();
-
-                        if (shouldBlockHttpRequest(url, " HTTP", request, userResponse, responseBodyString, stackTrace)) {
-                            Object emptyResponse = createEmptyResponseForHttp(userResponse);
-                            if (emptyResponse != null) {
-                                XposedHelpers.setObjectField(httpEngine, "userResponse", emptyResponse);
-                            } else {
-                                XposedBridge.log(LOG_PREFIX + "Failed to create empty HTTP response for " + url);
-                            }
-                        }
-                    } catch (Exception e) {
-                        XposedBridge.log(LOG_PREFIX + "Exception in HTTP connection hook (getResponse): " + e.getMessage());
-                    }
-                },
-                applicationContext.getClassLoader()
-            );
-        } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error setting up HTTP connection hook: " + e.getMessage());
+            androidOkioBufferClass = XposedHelpers.findClass("com.android.okhttp.okio.Buffer", applicationContext.getClassLoader());
+            androidOkioSourceClass = XposedHelpers.findClass("com.android.okhttp.okio.Source", applicationContext.getClassLoader());
+            androidBufferedSourceClass = XposedHelpers.findClass("com.android.okhttp.okio.BufferedSource", applicationContext.getClassLoader());
+            androidOkioSinkClass = XposedHelpers.findClass("com.android.okhttp.okio.Sink", applicationContext.getClassLoader());
+        } catch (Throwable e) {
+            XposedBridge.log(LOG_PREFIX + "Error caching com.android.okhttp.okio classes: " + e.getMessage());
         }
+
+        HookUtil.hookAllMethods(
+            "com.android.okhttp.internal.huc.HttpURLConnectionImpl",
+            "getResponse",
+            "after",
+            param -> {
+                try {
+                    Object httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine");
+                    if (httpEngine == null) {
+                  //    XposedBridge.log(LOG_PREFIX + "HttpEngine is null.");
+                        return;
+                    }
+
+                    if (!((boolean) XposedHelpers.callMethod(httpEngine, "hasResponse"))) {
+                        return;
+                    }
+
+                    Object userResponse = XposedHelpers.getObjectField(httpEngine, "userResponse");
+                    Object request = XposedHelpers.callMethod(httpEngine, "getRequest");
+                    URL url = new URL(XposedHelpers.callMethod(request, "urlString").toString());
+
+                    String responseBodyString = readOkioHttpResponseBody(userResponse);
+                    String stackTrace = HookUtil.getFormattedStackTrace();
+
+                    if (shouldBlockHttpRequest(url, " HTTP", request, userResponse, responseBodyString, stackTrace)) {
+                        Object emptyResponse = createEmptyResponseForHttp(userResponse);
+                        if (emptyResponse != null) {
+                            XposedHelpers.setObjectField(httpEngine, "userResponse", emptyResponse);
+                        }
+                    }
+                } catch (Exception e) {
+                    XposedBridge.log(LOG_PREFIX + "HTTP hook error: " + e.getMessage());
+                }
+            },
+            applicationContext.getClassLoader()
+        );
     }
 
     private static Object createEmptyResponseForHttp(Object response) throws Exception {
@@ -289,141 +306,163 @@ public class RequestHook {
         Class<?> responseBodyClass = Class.forName("com.android.okhttp.ResponseBody");
 
         Object request = XposedHelpers.callMethod(response, "request");
+
         Object builder = builderClass.getConstructor().newInstance();
+
         builderClass.getMethod("request", requestClass).invoke(builder, request);
+
         Object protocolHTTP11 = protocolClass.getField("HTTP_1_1").get(null);
         builderClass.getMethod("protocol", protocolClass).invoke(builder, protocolHTTP11);
+
         builderClass.getMethod("code", int.class).invoke(builder, 204);
         builderClass.getMethod("message", String.class).invoke(builder, "No Content");
-        Method createMethod = XposedHelpers.findMethodExact(responseBodyClass, "create", Class.forName("com.android.okhttp.MediaType"), String.class);
+
+        Method createMethod = responseBodyClass.getMethod("create", Class.forName("com.android.okhttp.MediaType"), String.class);
         Object emptyResponseBody = createMethod.invoke(null, null, "");
+
         builderClass.getMethod("body", responseBodyClass).invoke(builder, emptyResponseBody);
+
         return builderClass.getMethod("build").invoke(builder);
     }
 
     private static String readOkioHttpResponseBody(Object response) {
+        String responseBodyString = null;
         Object originalResponseBody = XposedHelpers.callMethod(response, "body");
-        if (originalResponseBody == null) {
-            return null;
-        }
 
-        Object mediaTypeObj = XposedHelpers.callMethod(originalResponseBody, "contentType");
-        if (isJson(mediaTypeObj)) {
-            try {
-                Object originalBufferedSource = XposedHelpers.callMethod(originalResponseBody, "source");
-                if (originalBufferedSource == null) {
-                    XposedBridge.log(LOG_PREFIX + "Original BufferedSource is null.");
+        if (originalResponseBody != null) {
+            Object mediaTypeObj = XposedHelpers.callMethod(originalResponseBody, "contentType");
+
+            if (isJson(mediaTypeObj)) {
+                if (androidOkioBufferClass == null || androidBufferedSourceClass == null || androidOkioSinkClass == null) {
                     return null;
                 }
 
-                Class<?> okioBufferClass = XposedHelpers.findClass("com.android.okhttp.okio.Buffer", applicationContext.getClassLoader());
-                Object tempBuffer = okioBufferClass.getConstructor().newInstance();
-                XposedHelpers.callMethod(originalBufferedSource, "readAll", tempBuffer);
-                return (String) XposedHelpers.callMethod(tempBuffer, "readUtf8");
-            } catch (Throwable e) {
-                XposedBridge.log(LOG_PREFIX + "Error reading HTTP Response Body: " + e.getMessage());
+                try {
+                    Object originalBufferedSource = XposedHelpers.callMethod(originalResponseBody, "source");
+                    
+                    if (originalBufferedSource == null) {
+                        XposedBridge.log(LOG_PREFIX + "Original BufferedSource is null.");
+                        return null;
+                    }
+
+                    Object tempBuffer = androidOkioBufferClass.getConstructor().newInstance();
+                    
+                    Method readAllMethod = XposedHelpers.findMethodExact(androidBufferedSourceClass, "readAll", androidOkioSinkClass);
+                    readAllMethod.invoke(originalBufferedSource, tempBuffer);
+                    
+                    Method readUtf8Method = XposedHelpers.findMethodExact(androidOkioBufferClass, "readUtf8");
+                    responseBodyString = (String) readUtf8Method.invoke(tempBuffer);
+
+                } catch (Throwable e) {
+                    XposedBridge.log(LOG_PREFIX + "Error reading HTTP Response Body (com.android.okhttp.okio): " + e.getMessage());
+                    responseBodyString = null; 
+                }
             }
         }
-        return null;
+        return responseBodyString;
     }
 
     public static void setupOkHttpRequestHook() {
-        // okhttp3.Call.execute
-        hookOkHttpMethod("setupOkHttpRequestHook_execute", "Already Executed", "execute"); 
-        // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
-        hookOkHttpMethod("setupOkHttp2RequestHook_intercept", "Canceled", "intercept"); 
-    }
-
-    private static void hookOkHttpMethod(String cacheKeySuffix, String methodDescription, String methodName) {
-        String cacheKey = applicationContext.getPackageName() + ":" + cacheKeySuffix;
-        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, methodDescription, methodName);
-
-        if (foundMethods != null) {
-            for (MethodData methodData : foundMethods) {
-                try {
-                    Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
-                    XposedBridge.log(LOG_PREFIX + "setupOkHttpRequestHook" + methodData);
-                    HookUtil.hookMethod(method, "after", param -> {
-                        try {
-                            Object response = param.getResult();
-                            if (response == null) {
-                                return;
-                            }
-
-                            Object request = XposedHelpers.callMethod(response, "request");
-                            URL url = new URL(XposedHelpers.callMethod(request, "url").toString());
-                            String stackTrace = HookUtil.getFormattedStackTrace();
-
-                            Triple<String, Object, Object> bodyData = getOkHttpResponseBodyAndMediaType(response, url);
-                            String responseBodyString = bodyData.getFirst();
-                            Object mediaTypeObj = bodyData.getSecond();
-
-                            if (shouldBlockHttpRequest(url, " OKHTTP", request, response, responseBodyString, stackTrace)) {
-                                param.setThrowable(new IOException("Request blocked by AdClose"));
-                            } else {
-                                recreateOkHttpResponse(param, response, responseBodyString, mediaTypeObj, url);
-                            }
-                        } catch (IOException e) {
-                            param.setThrowable(e);
-                        } catch (Exception e) {
-                            XposedBridge.log(LOG_PREFIX + "Error processing OkHttp hook for method " + methodData.getName() + ": " + e.getMessage());
-                        }
-                    });
-                } catch (Exception e) {
-                    XposedBridge.log(LOG_PREFIX + "Error hooking OkHttp method: " + methodData + ", " + e.getMessage());
-                }
-            }
+        try {
+            responseCls = XposedHelpers.findClass("okhttp3.Response", applicationContext.getClassLoader());
+            responseBodyCls = XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.getClassLoader());
+            mediaTypeCls = XposedHelpers.findClass("okhttp3.MediaType", applicationContext.getClassLoader());
+            headersCls = XposedHelpers.findClass("okhttp3.Headers", applicationContext.getClassLoader());
+            okioBufferCls = XposedHelpers.findClassIfExists("okio.Buffer", applicationContext.getClassLoader());
+        } catch (Throwable e) {
+            XposedBridge.log(LOG_PREFIX + "OkHttp load error: " + e.getMessage());
         }
-    }
 
-    private static Triple<String, Object, Object> getOkHttpResponseBodyAndMediaType(Object response, URL url) {
-        Object originalResponseBody = XposedHelpers.callMethod(response, "body");
-        Object mediaTypeObj = null;
-        String responseBodyString = null;
+        if (responseCls == null || responseBodyCls == null || mediaTypeCls == null || headersCls == null) {
+            XposedBridge.log(LOG_PREFIX + "OkHttp classes missing.");
+            return;
+        }
 
-        if (originalResponseBody != null) {
-            mediaTypeObj = XposedHelpers.callMethod(originalResponseBody, "contentType");
-            Object responseHeaders = XposedHelpers.callMethod(response, "headers");
-            String contentEncoding = null;
-
-            if (responseHeaders != null) {
-                try {
-                    contentEncoding = (String) XposedHelpers.callMethod(responseHeaders, "get", "Content-Encoding");
-                } catch (Throwable t) {
-                    XposedBridge.log(LOG_PREFIX + "Error getting Content-Encoding header: " + t.getMessage());
-                }
+        HookUtil.hookAllMethods(responseCls, "body", "after", param -> {
+            Object responseBody = param.getResult();
+            if (responseBody == null) {
+                return;
             }
 
-            if (isJson(mediaTypeObj) && (contentEncoding == null || !contentEncoding.equalsIgnoreCase("br"))) { // OkHttp Brotli
-                try (InputStream inputStream = (InputStream) XposedHelpers.callMethod(originalResponseBody, "byteStream")) {
-                    if (inputStream != null) {
-                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-                            responseBodyString = reader.lines().collect(Collectors.joining("\n"));
+            Object response = param.thisObject;
+
+            try {
+                URL url = new URL(XposedHelpers.callMethod(XposedHelpers.callMethod(response, "request"), "url").toString());
+                Object request = XposedHelpers.callMethod(response, "request");
+
+                String bodyString = getOkHttpResponseBodyString(responseBody, response);
+
+                String method = (String) XposedHelpers.callMethod(request, "method");
+                Object requestHeaders = XposedHelpers.callMethod(request, "headers");
+                int code = (int) XposedHelpers.callMethod(response, "code");
+                String message = (String) XposedHelpers.callMethod(response, "message");
+                Object responseHeaders = XposedHelpers.callMethod(response, "headers");
+
+                String stackTrace = HookUtil.getFormattedStackTrace();
+
+                if (shouldBlockHttpRequest(url, " OKHTTP", request, response, bodyString, stackTrace)) {
+                    param.setThrowable(new IOException("Request blocked by AdClose"));
+                }
+            } catch (IOException e) {
+                param.setThrowable(e);
+            } catch (Throwable e) {
+                XposedBridge.log(LOG_PREFIX + "OkHttp hook error: " + e.getMessage());
+            }
+        }, applicationContext.getClassLoader());
+    }
+
+    private static String getOkHttpResponseBodyString(Object responseBody, Object response) {
+        if (okioBufferCls == null) {
+      //    XposedBridge.log(LOG_PREFIX + "Okio buffer missing.");
+            return null;
+        }
+
+        Object mediaType = XposedHelpers.callMethod(responseBody, "contentType");
+
+        if (isJson(mediaType)) {
+            try {
+                Object originalSource = XposedHelpers.callMethod(responseBody, "source");
+                Object buffer = XposedHelpers.callMethod(originalSource, "buffer");
+                XposedHelpers.callMethod(originalSource, "request", Long.MAX_VALUE);
+                Object clonedBuffer = XposedHelpers.callMethod(buffer, "clone");
+
+                String contentEncoding = (String) XposedHelpers.callMethod(XposedHelpers.callMethod(response, "headers"), "get", "Content-Encoding");
+                boolean isGzipped = "gzip".equalsIgnoreCase(contentEncoding);
+
+                Method inputStreamMethod = XposedHelpers.findMethodExact(okioBufferCls, "inputStream");
+                Method readStringMethod = XposedHelpers.findMethodExact(okioBufferCls, "readString", Charset.class);
+                
+                if (isGzipped) {
+                    try (GZIPInputStream gzipIs = new GZIPInputStream((java.io.InputStream) inputStreamMethod.invoke(clonedBuffer));
+                         BufferedReader reader = new BufferedReader(new InputStreamReader(gzipIs, UTF8))) {
+                        StringBuilder out = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            out.append(line);
+                        }
+                        return out.toString();
+                    } catch (IOException e) {
+                        XposedBridge.log(LOG_PREFIX + "GZIP decomp error: " + e.getMessage());
+                        return (String) readStringMethod.invoke(clonedBuffer, UTF8);
+                    }
+                } else {
+                    Charset charset = UTF8;
+                    if (mediaType != null) {
+                        try {
+                            Method charsetMethod = XposedHelpers.findMethodExact(mediaTypeCls, "charset", Charset.class);
+                            charset = (Charset) charsetMethod.invoke(mediaType, UTF8);
+                        } catch (Throwable e) {
+                            XposedBridge.log(LOG_PREFIX + "Charset get error: " + e.getMessage());
                         }
                     }
-                } catch (Throwable e) {
-                    XposedBridge.log(LOG_PREFIX + "Error reading OkHttp Response Body for URL " + url + " using BufferedReader: " + e.getMessage());
+                    return (String) readStringMethod.invoke(clonedBuffer, charset);
                 }
-            }
-        }
-        return new Triple<>(responseBodyString, mediaTypeObj, originalResponseBody);
-    }
-
-    private static void recreateOkHttpResponse(XC_MethodHook.MethodHookParam param, Object response,
-                                               String responseBodyString, Object mediaTypeObj, URL url) {
-        if (responseBodyString != null && mediaTypeObj != null) {
-            try {
-                Class<?> okhttp3ResponseBodyClass = XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.getClassLoader());
-                Class<?> okhttp3MediaTypeClass = XposedHelpers.findClass("okhttp3.MediaType", applicationContext.getClassLoader());
-                Method createMethod = XposedHelpers.findMethodExact(okhttp3ResponseBodyClass, "create", okhttp3MediaTypeClass, String.class);
-                Object newResponseBody = createMethod.invoke(null, mediaTypeObj, responseBodyString);
-                Object responseBuilder = XposedHelpers.callMethod(response, "newBuilder");
-                XposedHelpers.callMethod(responseBuilder, "body", newResponseBody);
-                param.setResult(XposedHelpers.callMethod(responseBuilder, "build"));
             } catch (Throwable e) {
-                XposedBridge.log(LOG_PREFIX + "Failed to recreate OkHttp Response Body for unblocked request (URL: " + url + "): " + e.getMessage());
+                XposedBridge.log(LOG_PREFIX + "Okio reflection error: " + e.getMessage());
+                return null;
             }
         }
+        return null;
     }
 
     private static boolean shouldBlockHttpRequest(final URL url, final String requestFrameworkType,
@@ -439,7 +478,7 @@ public class RequestHook {
             RequestDetails details = new RequestDetails(method, urlString, requestHeaders, code, message, responseHeaders, responseBody, stack);
             return checkShouldBlockRequest(formatUrlWithoutQuery(url), details, requestFrameworkType);
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Exception in shouldBlockHttpRequest: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Block check error: " + e.getMessage());
             return false;
         }
     }
@@ -449,47 +488,31 @@ public class RequestHook {
             EMPTY_WEB_RESPONSE = createEmptyWebResourceResponse();
         }
 
-        setupWebViewRequestHookInternal(
-            WebView.class.getName(),
-            WebViewClient.class.getName(),
-            WebResourceRequest.class.getName(),
-            applicationContext.getClassLoader()
-        );
-    }
-
-    private static void setupWebViewRequestHookInternal(
-        String webViewClass,
-        String webViewClientClass,
-        String webResourceRequestClass,
-        ClassLoader classLoader
-    ) {
         HookUtil.findAndHookMethod(
-            webViewClass,
+            WebView.class,
             "setWebViewClient",
-            new Object[]{webViewClientClass},
+            new Object[]{WebViewClient.class},
             "before",
             param -> {
                 Object client = param.args[0];
                 if (client != null) {
-                    hookClientMethods(client.getClass().getName(), classLoader, webViewClass, webResourceRequestClass);
+                    hookClientMethods(client.getClass().getName(), applicationContext.getClassLoader());
                 }
             },
-            classLoader
+            applicationContext.getClassLoader()
         );
     }
 
     private static void hookClientMethods(
         String clientClassName,
-        ClassLoader classLoader,
-        String webViewClassName,
-        String webResourceRequestClassName
+        ClassLoader classLoader
     ) {
-        XposedBridge.log(LOG_PREFIX + " - WebViewClient set: " + clientClassName);
+        XposedBridge.log(LOG_PREFIX + "WebViewClient set: " + clientClassName);
 
         HookUtil.findAndHookMethod(
             clientClassName,
             "shouldInterceptRequest",
-            new Object[]{webViewClassName, webResourceRequestClassName},
+            new Object[]{WebView.class, WebResourceRequest.class},
             "after",
             param -> {
                 if (processWebRequest(param.args[1], param.getResult())) {
@@ -502,7 +525,7 @@ public class RequestHook {
         HookUtil.findAndHookMethod(
             clientClassName,
             "shouldOverrideUrlLoading",
-            new Object[]{webViewClassName, webResourceRequestClassName},
+            new Object[]{WebView.class, WebResourceRequest.class},
             "after",
             param -> {
                 if (processWebRequest(param.args[1], null)) {
@@ -541,7 +564,7 @@ public class RequestHook {
 
             return urlString != null && checkShouldBlockRequest(formatUrlWithoutQuery(Uri.parse(urlString)), details, " Web");
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error processing web request: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Web request error: " + e.getMessage());
             return false;
         }
     }
@@ -557,7 +580,7 @@ public class RequestHook {
                 new ByteArrayInputStream(new byte[0])
             );
         } catch (Exception e) {
-            XposedBridge.log(LOG_PREFIX + "Error creating empty WebResourceResponse: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Empty response error: " + e.getMessage());
             return null;
         }
     }
@@ -574,7 +597,7 @@ public class RequestHook {
             String ruleUrl, String blockRuleType, String requestValue,
             RequestDetails details) {
         if (details == null) {
-            Log.w(LOG_PREFIX, "sendBlockedRequestBroadcast: RequestDetails are null, cannot send broadcast.");
+            Log.w(LOG_PREFIX, "Broadcast details null.");
             return;
         }
 
@@ -590,7 +613,7 @@ public class RequestHook {
                 return;
             }
         } else {
-            Log.d(LOG_PREFIX, "sendBlockedRequestBroadcast: Neither DNS host nor URL string available for deduplication.");
+            Log.d(LOG_PREFIX, "No DNS or URL.");
         }
 
         Intent intent = new Intent("com.rikkati.REQUEST");
@@ -600,20 +623,18 @@ public class RequestHook {
             String packageName = applicationContext.getPackageName();
             String responseBodyUriString = null;
 
-            if (details.getResponseBody() != null && !details.getResponseBody().isEmpty()) {
-                try {
-                    String encryptedResponseBody = EncryptionUtil.encrypt(details.getResponseBody());
-                    ContentValues values = new ContentValues();
-                    values.put("body_content", encryptedResponseBody);
-                    Uri uri = applicationContext.getContentResolver().insert(RESPONSE_BODY_CONTENT_URI, values);
-                    if (uri != null) {
-                        responseBodyUriString = uri.toString();
-                    } else {
-                        Log.e(LOG_PREFIX, "Failed to insert encrypted response body into Content Provider.");
-                    }
-                } catch (Exception e) {
-                    Log.e(LOG_PREFIX, "Error encrypting response body: " + e.getMessage(), e);
+            try {
+                String encryptedResponseBody = EncryptionUtil.encrypt(details.getResponseBody());
+                ContentValues values = new ContentValues();
+                values.put("body_content", encryptedResponseBody);
+                Uri uri = applicationContext.getContentResolver().insert(RESPONSE_BODY_CONTENT_URI, values);
+                if (uri != null) {
+                    responseBodyUriString = uri.toString();
+                } else {
+                    Log.e(LOG_PREFIX, "ContentProvider insert fail.");
                 }
+            } catch (Exception e) {
+                Log.e(LOG_PREFIX, "Encryption error: " + e.getMessage(), e);
             }
 
             BlockedRequest blockedRequest = new BlockedRequest(
@@ -640,7 +661,7 @@ public class RequestHook {
             intent.putExtra("request", blockedRequest);
             applicationContext.sendBroadcast(intent);
         } catch (Exception e) {
-            Log.w(LOG_PREFIX, "sendBlockedRequestBroadcast: Error broadcasting request", e);
+            Log.w(LOG_PREFIX, "Broadcast send error.", e);
         }
     }
 }

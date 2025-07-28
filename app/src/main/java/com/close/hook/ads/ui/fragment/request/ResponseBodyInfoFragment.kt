@@ -1,6 +1,7 @@
 package com.close.hook.ads.ui.fragment.request
 
 import android.net.Uri
+import android.util.Log;
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -109,10 +110,15 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
                     if (bodyContentIndex != -1) {
                         val encryptedBody = cursor.getString(bodyContentIndex)
                         rawBody = EncryptionUtil.decrypt(encryptedBody)
+                    } else {
+                        Log.e("ResponseBodyInfoFragment", "Column 'body_content' not found in cursor.")
                     }
+                } else {
+                    Log.w("ResponseBodyInfoFragment", "Cursor is empty for URI: $responseBodyUriString")
                 }
             }
         } catch (e: Exception) {
+            Log.e("ResponseBodyInfoFragment", "Error reading or decrypting response body from Content Provider", e)
             return "Error reading or decrypting response body from Content Provider: ${e.message}\n\nURI: $responseBodyUriString"
         }
 

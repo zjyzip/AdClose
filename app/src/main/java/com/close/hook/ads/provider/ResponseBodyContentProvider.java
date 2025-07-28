@@ -31,12 +31,14 @@ public class ResponseBodyContentProvider extends ContentProvider {
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
         String id = uri.getLastPathSegment();
-        if (id == null) {
-            return null;
+        if (id == null || id.equals("response_bodies")) {
+            Log.d(TAG, "Query received for root URI or null ID: " + uri);
+            return new MatrixCursor(new String[]{"_id", "body_content"});
         }
 
         String body = responseBodyStore.get(id);
         if (body == null) {
+            Log.w(TAG, "No response body found for ID: " + id);
             return null;
         }
 
@@ -53,16 +55,20 @@ public class ResponseBodyContentProvider extends ContentProvider {
     @Override
     public Uri insert(Uri uri, ContentValues values) {
         if (!uri.getPathSegments().contains("response_bodies")) {
+            Log.w(TAG, "Insert failed: URI path does not contain 'response_bodies'. URI: " + uri);
             return null;
         }
 
         String bodyContent = values.getAsString("body_content");
         if (bodyContent == null) {
+            Log.w(TAG, "Insert failed: 'body_content' is null in ContentValues.");
             return null;
         }
 
         String id = UUID.randomUUID().toString();
         responseBodyStore.put(id, bodyContent);
+        Log.d(TAG, "Inserted response body with ID: " + id + ", size: " + bodyContent.length());
+
 
         if (getContext() != null) {
             getContext().getContentResolver().notifyChange(uri, null);
@@ -77,26 +83,31 @@ public class ResponseBodyContentProvider extends ContentProvider {
             if (id != null && id.equals("response_bodies")) {
                 int count = responseBodyStore.size();
                 responseBodyStore.clear();
+                Log.d(TAG, "Cleared all (" + count + ") response bodies.");
                 if (getContext() != null) {
                     getContext().getContentResolver().notifyChange(uri, null);
                 }
                 return count;
             }
+            Log.w(TAG, "Delete failed: Invalid URI for deletion, or trying to delete root path without explicit 'response_bodies'. URI: " + uri);
             return 0;
         }
 
         String removed = responseBodyStore.remove(id);
         if (removed != null) {
+            Log.d(TAG, "Deleted response body with ID: " + id);
             if (getContext() != null) {
                 getContext().getContentResolver().notifyChange(uri, null);
             }
             return 1;
         }
+        Log.w(TAG, "No response body found for deletion with ID: " + id);
         return 0;
     }
 
     @Override
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+        Log.w(TAG, "Update operation not supported for ResponseBodyContentProvider.");
         return 0;
     }
 
