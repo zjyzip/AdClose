@@ -28,12 +28,10 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _hookConfigs = MutableStateFlow<List<CustomHookInfo>>(emptyList())
     private val _searchQuery = MutableStateFlow("")
-    private val _selectedConfigs = MutableStateFlow<Set<CustomHookInfo>>(emptySet())
     private val _isLoading = MutableStateFlow(true)
     private val _isGlobalEnabled = MutableStateFlow(false)
 
     val isGlobalEnabled: StateFlow<Boolean> = _isGlobalEnabled.asStateFlow()
-    val selectedConfigs: StateFlow<Set<CustomHookInfo>> = _selectedConfigs.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -123,49 +121,33 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
     suspend fun deleteHook(hookConfig: CustomHookInfo) {
         val updatedList = _hookConfigs.value.toMutableList().apply { removeIf { it.id == hookConfig.id } }
         saveAndRefreshHooks(updatedList)
-        _selectedConfigs.value = _selectedConfigs.value.minus(hookConfig)
     }
 
     suspend fun clearAllHooks() {
         saveAndRefreshHooks(emptyList())
-        _selectedConfigs.value = emptySet()
     }
 
-    fun toggleSelection(hookConfig: CustomHookInfo) {
-        _selectedConfigs.value = if (_selectedConfigs.value.contains(hookConfig)) {
-            _selectedConfigs.value.minus(hookConfig)
-        } else {
-            _selectedConfigs.value.plus(hookConfig)
-        }
-    }
-
-    fun clearSelection() {
-        _selectedConfigs.value = emptySet()
-    }
-
-    suspend fun deleteSelectedHookConfigs(): Int {
+    suspend fun deleteHookConfigs(configsToDelete: List<CustomHookInfo>): Int {
         val updatedList = _hookConfigs.value.toMutableList()
-        val deletedCount = _selectedConfigs.value.size
-        updatedList.removeAll(_selectedConfigs.value)
+        val deletedCount = configsToDelete.size
+        updatedList.removeAll(configsToDelete)
         saveAndRefreshHooks(updatedList)
-        _selectedConfigs.value = emptySet()
         return deletedCount
     }
 
-    fun copySelectedHooksToJson(): String? {
+    fun copyHooksToJson(configsToCopy: List<CustomHookInfo>): String? {
         val context = getApplication<Application>()
-        if (_selectedConfigs.value.isEmpty()) {
+        if (configsToCopy.isEmpty()) {
             return context.getString(R.string.no_hook_selected_to_copy)
         }
 
         return try {
-            val configsToCopy = _selectedConfigs.value.toList()
             val jsonString = prettyJson.encodeToString(configsToCopy)
 
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText(context.getString(R.string.hook_configurations_label), jsonString)
             clipboard.setPrimaryClip(clip)
-            context.getString(R.string.copied_hooks_count, _selectedConfigs.value.size)
+            context.getString(R.string.copied_hooks_count, configsToCopy.size)
         } catch (e: Exception) {
             "Error copying hooks: ${e.localizedMessage ?: "Unknown error"}"
         }

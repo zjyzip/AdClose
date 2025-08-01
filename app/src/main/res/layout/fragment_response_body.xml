@@ -15,6 +15,14 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/collectResponseBodySwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Collect Response Body"
+                android:checked="false"
+                android:layout_marginBottom="8dp"/>
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -42,5 +50,7 @@
         android:layout_height="wrap_content"
         android:src="@drawable/ic_export"
         android:tooltipText="@string/export"
-        android:visibility="gone" />
+        android:visibility="gone"
+        app:layout_anchor="@id/responseBodyText"
+        app:layout_anchorGravity="bottom|end"/>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

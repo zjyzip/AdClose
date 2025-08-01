@@ -86,10 +86,10 @@ class RequestInfoActivity : BaseActivity() {
                 fragments.add(ResponseInfoFragment.newInstance(responseCode, responseMessage, responseHeaders))
                 fragmentTitles.add("Response")
             }
-            if (!responseBodyUriString.isNullOrEmpty()) {
-                fragments.add(ResponseBodyInfoFragment.newInstance(responseBodyUriString))
-                fragmentTitles.add("Body")
-            }
+
+            fragments.add(ResponseBodyInfoFragment.newInstance(responseBodyUriString))
+            fragmentTitles.add("Body")
+
             if (stack.isNotEmpty()) {
                 fragments.add(RequestStackFragment.newInstance(stack))
                 fragmentTitles.add("Stack")

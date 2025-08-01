@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import androidx.activity.OnBackPressedCallback
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -130,8 +131,27 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         initFilterSheet()
+        setupOnBackPressed()
     }
 
+    private fun setupOnBackPressed() {
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    binding.editText.isFocused -> {
+                        binding.editText.setText("")
+                        filterBtn.setImageResource(R.drawable.ic_filter)
+                        binding.editText.clearFocus()
+                    }
+                    else -> {
+                        isEnabled = false
+                        requireActivity().onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+        })
+    }
+    
     override fun initButton() {
         super.initButton()
         filterBtn.setOnClickListener { bottomSheet?.show() }

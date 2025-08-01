@@ -1,7 +1,7 @@
 package com.close.hook.ads.ui.fragment.request
 
 import android.net.Uri
-import android.util.Log;
+import android.util.Log
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -25,10 +25,12 @@ import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.close.hook.ads.preference.HookPrefs
 
 class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
 
     private var contentToExportAndDisplay: String? = null
+    private lateinit var hookPrefs: HookPrefs
 
     private val createDocumentLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
         uri?.let { fileUri ->
@@ -58,9 +60,15 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
         }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        hookPrefs = HookPrefs.getInstance(requireContext())
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupFab()
+        setupCollectResponseBodySwitch()
         loadAndDisplayResponseBody()
     }
 
@@ -77,6 +85,16 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
             }
             visibility = View.GONE
             setOnClickListener { exportContent() }
+        }
+    }
+
+    private fun setupCollectResponseBodySwitch() {
+        binding.collectResponseBodySwitch.apply {
+            isChecked = hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
+
+            setOnCheckedChangeListener { _, isChecked ->
+                hookPrefs.setBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, isChecked)
+            }
         }
     }
 

@@ -18,6 +18,8 @@ class HookPrefs private constructor(
 
         private const val KEY_PREFIX_CUSTOM_HOOK = "custom_hook_configs_"
         private const val KEY_PREFIX_OVERALL_HOOK = "overall_hook_enabled_"
+        const val KEY_COLLECT_RESPONSE_BODY = "collect_response_body_enabled"
+
         private val GSON = Gson()
 
         @Volatile

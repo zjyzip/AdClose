@@ -113,7 +113,7 @@ class BlockedRequestsAdapter(
                 putExtra("method", request.method)
                 putExtra("urlString", request.urlString)
                 putExtra("requestHeaders", request.requestHeaders)
-                putExtra("responseCode", request.responseCode)
+                putExtra("responseCode", request.responseCode.toString())
                 putExtra("responseMessage", request.responseMessage)
                 putExtra("responseHeaders", request.responseHeaders)
                 putExtra("responseBody", request.responseBody)

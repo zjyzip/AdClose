@@ -9,7 +9,11 @@
     app:cardElevation="2dp"
     android:checkable="true"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="true"
+    app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+    app:strokeColor="?attr/colorPrimary"
+    app:strokeWidth="0dp"
+    android:state_checked="false">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
