@@ -118,24 +118,21 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun initView() {
-        mAdapter = BlockedRequestsAdapter(viewModel.dataSource) 
-
+        mAdapter = BlockedRequestsAdapter(viewModel.dataSource)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {
             adapter = mAdapter
             layoutManager = LinearLayoutManager(requireContext())
+            addItemDecoration(footerSpaceDecoration)
 
-            val initialBottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
-            setPadding(paddingLeft, paddingTop, paddingRight, initialBottomNavHeight)
-            clipToPadding = false
-
-            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                val currentBottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
-                if (paddingBottom != currentBottomNavHeight) {
-                    setPadding(paddingLeft, paddingTop, paddingRight, currentBottomNavHeight)
-                }
+            (activity as? MainActivity)?.getBottomNavigationView()?.post {
+                val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
+                setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
+                FastScrollerBuilder(this).useMd2Style().build()
             }
+
+            clipToPadding = false
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
@@ -160,9 +157,6 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
                     }
                 }
             })
-
-            addItemDecoration(footerSpaceDecoration)
-            FastScrollerBuilder(this).useMd2Style().build()
         }
     }
 
