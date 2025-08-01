@@ -78,17 +78,19 @@ class RequestInfoActivity : BaseActivity() {
                 fragments.add(DnsInfoFragment.newInstance(dnsHost, fullAddress))
                 fragmentTitles.add("DNS Info")
             }
+
             if (method.isNotEmpty() || urlString.isNotEmpty() || requestHeaders.isNotEmpty()) {
                 fragments.add(RequestInfoFragment.newInstance(method, urlString, requestHeaders))
                 fragmentTitles.add("Request")
             }
-            if (responseCode.isNotEmpty() || responseMessage.isNotEmpty() || responseHeaders.isNotEmpty()) {
+
+            if (responseMessage.isNotEmpty() || responseHeaders.isNotEmpty()) {
                 fragments.add(ResponseInfoFragment.newInstance(responseCode, responseMessage, responseHeaders))
                 fragmentTitles.add("Response")
-            }
 
-            fragments.add(ResponseBodyInfoFragment.newInstance(responseBodyUriString))
-            fragmentTitles.add("Body")
+                fragments.add(ResponseBodyInfoFragment.newInstance(responseBodyUriString))
+                fragmentTitles.add("Body")
+            }
 
             if (stack.isNotEmpty()) {
                 fragments.add(RequestStackFragment.newInstance(stack))
