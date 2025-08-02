@@ -89,7 +89,7 @@ public class RequestHook {
             XposedBridge.log(LOG_PREFIX + "Init error: " + e.getMessage());
         }
     }
-    
+
     private static String formatUrlWithoutQuery(Object urlObject) {
         try {
             if (urlObject instanceof URL) {

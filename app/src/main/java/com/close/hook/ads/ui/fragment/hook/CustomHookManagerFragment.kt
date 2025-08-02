@@ -238,6 +238,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             binding.appHeaderInclude.appIconHeader.setImageDrawable(icon)
         }
     }
+
     private fun setupRecyclerView() {
         hookAdapter = CustomHookAdapter(
             onDeleteItem = { config -> showDeleteConfigConfirmDialog(config) },
@@ -671,4 +672,3 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         super.onDestroyView()
     }
 }
-

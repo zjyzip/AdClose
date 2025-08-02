@@ -118,4 +118,3 @@ public class ResponseBodyContentProvider extends ContentProvider {
         return 0;
     }
 }
-
