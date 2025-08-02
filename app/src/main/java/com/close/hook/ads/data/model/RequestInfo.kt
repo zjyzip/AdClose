@@ -13,9 +13,9 @@ data class RequestInfo(
     val responseCode: Int,
     val responseMessage: String?,
     val responseHeaders: String?,
-    val responseBody: String?,
+    val responseBody: ByteArray?,
+    val responseBodyContentType: String?,
     val stack: String?,
     val dnsHost: String?,
     val fullAddress: String?
 ) : Parcelable
-

@@ -26,7 +26,7 @@ public class EncryptionUtil {
         return data;
     }
 
-    public static String encrypt(String plainText) throws Exception {
+    public static String encrypt(byte[] plainBytes) throws Exception {
         byte[] iv = new byte[GCM_IV_LENGTH];
         new SecureRandom().nextBytes(iv);
 
@@ -36,7 +36,7 @@ public class EncryptionUtil {
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         cipher.init(Cipher.ENCRYPT_MODE, keySpec, gcmParameterSpec);
 
-        byte[] cipherText = cipher.doFinal(plainText.getBytes("UTF-8"));
+        byte[] cipherText = cipher.doFinal(plainBytes);
 
         byte[] encryptedData = new byte[iv.length + cipherText.length];
         System.arraycopy(iv, 0, encryptedData, 0, iv.length);
@@ -45,7 +45,7 @@ public class EncryptionUtil {
         return Base64.encodeToString(encryptedData, Base64.NO_WRAP);
     }
 
-    public static String decrypt(String encryptedText) throws Exception {
+    public static byte[] decrypt(String encryptedText) throws Exception {
         byte[] encryptedDataWithIv = Base64.decode(encryptedText, Base64.NO_WRAP);
 
         if (encryptedDataWithIv.length < GCM_IV_LENGTH) {
@@ -61,7 +61,7 @@ public class EncryptionUtil {
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         cipher.init(Cipher.DECRYPT_MODE, keySpec, gcmParameterSpec);
 
-        byte[] decryptedBytes = cipher.doFinal(cipherText);
-        return new String(decryptedBytes, "UTF-8");
+        return cipher.doFinal(cipherText);
     }
 }
+

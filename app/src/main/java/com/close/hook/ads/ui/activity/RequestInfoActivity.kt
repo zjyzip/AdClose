@@ -34,7 +34,7 @@ class RequestInfoActivity : BaseActivity() {
         val responseCode = intent.getStringExtra("responseCode") ?: ""
         val responseMessage = intent.getStringExtra("responseMessage") ?: ""
         val responseHeaders = intent.getStringExtra("responseHeaders") ?: ""
-        val responseBodyUriString = intent.getStringExtra("responseBody")
+        val responseBodyUriString = intent.getStringExtra("responseBodyUriString")
         val stack = intent.getStringExtra("stack") ?: ""
         val dnsHost = intent.getStringExtra("dnsHost")
         val fullAddress = intent.getStringExtra("fullAddress")

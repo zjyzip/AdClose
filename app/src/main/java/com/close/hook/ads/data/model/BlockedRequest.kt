@@ -19,7 +19,8 @@ data class BlockedRequest(
     var responseCode: Int,
     var responseMessage: String?,
     var responseHeaders: String?,
-    var responseBody: String?,
+    var responseBodyUriString: String?,
+    var responseBodyContentType: String?,
     var stack: String?,
     var dnsHost: String?,
     var fullAddress: String?

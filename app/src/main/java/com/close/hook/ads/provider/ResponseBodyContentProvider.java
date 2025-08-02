@@ -2,16 +2,15 @@ package com.close.hook.ads.provider;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
-import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import android.util.Pair;
 
-import java.io.FileNotFoundException;
-import java.io.OutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.OutputStream;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,130 +20,102 @@ public class ResponseBodyContentProvider extends ContentProvider {
     public static final String AUTHORITY = "com.close.hook.ads.provider.responsebody";
     public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/response_bodies");
 
-    private static final ConcurrentHashMap<String, String> responseBodyStore = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Pair<String, String>> responseBodyStore = new ConcurrentHashMap<>();
+
+    private static final int RESPONSE_BODIES = 1;
+    private static final int RESPONSE_BODY_ID = 2;
+    private static final UriMatcher uriMatcher;
+
+    static {
+        uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+        uriMatcher.addURI(AUTHORITY, "response_bodies", RESPONSE_BODIES);
+        uriMatcher.addURI(AUTHORITY, "response_bodies/*", RESPONSE_BODY_ID);
+    }
 
     @Override
     public boolean onCreate() {
+        Log.d(TAG, "ContentProvider created.");
         return true;
     }
 
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
-        String id = uri.getLastPathSegment();
-        if (id == null || id.equals("response_bodies")) {
-            Log.d(TAG, "Query received for root URI or null ID: " + uri);
-            return new MatrixCursor(new String[]{"_id", "body_content"});
+        String id;
+        switch (uriMatcher.match(uri)) {
+            case RESPONSE_BODIES:
+                Log.w(TAG, "Querying without ID is not supported.");
+                return null;
+            case RESPONSE_BODY_ID:
+                id = uri.getLastPathSegment();
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown URI: " + uri);
         }
 
-        String body = responseBodyStore.get(id);
-        if (body == null) {
-            Log.w(TAG, "No response body found for ID: " + id);
-            return null;
+        Pair<String, String> data = responseBodyStore.get(id);
+
+        if (data != null) {
+            MatrixCursor cursor = new MatrixCursor(new String[]{"body_content", "mime_type"});
+            cursor.addRow(new Object[]{data.first, data.second});
+            return cursor;
         }
 
-        MatrixCursor cursor = new MatrixCursor(new String[]{"_id", "body_content"});
-        cursor.addRow(new Object[]{id, body});
-        return cursor;
+        return new MatrixCursor(new String[]{"body_content", "mime_type"});
     }
 
     @Override
     public String getType(Uri uri) {
-        return "vnd.android.cursor.item/vnd." + AUTHORITY + ".response_body";
+        switch (uriMatcher.match(uri)) {
+            case RESPONSE_BODIES:
+                return "vnd.android.cursor.dir/vnd.com.close.hook.ads.response_body";
+            case RESPONSE_BODY_ID:
+                return "vnd.android.cursor.item/vnd.com.close.hook.ads.response_body";
+            default:
+                throw new IllegalArgumentException("Unknown URI: " + uri);
+        }
     }
 
     @Override
     public Uri insert(Uri uri, ContentValues values) {
-        if (!uri.getPathSegments().contains("response_bodies")) {
-            Log.w(TAG, "Insert failed: URI path does not contain 'response_bodies'. URI: " + uri);
-            return null;
+        if (uriMatcher.match(uri) != RESPONSE_BODIES) {
+            throw new IllegalArgumentException("Cannot insert into URI: " + uri);
         }
 
         String bodyContent = values.getAsString("body_content");
-        if (bodyContent == null) {
-            Log.w(TAG, "Insert failed: 'body_content' is null in ContentValues.");
+        String mimeType = values.getAsString("mime_type");
+
+        if (bodyContent == null || mimeType == null) {
+            Log.e(TAG, "ContentValues must contain 'body_content' and 'mime_type'.");
             return null;
         }
 
         String id = UUID.randomUUID().toString();
-        responseBodyStore.put(id, bodyContent);
-        Log.d(TAG, "Inserted response body with ID: " + id + ", size: " + bodyContent.length());
+        responseBodyStore.put(id, new Pair<>(bodyContent, mimeType));
+        Log.d(TAG, "Inserted new response body with ID: " + id);
 
-
-        if (getContext() != null) {
-            getContext().getContentResolver().notifyChange(uri, null);
-        }
-        return uri.buildUpon().appendPath(id).build();
+        return Uri.withAppendedPath(CONTENT_URI, id);
     }
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
-        String id = uri.getLastPathSegment();
-        if (id == null || id.equals("response_bodies")) {
-            if (id != null && id.equals("response_bodies")) {
-                int count = responseBodyStore.size();
-                responseBodyStore.clear();
-                Log.d(TAG, "Cleared all (" + count + ") response bodies.");
-                if (getContext() != null) {
-                    getContext().getContentResolver().notifyChange(uri, null);
+        switch (uriMatcher.match(uri)) {
+            case RESPONSE_BODY_ID:
+                String id = uri.getLastPathSegment();
+                if (responseBodyStore.containsKey(id)) {
+                    responseBodyStore.remove(id);
+                    Log.d(TAG, "Deleted response body with ID: " + id);
+                    return 1;
                 }
-                return count;
-            }
-            Log.w(TAG, "Delete failed: Invalid URI for deletion, or trying to delete root path without explicit 'response_bodies'. URI: " + uri);
-            return 0;
+                return 0;
+            default:
+                throw new IllegalArgumentException("Unknown URI: " + uri);
         }
-
-        String removed = responseBodyStore.remove(id);
-        if (removed != null) {
-            Log.d(TAG, "Deleted response body with ID: " + id);
-            if (getContext() != null) {
-                getContext().getContentResolver().notifyChange(uri, null);
-            }
-            return 1;
-        }
-        Log.w(TAG, "No response body found for deletion with ID: " + id);
-        return 0;
     }
 
     @Override
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
-        Log.w(TAG, "Update operation not supported for ResponseBodyContentProvider.");
+        Log.w(TAG, "Update operation not supported.");
         return 0;
     }
-
-    @Override
-    public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        String id = uri.getLastPathSegment();
-        if (id == null) {
-            throw new FileNotFoundException("Invalid URI for openFile: " + uri);
-        }
-
-        String body = responseBodyStore.get(id);
-        if (body == null) {
-            throw new FileNotFoundException("Response body not found for ID: " + id);
-        }
-
-        try {
-            ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
-            OutputStream output = new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]);
-
-            new Thread(() -> {
-                try {
-                    output.write(body.getBytes(StandardCharsets.UTF_8));
-                } catch (IOException e) {
-                    Log.e(TAG, "Error writing response body to pipe for ID: " + id, e);
-                } finally {
-                    try {
-                        output.close();
-                    } catch (IOException e) {
-                        Log.e(TAG, "Error closing pipe output stream for ID: " + id, e);
-                    }
-                }
-            }).start();
-
-            return pipe[0];
-        } catch (IOException e) {
-            Log.e(TAG, "Error creating pipe for response body: " + id, e);
-            throw new FileNotFoundException("Error creating pipe: " + e.getMessage());
-        }
-    }
 }
+

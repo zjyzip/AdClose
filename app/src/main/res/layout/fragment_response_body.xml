@@ -26,7 +26,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Response Body (JSON)"
+                android:text="Response Body"
                 android:textStyle="bold"
                 android:paddingBottom="8dp"/>
 
@@ -41,7 +41,16 @@
                 android:padding="8dp"
                 android:background="@android:color/transparent"
                 android:breakStrategy="simple" />
-            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/responseBodyImage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:contentDescription="Response body as image"
+                android:visibility="gone" />
+
+        </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
