@@ -55,7 +55,13 @@ class HookPrefs private constructor(
     }
 
     @Suppress("DEPRECATION")
-    private val appPrefs: SharedPreferences? = context?.getSharedPreferences(PREF_NAME, Context.MODE_WORLD_READABLE)
+    private val appPrefs: SharedPreferences? = context?.let {
+        try {
+            it.getSharedPreferences(PREF_NAME, Context.MODE_WORLD_READABLE)
+        } catch (e: SecurityException) {
+            null
+        }
+    }
 
     private fun getActivePrefs(): SharedPreferences? {
         return if (isXp) sXPrefs else appPrefs
