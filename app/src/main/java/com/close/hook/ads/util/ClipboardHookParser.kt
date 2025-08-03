@@ -7,41 +7,41 @@ import java.util.regex.Pattern
 object ClipboardHookParser {
 
     private val METHOD_NO_PARAM_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*)\\(\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
+
     private val METHOD_WITH_PARAMS_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$<>][a-zA-Z0-9_\\$]*)\\((.*)\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
+
     private val FIELD_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*):([ZBCSIFJD]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
 
     fun parseClipboardContent(content: String, targetPackageName: String? = null): CustomHookInfo? {
-        val methodNoParamMatcher = METHOD_NO_PARAM_PATTERN.matcher(content)
+        val cleanedContent = content.replace("\\s".toRegex(), "")
+
+        val methodNoParamMatcher = METHOD_NO_PARAM_PATTERN.matcher(cleanedContent)
         if (methodNoParamMatcher.matches()) {
             val className = methodNoParamMatcher.group(1)?.replace('/', '.') ?: ""
             val methodName = methodNoParamMatcher.group(2) ?: ""
-            val returnTypeDalvik = methodNoParamMatcher.group(3) ?: ""
-            val returnValue = dalvikTypeToJavaType(returnTypeDalvik)
 
             return CustomHookInfo(
                 className = className,
                 methodNames = listOf(methodName),
-                returnValue = if (returnValue == "void") null else returnValue,
+                returnValue = null,
                 hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
                 packageName = targetPackageName,
                 hookPoint = "after"
             )
         }
 
-        val methodWithParamsMatcher = METHOD_WITH_PARAMS_PATTERN.matcher(content)
+        val methodWithParamsMatcher = METHOD_WITH_PARAMS_PATTERN.matcher(cleanedContent)
         if (methodWithParamsMatcher.matches()) {
             val className = methodWithParamsMatcher.group(1)?.replace('/', '.') ?: ""
             val methodName = methodWithParamsMatcher.group(2) ?: ""
             val paramsDalvik = methodWithParamsMatcher.group(3) ?: ""
-            val returnTypeDalvik = methodWithParamsMatcher.group(4) ?: ""
 
             val parameterTypes = parseMethodParameters(paramsDalvik)
-            val returnValue = dalvikTypeToJavaType(returnTypeDalvik)
 
             return CustomHookInfo(
                 className = className,
                 methodNames = listOf(methodName),
-                returnValue = if (returnValue == "void") null else returnValue,
+                returnValue = null,
                 hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
                 parameterTypes = parameterTypes,
                 packageName = targetPackageName,
@@ -49,7 +49,7 @@ object ClipboardHookParser {
             )
         }
 
-        val fieldMatcher = FIELD_PATTERN.matcher(content)
+        val fieldMatcher = FIELD_PATTERN.matcher(cleanedContent)
         if (fieldMatcher.matches()) {
             val className = fieldMatcher.group(1)?.replace('/', '.') ?: ""
             val fieldName = fieldMatcher.group(2) ?: ""
@@ -105,7 +105,8 @@ object ClipboardHookParser {
                 }
                 val (baseType, newIndex) = parseSingleDalvikType(dalvikString, i)
                 if (baseType == null) return null to newIndex
-                return baseType + "[]".repeat(arrayDims) to newIndex
+                val javaType = baseType + "[]".repeat(arrayDims)
+                return javaType to newIndex
             }
             'L' -> {
                 val end = dalvikString.indexOf(';', i)

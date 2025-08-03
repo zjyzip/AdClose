@@ -16,6 +16,10 @@ import com.close.hook.ads.data.model.RequestInfo;
 import com.close.hook.ads.data.model.Url;
 import com.close.hook.ads.hook.util.ContextUtil;
 import com.close.hook.ads.hook.util.HookUtil;
+
+import com.close.hook.ads.hook.util.DexKitUtil;
+import com.close.hook.ads.hook.util.StringFinderKit;
+
 import com.close.hook.ads.provider.UrlContentProvider;
 import com.close.hook.ads.provider.ResponseBodyContentProvider;
 import com.close.hook.ads.util.AppUtils;
@@ -35,6 +39,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +48,7 @@ import java.util.zip.GZIPInputStream;
 import kotlin.Triple;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+import org.luckypray.dexkit.result.MethodData;
 
 public class RequestHook {
 
@@ -321,6 +327,11 @@ public class RequestHook {
     }
 
     public static void setupOkHttpRequestHook() {
+        // okhttp3.Call.execute
+        hookOkHttpMethod("setupOkHttpRequestHook_execute", "Already Executed", "execute"); 
+        // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
+        hookOkHttpMethod("setupOkHttp2RequestHook_intercept", "Canceled", "intercept"); 
+
         try {
             responseCls = XposedHelpers.findClass("okhttp3.Response", applicationContext.getClassLoader());
             responseBodyCls = XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.getClassLoader());
@@ -332,41 +343,59 @@ public class RequestHook {
         if (responseCls == null || responseBodyCls == null) {
             return;
         }
+    }
 
-        HookUtil.hookAllMethods(responseCls, "body", "after", param -> {
-            Object responseBody = param.getResult();
-            if (responseBody == null) {
-                return;
-            }
+    private static void hookOkHttpMethod(String cacheKeySuffix, String methodDescription, String methodName) {
+        String cacheKey = applicationContext.getPackageName() + ":" + cacheKeySuffix;
+        List<MethodData> foundMethods = StringFinderKit.INSTANCE.findMethodsWithString(cacheKey, methodDescription, methodName);
 
-            Object response = param.thisObject;
-            try {
-                URL url = new URL(XposedHelpers.callMethod(XposedHelpers.callMethod(response, "request"), "url").toString());
-                Object request = XposedHelpers.callMethod(response, "request");
-                String stackTrace = HookUtil.getFormattedStackTrace();
+        if (foundMethods != null) {
+            for (MethodData methodData : foundMethods) {
+                try {
+                    Method method = methodData.getMethodInstance(DexKitUtil.INSTANCE.getContext().getClassLoader());
+                    XposedBridge.log(LOG_PREFIX + "setupOkHttpRequestHook " + methodData);
 
-                byte[] bodyBytes = null;
-                String contentType = null;
+                    HookUtil.hookMethod(method, "after", param -> {
+                        try {
+                            Object response = param.getResult();
+                            if (response == null) {
+                                return;
+                            }
 
-                if (hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
-                    Object mediaType = XposedHelpers.callMethod(responseBody, "contentType");
-                    if (mediaType != null) {
-                        contentType = mediaType.toString();
-                    }
-                    bodyBytes = getOkHttpResponseBodyBytes(responseBody, response);
+                            Object request = XposedHelpers.callMethod(response, "request");
+                            URL url = new URL(XposedHelpers.callMethod(request, "url").toString());
+                            String stackTrace = HookUtil.getFormattedStackTrace();
+
+                            byte[] bodyBytes = null;
+                            String contentType = null;
+
+                            if (hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
+                                Object responseBody = XposedHelpers.callMethod(response, "body");
+                                if (responseBody != null) {
+                                    Object mediaType = XposedHelpers.callMethod(responseBody, "contentType");
+                                    if (mediaType != null) {
+                                        contentType = mediaType.toString();
+                                    }
+                                    bodyBytes = getOkHttpResponseBodyBytes(responseBody, response);
+                                }
+                            }
+
+                            RequestInfo info = buildRequestInfo(url, " OKHTTP", request, response, bodyBytes, contentType, stackTrace);
+
+                            if (info != null && checkShouldBlockRequest(info)) {
+                                param.setThrowable(new IOException("Request blocked by AdClose"));
+                            }
+                        } catch (IOException e) {
+                            param.setThrowable(e);
+                        } catch (Throwable e) {
+                            XposedBridge.log(LOG_PREFIX + "OkHttp hook error: " + e.getMessage());
+                        }
+                    });
+                } catch (Exception e) {
+                    XposedBridge.log(LOG_PREFIX + "Error hooking OkHttp method: " + methodData + ", " + e.getMessage());
                 }
-
-                RequestInfo info = buildRequestInfo(url, " OKHTTP", request, response, bodyBytes, contentType, stackTrace);
-
-                if (info != null && checkShouldBlockRequest(info)) {
-                    param.setThrowable(new IOException("Request blocked by AdClose"));
-                }
-            } catch (IOException e) {
-                param.setThrowable(e);
-            } catch (Throwable e) {
-                XposedBridge.log(LOG_PREFIX + "OkHttp hook error: " + e.getMessage());
             }
-        }, applicationContext.getClassLoader());
+        }
     }
 
     private static byte[] getOkHttpResponseBodyBytes(Object responseBody, Object response) {
