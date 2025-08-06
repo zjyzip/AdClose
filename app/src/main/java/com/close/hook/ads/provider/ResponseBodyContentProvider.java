@@ -8,8 +8,6 @@ import android.database.MatrixCursor;
 import android.net.Uri;
 import android.util.Log;
 import android.util.Pair;
-
-import java.io.IOException;
 import java.io.OutputStream;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
