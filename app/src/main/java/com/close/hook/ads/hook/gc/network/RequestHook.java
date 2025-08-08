@@ -585,7 +585,7 @@ public class RequestHook {
                                     }
                                 }
                             } catch (Throwable e) {
-                                XposedBridge.log("[RequestHook] Cronet response body reading error: " + e.getMessage());
+                                XposedBridge.log(LOG_PREFIX + "Cronet response body reading error: " + e.getMessage());
                             }
                         }
 
@@ -619,7 +619,7 @@ public class RequestHook {
             );
         } catch (XposedHelpers.ClassNotFoundError e) {
         } catch (Throwable e) {
-            XposedBridge.log("[RequestHook] Error setting up Cronet hook: " + e.getMessage());
+            XposedBridge.log(LOG_PREFIX + "Error setting up Cronet hook: " + e.getMessage());
         }
     }
 

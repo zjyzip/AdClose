@@ -252,26 +252,28 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     }
 
     private fun handleChipClick(chip: Chip, titleResId: Int, isSortBy: Boolean, index: Int) {
-        if (!isSortBy && titleResId == R.string.filter_configured && !MainActivity.isModuleActivated()) {
-            showSnackbar(getString(R.string.module_not_activated))
-            chip.isChecked = false
-            return
-        }
-
         if (isSortBy) {
-            PrefManager.order = index
+            handleSortByChipClick(titleResId, index)
         } else {
+            if (titleResId == R.string.filter_configured && !MainActivity.isModuleActivated()) {
+                showSnackbar(getString(R.string.module_not_activated))
+                chip.isChecked = false
+                return
+            }
             when (titleResId) {
                 R.string.filter_configured -> PrefManager.configured = chip.isChecked
                 R.string.filter_recent_update -> PrefManager.updated = chip.isChecked
                 R.string.filter_disabled -> PrefManager.disabled = chip.isChecked
             }
-        }
 
-        val message =
-            if (isSortBy) "${getString(R.string.sort_by_default)}: ${getString(titleResId)}"
-            else "${getString(titleResId)} ${getString(R.string.updated)}"
-        showSnackbar(message)
+            showSnackbar("${getString(titleResId)} ${getString(R.string.updated)}")
+            updateSortAndFilters()
+        }
+    }
+    
+    private fun handleSortByChipClick(titleResId: Int, index: Int) {
+        PrefManager.order = index
+        showSnackbar("${getString(R.string.sort_by_default)}: ${getString(titleResId)}")
         updateSortAndFilters()
     }
 
