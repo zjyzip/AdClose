@@ -125,9 +125,13 @@ class CustomHookDialogFragment : DialogFragment() {
                 HookMethodType.HOOK_MULTIPLE_METHODS,
                 HookMethodType.FIND_AND_HOOK_METHOD,
                 HookMethodType.HOOK_ALL_METHODS,
-                HookMethodType.FIND_METHODS_WITH_STRING
+                HookMethodType.FIND_METHODS_WITH_STRING,
+                HookMethodType.REPLACE_CONTEXT_WITH_FAKE
             )),
-            binding.tilParameterTypes to (selectedType == HookMethodType.FIND_AND_HOOK_METHOD),
+            binding.tilParameterTypes to (selectedType in listOf(
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.REPLACE_CONTEXT_WITH_FAKE
+            )),
             binding.tilReturnValue to (selectedType in listOf(
                 HookMethodType.HOOK_MULTIPLE_METHODS,
                 HookMethodType.FIND_AND_HOOK_METHOD,
@@ -145,13 +149,15 @@ class CustomHookDialogFragment : DialogFragment() {
                 HookMethodType.FIND_AND_HOOK_METHOD,
                 HookMethodType.HOOK_ALL_METHODS,
                 HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
-                HookMethodType.FIND_METHODS_WITH_STRING
+                HookMethodType.FIND_METHODS_WITH_STRING,
+                HookMethodType.REPLACE_CONTEXT_WITH_FAKE
             )),
             binding.tvHookPointLabel to (selectedType in listOf(
                 HookMethodType.FIND_AND_HOOK_METHOD,
                 HookMethodType.HOOK_ALL_METHODS,
                 HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
-                HookMethodType.FIND_METHODS_WITH_STRING
+                HookMethodType.FIND_METHODS_WITH_STRING,
+                HookMethodType.REPLACE_CONTEXT_WITH_FAKE
             ))
         )
 
@@ -210,7 +216,8 @@ class CustomHookDialogFragment : DialogFragment() {
                     isValid = false
                 }
             }
-            HookMethodType.FIND_AND_HOOK_METHOD -> {
+            HookMethodType.FIND_AND_HOOK_METHOD,
+            HookMethodType.REPLACE_CONTEXT_WITH_FAKE -> {
                 if (binding.tilMethodName.isVisible && binding.etMethodName.text.isNullOrBlank()) {
                     binding.tilMethodName.error = getString(R.string.error_method_name_empty)
                     isValid = false

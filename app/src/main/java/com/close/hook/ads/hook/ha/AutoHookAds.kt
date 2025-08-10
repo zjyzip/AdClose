@@ -52,10 +52,10 @@ object AutoHookAds {
             DexKitUtil.getCachedOrFindMethods("$packageName:findAdSdkInitMethods") {
                 bridge.findMethod {
                     matcher {
-                        name(StringMatcher("init", StringMatchType.Contains, ignoreCase = true))
                         declaredClass(ClassMatcher().apply {
-                            className(StringMatcher("AdSdk", StringMatchType.Contains, ignoreCase = true))
+                            className(StringMatcher("Sdk", StringMatchType.Contains, ignoreCase = true))
                         })
+                        name(StringMatcher("init", StringMatchType.Contains, ignoreCase = true))
                     }
                 }
             }
@@ -63,26 +63,38 @@ object AutoHookAds {
 
         val hooks = foundMethods.mapNotNull { methodData ->
             if (isValidAdSdkInitMethod(methodData)) {
-                val returnValue = if (methodData.returnTypeName == "boolean") "false" else null
-
-                if (methodData.paramTypeNames?.isNotEmpty() == true) {
+                if (methodData.returnTypeName == "android.content.Context" || methodData.paramTypeNames?.contains("android.content.Context") == true) {
                     CustomHookInfo(
-                        hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
-                        hookPoint = "before",
+                        hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
+                        hookPoint = "after",
                         className = methodData.className,
                         methodNames = listOf(methodData.name),
                         parameterTypes = methodData.paramTypeNames,
-                        returnValue = returnValue,
+                        returnValue = null,
                         isEnabled = true,
                     )
                 } else {
-                    CustomHookInfo(
-                        hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
-                        className = methodData.className,
-                        methodNames = listOf(methodData.name),
-                        returnValue = returnValue,
-                        isEnabled = true,
-                    )
+                    val returnValue = if (methodData.returnTypeName == "boolean") "false" else null
+
+                    if (methodData.paramTypeNames?.isNotEmpty() == true) {
+                        CustomHookInfo(
+                            hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
+                            hookPoint = "before",
+                            className = methodData.className,
+                            methodNames = listOf(methodData.name),
+                            parameterTypes = methodData.paramTypeNames,
+                            returnValue = returnValue,
+                            isEnabled = true,
+                        )
+                    } else {
+                        CustomHookInfo(
+                            hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
+                            className = methodData.className,
+                            methodNames = listOf(methodData.name),
+                            returnValue = returnValue,
+                            isEnabled = true,
+                        )
+                    }
                 }
             } else {
                 null
@@ -95,7 +107,7 @@ object AutoHookAds {
 
     private fun isValidAdSdkInitMethod(methodData: MethodData): Boolean {
         val isNotConstructor = methodData.name != "<init>" && methodData.name != "<clinit>"
-        val isValidReturnType = methodData.returnTypeName == "void" || methodData.returnTypeName == "boolean"
+        val isValidReturnType = methodData.returnTypeName == "void" || methodData.returnTypeName == "boolean" || methodData.returnTypeName == "android.content.Context"
         val isNotAbstract = !Modifier.isAbstract(methodData.modifiers)
         return isNotConstructor && isValidReturnType && isNotAbstract
     }

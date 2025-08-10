@@ -6,7 +6,6 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.selection.ItemDetailsLookup
@@ -200,45 +199,69 @@ class CustomHookAdapter(
                 displayHookPoint?.let { context.getString(R.string.hook_point_format, it) }
             )
 
+            val showSearchStrings = config.hookMethodType in listOf(
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            )
             val searchStringsText = config.searchStrings?.joinToString(", ")?.let { context.getString(R.string.search_strings_format, it) } ?: context.getString(R.string.search_strings_format, noneString)
             setTextAndVisibility(
                 binding.tvSearchStrings,
-                config.hookMethodType in listOf(HookMethodType.HOOK_METHODS_BY_STRING_MATCH, HookMethodType.FIND_METHODS_WITH_STRING),
+                showSearchStrings,
                 searchStringsText
             )
 
+            val showMethodNames = config.hookMethodType in listOf(
+                HookMethodType.HOOK_MULTIPLE_METHODS,
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.HOOK_ALL_METHODS,
+                HookMethodType.FIND_METHODS_WITH_STRING,
+                HookMethodType.REPLACE_CONTEXT_WITH_FAKE
+            )
             val methodNamesText = config.methodNames?.joinToString(", ")?.let { context.getString(R.string.method_names_format, it) } ?: context.getString(R.string.method_names_format, noneString)
             setTextAndVisibility(
                 binding.tvMethodNames,
-                config.hookMethodType in listOf(HookMethodType.HOOK_MULTIPLE_METHODS, HookMethodType.FIND_AND_HOOK_METHOD, HookMethodType.HOOK_ALL_METHODS, HookMethodType.FIND_METHODS_WITH_STRING),
+                showMethodNames,
                 methodNamesText
             )
 
+            val showParameterTypes = config.hookMethodType in listOf(
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.REPLACE_CONTEXT_WITH_FAKE
+            )
             val parameterTypesText = config.parameterTypes?.joinToString(", ")?.let { context.getString(R.string.parameter_types_format, it) } ?: context.getString(R.string.parameter_types_format, noneString)
             setTextAndVisibility(
                 binding.tvParameterTypes,
-                config.hookMethodType == HookMethodType.FIND_AND_HOOK_METHOD,
+                showParameterTypes,
                 parameterTypesText
             )
 
+            val showFieldName = config.hookMethodType == HookMethodType.SET_STATIC_OBJECT_FIELD
             val fieldNameText = config.fieldName?.let { context.getString(R.string.field_name_format, it) } ?: context.getString(R.string.field_name_format, noneString)
             setTextAndVisibility(
                 binding.tvFieldName,
-                config.hookMethodType == HookMethodType.SET_STATIC_OBJECT_FIELD,
+                showFieldName,
                 fieldNameText
             )
 
+            val showFieldValue = config.hookMethodType == HookMethodType.SET_STATIC_OBJECT_FIELD
             val fieldValueText = config.fieldValue?.let { context.getString(R.string.field_value_format, it) } ?: context.getString(R.string.field_value_format, noneString)
             setTextAndVisibility(
                 binding.tvFieldValue,
-                config.hookMethodType == HookMethodType.SET_STATIC_OBJECT_FIELD,
+                showFieldValue,
                 fieldValueText
             )
 
+            val showReturnValue = config.hookMethodType in listOf(
+                HookMethodType.HOOK_MULTIPLE_METHODS,
+                HookMethodType.FIND_AND_HOOK_METHOD,
+                HookMethodType.HOOK_ALL_METHODS,
+                HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
+                HookMethodType.FIND_METHODS_WITH_STRING
+            )
             val returnValueText = config.returnValue?.let { context.getString(R.string.return_value_format, it) } ?: context.getString(R.string.return_value_format, noneString)
             setTextAndVisibility(
                 binding.tvReturnValue,
-                config.hookMethodType in listOf(HookMethodType.HOOK_MULTIPLE_METHODS, HookMethodType.FIND_AND_HOOK_METHOD, HookMethodType.HOOK_ALL_METHODS, HookMethodType.HOOK_METHODS_BY_STRING_MATCH, HookMethodType.FIND_METHODS_WITH_STRING),
+                showReturnValue,
                 returnValueText
             )
         }
@@ -274,4 +297,3 @@ class CustomHookAdapter(
         const val PAYLOAD_SEARCH_QUERY_CHANGED = "search_query_changed"
     }
 }
-

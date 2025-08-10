@@ -1,10 +1,12 @@
 package com.close.hook.ads.hook.ha
 
+import android.content.Context
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.hook.ha.SDKAdsKit
 import com.close.hook.ads.hook.util.StringFinderKit
+import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import java.lang.NumberFormatException
@@ -106,6 +108,24 @@ object CustomHookAds {
                                 }
                             } ?: XposedBridge.log("Custom Hook Error: Method name is null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
                         } ?: XposedBridge.log("Custom Hook Error: Search strings are null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
+                    }
+                    HookMethodType.REPLACE_CONTEXT_WITH_FAKE -> {
+                        customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
+                            val methodName = it[0]
+                            val paramTypes = resolveParameterTypes(customConfig.parameterTypes, classLoader)
+
+                            HookUtil.findAndHookMethod(
+                                customConfig.className,
+                                methodName,
+                                paramTypes,
+                                customConfig.hookPoint,
+                                { param ->
+                                    param.result = FakeContextWrapper(android.app.AndroidAppHelper.currentApplication())
+                                },
+                                classLoader
+                            )
+                            XposedBridge.log("Custom Hook: REPLACE_CONTEXT_WITH_FAKE - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}")
+                        } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for REPLACE_CONTEXT_WITH_FAKE config: $customConfig")
                     }
                 }
             } catch (e: Throwable) {
