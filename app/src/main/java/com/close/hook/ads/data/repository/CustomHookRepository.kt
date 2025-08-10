@@ -25,4 +25,8 @@ class CustomHookRepository(context: Context) {
     suspend fun setHookEnabledStatus(packageName: String?, isEnabled: Boolean) = withContext(Dispatchers.IO) {
         hookPrefs.setOverallHookEnabled(packageName, isEnabled)
     }
+
+    suspend fun getDetectedHooks(packageName: String?): List<CustomHookInfo> = withContext(Dispatchers.IO) {
+        hookPrefs.getDetectedHooks(packageName)
+    }
 }

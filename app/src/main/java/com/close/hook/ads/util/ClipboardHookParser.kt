@@ -21,12 +21,11 @@ object ClipboardHookParser {
             val methodName = methodNoParamMatcher.group(2) ?: ""
 
             return CustomHookInfo(
+                hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
                 className = className,
                 methodNames = listOf(methodName),
                 returnValue = null,
-                hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
-                packageName = targetPackageName,
-                hookPoint = "after"
+                packageName = targetPackageName
             )
         }
 
@@ -39,13 +38,13 @@ object ClipboardHookParser {
             val parameterTypes = parseMethodParameters(paramsDalvik)
 
             return CustomHookInfo(
+                hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
+                hookPoint = "before",
                 className = className,
                 methodNames = listOf(methodName),
                 returnValue = null,
-                hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
                 parameterTypes = parameterTypes,
-                packageName = targetPackageName,
-                hookPoint = "after"
+                packageName = targetPackageName
             )
         }
 

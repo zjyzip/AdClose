@@ -162,6 +162,16 @@
         tools:listitem="@layout/item_custom_hook_config" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_auto_detect_ads"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_auto_detect_ads"
+        android:tooltipText="@string/fab_auto_detect_ads"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="25dp"
+        android:visibility="gone" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_clipboard_auto_detect"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -10,6 +10,7 @@ import com.close.hook.ads.hook.gc.network.HideVPNStatus
 import com.close.hook.ads.hook.gc.network.RequestHook
 import com.close.hook.ads.hook.ha.AppAds
 import com.close.hook.ads.hook.ha.CustomHookAds
+import com.close.hook.ads.hook.ha.AutoHookAds
 import com.close.hook.ads.hook.ha.SDKAds
 import com.close.hook.ads.hook.ha.SDKAdsKit
 import com.close.hook.ads.preference.HookPrefs
@@ -82,7 +83,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 XposedBridge.log("$TAG | App: $appName Package: $packageName")
             }
 
-            applyCustomHooks(classLoader, hookPrefs, packageName)
+            applyCustomHooks(context, classLoader, hookPrefs, packageName)
 
             AppAds.progress(classLoader, packageName)
 
@@ -91,11 +92,15 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private fun applyCustomHooks(classLoader: ClassLoader, hookPrefs: HookPrefs, packageName: String) {
+    private fun applyCustomHooks(context: Context, classLoader: ClassLoader, hookPrefs: HookPrefs, packageName: String) {
         CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(null), true)
 
         val isOverallHookEnabledForPackage = hookPrefs.getOverallHookEnabled(packageName)
         CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(packageName), isOverallHookEnabledForPackage)
+        
+        if (isOverallHookEnabledForPackage) {
+            AutoHookAds.registerAutoDetectReceiver(context)
+        }
     }
 
     private fun applySettings(manager: SettingsManager) {

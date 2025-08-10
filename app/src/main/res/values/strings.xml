@@ -89,7 +89,6 @@
     <string name="delete_selected_hooks_title">Delete selected Hooks?</string>
     <string name="delete_selected_hooks_message">Are you sure you want to delete all selected Hook configurations?</string>
     <string name="deleted_hooks_count">%d Hooks deleted</string>
-    <string name="no_hook_selected_to_copy">No Hook configuration selected to copy</string>
     <string name="hook_configurations_label">Hook Configurations</string>
     <string name="copied_hooks_count">%d Hooks copied</string>
     <string name="clear_all_hooks_title">Clear all Hooks?</string>
@@ -148,6 +147,11 @@
     <string name="enabled_format">Enabled Status: %s</string>
     <string name="add_hook">Add Hook</string>
     <string name="clear_all_hooks">Clear All Hooks</string>
+
+    <string name="fab_auto_detect_ads">Reklam SDK\'sını Otomatik Algıla</string>
+    <string name="dialog_auto_detect_ads_title">Aşağıdaki reklam başlatma yöntemleri algılandı</string>
+    <string name="import_selected_hooks_count">%d Hook kuralı içe aktarıldı.</string>
+    <string name="no_hook_selected">Hiçbir Hook yapılandırması seçilmedi</string>
 
     <string name="import_global_rules_title">Import Global Rules?</string>
     <string name="import_global_rules_message">This configuration belongs to global Hook rules. Do you want to proceed with importing?</string>

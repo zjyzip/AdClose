@@ -89,7 +89,6 @@
     <string name="delete_selected_hooks_title">刪除選取 Hook?</string>
     <string name="delete_selected_hooks_message">您確定要刪除所有選取的 Hook 配置嗎？</string>
     <string name="deleted_hooks_count">已刪除 %d 個 Hook</string>
-    <string name="no_hook_selected_to_copy">未選擇任何 Hook 配置進行複製</string>
     <string name="hook_configurations_label">Hook 配置</string>
     <string name="copied_hooks_count">已複製 %d 個 Hook</string>
     <string name="clear_all_hooks_title">清空所有 Hook?</string>
@@ -148,6 +147,11 @@
     <string name="enabled_format">啟用狀態: %s</string>
     <string name="add_hook">新增 Hook</string>
     <string name="clear_all_hooks">清空所有 Hook</string>
+
+    <string name="fab_auto_detect_ads">自動偵測廣告SDK</string>
+    <string name="dialog_auto_detect_ads_title">偵測到以下廣告初始化方法</string>
+    <string name="import_selected_hooks_count">已匯入 %d 條Hook規則。</string>
+    <string name="no_hook_selected">未選擇任何 Hook 配置</string>
 
     <string name="import_global_rules_title">匯入全域規則？</string>
     <string name="import_global_rules_message">該配置屬於全域 Hook 規則，是否繼續匯入？</string>

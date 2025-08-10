@@ -65,6 +65,11 @@ public class RequestHook {
 
     private static Class<?> responseBodyCls;
 
+    private static Class<?> cronetHttpURLConnectionCls; // org.chromium.net.urlconnection.CronetHttpURLConnection
+    private static Class<?> urlResponseInfoCls; // org.chromium.net.ResponseInfo
+    private static Class<?> urlRequestCls; // org.chromium.net.UrlRequest
+    private static Class<?> cronetInputStreamCls; // org.chromium.net.urlconnection.CronetInputStream
+
     private static final Uri URL_CONTENT_URI = new Uri.Builder()
             .scheme("content")
             .authority(UrlContentProvider.AUTHORITY)
@@ -87,7 +92,11 @@ public class RequestHook {
                 setupHttpRequestHook();
                 setupOkHttpRequestHook();
                 setupWebViewRequestHook();
-                setupCronetRequestHook();
+
+                // 受严重混淆问题，只做了某音的抓取。对于org.chromium.net类的Hook点需调整至onSucceeded/onResponseStarted，getResponse貌似不行(YouTube/PlayStote)，未进行更多的测试，弃坑。
+                if (applicationContext.getPackageName().equals("com.ss.android.ugc.aweme")) {
+                    setupCronetRequestHook();
+                }
             });
         } catch (Exception e) {
             XposedBridge.log(LOG_PREFIX + "Init error: " + e.getMessage());
@@ -524,28 +533,45 @@ public class RequestHook {
 
     public static void setupCronetRequestHook() {
         try {
+            cronetHttpURLConnectionCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.urlconnection.CronetHttpURLConnection", applicationContext.getClassLoader());
+            urlResponseInfoCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.UrlResponseInfo", applicationContext.getClassLoader());
+            urlRequestCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.UrlRequest", applicationContext.getClassLoader());
+            cronetInputStreamCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.urlconnection.CronetInputStream", applicationContext.getClassLoader());
+
             HookUtil.hookAllMethods(
-                "com.ttnet.org.chromium.net.urlconnection.CronetHttpURLConnection",
+                cronetHttpURLConnectionCls,
                 "getResponse",
                 "after",
                 param -> {
                     try {
                         Object thisObject = param.thisObject;
-                        Object requestObject = XposedHelpers.getObjectField(thisObject, "mRequest");
-                        Object responseInfoObject = XposedHelpers.getObjectField(thisObject, "mResponseInfo");
+                        Object requestObject = null; // mRequest
+                        Object responseInfoObject = null; // mResponseInfo
+                        Object inputStreamObject = null; // mInputStream
+
+                        for (Field field : thisObject.getClass().getDeclaredFields()) {
+                            field.setAccessible(true);
+                            Object value = field.get(thisObject);
+                            if (urlRequestCls.isInstance(value)) {
+                                requestObject = value;
+                            } else if (urlResponseInfoCls.isInstance(value)) {
+                                responseInfoObject = value;
+                            } else if (cronetInputStreamCls.isInstance(value)) {
+                                inputStreamObject = value;
+                            }
+                        }
 
                         if (requestObject == null || responseInfoObject == null) {
                             return;
                         }
 
-                        String initialUrl = null;
-                        String method = null;
-                        String requestHeaders = null;
+                        String initialUrl = null; // mInitialUrl
+                        String method = null; // mInitialMethod
+                        String requestHeaders = null; // mRequestHeaders
 
                         for (Field field : requestObject.getClass().getDeclaredFields()) {
                             field.setAccessible(true);
                             Object value = field.get(requestObject);
-
                             if (value instanceof String) {
                                 String valueStr = (String) value;
                                 if (valueStr.startsWith("http") && initialUrl == null) {
@@ -561,22 +587,49 @@ public class RequestHook {
                         String finalUrl = (String) XposedHelpers.callMethod(responseInfoObject, "getUrl");
                         int httpStatusCode = (int) XposedHelpers.callMethod(responseInfoObject, "getHttpStatusCode");
                         String httpStatusText = (String) XposedHelpers.callMethod(responseInfoObject, "getHttpStatusText");
-                        Object responseHeadersMap = XposedHelpers.callMethod(thisObject, "getAllHeaders");
+                        Object responseHeadersMap = XposedHelpers.callMethod(responseInfoObject, "getAllHeaders");
                         String responseHeaders = responseHeadersMap != null ? responseHeadersMap.toString() : "";
                         String negotiatedProtocol = (String) XposedHelpers.callMethod(responseInfoObject, "getNegotiatedProtocol");
 
                         byte[] responseBody = null;
                         String contentType = null;
+
                         if (hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && httpStatusCode >= 200 && httpStatusCode < 400) {
-                            try {
-                                Object inputStreamObject = XposedHelpers.getObjectField(thisObject, "mInputStream");
-                                if (inputStreamObject instanceof InputStream) {
-                                    InputStream is = (InputStream) inputStreamObject;
-                                    responseBody = readStream(is);
-                                    if (responseBody != null) {
-                                        XposedHelpers.setObjectField(inputStreamObject, "mBuffer", ByteBuffer.wrap(responseBody));
+                            if (inputStreamObject != null) {
+                                Field bufferField = null;
+                                try {
+                                    for (Field field : inputStreamObject.getClass().getDeclaredFields()) {
+                                        if (field.getType().equals(ByteBuffer.class)) {
+                                            bufferField = field; // mBuffer
+                                            bufferField.setAccessible(true);
+                                            break;
+                                        }
+                                    }
+
+                                    if (bufferField != null) {
+                                        ByteBuffer buffer = (ByteBuffer) bufferField.get(inputStreamObject);
+                                        if (buffer != null && buffer.hasArray()) {
+                                            responseBody = buffer.array();
+                                        }
+                                    }
+                                } catch (Throwable e) {
+                                    XposedBridge.log(LOG_PREFIX + "Cronet buffer field access error: " + e.getMessage());
+                                }
+
+                                if (responseBody == null) {
+                                    try {
+                                        if (inputStreamObject instanceof InputStream) {
+                                            InputStream is = (InputStream) inputStreamObject;
+                                            responseBody = readStream(is);
+                                            if (bufferField != null && responseBody != null) {
+                                                bufferField.set(inputStreamObject, ByteBuffer.wrap(responseBody));
+                                            }
+                                        }
+                                    } catch (Throwable e) {
+                                        XposedBridge.log(LOG_PREFIX + "Cronet response body reading error: " + e.getMessage());
                                     }
                                 }
+
                                 if (responseHeadersMap instanceof Map) {
                                     Map<String, List<String>> headers = (Map<String, List<String>>) responseHeadersMap;
                                     List<String> contentTypeList = headers.get("Content-Type");
@@ -584,8 +637,6 @@ public class RequestHook {
                                         contentType = contentTypeList.get(0);
                                     }
                                 }
-                            } catch (Throwable e) {
-                                XposedBridge.log(LOG_PREFIX + "Cronet response body reading error: " + e.getMessage());
                             }
                         }
 
@@ -612,12 +663,11 @@ public class RequestHook {
                             param.setThrowable(new IOException("Request blocked by AdClose"));
                         }
                     } catch (Throwable e) {
-                        param.setThrowable(e);
+                        XposedBridge.log(LOG_PREFIX + "Error in Cronet hook: " + e.getMessage());
                     }
                 },
                 applicationContext.getClassLoader()
             );
-        } catch (XposedHelpers.ClassNotFoundError e) {
         } catch (Throwable e) {
             XposedBridge.log(LOG_PREFIX + "Error setting up Cronet hook: " + e.getMessage());
         }

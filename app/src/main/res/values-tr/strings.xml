@@ -88,7 +88,6 @@
     <string name="delete_selected_hooks_title">Seçilen Hook\'ları silinsin mi?</string>
     <string name="delete_selected_hooks_message">Seçilen tüm Hook yapılandırmalarını silmek istediğinizden emin misiniz?</string>
     <string name="deleted_hooks_count">%d Hook silindi</string>
-    <string name="no_hook_selected_to_copy">Kopyalanacak Hook yapılandırması seçilmedi</string>
     <string name="hook_configurations_label">Hook Yapılandırmaları</string>
     <string name="copied_hooks_count">%d Hook kopyalandı</string>
     <string name="clear_all_hooks_title">Tüm Hook\'lar temizlensin mi?</string>
@@ -147,6 +146,11 @@
     <string name="enabled_format">Etkin Durum: %s</string>
     <string name="add_hook">Hook Ekle</string>
     <string name="clear_all_hooks">Tüm Hook\'ları Temizle</string>
+
+    <string name="fab_auto_detect_ads">Reklam SDK\'sını Otomatik Algıla</string>
+    <string name="dialog_auto_detect_ads_title">Aşağıdaki reklam başlatma yöntemleri algılandı</string>
+    <string name="import_selected_hooks_count">%d Hook kuralı içe aktarıldı.</string>
+    <string name="no_hook_selected">Hiçbir Hook yapılandırması seçilmedi</string>
 
     <string name="import_global_rules_title">Genel Kurallar İçe Aktarılsın mı?</string>
     <string name="import_global_rules_message">Bu yapılandırma genel Hook kurallarına aittir. İçe aktarmaya devam etmek istiyor musunuz?</string>

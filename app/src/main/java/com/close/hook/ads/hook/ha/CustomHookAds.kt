@@ -45,10 +45,12 @@ object CustomHookAds {
                                 customConfig.className,
                                 methodName,
                                 paramTypes,
-                                customConfig.hookPoint
-                            ) { param ->
-                                param.result = parsedReturnValue
-                            }
+                                customConfig.hookPoint,
+                                { param ->
+                                    param.result = parsedReturnValue
+                                },
+                                classLoader
+                            )
                             XposedBridge.log("Custom Hook: findAndHookMethod - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
                         } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for FIND_AND_HOOK_METHOD config: $customConfig")
                     }
@@ -59,10 +61,12 @@ object CustomHookAds {
                             HookUtil.hookAllMethods(
                                 customConfig.className,
                                 methodName,
-                                customConfig.hookPoint
-                            ) { param ->
-                                param.result = parsedReturnValue
-                            }
+                                customConfig.hookPoint,
+                                { param ->
+                                    param.result = parsedReturnValue
+                                },
+                                classLoader
+                            )
                             XposedBridge.log("Custom Hook: hookAllMethods - Class=${customConfig.className}, Method=${methodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
                         } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for HOOK_ALL_METHODS config: $customConfig")
                     }

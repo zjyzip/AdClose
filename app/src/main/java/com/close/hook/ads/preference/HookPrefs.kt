@@ -18,6 +18,8 @@ class HookPrefs private constructor(
 
         private const val KEY_PREFIX_CUSTOM_HOOK = "custom_hook_configs_"
         private const val KEY_PREFIX_OVERALL_HOOK = "overall_hook_enabled_"
+        private const val KEY_PREFIX_DETECTED_HOOK = "detected_hook_configs_"
+
         const val KEY_COLLECT_RESPONSE_BODY = "collect_response_body_enabled"
 
         private val GSON = Gson()
@@ -149,6 +151,22 @@ class HookPrefs private constructor(
     fun setOverallHookEnabled(packageName: String?, isEnabled: Boolean) {
         val key = buildKey(KEY_PREFIX_OVERALL_HOOK, packageName)
         setBoolean(key, isEnabled)
+    }
+
+    fun getDetectedHooks(packageName: String?): List<CustomHookInfo> {
+        val key = buildKey(KEY_PREFIX_DETECTED_HOOK, packageName)
+        val json = getString(key, "[]")
+        return try {
+            GSON.fromJson(json, object : TypeToken<List<CustomHookInfo>>() {}.type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun setDetectedHooks(packageName: String?, configs: List<CustomHookInfo>) {
+        val key = buildKey(KEY_PREFIX_DETECTED_HOOK, packageName)
+        val json = GSON.toJson(configs)
+        setString(key, json)
     }
 
     fun getAll(): Map<String, Any?> {

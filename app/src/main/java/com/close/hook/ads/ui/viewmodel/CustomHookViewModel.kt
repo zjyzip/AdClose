@@ -1,22 +1,24 @@
 package com.close.hook.ads.ui.viewmodel
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.repository.CustomHookRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -34,6 +36,9 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
     val isGlobalEnabled: StateFlow<Boolean> = _isGlobalEnabled.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _autoDetectedHooksResult = MutableStateFlow<List<CustomHookInfo>?>(null)
+    val autoDetectedHooksResult: StateFlow<List<CustomHookInfo>?> = _autoDetectedHooksResult.asStateFlow()
 
     val filteredConfigs: StateFlow<List<CustomHookInfo>> =
         combine(_hookConfigs, _searchQuery) { configs, currentQuery ->
@@ -59,6 +64,29 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         )
 
     private val prettyJson = Json { prettyPrint = true }
+
+    private val ACTION_AUTO_DETECT_ADS = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS"
+    private val ACTION_AUTO_DETECT_ADS_RESULT = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS_RESULT"
+    private val RESULT_KEY = "detected_hooks_result"
+
+    private val resultReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == ACTION_AUTO_DETECT_ADS_RESULT) {
+                val detectedHooks = intent.getParcelableArrayListExtra<CustomHookInfo>(RESULT_KEY)
+                _autoDetectedHooksResult.value = detectedHooks?.toList() ?: emptyList()
+            }
+        }
+    }
+
+    init {
+        val filter = IntentFilter(ACTION_AUTO_DETECT_ADS_RESULT)
+        getApplication<Application>().registerReceiver(resultReceiver, filter, Context.RECEIVER_EXPORTED)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        getApplication<Application>().unregisterReceiver(resultReceiver)
+    }
 
     fun init(packageName: String?) {
         currentPackageName = packageName
@@ -89,6 +117,18 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    fun requestAutoDetectHooks(packageName: String) {
+        val intent = Intent(ACTION_AUTO_DETECT_ADS).apply {
+            putExtra("target_package", packageName)
+            setPackage(packageName)
+        }
+        getApplication<Application>().sendBroadcast(intent)
+    }
+
+    fun clearAutoDetectHooksResult() {
+        _autoDetectedHooksResult.value = null
     }
 
     suspend fun addHook(hookConfig: CustomHookInfo) {
@@ -137,9 +177,6 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
     fun copyHooksToJson(configsToCopy: List<CustomHookInfo>): String? {
         val context = getApplication<Application>()
-        if (configsToCopy.isEmpty()) {
-            return context.getString(R.string.no_hook_selected_to_copy)
-        }
 
         return try {
             val jsonString = prettyJson.encodeToString(configsToCopy)

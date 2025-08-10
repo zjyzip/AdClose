@@ -359,6 +359,15 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
                     }
                 }
+                launch {
+                    viewModel.autoDetectedHooksResult.collect { hooks ->
+                        if (hooks != null) {
+                            binding.progressBar.visibility = View.GONE
+                            showAutoDetectHooksDialog(hooks)
+                            viewModel.clearAutoDetectHooksResult()
+                        }
+                    }
+                }
             }
         }
     }
@@ -386,7 +395,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun copySelectedHooks() {
         val selectedItemsList = selectedItems?.toList() ?: emptyList()
         if (selectedItemsList.isEmpty()) {
-            Toast.makeText(requireContext(), getString(R.string.no_hook_selected_to_copy), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -416,6 +424,20 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun setupFabButtons() {
+        setupFab(binding.fabAutoDetectAds, 3) {
+            lifecycleScope.launch {
+                binding.progressBar.visibility = View.VISIBLE
+                val packageName = viewModel.getTargetPackageName()
+                if (packageName != null) {
+                    viewModel.requestAutoDetectHooks(packageName)
+                    showSnackbar("已发送请求，请等待扫描结果...")
+                } else {
+                    showSnackbar("请先选择一个应用")
+                    binding.progressBar.visibility = View.GONE
+                }
+            }
+        }
+
         setupFab(binding.fabClipboardAutoDetect, 2) {
             val clipText = clipboardManager.primaryClip?.getItemAt(0)?.text?.toString()
             if (clipText.isNullOrBlank()) {
@@ -432,6 +454,57 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
 
         setupFab(binding.fabAddHook, 1) { showAddHookDialog() }
         setupFab(binding.fabClearAllHooks, 0) { showClearAllConfirmDialog() }
+    }
+
+    private fun showAutoDetectHooksDialog(detectedHooks: List<CustomHookInfo>) {
+        if (detectedHooks.isEmpty()) {
+            return
+        }
+
+        val currentHooks = viewModel.getExportableHooks()
+        val newDetectedHooks = detectedHooks.filter { newHook ->
+            currentHooks.none { existingHook ->
+                existingHook.className == newHook.className && existingHook.methodNames == newHook.methodNames
+            }
+        }
+
+        if (newDetectedHooks.isEmpty()) {
+            showSnackbar(getString(R.string.no_new_hooks_to_import))
+            return
+        }
+
+        val items = newDetectedHooks.map {
+            val methodNames = it.methodNames?.joinToString(", ") ?: ""
+            "${it.className}.$methodNames"
+        }.toTypedArray()
+
+        val checkedItems = BooleanArray(items.size) { true }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.dialog_auto_detect_ads_title)
+            .setMultiChoiceItems(items, checkedItems) { _, which, isChecked ->
+                checkedItems[which] = isChecked
+            }
+            .setPositiveButton(R.string.restore) { dialog, _ ->
+                val selectedHooks = newDetectedHooks.filterIndexed { index, _ -> checkedItems[index] }
+
+                if (selectedHooks.isNotEmpty()) {
+                    lifecycleScope.launch {
+                        val isUpdated = viewModel.importHooks(selectedHooks)
+                        val message = if (isUpdated) {
+                            getString(R.string.import_selected_hooks_count, selectedHooks.size)
+                        } else {
+                            getString(R.string.no_new_hooks_to_import)
+                        }
+                        showSnackbar(message)
+                    }
+                } else {
+                    showSnackbar(getString(R.string.no_hook_selected))
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun showClearAllConfirmDialog() {

@@ -142,14 +142,12 @@ class CustomHookDialogFragment : DialogFragment() {
                 HookMethodType.FIND_METHODS_WITH_STRING
             )),
             binding.toggleGroupHookPoint to (selectedType in listOf(
-                HookMethodType.HOOK_MULTIPLE_METHODS,
                 HookMethodType.FIND_AND_HOOK_METHOD,
                 HookMethodType.HOOK_ALL_METHODS,
                 HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
                 HookMethodType.FIND_METHODS_WITH_STRING
             )),
             binding.tvHookPointLabel to (selectedType in listOf(
-                HookMethodType.HOOK_MULTIPLE_METHODS,
                 HookMethodType.FIND_AND_HOOK_METHOD,
                 HookMethodType.HOOK_ALL_METHODS,
                 HookMethodType.HOOK_METHODS_BY_STRING_MATCH,
