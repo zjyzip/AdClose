@@ -1,6 +1,7 @@
 package com.close.hook.ads.hook.ha
 
 import android.content.Context
+import android.app.AndroidAppHelper
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
@@ -120,7 +121,7 @@ object CustomHookAds {
                                 paramTypes,
                                 customConfig.hookPoint,
                                 { param ->
-                                    param.result = FakeContextWrapper(android.app.AndroidAppHelper.currentApplication())
+                                    param.result = FakeContextWrapper(AndroidAppHelper.currentApplication())
                                 },
                                 classLoader
                             )
