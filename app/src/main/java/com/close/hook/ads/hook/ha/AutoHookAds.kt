@@ -47,23 +47,70 @@ object AutoHookAds {
         context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
     }
 
+    val adSdkPackages = listOf(
+        "com.sjm.sjmsdk",
+        "com.ap.android",
+        "com.bytedance.pangle",
+        "com.bytedance.sdk.openadsdk",
+        "com.bytedance.android.openliveplugin",
+        "com.ss.android.ad",
+        "com.ss.android.downloadlib",
+        "com.kwad",
+        "com.qq.e",
+        "com.baidu.mobads",
+        "com.sigmob",
+        "com.czhj",
+        "cn.admobiletop",
+        "com.inmobi.sdk",
+        "com.tradplus.ads",
+        "com.jd.ad.sdk",
+        "com.beizi.fusion",
+        "com.meishu.sdk",
+        "com.link.sdk",
+        "com.xwuad.sdk",
+        "com.qumeng",
+        "com.huawei.hms.ads",
+        "com.huawei.openalliance.ad",
+        "com.mbridge.msdk",
+        "com.windmill.sdk",
+        "com.alimm.tanx",
+        "com.umeng",
+        "com.anythink",
+        "com.miui.zeus.mimo.sdk",
+        "cn.xiaochuankeji",
+        "com.tencent.bugly",
+        "com.tencent.klevin.ads",
+        "com.tencent.qqmini.ad",
+        "com.baichuan",
+        "com.vungle.warren",
+        "com.applovin.sdk",
+        "com.unity3d.ads",
+        "com.unity3d.services",
+        "com.google.ads",
+        "com.google.unity.ads",
+        "com.google.android.ads",
+        "com.google.android.gms.ads",
+        "com.google.android.gms.admob",
+        "com.facebook.ads",
+        "com.appsflyer"
+    )
+
     fun findSdkMethods(packageName: String): List<CustomHookInfo> {
         val foundMethods = DexKitUtil.withBridge { bridge ->
             DexKitUtil.getCachedOrFindMethods("$packageName:findSdkMethods") {
                 val initMethods = bridge.findMethod {
+                    searchPackages(adSdkPackages)
                     matcher {
                         name(StringMatcher("init", StringMatchType.Contains, ignoreCase = true))
-                        declaredClass(ClassMatcher().apply {
-                            className(StringMatcher("Sdk", StringMatchType.Contains, ignoreCase = true))
-                        })
                     }
                 }
                 val getContextMethods = bridge.findMethod {
+                    searchPackages(adSdkPackages)
                     matcher {
-                        name(StringMatcher("getContext", StringMatchType.Contains, ignoreCase = true))
                         declaredClass(ClassMatcher().apply {
                             className(StringMatcher("Sdk", StringMatchType.Contains, ignoreCase = true))
                         })
+                        name(StringMatcher("getContext", StringMatchType.Equals))
                     }
                 }
                 (initMethods + getContextMethods)
@@ -78,11 +125,17 @@ object AutoHookAds {
                     className = methodData.className,
                     methodNames = listOf(methodData.name),
                     parameterTypes = methodData.paramTypeNames,
-                    returnValue = null,
                     isEnabled = true,
                 )
             } else {
-                val returnValue = if (methodData.returnTypeName == "boolean") "false" else null
+                val returnValue = when (methodData.returnTypeName) {
+                    "boolean" -> "false"
+                    "int" -> "0"
+                    "long" -> "0L"
+                    "float" -> "0.0f"
+                    "double" -> "0.0"
+                    else -> null
+                }
 
                 if (methodData.paramTypeNames?.isNotEmpty() == true) {
                     CustomHookInfo(
@@ -112,8 +165,7 @@ object AutoHookAds {
 
     private fun isValidSdkMethod(methodData: MethodData): Boolean {
         val isNotConstructor = methodData.name != "<init>" && methodData.name != "<clinit>"
-        val isValidReturnType = methodData.returnTypeName == "void" || methodData.returnTypeName == "boolean" || methodData.returnTypeName == "android.content.Context"
         val isNotAbstract = !Modifier.isAbstract(methodData.modifiers)
-        return isNotConstructor && isValidReturnType && isNotAbstract
+        return isNotConstructor && isNotAbstract
     }
 }

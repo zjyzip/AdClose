@@ -1,10 +1,14 @@
 package com.close.hook.ads.ui.fragment.hook
 
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -66,7 +70,12 @@ import java.io.InputStreamReader
 
 class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>() {
 
-    private val viewModel: CustomHookViewModel by viewModels()
+    private val viewModel: CustomHookViewModel by viewModels {
+        CustomHookViewModel.Factory(
+            requireActivity().application,
+            arguments?.getString(ARG_PACKAGE_NAME)
+        )
+    }
 
     private lateinit var hookAdapter: CustomHookAdapter
     private var tracker: SelectionTracker<CustomHookInfo>? = null
@@ -82,6 +91,15 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private val prettyJson = Json { prettyPrint = true }
+
+    private val autoDetectResultReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == "com.close.hook.ads.ACTION_AUTO_DETECT_ADS_RESULT") {
+                val detectedHooks = intent.getParcelableArrayListExtra<CustomHookInfo>("detected_hooks_result")
+                detectedHooks?.let { viewModel.handleAutoDetectResult(it.toList()) }
+            }
+        }
+    }
 
     private val actionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
@@ -155,8 +173,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val targetPkgName = arguments?.getString(ARG_PACKAGE_NAME)
-        viewModel.init(targetPkgName)
+        val targetPkgName = viewModel.getTargetPackageName()
 
         setupToolbar()
         setupRecyclerView()
@@ -168,6 +185,16 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         setupHeaderDisplay(targetPkgName)
         setupFragmentResultListener()
         setupOnBackPressed()
+        setupBroadcastReceiver()
+    }
+
+    private fun setupBroadcastReceiver() {
+        val filter = IntentFilter("com.close.hook.ads.ACTION_AUTO_DETECT_ADS_RESULT")
+        requireContext().registerReceiver(autoDetectResultReceiver, filter, getReceiverOptions())
+    }
+
+    private fun getReceiverOptions(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Context.RECEIVER_EXPORTED else 0
     }
 
     private fun showAutoDetectedHookDialog(hookInfo: CustomHookInfo) {
@@ -457,10 +484,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun showAutoDetectHooksDialog(detectedHooks: List<CustomHookInfo>) {
-        if (detectedHooks.isEmpty()) {
-            return
-        }
-
         val currentHooks = viewModel.getExportableHooks()
         val newDetectedHooks = detectedHooks.filter { newHook ->
             currentHooks.none { existingHook ->
@@ -740,6 +763,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     override fun onDestroyView() {
+        requireContext().unregisterReceiver(autoDetectResultReceiver)
         binding.editTextSearch.removeTextChangedListener(searchTextWatcher)
         childFragmentManager.clearFragmentResultListener(CustomHookDialogFragment.REQUEST_KEY_HOOK_CONFIG)
         super.onDestroyView()

@@ -1,13 +1,13 @@
 package com.close.hook.ads.ui.viewmodel
 
 import android.app.Application
-import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
@@ -23,10 +23,12 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
-class CustomHookViewModel(application: Application) : AndroidViewModel(application) {
+class CustomHookViewModel(
+    application: Application,
+    private val currentPackageName: String?
+) : AndroidViewModel(application) {
 
     private val repository = CustomHookRepository(application)
-    private var currentPackageName: String? = null
 
     private val _hookConfigs = MutableStateFlow<List<CustomHookInfo>>(emptyList())
     private val _searchQuery = MutableStateFlow("")
@@ -65,31 +67,7 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
     private val prettyJson = Json { prettyPrint = true }
 
-    private val ACTION_AUTO_DETECT_ADS = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS"
-    private val ACTION_AUTO_DETECT_ADS_RESULT = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS_RESULT"
-    private val RESULT_KEY = "detected_hooks_result"
-
-    private val resultReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == ACTION_AUTO_DETECT_ADS_RESULT) {
-                val detectedHooks = intent.getParcelableArrayListExtra<CustomHookInfo>(RESULT_KEY)
-                _autoDetectedHooksResult.value = detectedHooks?.toList() ?: emptyList()
-            }
-        }
-    }
-
     init {
-        val filter = IntentFilter(ACTION_AUTO_DETECT_ADS_RESULT)
-        getApplication<Application>().registerReceiver(resultReceiver, filter, Context.RECEIVER_EXPORTED)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        getApplication<Application>().unregisterReceiver(resultReceiver)
-    }
-
-    fun init(packageName: String?) {
-        currentPackageName = packageName
         loadHookConfigs()
         loadGlobalHookStatus()
     }
@@ -119,16 +97,20 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         _searchQuery.value = query
     }
 
-    fun requestAutoDetectHooks(packageName: String) {
-        val intent = Intent(ACTION_AUTO_DETECT_ADS).apply {
-            putExtra("target_package", packageName)
-            setPackage(packageName)
-        }
-        getApplication<Application>().sendBroadcast(intent)
+    fun handleAutoDetectResult(hooks: List<CustomHookInfo>) {
+        _autoDetectedHooksResult.value = hooks
     }
 
     fun clearAutoDetectHooksResult() {
         _autoDetectedHooksResult.value = null
+    }
+
+    fun requestAutoDetectHooks(packageName: String) {
+        val intent = Intent("com.close.hook.ads.ACTION_AUTO_DETECT_ADS").apply {
+            putExtra("target_package", packageName)
+            setPackage(packageName)
+        }
+        getApplication<Application>().sendBroadcast(intent)
     }
 
     suspend fun addHook(hookConfig: CustomHookInfo) {
@@ -177,7 +159,6 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
 
     fun copyHooksToJson(configsToCopy: List<CustomHookInfo>): String? {
         val context = getApplication<Application>()
-
         return try {
             val jsonString = prettyJson.encodeToString(configsToCopy)
 
@@ -202,6 +183,7 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
         var updated = false
         for (importedConfig in importedConfigs) {
             val configToAddOrUpdate = importedConfig.copy(
+                id = importedConfig.id ?: UUID.randomUUID().toString(),
                 packageName = targetPackageName
             )
             val existingConfigIndex = currentConfigs.indexOfFirst { it.id == configToAddOrUpdate.id }
@@ -258,6 +240,19 @@ class CustomHookViewModel(application: Application) : AndroidViewModel(applicati
                 ImportAction.ImportGlobalAndNotifySkipped(globalOnlyConfigs, skippedAppSpecificCount)
             }
             else -> ImportAction.DirectImport(importedConfigs)
+        }
+    }
+
+    class Factory(
+        private val application: Application,
+        private val packageName: String?
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(CustomHookViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return CustomHookViewModel(application, packageName) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }
