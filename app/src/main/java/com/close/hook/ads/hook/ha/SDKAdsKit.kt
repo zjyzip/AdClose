@@ -17,7 +17,7 @@ object SDKAdsKit {
 
     private val packageName: String by lazy { DexKitUtil.context.packageName }
 
-    fun blockAds() {
+    fun hookAds() {
         ContextUtil.addOnApplicationContextInitializedCallback {
             handlePangolinInit()
             handleGdtInit()

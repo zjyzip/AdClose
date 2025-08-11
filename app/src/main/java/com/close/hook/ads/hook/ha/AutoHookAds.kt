@@ -30,7 +30,7 @@ object AutoHookAds {
                     if (targetPackage != null && targetPackage == ctx.packageName) {
                         XposedBridge.log("$TAG | Received auto-detect request for package: $targetPackage")
 
-                        val hooks = findAdSdkInitMethods(targetPackage)
+                        val hooks = findSdkMethods(targetPackage)
 
                         val resultIntent = Intent(ACTION_AUTO_DETECT_ADS_RESULT).apply {
                             putParcelableArrayListExtra(RESULT_KEY, ArrayList(hooks))
@@ -47,57 +47,62 @@ object AutoHookAds {
         context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
     }
 
-    fun findAdSdkInitMethods(packageName: String): List<CustomHookInfo> {
+    fun findSdkMethods(packageName: String): List<CustomHookInfo> {
         val foundMethods = DexKitUtil.withBridge { bridge ->
-            DexKitUtil.getCachedOrFindMethods("$packageName:findAdSdkInitMethods") {
-                bridge.findMethod {
+            DexKitUtil.getCachedOrFindMethods("$packageName:findSdkMethods") {
+                val initMethods = bridge.findMethod {
                     matcher {
+                        name(StringMatcher("init", StringMatchType.Contains, ignoreCase = true))
                         declaredClass(ClassMatcher().apply {
                             className(StringMatcher("Sdk", StringMatchType.Contains, ignoreCase = true))
                         })
-                        name(StringMatcher("init", StringMatchType.Contains, ignoreCase = true))
                     }
                 }
-            }
+                val getContextMethods = bridge.findMethod {
+                    matcher {
+                        name(StringMatcher("getContext", StringMatchType.Contains, ignoreCase = true))
+                        declaredClass(ClassMatcher().apply {
+                            className(StringMatcher("Sdk", StringMatchType.Contains, ignoreCase = true))
+                        })
+                    }
+                }
+                (initMethods + getContextMethods)
+            }?.filter(::isValidSdkMethod)
         } ?: emptyList()
 
         val hooks = foundMethods.mapNotNull { methodData ->
-            if (isValidAdSdkInitMethod(methodData)) {
-                if (methodData.returnTypeName == "android.content.Context" || methodData.paramTypeNames?.contains("android.content.Context") == true) {
+            if (methodData.returnTypeName == "android.content.Context" || methodData.paramTypeNames?.contains("android.content.Context") == true) {
+                CustomHookInfo(
+                    hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
+                    hookPoint = "after",
+                    className = methodData.className,
+                    methodNames = listOf(methodData.name),
+                    parameterTypes = methodData.paramTypeNames,
+                    returnValue = null,
+                    isEnabled = true,
+                )
+            } else {
+                val returnValue = if (methodData.returnTypeName == "boolean") "false" else null
+
+                if (methodData.paramTypeNames?.isNotEmpty() == true) {
                     CustomHookInfo(
-                        hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
-                        hookPoint = "after",
+                        hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
+                        hookPoint = "before",
                         className = methodData.className,
                         methodNames = listOf(methodData.name),
                         parameterTypes = methodData.paramTypeNames,
-                        returnValue = null,
+                        returnValue = returnValue,
                         isEnabled = true,
                     )
                 } else {
-                    val returnValue = if (methodData.returnTypeName == "boolean") "false" else null
-
-                    if (methodData.paramTypeNames?.isNotEmpty() == true) {
-                        CustomHookInfo(
-                            hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
-                            hookPoint = "before",
-                            className = methodData.className,
-                            methodNames = listOf(methodData.name),
-                            parameterTypes = methodData.paramTypeNames,
-                            returnValue = returnValue,
-                            isEnabled = true,
-                        )
-                    } else {
-                        CustomHookInfo(
-                            hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
-                            className = methodData.className,
-                            methodNames = listOf(methodData.name),
-                            returnValue = returnValue,
-                            isEnabled = true,
-                        )
-                    }
+                    CustomHookInfo(
+                        hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
+                        className = methodData.className,
+                        methodNames = listOf(methodData.name),
+                        returnValue = returnValue,
+                        isEnabled = true,
+                    )
                 }
-            } else {
-                null
             }
         }
 
@@ -105,7 +110,7 @@ object AutoHookAds {
         return hooks
     }
 
-    private fun isValidAdSdkInitMethod(methodData: MethodData): Boolean {
+    private fun isValidSdkMethod(methodData: MethodData): Boolean {
         val isNotConstructor = methodData.name != "<init>" && methodData.name != "<clinit>"
         val isValidReturnType = methodData.returnTypeName == "void" || methodData.returnTypeName == "boolean" || methodData.returnTypeName == "android.content.Context"
         val isNotAbstract = !Modifier.isAbstract(methodData.modifiers)

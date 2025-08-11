@@ -1,7 +1,7 @@
 package com.close.hook.ads.hook.ha
 
 import android.content.Context
-import android.app.AndroidAppHelper
+import android.content.ContextWrapper
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
@@ -11,8 +11,12 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import java.lang.NumberFormatException
+import java.lang.reflect.Method
 
 object CustomHookAds {
+
+    private const val TAG = "CustomHookAds"
+    private const val ENABLE_DEBUG_LOG = false
 
     fun hookCustomAds(classLoader: ClassLoader, customConfigs: List<CustomHookInfo>, isScopeEnabled: Boolean) {
         if (!isScopeEnabled) {
@@ -36,8 +40,8 @@ object CustomHookAds {
                                 it.toTypedArray(),
                                 parsedReturnValue
                             )
-                            XposedBridge.log("Custom Hook: hookMultipleMethods - Class=${customConfig.className}, Methods=${it}, Return=${parsedReturnValue}")
-                        } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for HOOK_MULTIPLE_METHODS config: $customConfig")
+                            log("Custom Hook: hookMultipleMethods - Class=${customConfig.className}, Methods=${it}, Return=${parsedReturnValue}")
+                        } ?: log("Custom Hook Error: Method names are null or empty for HOOK_MULTIPLE_METHODS config: $customConfig")
                     }
                     HookMethodType.FIND_AND_HOOK_METHOD -> {
                         customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
@@ -54,8 +58,8 @@ object CustomHookAds {
                                 },
                                 classLoader
                             )
-                            XposedBridge.log("Custom Hook: findAndHookMethod - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
-                        } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for FIND_AND_HOOK_METHOD config: $customConfig")
+                            log("Custom Hook: findAndHookMethod - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
+                        } ?: log("Custom Hook Error: Method names are null or empty for FIND_AND_HOOK_METHOD config: $customConfig")
                     }
                     HookMethodType.HOOK_ALL_METHODS -> {
                         customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
@@ -70,8 +74,8 @@ object CustomHookAds {
                                 },
                                 classLoader
                             )
-                            XposedBridge.log("Custom Hook: hookAllMethods - Class=${customConfig.className}, Method=${methodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
-                        } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for HOOK_ALL_METHODS config: $customConfig")
+                            log("Custom Hook: hookAllMethods - Class=${customConfig.className}, Method=${methodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}")
+                        } ?: log("Custom Hook Error: Method names are null or empty for HOOK_ALL_METHODS config: $customConfig")
                     }
                     HookMethodType.SET_STATIC_OBJECT_FIELD -> {
                         customConfig.fieldName?.takeIf { it.isNotEmpty() }?.let { fieldName ->
@@ -82,8 +86,8 @@ object CustomHookAds {
                                 fieldName,
                                 fieldParsedValue
                             )
-                            XposedBridge.log("Custom Hook: setStaticObjectField - Class=${customConfig.className}, Field=${fieldName}, Value=${fieldParsedValue}")
-                        } ?: XposedBridge.log("Custom Hook Error: Field name is null or empty for SET_STATIC_OBJECT_FIELD config: $customConfig")
+                            log("Custom Hook: setStaticObjectField - Class=${customConfig.className}, Field=${fieldName}, Value=${fieldParsedValue}")
+                        } ?: log("Custom Hook Error: Field name is null or empty for SET_STATIC_OBJECT_FIELD config: $customConfig")
                     }
                     HookMethodType.HOOK_METHODS_BY_STRING_MATCH -> {
                         customConfig.searchStrings?.takeIf { it.isNotEmpty() }?.let { searchStrings ->
@@ -91,9 +95,9 @@ object CustomHookAds {
                                 HookUtil.hookMethod(method, customConfig.hookPoint) { param ->
                                     param.result = parsedReturnValue
                                 }
-                                XposedBridge.log("Custom Hook: hookMethodsByStringMatch - ID=${customConfig.id}, Strings=${searchStrings}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, MethodData: $method")
+                                log("Custom Hook: hookMethodsByStringMatch - ID=${customConfig.id}, Strings=${searchStrings}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, MethodData: $method")
                             }
-                        } ?: XposedBridge.log("Custom Hook Error: Search strings are null or empty for HOOK_METHODS_BY_STRING_MATCH config: $customConfig")
+                        } ?: log("Custom Hook Error: Search strings are null or empty for HOOK_METHODS_BY_STRING_MATCH config: $customConfig")
                     }
                     HookMethodType.FIND_METHODS_WITH_STRING -> {
                         customConfig.searchStrings?.takeIf { it.isNotEmpty() }?.let { searchStrings ->
@@ -104,34 +108,27 @@ object CustomHookAds {
                                         HookUtil.hookMethod(method, customConfig.hookPoint) { param ->
                                             param.result = parsedReturnValue
                                         }
-                                        XposedBridge.log("Custom Hook: findMethodsWithString - ID=${customConfig.id}, String=${searchStrings[0]}, MethodName=${targetMethodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, FoundMethod=${methodData}")
-                                    } ?: XposedBridge.log("Custom Hook Error: Could not get method instance for FIND_METHODS_WITH_STRING config: $customConfig, MethodData: $methodData")
+                                        log("Custom Hook: findMethodsWithString - ID=${customConfig.id}, String=${searchStrings[0]}, MethodName=${targetMethodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, FoundMethod=${methodData}")
+                                    } ?: log("Custom Hook Error: Could not get method instance for FIND_METHODS_WITH_STRING config: $customConfig, MethodData: $methodData")
                                 }
-                            } ?: XposedBridge.log("Custom Hook Error: Method name is null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
-                        } ?: XposedBridge.log("Custom Hook Error: Search strings are null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
+                            } ?: log("Custom Hook Error: Method name is null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
+                        } ?: log("Custom Hook Error: Search strings are null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
                     }
                     HookMethodType.REPLACE_CONTEXT_WITH_FAKE -> {
                         customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
-                            val methodName = it[0]
-                            val paramTypes = resolveParameterTypes(customConfig.parameterTypes, classLoader)
-
-                            HookUtil.findAndHookMethod(
-                                customConfig.className,
-                                methodName,
-                                paramTypes,
-                                customConfig.hookPoint,
-                                { param ->
-                                    param.result = FakeContextWrapper(AndroidAppHelper.currentApplication())
-                                },
-                                classLoader
-                            )
-                            XposedBridge.log("Custom Hook: REPLACE_CONTEXT_WITH_FAKE - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}")
-                        } ?: XposedBridge.log("Custom Hook Error: Method names are null or empty for REPLACE_CONTEXT_WITH_FAKE config: $customConfig")
+                            // 不开放内容
+                        } ?: log("Custom Hook Error: Method names are null or empty for REPLACE_CONTEXT_WITH_FAKE config: $customConfig")
                     }
                 }
             } catch (e: Throwable) {
                 XposedBridge.log("Custom Hook Error for config ${customConfig.className} - ${customConfig.methodNames}: ${e.message}")
             }
+        }
+    }
+
+    private fun log(message: String) {
+        if (ENABLE_DEBUG_LOG) {
+            XposedBridge.log("$TAG: $message")
         }
     }
 

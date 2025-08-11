@@ -11,7 +11,6 @@ import com.close.hook.ads.hook.gc.network.RequestHook
 import com.close.hook.ads.hook.ha.AppAds
 import com.close.hook.ads.hook.ha.CustomHookAds
 import com.close.hook.ads.hook.ha.AutoHookAds
-import com.close.hook.ads.hook.ha.SDKAds
 import com.close.hook.ads.hook.ha.SDKAdsKit
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.hook.util.ContextUtil
@@ -120,8 +119,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
             HideEnvi.handle()
         }
         if (manager.isHandlePlatformAdEnabled) {
-            SDKAds.hookAds()
-            SDKAdsKit.blockAds()
+            SDKAdsKit.hookAds()
         }
         if (manager.isDisableShakeAdEnabled) {
             DisableShakeAd.handle()
