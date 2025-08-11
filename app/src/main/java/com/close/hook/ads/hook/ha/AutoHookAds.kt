@@ -8,6 +8,8 @@ import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.hook.util.DexKitUtil
 import de.robv.android.xposed.XposedBridge
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.base.StringMatcher
@@ -22,23 +24,24 @@ object AutoHookAds {
     private const val ACTION_AUTO_DETECT_ADS_RESULT = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS_RESULT"
     private const val RESULT_KEY = "detected_hooks_result"
 
+    private var cachedHooks: List<CustomHookInfo>? = null
+
     fun registerAutoDetectReceiver(context: Context) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 if (intent.action == ACTION_AUTO_DETECT_ADS) {
                     val targetPackage = intent.getStringExtra("target_package")
                     if (targetPackage != null && targetPackage == ctx.packageName) {
-                        XposedBridge.log("$TAG | Received auto-detect request for package: $targetPackage")
-
-                        val hooks = findSdkMethods(targetPackage)
+                        XposedBridge.log("$TAG | Received auto-detect request for package: $targetPackage. Sending cached results.")
+                        val hooksToSend = cachedHooks ?: emptyList()
 
                         val resultIntent = Intent(ACTION_AUTO_DETECT_ADS_RESULT).apply {
-                            putParcelableArrayListExtra(RESULT_KEY, ArrayList(hooks))
+                            putParcelableArrayListExtra(RESULT_KEY, ArrayList(hooksToSend))
                             setPackage("com.close.hook.ads")
                         }
                         ctx.sendBroadcast(resultIntent)
 
-                        XposedBridge.log("$TAG | Finished scanning and sending results to UI for: $targetPackage")
+                        XposedBridge.log("$TAG | Finished sending cached results to UI for: $targetPackage. Total found: ${hooksToSend.size}")
                     }
                 }
             }
@@ -95,8 +98,10 @@ object AutoHookAds {
         "com.appsflyer"
     )
 
-    fun findSdkMethods(packageName: String): List<CustomHookInfo> {
-        val foundMethods = DexKitUtil.withBridge { bridge ->
+    suspend fun findAndCacheSdkMethods(packageName: String) = withContext(Dispatchers.IO) {
+        XposedBridge.log("$TAG | Start finding SDK methods for package: $packageName")
+        val hooks = mutableListOf<CustomHookInfo>()
+        DexKitUtil.withBridge { bridge ->
             DexKitUtil.getCachedOrFindMethods("$packageName:findSdkMethods") {
                 val initMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
@@ -115,52 +120,51 @@ object AutoHookAds {
                 }
                 (initMethods + getContextMethods)
             }?.filter(::isValidSdkMethod)
-        } ?: emptyList()
+                ?.forEach { methodData ->
+                    val hookInfo = if (methodData.returnTypeName == "android.content.Context" || methodData.paramTypeNames?.contains("android.content.Context") == true) {
+                        CustomHookInfo(
+                            hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
+                            hookPoint = "after",
+                            className = methodData.className,
+                            methodNames = listOf(methodData.name),
+                            parameterTypes = methodData.paramTypeNames,
+                            isEnabled = true,
+                        )
+                    } else {
+                        val returnValue = when (methodData.returnTypeName) {
+                            "boolean" -> "false"
+                            "int" -> "0"
+                            "long" -> "0L"
+                            "float" -> "0.0f"
+                            "double" -> "0.0"
+                            else -> null
+                        }
 
-        val hooks = foundMethods.mapNotNull { methodData ->
-            if (methodData.returnTypeName == "android.content.Context" || methodData.paramTypeNames?.contains("android.content.Context") == true) {
-                CustomHookInfo(
-                    hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
-                    hookPoint = "after",
-                    className = methodData.className,
-                    methodNames = listOf(methodData.name),
-                    parameterTypes = methodData.paramTypeNames,
-                    isEnabled = true,
-                )
-            } else {
-                val returnValue = when (methodData.returnTypeName) {
-                    "boolean" -> "false"
-                    "int" -> "0"
-                    "long" -> "0L"
-                    "float" -> "0.0f"
-                    "double" -> "0.0"
-                    else -> null
+                        if (methodData.paramTypeNames?.isNotEmpty() == true) {
+                            CustomHookInfo(
+                                hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
+                                hookPoint = "before",
+                                className = methodData.className,
+                                methodNames = listOf(methodData.name),
+                                parameterTypes = methodData.paramTypeNames,
+                                returnValue = returnValue,
+                                isEnabled = true,
+                            )
+                        } else {
+                            CustomHookInfo(
+                                hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
+                                className = methodData.className,
+                                methodNames = listOf(methodData.name),
+                                returnValue = returnValue,
+                                isEnabled = true,
+                            )
+                        }
+                    }
+                    hooks.add(hookInfo)
                 }
-
-                if (methodData.paramTypeNames?.isNotEmpty() == true) {
-                    CustomHookInfo(
-                        hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
-                        hookPoint = "before",
-                        className = methodData.className,
-                        methodNames = listOf(methodData.name),
-                        parameterTypes = methodData.paramTypeNames,
-                        returnValue = returnValue,
-                        isEnabled = true,
-                    )
-                } else {
-                    CustomHookInfo(
-                        hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
-                        className = methodData.className,
-                        methodNames = listOf(methodData.name),
-                        returnValue = returnValue,
-                        isEnabled = true,
-                    )
-                }
-            }
         }
-
-        XposedBridge.log("$TAG | Finished finding methods. Total found: ${hooks.size}")
-        return hooks
+        cachedHooks = hooks
+        XposedBridge.log("$TAG | Finished finding and caching methods. Total found: ${hooks.size}")
     }
 
     private fun isValidSdkMethod(methodData: MethodData): Boolean {

@@ -103,6 +103,7 @@ object DexKitUtil {
 
     private fun createBridge(context: Context): DexKitBridge? {
         val loader = context.classLoader
+        log("Attempting to create bridge with ClassLoader: ${loader}")
         return try {
             if (loader::class.java.name.endsWith("PathClassLoader")) {
                 DexKitBridge.create(loader, true)

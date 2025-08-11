@@ -21,12 +21,16 @@ import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.callbacks.XC_LoadPackage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     companion object {
         private const val TAG = "com.close.hook.ads"
         private const val ENABLE_DEX_DUMP = false
+        private val hookScope = CoroutineScope(Dispatchers.Default)
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
@@ -99,6 +103,10 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         
         if (isOverallHookEnabledForPackage) {
             AutoHookAds.registerAutoDetectReceiver(context)
+
+            hookScope.launch {
+                AutoHookAds.findAndCacheSdkMethods(packageName)
+            }
         }
     }
 
