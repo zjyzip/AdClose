@@ -63,7 +63,7 @@ object AutoHookAds {
 
         val hooks = foundMethods.mapNotNull { methodData ->
             if (isValidAdSdkInitMethod(methodData)) {
-                if (methodData.returnTypeName == "android.content.Context" || methodData.paramTypeNames?.contains("android.content.Context") == true) {
+                if (methodData.returnTypeName == "android.content.Context") {
                     CustomHookInfo(
                         hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
                         hookPoint = "after",
