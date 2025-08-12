@@ -21,12 +21,16 @@ import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.callbacks.XC_LoadPackage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     companion object {
         private const val TAG = "com.close.hook.ads"
         private const val ENABLE_DEX_DUMP = false
+        private val hookScope = CoroutineScope(Dispatchers.Default)
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
@@ -65,29 +69,30 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     private fun setupAppHooks(context: Context, manager: SettingsManager) {
-        try {
-            val classLoader = context.classLoader
-            val packageName = context.packageName
-            val appName = AppUtils.getAppName(context, packageName)
+        with(context) {
+            val classLoader = classLoader
+            val packageName = packageName
+            val appName = AppUtils.getAppName(this, packageName)
             val hookPrefs = manager.prefsHelper
 
-            if (ENABLE_DEX_DUMP) {
-                DexDumpUtil.dumpDexFilesByPackageName(packageName)
-            }
-
-            if (AppUtils.isMainProcess(context)) {
-                if (manager.isHookTipEnabled) {
-                    AppUtils.showHookTip(context, packageName)
+            try {
+                if (ENABLE_DEX_DUMP) {
+                    DexDumpUtil.dumpDexFilesByPackageName(packageName)
                 }
-                XposedBridge.log("$TAG | App: $appName Package: $packageName")
+
+                if (AppUtils.isMainProcess(this)) {
+                    if (manager.isHookTipEnabled) {
+                        AppUtils.showHookTip(this, packageName)
+                    }
+                    XposedBridge.log("$TAG | App: $appName Package: $packageName")
+                }
+
+                applyCustomHooks(this, classLoader, hookPrefs, packageName)
+                AppAds.progress(classLoader, packageName)
+
+            } catch (e: Throwable) {
+                XposedBridge.log("$TAG | setupAppHooks error: ${Log.getStackTraceString(e)}")
             }
-
-            applyCustomHooks(context, classLoader, hookPrefs, packageName)
-
-            AppAds.progress(classLoader, packageName)
-
-        } catch (e: Throwable) {
-            XposedBridge.log("$TAG | setupAppHooks error: ${Log.getStackTraceString(e)}")
         }
     }
 
@@ -99,31 +104,21 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         
         if (isOverallHookEnabledForPackage) {
             AutoHookAds.registerAutoDetectReceiver(context)
-            AutoHookAds.findAndCacheSdkMethods(packageName)
+            hookScope.launch {
+                AutoHookAds.findAndCacheSdkMethods(packageName)
+            }
         }
     }
 
     private fun applySettings(manager: SettingsManager) {
-        if (manager.isHideVPNStatusEnabled) {
-            HideVPNStatus.proxy()
-        }
-        if (manager.isRequestHookEnabled) {
-            RequestHook.init()
-        }
-        if (manager.isDisableClipboard) {
-            DisableClipboard.handle()
-        }
-        if (manager.isDisableFlagSecureEnabled) {
-            DisableFlagSecure.process()
-        }
-        if (manager.isHideEnivEnabled) {
-            HideEnvi.handle()
-        }
-        if (manager.isHandlePlatformAdEnabled) {
-            SDKAdsKit.hookAds()
-        }
-        if (manager.isDisableShakeAdEnabled) {
-            DisableShakeAd.handle()
+        manager.run {
+            if (isHideVPNStatusEnabled) HideVPNStatus.proxy()
+            if (isRequestHookEnabled) RequestHook.init()
+            if (isDisableClipboard) DisableClipboard.handle()
+            if (isDisableFlagSecureEnabled) DisableFlagSecure.process()
+            if (isHideEnivEnabled) HideEnvi.handle()
+            if (isHandlePlatformAdEnabled) SDKAdsKit.hookAds()
+            if (isDisableShakeAdEnabled) DisableShakeAd.handle()
         }
     }
 }

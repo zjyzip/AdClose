@@ -8,6 +8,8 @@ import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.hook.util.DexKitUtil
 import de.robv.android.xposed.XposedBridge
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.base.StringMatcher
@@ -17,37 +19,11 @@ import java.lang.reflect.Modifier
 object AutoHookAds {
 
     private const val TAG = "AutoHookAds"
-
     private const val ACTION_AUTO_DETECT_ADS = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS"
     private const val ACTION_AUTO_DETECT_ADS_RESULT = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS_RESULT"
     private const val RESULT_KEY = "detected_hooks_result"
 
     private var cachedHooks: List<CustomHookInfo>? = null
-
-    fun registerAutoDetectReceiver(context: Context) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                if (intent.action == ACTION_AUTO_DETECT_ADS) {
-                    intent.getStringExtra("target_package")?.let { targetPackage ->
-                        if (targetPackage == ctx.packageName) {
-                            XposedBridge.log("$TAG | Received auto-detect request for package: $targetPackage. Sending cached results.")
-                            val hooksToSend = cachedHooks ?: emptyList()
-
-                            val resultIntent = Intent(ACTION_AUTO_DETECT_ADS_RESULT).apply {
-                                putParcelableArrayListExtra(RESULT_KEY, ArrayList(hooksToSend))
-                                setPackage("com.close.hook.ads")
-                            }
-                            ctx.sendBroadcast(resultIntent)
-
-                            XposedBridge.log("$TAG | Finished sending cached results to UI for: $targetPackage. Total found: ${hooksToSend.size}")
-                        }
-                    }
-                }
-            }
-        }
-        val filter = IntentFilter(ACTION_AUTO_DETECT_ADS)
-        context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-    }
 
     val adSdkPackages = listOf(
         "com.sjm.sjmsdk",
@@ -97,88 +73,117 @@ object AutoHookAds {
         "com.appsflyer"
     )
 
-    fun findAndCacheSdkMethods(packageName: String) {
+    fun registerAutoDetectReceiver(context: Context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                if (intent.action == ACTION_AUTO_DETECT_ADS) {
+                    intent.getStringExtra("target_package")?.let { targetPackage ->
+                        if (targetPackage == ctx.packageName) {
+                            XposedBridge.log("$TAG | Received auto-detect request for package: $targetPackage. Sending cached results.")
+                            
+                            val hooksToSend = cachedHooks ?: emptyList()
+                            val resultIntent = Intent(ACTION_AUTO_DETECT_ADS_RESULT).apply {
+                                putParcelableArrayListExtra(RESULT_KEY, ArrayList(hooksToSend))
+                                setPackage("com.close.hook.ads")
+                            }
+                            ctx.sendBroadcast(resultIntent)
+
+                            XposedBridge.log("$TAG | Finished sending cached results to UI for: $targetPackage. Total found: ${hooksToSend.size}")
+                        }
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter(ACTION_AUTO_DETECT_ADS)
+        context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+    }
+
+    suspend fun findAndCacheSdkMethods(packageName: String) = withContext(Dispatchers.IO) {
         XposedBridge.log("$TAG | Start finding SDK methods for package: $packageName")
         
         val hooks = DexKitUtil.withBridge { bridge ->
             DexKitUtil.getCachedOrFindMethods("$packageName:findSdkMethods") {
                 val initMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
-                    matcher {
-                        name(StringMatcher("init", StringMatchType.Contains, ignoreCase = true))
-                    }
+                    matcher { name(StringMatcher("init", StringMatchType.Contains, true)) }
+                }
+                val startMethods = bridge.findMethod {
+                    searchPackages(adSdkPackages)
+                    matcher { name(StringMatcher("start", StringMatchType.Equals, true)) }
                 }
                 val getContextMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
                     matcher {
                         declaredClass(ClassMatcher().apply {
-                            className(StringMatcher("Sdk", StringMatchType.Contains, ignoreCase = true))
+                            className(StringMatcher("Sdk", StringMatchType.Contains, true))
                         })
-                        name(StringMatcher("getContext", StringMatchType.Equals))
+                        name(StringMatcher("getContext", StringMatchType.Equals, false))
                     }
                 }
-                (initMethods + getContextMethods)
-            }?.filter { methodData ->
-                isValidSdkMethod(methodData)
-            }?.mapNotNull { methodData ->
-                val className = methodData.className
-                val methodName = methodData.name
-                val paramTypeNames = methodData.paramTypeNames
-                val returnTypeName = methodData.returnTypeName
-
-                val isContextMethod = returnTypeName == "android.content.Context" ||
-                                        (paramTypeNames?.contains("android.content.Context") == true)
-                
-                if (isContextMethod) {
-                    CustomHookInfo(
-                        hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
-                        hookPoint = "after",
-                        className = className,
-                        methodNames = listOf(methodName),
-                        parameterTypes = paramTypeNames,
-                        isEnabled = true,
-                    )
-                } else {
-                    val returnValue = when (returnTypeName) {
-                        "boolean" -> "false"
-                        "int" -> "0"
-                        "long" -> "0L"
-                        "float" -> "0.0f"
-                        "double" -> "0.0"
-                        "void" -> "null"
-                        else -> null
-                    }
-
-                    if (paramTypeNames?.isNotEmpty() == true) {
-                        CustomHookInfo(
-                            hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
-                            hookPoint = "before",
-                            className = className,
-                            methodNames = listOf(methodName),
-                            parameterTypes = paramTypeNames,
-                            returnValue = returnValue,
-                            isEnabled = true,
-                        )
-                    } else {
-                        CustomHookInfo(
-                            hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
-                            className = className,
-                            methodNames = listOf(methodName),
-                            returnValue = returnValue,
-                            isEnabled = true,
-                        )
-                    }
-                }
-            }
+                (initMethods + startMethods + getContextMethods)
+            }?.asSequence()
+                ?.filter { isValidSdkMethod(it) }
+                ?.mapNotNull { methodData ->
+                    createCustomHookInfo(methodData)
+                }?.toList()
         } ?: emptyList()
 
         cachedHooks = hooks
         XposedBridge.log("$TAG | Finished finding and caching methods. Total found: ${hooks.size}")
     }
 
+    private fun createCustomHookInfo(methodData: MethodData): CustomHookInfo? {
+        val className = methodData.className
+        val methodName = methodData.name
+        val paramTypeNames = methodData.paramTypeNames
+        val returnTypeName = methodData.returnTypeName
+
+        val isContextMethod = returnTypeName == "android.content.Context" ||
+                (paramTypeNames?.contains("android.content.Context") == true)
+
+        return when {
+            isContextMethod -> CustomHookInfo(
+                hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
+                hookPoint = "after",
+                className = className,
+                methodNames = listOf(methodName),
+                parameterTypes = paramTypeNames,
+                isEnabled = true,
+            )
+            else -> {
+                val returnValue = when (returnTypeName) {
+                    "boolean" -> "false"
+                    "int" -> "0"
+                    "long" -> "0L"
+                    "float" -> "0.0f"
+                    "double" -> "0.0"
+                    "void" -> "null"
+                    else -> null
+                }
+                
+                when {
+                    paramTypeNames.isNullOrEmpty() -> CustomHookInfo(
+                        hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
+                        className = className,
+                        methodNames = listOf(methodName),
+                        returnValue = returnValue,
+                        isEnabled = true,
+                    )
+                    else -> CustomHookInfo(
+                        hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
+                        hookPoint = "before",
+                        className = className,
+                        methodNames = listOf(methodName),
+                        parameterTypes = paramTypeNames,
+                        returnValue = returnValue,
+                        isEnabled = true,
+                    )
+                }
+            }
+        }
+    }
+
     private fun isValidSdkMethod(methodData: MethodData): Boolean {
-        val isNotConstructor = methodData.name != "<init>" && methodData.name != "<clinit>"
-        val isNotAbstract = !Modifier.isAbstract(methodData.modifiers)
-        return isNotConstructor && isNotAbstract
+        return methodData.name !in setOf("<init>", "<clinit>") && !Modifier.isAbstract(methodData.modifiers)
     }
 }

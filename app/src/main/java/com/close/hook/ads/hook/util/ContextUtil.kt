@@ -10,21 +10,23 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object ContextUtil {
 
+    private const val TAG = "ContextUtil"
+
     private class ContextState {
         val isInitialized = AtomicBoolean(false)
-        val callbacks = ConcurrentLinkedQueue<Runnable>()
+        val callbacks = ConcurrentLinkedQueue<() -> Unit>()
 
         fun triggerCallbacks(context: Context, contextType: String) {
             if (isInitialized.compareAndSet(false, true)) {
                 XposedBridge.log("$TAG | Context Initialized ($contextType): $context")
-                callbacks.forEach { it.run() }
+                callbacks.forEach { it() }
                 callbacks.clear()
             }
         }
 
-        fun addCallback(callback: Runnable, currentContext: Context?) {
+        fun addCallback(callback: () -> Unit, currentContext: Context?) {
             if (isInitialized.get() && currentContext != null) {
-                callback.run()
+                callback()
             } else {
                 callbacks.offer(callback)
             }
@@ -51,8 +53,6 @@ object ContextUtil {
     @JvmField
     @Volatile
     var instrumentationContext: Context? = null
-
-    private const val TAG = "ContextUtil"
 
     fun setupContextHooks() {
         HookUtil.hookAllMethods(
@@ -103,19 +103,19 @@ object ContextUtil {
         }
     }
 
-    fun addOnActivityThreadContextInitializedCallback(callback: Runnable) {
+    fun addOnActivityThreadContextInitializedCallback(callback: () -> Unit) {
         activityThreadState.addCallback(callback, activityThreadContext)
     }
 
-    fun addOnApplicationContextInitializedCallback(callback: Runnable) {
+    fun addOnApplicationContextInitializedCallback(callback: () -> Unit) {
         applicationState.addCallback(callback, applicationContext)
     }
 
-    fun addOnContextWrapperContextInitializedCallback(callback: Runnable) {
+    fun addOnContextWrapperContextInitializedCallback(callback: () -> Unit) {
         contextWrapperState.addCallback(callback, contextWrapperContext)
     }
 
-    fun addOnInstrumentationContextInitializedCallback(callback: Runnable) {
+    fun addOnInstrumentationContextInitializedCallback(callback: () -> Unit) {
         instrumentationState.addCallback(callback, instrumentationContext)
     }
 }
