@@ -24,7 +24,7 @@ object ClipboardHookParser {
                 hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
                 className = className,
                 methodNames = listOf(methodName),
-                returnValue = null,
+                returnValue = "null",
                 packageName = targetPackageName
             )
         }
@@ -42,7 +42,7 @@ object ClipboardHookParser {
                 hookPoint = "before",
                 className = className,
                 methodNames = listOf(methodName),
-                returnValue = null,
+                returnValue = "null",
                 parameterTypes = parameterTypes,
                 packageName = targetPackageName
             )
@@ -58,7 +58,7 @@ object ClipboardHookParser {
             return CustomHookInfo(
                 className = className,
                 fieldName = fieldName,
-                fieldValue = null,
+                fieldValue = "null",
                 hookMethodType = HookMethodType.SET_STATIC_OBJECT_FIELD,
                 packageName = targetPackageName
             )
