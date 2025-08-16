@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.LogEntry
 import com.close.hook.ads.databinding.FragmentCustomHookLogBinding
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.ui.adapter.LogAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
@@ -28,6 +29,7 @@ import com.close.hook.ads.ui.viewmodel.LogViewModel
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.dp
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 import kotlinx.coroutines.launch
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.text.SimpleDateFormat
@@ -37,14 +39,19 @@ import java.util.Locale
 class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>() {
 
     private val viewModel by viewModels<LogViewModel> {
-        LogViewModel.Factory(arguments?.getString(ARG_PACKAGE_NAME))
+        LogViewModel.Factory(packageName)
     }
     private lateinit var logAdapter: LogAdapter
+    private val packageName by lazy { arguments?.getString(ARG_PACKAGE_NAME) }
+    private lateinit var hookPrefs: HookPrefs
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
+        hookPrefs = HookPrefs.getInstance(requireContext())
+
         setupToolbar()
+        setupSwitch()
         setupRecyclerView()
         observeLogs()
     }
@@ -66,6 +73,10 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>() {
                 menuInflater.inflate(R.menu.menu_log, menu)
             }
 
+            override fun onPrepareMenu(menu: Menu) {
+                menu.findItem(R.id.action_clear_logs).isVisible = hookPrefs.getEnableLogging(packageName)
+            }
+
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
                 return if (menuItem.itemId == R.id.action_clear_logs) {
                     viewModel.clearLogs()
@@ -73,6 +84,33 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>() {
                 } else false
             }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    private fun setupSwitch() {
+        val logSwitch = binding.toolbar.findViewById<MaterialSwitch>(R.id.log_switch)
+        logSwitch.isChecked = hookPrefs.getEnableLogging(packageName)
+
+        binding.recyclerViewLogs.isVisible = logSwitch.isChecked
+        binding.emptyView.isVisible = !logSwitch.isChecked
+        if (!logSwitch.isChecked) {
+            binding.emptyView.text = "Logging is disabled"
+        } else {
+            binding.emptyView.text = "No Log Record"
+        }
+
+        logSwitch.setOnCheckedChangeListener { _, isChecked ->
+            hookPrefs.setEnableLogging(packageName, isChecked)
+            binding.recyclerViewLogs.isVisible = isChecked
+            binding.emptyView.isVisible = !isChecked
+            if (isChecked) {
+                binding.emptyView.text = "No Log Record"
+                viewModel.loadLogs()
+            } else {
+                binding.emptyView.text = "Logging is disabled"
+                logAdapter.submitList(emptyList())
+            }
+            requireActivity().invalidateOptionsMenu()
+        }
     }
 
     private fun setupRecyclerView() {
@@ -86,7 +124,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>() {
             FastScrollerBuilder(this).useMd2Style().build()
 
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                val bottomNavHeight = (activity as? CustomHookActivity)?.getBottomNavigationView()?.height ?: 0
+                val bottomNavHeight = (activity as? CustomHookActivity)?.bottomNavigationView?.height ?: 0
                 setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
                 clipToPadding = false
             }
@@ -121,14 +159,16 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.logs.collect { logs ->
-                    binding.emptyView.isVisible = logs.isEmpty()
-                    
-                    val isAtTop = (binding.recyclerViewLogs.layoutManager as LinearLayoutManager)
-                        .findFirstCompletelyVisibleItemPosition() <= 0
+                    if (hookPrefs.getEnableLogging(packageName)) {
+                        binding.emptyView.isVisible = logs.isEmpty()
 
-                    logAdapter.submitList(logs) {
-                        if (isAtTop && logs.isNotEmpty()) {
-                            binding.recyclerViewLogs.scrollToPosition(0)
+                        val isAtTop = (binding.recyclerViewLogs.layoutManager as LinearLayoutManager)
+                            .findFirstCompletelyVisibleItemPosition() <= 0
+
+                        logAdapter.submitList(logs) {
+                            if (isAtTop && logs.isNotEmpty()) {
+                                binding.recyclerViewLogs.scrollToPosition(0)
+                            }
                         }
                     }
                 }

@@ -9,14 +9,14 @@ import com.close.hook.ads.hook.gc.HideEnvi
 import com.close.hook.ads.hook.gc.network.HideVPNStatus
 import com.close.hook.ads.hook.gc.network.RequestHook
 import com.close.hook.ads.hook.ha.AppAds
-import com.close.hook.ads.hook.ha.CustomHookAds
 import com.close.hook.ads.hook.ha.AutoHookAds
+import com.close.hook.ads.hook.ha.CustomHookAds
 import com.close.hook.ads.hook.ha.SDKAdsKit
-import com.close.hook.ads.preference.HookPrefs
-import com.close.hook.ads.hook.util.LogProxy
 import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexDumpUtil
 import com.close.hook.ads.hook.util.HookUtil
+import com.close.hook.ads.hook.util.LogProxy
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.util.AppUtils
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
@@ -102,12 +102,14 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         val isOverallHookEnabledForPackage = hookPrefs.getOverallHookEnabled(packageName)
         CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(packageName), isOverallHookEnabledForPackage)
-        
+
         if (isOverallHookEnabledForPackage) {
-            LogProxy.init(context)
             AutoHookAds.registerAutoDetectReceiver(context)
             hookScope.launch {
                 AutoHookAds.findAndCacheSdkMethods(packageName)
+            }
+            if (hookPrefs.getEnableLogging(packageName)) {
+                LogProxy.init(context)
             }
         }
     }

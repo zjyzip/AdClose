@@ -36,7 +36,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
     private HideBottomViewOnScrollBehavior<BottomNavigationView> hideBottomViewOnScrollBehavior;
 
     private final List<Supplier<Fragment>> fragmentSuppliers = Arrays.asList(
-            AppsPagerFragment::newInstance,
+            AppsPagerFragment::new,
             RequestFragment::new,
             HomeFragment::new,
             BlockListFragment::new,

@@ -25,8 +25,9 @@ object ClipboardHookParser {
                 hookPoint = "before",
                 className = className,
                 methodNames = listOf(methodName),
-                returnValue = "null",
-                packageName = targetPackageName
+                returnValue = null,
+                packageName = targetPackageName,
+                isEnabled = true
             )
         }
 
@@ -43,9 +44,10 @@ object ClipboardHookParser {
                 hookPoint = "before",
                 className = className,
                 methodNames = listOf(methodName),
-                returnValue = "null",
+                returnValue = null,
                 parameterTypes = parameterTypes,
-                packageName = targetPackageName
+                packageName = targetPackageName,
+                isEnabled = true
             )
         }
 
@@ -59,9 +61,10 @@ object ClipboardHookParser {
             return CustomHookInfo(
                 className = className,
                 fieldName = fieldName,
-                fieldValue = "null",
+                fieldValue = null,
                 hookMethodType = HookMethodType.SET_STATIC_OBJECT_FIELD,
-                packageName = targetPackageName
+                packageName = targetPackageName,
+                isEnabled = true
             )
         }
 

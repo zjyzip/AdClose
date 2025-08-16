@@ -17,7 +17,7 @@ class LogViewModel(private val packageName: String?) : ViewModel() {
     val logs = _logs.asStateFlow()
 
     init {
-        _logs.value = LogRepository.getLogsForPackage(packageName)
+        loadLogs()
 
         LogRepository.logFlow
             .onEach { newLog ->
@@ -26,6 +26,10 @@ class LogViewModel(private val packageName: String?) : ViewModel() {
                 }
             }
             .launchIn(viewModelScope)
+    }
+
+    fun loadLogs() {
+        _logs.value = LogRepository.getLogsForPackage(packageName)
     }
 
     fun clearLogs() {

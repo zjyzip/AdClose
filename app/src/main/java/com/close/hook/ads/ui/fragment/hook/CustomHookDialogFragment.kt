@@ -111,7 +111,7 @@ class CustomHookDialogFragment : DialogFragment() {
             }
             binding.toggleGroupHookPoint.check(hookPointButtonId)
         } else {
-            binding.toggleGroupHookPoint.check(R.id.btn_hook_after)
+            binding.toggleGroupHookPoint.check(R.id.btn_hook_before)
         }
     }
 

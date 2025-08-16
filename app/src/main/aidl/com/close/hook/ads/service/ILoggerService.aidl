@@ -6,5 +6,5 @@ interface ILoggerService {
     /**
      * Called by the client to send a log message to the service.
      */
-    void log(in LogEntry entry);
+    oneway void log(in LogEntry entry);
 }

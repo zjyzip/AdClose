@@ -1,11 +1,10 @@
 package com.close.hook.ads.ui.activity
 
 import android.os.Bundle
-import androidx.annotation.NonNull
+import androidx.activity.addCallback
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentManager
-import androidx.lifecycle.Lifecycle
+import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
@@ -20,70 +19,68 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class CustomHookActivity : BaseActivity(), OnBackPressContainer, INavContainer {
 
-    private lateinit var binding: ActivityCustomHookBinding
-    private lateinit var bottomNavigationView: BottomNavigationView
-    private lateinit var hideBottomViewOnScrollBehavior: HideBottomViewOnScrollBehavior<BottomNavigationView>
-    private lateinit var viewPager: ViewPager2
+    companion object {
+        private const val MANAGER_FRAGMENT_INDEX = 0
+        private const val LOG_FRAGMENT_INDEX = 1
+    }
+
+    private val binding by lazy { ActivityCustomHookBinding.inflate(layoutInflater) }
+    
+    private val targetPackageName by lazy { intent.getStringExtra("packageName") }
+
+    private val viewPager by lazy { binding.viewPager }
+    val bottomNavigationView by lazy { binding.bottomNavigationHook }
+    private val hideBottomViewOnScrollBehavior by lazy { HideBottomViewOnScrollBehavior<BottomNavigationView>() }
 
     override var backController: OnBackPressListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityCustomHookBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupViewPagerAndBottomNavigation()
+        setupViewPager()
+        setupBottomNavigation()
+        setupBackButton()
     }
 
-    private fun setupViewPagerAndBottomNavigation() {
-        val packageName = intent.getStringExtra("packageName")
-
-        viewPager = binding.viewPager
-        bottomNavigationView = binding.bottomNavigationHook
-
-        viewPager.adapter = object : FragmentStateAdapter(this) {
-            override fun getItemCount(): Int = 2
-
-            override fun createFragment(position: Int): Fragment {
-                return when (position) {
-                    0 -> CustomHookManagerFragment.newInstance(packageName)
-                    1 -> CustomHookLogFragment.newInstance(packageName)
-                    else -> throw IllegalArgumentException("Invalid position: $position")
+    private fun setupViewPager() {
+        viewPager.apply {
+            adapter = ViewPagerAdapter(this@CustomHookActivity, targetPackageName)
+            isUserInputEnabled = false
+            offscreenPageLimit = 2
+            
+            registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                override fun onPageSelected(position: Int) {
+                    bottomNavigationView.menu.getItem(position).isChecked = true
                 }
-            }
+            })
         }
-        viewPager.isUserInputEnabled = false
-        viewPager.offscreenPageLimit = 2
+    }
 
+    private fun setupBottomNavigation() {
+        (bottomNavigationView.layoutParams as? CoordinatorLayout.LayoutParams)?.behavior = hideBottomViewOnScrollBehavior
         bottomNavigationView.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_hook_manager -> viewPager.currentItem = 0
-                R.id.nav_hook_log -> viewPager.currentItem = 1
+                R.id.nav_hook_manager -> viewPager.currentItem = MANAGER_FRAGMENT_INDEX
+                R.id.nav_hook_log -> viewPager.currentItem = LOG_FRAGMENT_INDEX
             }
             true
         }
+    }
 
-        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-            override fun onPageSelected(position: Int) {
-                super.onPageSelected(position)
-                bottomNavigationView.selectedItemId = bottomNavigationView.menu.getItem(position).itemId
+    private fun setupBackButton() {
+        onBackPressedDispatcher.addCallback(this) {
+            if (backController?.onBackPressed() == true) {
+                return@addCallback
             }
-        })
 
-        hideBottomViewOnScrollBehavior = HideBottomViewOnScrollBehavior()
-        (bottomNavigationView.layoutParams as? CoordinatorLayout.LayoutParams)?.apply {
-            behavior = hideBottomViewOnScrollBehavior
+            if (viewPager.currentItem == LOG_FRAGMENT_INDEX) {
+                viewPager.currentItem = MANAGER_FRAGMENT_INDEX
+            } else {
+                finish()
+            }
         }
     }
-
-    override fun onBackPressed() {
-        if (backController?.onBackPressed() == true) {
-            return
-        }
-        super.onBackPressed()
-    }
-
-    fun getBottomNavigationView(): BottomNavigationView = bottomNavigationView
 
     override fun showNavigation() {
         if (hideBottomViewOnScrollBehavior.isScrolledDown) {
@@ -94,6 +91,20 @@ class CustomHookActivity : BaseActivity(), OnBackPressContainer, INavContainer {
     override fun hideNavigation() {
         if (hideBottomViewOnScrollBehavior.isScrolledUp) {
             hideBottomViewOnScrollBehavior.slideDown(bottomNavigationView)
+        }
+    }
+
+    private class ViewPagerAdapter(
+        activity: FragmentActivity,
+        private val packageName: String?
+    ) : FragmentStateAdapter(activity) {
+
+        override fun getItemCount(): Int = 2
+
+        override fun createFragment(position: Int): Fragment = when (position) {
+            MANAGER_FRAGMENT_INDEX -> CustomHookManagerFragment.newInstance(packageName)
+            LOG_FRAGMENT_INDEX -> CustomHookLogFragment.newInstance(packageName)
+            else -> throw IllegalStateException("Invalid position $position")
         }
     }
 }

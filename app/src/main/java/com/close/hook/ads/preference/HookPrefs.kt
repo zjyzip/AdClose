@@ -19,6 +19,7 @@ class HookPrefs private constructor(
         private const val KEY_PREFIX_CUSTOM_HOOK = "custom_hook_configs_"
         private const val KEY_PREFIX_OVERALL_HOOK = "overall_hook_enabled_"
         private const val KEY_PREFIX_DETECTED_HOOK = "detected_hook_configs_"
+        private const val KEY_PREFIX_ENABLE_LOGGING = "enable_logging_"
 
         const val KEY_COLLECT_RESPONSE_BODY = "collect_response_body_enabled"
 
@@ -150,6 +151,16 @@ class HookPrefs private constructor(
 
     fun setOverallHookEnabled(packageName: String?, isEnabled: Boolean) {
         val key = buildKey(KEY_PREFIX_OVERALL_HOOK, packageName)
+        setBoolean(key, isEnabled)
+    }
+    
+    fun getEnableLogging(packageName: String?): Boolean {
+        val key = buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName)
+        return getBoolean(key, false)
+    }
+
+    fun setEnableLogging(packageName: String?, isEnabled: Boolean) {
+        val key = buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName)
         setBoolean(key, isEnabled)
     }
 

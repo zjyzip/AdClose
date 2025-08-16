@@ -43,9 +43,6 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     override var fabController: IOnFabClickListener? = null
 
     companion object {
-        @JvmStatic
-        fun newInstance() = AppsPagerFragment()
-
         private val SORT_OPTION_RES_IDS = listOf(
             R.string.sort_by_app_name,
             R.string.sort_by_app_size,

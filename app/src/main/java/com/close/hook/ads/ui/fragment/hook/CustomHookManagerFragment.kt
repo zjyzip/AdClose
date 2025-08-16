@@ -285,7 +285,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             FastScrollerBuilder(this).useMd2Style().build()
 
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                val bottomNavHeight = (activity as? CustomHookActivity)?.getBottomNavigationView()?.height ?: 0
+                val bottomNavHeight = (activity as? CustomHookActivity)?.bottomNavigationView?.height ?: 0
                 setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
                 clipToPadding = false
             }

@@ -80,7 +80,7 @@ object AutoHookAds {
                     intent.getStringExtra("target_package")?.let { targetPackage ->
                         if (targetPackage == ctx.packageName) {
                             XposedBridge.log("$TAG | Received auto-detect request for package: $targetPackage. Sending cached results.")
-                            
+
                             val hooksToSend = cachedHooks ?: emptyList()
                             val resultIntent = Intent(ACTION_AUTO_DETECT_ADS_RESULT).apply {
                                 putParcelableArrayListExtra(RESULT_KEY, ArrayList(hooksToSend))
@@ -100,9 +100,9 @@ object AutoHookAds {
 
     suspend fun findAndCacheSdkMethods(packageName: String) = withContext(Dispatchers.IO) {
         XposedBridge.log("$TAG | Start finding SDK methods for package: $packageName")
-        
+
         val hooks = DexKitUtil.withBridge { bridge ->
-            DexKitUtil.getCachedOrFindMethods("$packageName:findSdkMethods") {
+            DexKitUtil.getCachedOrFindMethods("${packageName}:findSdkMethods") {
                 val initMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
                     matcher { name(StringMatcher("init", StringMatchType.Contains, true)) }
@@ -110,6 +110,20 @@ object AutoHookAds {
                 val startMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
                     matcher { name(StringMatcher("start", StringMatchType.Equals, true)) }
+                }
+                val buildMethods = bridge.findClass {
+                    matcher { className("com.bytedance.sdk.openadsdk.AdSlot\$Builder") }
+                }.findMethod {
+                    matcher { name(StringMatcher("build", StringMatchType.Equals, true)) }
+                }
+                val appIdMethods = bridge.findMethod {
+                    searchPackages(adSdkPackages)
+                    matcher {
+                        name(StringMatcher("getAppId", StringMatchType.Equals, false))
+                        declaredClass(ClassMatcher().apply {
+                            className(StringMatcher("Sdk", StringMatchType.Contains, true))
+                        })
+                    }
                 }
                 val getContextMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
@@ -120,7 +134,7 @@ object AutoHookAds {
                         })
                     }
                 }
-                (initMethods + startMethods + getContextMethods)
+                (initMethods + startMethods + buildMethods + appIdMethods + getContextMethods)
             }?.asSequence()
                 ?.filter { isValidSdkMethod(it) }
                 ?.mapNotNull { methodData ->
@@ -144,7 +158,7 @@ object AutoHookAds {
         return when {
             isContextMethod -> CustomHookInfo(
                 hookMethodType = HookMethodType.REPLACE_CONTEXT_WITH_FAKE,
-                hookPoint = "after",
+                hookPoint = "before",
                 className = className,
                 methodNames = listOf(methodName),
                 parameterTypes = paramTypeNames,
@@ -160,7 +174,7 @@ object AutoHookAds {
                     "void" -> "null"
                     else -> null
                 }
-                
+
                 when {
                     paramTypeNames.isNullOrEmpty() -> CustomHookInfo(
                         hookMethodType = HookMethodType.HOOK_ALL_METHODS,
