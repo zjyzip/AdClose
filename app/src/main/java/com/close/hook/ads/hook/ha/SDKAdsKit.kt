@@ -1,14 +1,14 @@
 package com.close.hook.ads.hook.ha
 
+import android.os.BaseBundle
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
-import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
 import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
-import com.close.hook.ads.hook.util.HookUtil.hookAllMethods
 import com.close.hook.ads.hook.util.HookUtil.hookMethod
+import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.result.MethodData
 
 object SDKAdsKit {
@@ -19,12 +19,11 @@ object SDKAdsKit {
 
     fun hookAds() {
         ContextUtil.addOnApplicationContextInitializedCallback {
-            handlePangolinInit()
-            handleGdtInit()
-            handleAnyThinkSDK()
             handleIQIYI()
             blockFirebaseWithString()
-            blockAdsWithString()
+            blockAdIdWithString()
+            blockAdIdWithBaseBundle()
+            blockGoolgeAdsInitialize()
             blockAdsWithPackageName()
         }
     }
@@ -41,53 +40,6 @@ object SDKAdsKit {
                     action(method)
                     XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
                 }
-            }
-        }
-    }
-
-    private fun isValidMethodData(methodData: MethodData): Boolean {
-        return methodData.methodName != "<init>"
-    }
-
-    fun handlePangolinInit() {
-        hookAllMethods(
-            "com.bytedance.sdk.openadsdk.TTAdSdk",
-            "init",
-            "before",
-            { param ->
-                param.result = when ((param.method as Method).returnType) {
-                    Void.TYPE -> null
-                    java.lang.Boolean.TYPE -> false
-                    else -> null
-                }
-            },
-            DexKitUtil.context.classLoader
-        )
-    }
-
-    fun handleGdtInit() {
-        hookMethodsByStringMatch(
-            "$packageName:handleGdtInit",
-            listOf("SDK 尚未初始化，请在 Application 中调用 GDTAdSdk.initWithoutStart() 初始化")
-        ) { method ->
-            hookMethod(method, "before") { param ->
-                param.result = false
-            }
-        }
-    }
-
-    fun handleAnyThinkSDK() {
-        hookMethodsByStringMatch(
-            "$packageName:handleAnyThinkSDK",
-            listOf("anythink_sdk")
-        ) { method ->
-            val result = when (method.returnType) {
-                Void.TYPE -> null
-                java.lang.Boolean.TYPE -> false
-                else -> null
-            }
-            hookMethod(method, "before") { param ->
-                param.result = result
             }
         }
     }
@@ -114,13 +66,67 @@ object SDKAdsKit {
         }
     }
 
-    fun blockAdsWithString() {
-        hookMethodsByStringMatch(
-            "$packageName:blockAdsWithString",
-            listOf("Flags.initialize() was not called!")
-        ) { method ->
-            hookMethod(method, "before") { param ->
-                param.result = true
+    fun blockAdIdWithBaseBundle() {
+        findAndHookMethod(
+            BaseBundle::class.java,
+            "get",
+            arrayOf(String::class.java),
+            "after",
+            { param ->
+                val key = param.args[0] as String
+                if ("com.google.android.gms.ads.APPLICATION_ID" == key) {
+                    param.result = "ca-app-pub-0000000000000000~0000000000"
+                }
+            }
+        )
+    }
+
+    fun blockAdIdWithString() {
+        DexKitUtil.withBridge { bridge ->
+            DexKitUtil.getCachedOrFindMethods("$packageName:blockAdIdWithString") {
+                val classDataList = bridge.findClass {
+                    matcher {
+                        usingStrings(listOf("ca-app-pub-"), StringMatchType.StartsWith)
+                    }
+                }
+
+                val methodDataList = classDataList.findMethod {
+                    matcher {
+                        returnType(Void.TYPE)
+                    }
+                }?.filter(::isValidMethodData)
+                methodDataList
+            }?.forEach { methodData ->
+                val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
+                XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+                hookMethod(method, "before") { param ->
+                    param.result = null
+                }
+            }
+        }
+    }
+
+    fun blockGoolgeAdsInitialize() {
+        DexKitUtil.withBridge { bridge ->
+            DexKitUtil.getCachedOrFindMethods("$packageName:blockGoolgeAdsInitialize") {
+                val classDataList = bridge.findClass {
+                    matcher {
+                        className("com.google.android.gms.ads.MobileAds")
+                    }
+                }
+
+                val methodDataList = classDataList.findMethod {
+                    matcher {
+                        returnType(Void.TYPE)
+                    }
+                }?.filter(::isValidMethodData)
+                methodDataList
+            }?.forEach {
+                val method = it.getMethodInstance(DexKitUtil.context.classLoader)
+                XposedBridge.log("$LOG_PREFIX Hooked method: ${it}")
+                hookMethod(method, "before") { param ->
+                    param.result = null
+                }
             }
         }
     }
@@ -133,7 +139,6 @@ object SDKAdsKit {
     fun blockAdsWithPackageName() {
         val adPackages = listOf(
             "com.applovin",
-            "com.anythink",
             "com.facebook.ads",
             "com.fyber.inneractive.sdk",
             "com.google.android.gms.ads",
@@ -146,7 +151,6 @@ object SDKAdsKit {
             "com.unity3d.services",
             "com.unity3d.ads",
             "com.vungle.warren",
-            "com.bytedance.sdk"
         )
 
         DexKitUtil.withBridge { bridge ->
@@ -160,13 +164,19 @@ object SDKAdsKit {
                 }?.filter(::isValidAdMethod)
             }?.forEach {
                 val method = it.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.hookMethod(method, XC_MethodReplacement.DO_NOTHING)
                 XposedBridge.log("$LOG_PREFIX Hooked method: ${it}")
+                hookMethod(method, "before") { param ->
+                    param.result = null
+                }
             }
         }
     }
 
+    private fun isValidMethodData(methodData: MethodData): Boolean {
+        return methodData.name !in setOf("<init>", "<clinit>")
+    }
+
     private fun isValidAdMethod(methodData: MethodData): Boolean {
-        return !Modifier.isAbstract(methodData.modifiers) && methodData.methodName in validAdMethods
+        return !Modifier.isAbstract(methodData.modifiers) && isValidMethodData(methodData) && methodData.methodName in validAdMethods
     }
 }

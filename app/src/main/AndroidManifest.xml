@@ -81,6 +81,14 @@
             android:authorities="com.close.hook.ads.provider.responsebody"
             android:exported="true" />
 
+        <service
+            android:name=".service.LogService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.close.hook.ads.ILoggerService" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name=".crash.provider.CrashInitProvider"
             android:authorities="com.close.hook.ads.crashinitprovider"

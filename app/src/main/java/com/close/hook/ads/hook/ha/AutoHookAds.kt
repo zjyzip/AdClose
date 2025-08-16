@@ -114,10 +114,10 @@ object AutoHookAds {
                 val getContextMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
                     matcher {
+                        name(StringMatcher("getContext", StringMatchType.Equals, false))
                         declaredClass(ClassMatcher().apply {
                             className(StringMatcher("Sdk", StringMatchType.Contains, true))
                         })
-                        name(StringMatcher("getContext", StringMatchType.Equals, false))
                     }
                 }
                 (initMethods + startMethods + getContextMethods)
@@ -163,7 +163,8 @@ object AutoHookAds {
                 
                 when {
                     paramTypeNames.isNullOrEmpty() -> CustomHookInfo(
-                        hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
+                        hookMethodType = HookMethodType.HOOK_ALL_METHODS,
+                        hookPoint = "before",
                         className = className,
                         methodNames = listOf(methodName),
                         returnValue = returnValue,

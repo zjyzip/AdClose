@@ -13,6 +13,7 @@ import com.close.hook.ads.hook.ha.CustomHookAds
 import com.close.hook.ads.hook.ha.AutoHookAds
 import com.close.hook.ads.hook.ha.SDKAdsKit
 import com.close.hook.ads.preference.HookPrefs
+import com.close.hook.ads.hook.util.LogProxy
 import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexDumpUtil
 import com.close.hook.ads.hook.util.HookUtil
@@ -103,6 +104,7 @@ class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
         CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(packageName), isOverallHookEnabledForPackage)
         
         if (isOverallHookEnabledForPackage) {
+            LogProxy.init(context)
             AutoHookAds.registerAutoDetectReceiver(context)
             hookScope.launch {
                 AutoHookAds.findAndCacheSdkMethods(packageName)

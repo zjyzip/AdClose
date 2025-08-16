@@ -73,7 +73,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = calculateVersionCode()
-        versionName = "3.9.4"
+        versionName = "3.9.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -86,12 +86,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "21"
+        jvmTarget = "17"
     }
 
     buildTypes {
@@ -111,6 +111,7 @@ android {
     }
 
     buildFeatures {
+        aidl = true
         viewBinding = true
         buildConfig = true
     }

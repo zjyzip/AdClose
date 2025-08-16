@@ -1,15 +1,11 @@
 package com.close.hook.ads.ui.viewmodel
 
 import android.app.Application
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.repository.CustomHookRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -34,12 +31,11 @@ class CustomHookViewModel(
     private val _searchQuery = MutableStateFlow("")
     private val _isLoading = MutableStateFlow(true)
     private val _isGlobalEnabled = MutableStateFlow(false)
+    private val _autoDetectedHooksResult = MutableStateFlow<List<CustomHookInfo>?>(null)
 
     val isGlobalEnabled: StateFlow<Boolean> = _isGlobalEnabled.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private val _autoDetectedHooksResult = MutableStateFlow<List<CustomHookInfo>?>(null)
     val autoDetectedHooksResult: StateFlow<List<CustomHookInfo>?> = _autoDetectedHooksResult.asStateFlow()
 
     val filteredConfigs: StateFlow<List<CustomHookInfo>> =
@@ -49,14 +45,17 @@ class CustomHookViewModel(
             } else {
                 val lowerCaseQuery = currentQuery.lowercase()
                 configs.filter { config ->
-                    config.className.lowercase().contains(lowerCaseQuery) ||
-                            config.methodNames?.any { it.lowercase().contains(lowerCaseQuery) } == true ||
-                            config.returnValue?.lowercase()?.contains(lowerCaseQuery) == true ||
-                            config.parameterTypes?.any { it.lowercase().contains(lowerCaseQuery) } == true ||
-                            config.fieldName?.lowercase()?.contains(lowerCaseQuery) == true ||
-                            config.fieldValue?.lowercase()?.contains(lowerCaseQuery) == true ||
-                            config.hookPoint?.lowercase()?.contains(lowerCaseQuery) == true ||
-                            config.searchStrings?.any { it.lowercase().contains(lowerCaseQuery) } == true
+                    listOfNotNull(
+                        config.className,
+                        config.returnValue,
+                        config.fieldName,
+                        config.fieldValue,
+                        config.hookPoint,
+                        config.hookMethodType.displayName,
+                        config.methodNames?.joinToString(","),
+                        config.parameterTypes?.joinToString(","),
+                        config.searchStrings?.joinToString(",")
+                    ).any { it.lowercase().contains(lowerCaseQuery) }
                 }
             }
         }.stateIn(
@@ -73,8 +72,8 @@ class CustomHookViewModel(
     }
 
     private fun loadHookConfigs() {
-        _isLoading.value = true
         viewModelScope.launch {
+            _isLoading.value = true
             _hookConfigs.value = repository.getHookConfigs(currentPackageName)
             _isLoading.value = false
         }
@@ -113,100 +112,102 @@ class CustomHookViewModel(
         getApplication<Application>().sendBroadcast(intent)
     }
 
-    suspend fun addHook(hookConfig: CustomHookInfo) {
-        val newConfigWithPackage = hookConfig.copy(
-            id = UUID.randomUUID().toString(),
-            packageName = currentPackageName
-        )
-        val updatedList = _hookConfigs.value.toMutableList().apply { add(newConfigWithPackage) }
-        saveAndRefreshHooks(updatedList)
-    }
-
-    suspend fun updateHook(oldConfig: CustomHookInfo, newConfig: CustomHookInfo) {
-        val updatedList = _hookConfigs.value.toMutableList()
-        val index = updatedList.indexOfFirst { it.id == oldConfig.id }
-        if (index != -1) {
-            updatedList[index] = newConfig.copy(id = oldConfig.id, packageName = currentPackageName)
-            saveAndRefreshHooks(updatedList)
+    fun addHook(hookConfig: CustomHookInfo) {
+        updateAndSaveConfigs { currentList ->
+            val newConfigWithPackage = hookConfig.copy(
+                id = UUID.randomUUID().toString(),
+                packageName = currentPackageName
+            )
+            currentList + newConfigWithPackage
         }
     }
 
-    suspend fun toggleHookActivation(hookConfig: CustomHookInfo, isEnabled: Boolean) {
-        val updatedList = _hookConfigs.value.toMutableList()
-        val index = updatedList.indexOfFirst { it.id == hookConfig.id }
-        if (index != -1) {
-            updatedList[index] = hookConfig.copy(isEnabled = isEnabled, packageName = currentPackageName)
-            saveAndRefreshHooks(updatedList)
+    fun updateHook(oldConfig: CustomHookInfo, newConfig: CustomHookInfo) {
+        updateAndSaveConfigs { currentList ->
+            currentList.map {
+                if (it.id == oldConfig.id) {
+                    newConfig.copy(id = oldConfig.id, packageName = currentPackageName)
+                } else {
+                    it
+                }
+            }
         }
     }
 
-    suspend fun deleteHook(hookConfig: CustomHookInfo) {
-        val updatedList = _hookConfigs.value.toMutableList().apply { removeIf { it.id == hookConfig.id } }
-        saveAndRefreshHooks(updatedList)
+    fun toggleHookActivation(hookConfig: CustomHookInfo, isEnabled: Boolean) {
+        updateAndSaveConfigs { currentList ->
+            currentList.map {
+                if (it.id == hookConfig.id) it.copy(isEnabled = isEnabled) else it
+            }
+        }
     }
 
-    suspend fun clearAllHooks() {
-        saveAndRefreshHooks(emptyList())
+    fun deleteHook(hookConfig: CustomHookInfo) {
+        updateAndSaveConfigs { currentList ->
+            currentList.filter { it.id != hookConfig.id }
+        }
+    }
+
+    fun clearAllHooks() {
+        updateAndSaveConfigs { emptyList() }
     }
 
     suspend fun deleteHookConfigs(configsToDelete: List<CustomHookInfo>): Int {
-        val updatedList = _hookConfigs.value.toMutableList()
-        val deletedCount = configsToDelete.size
-        updatedList.removeAll(configsToDelete)
-        saveAndRefreshHooks(updatedList)
+        val idsToDelete = configsToDelete.map { it.id }.toSet()
+        var deletedCount = 0
+
+        _hookConfigs.update { currentList ->
+            val originalSize = currentList.size
+            val updatedList = currentList.filterNot { idsToDelete.contains(it.id) }
+            deletedCount = originalSize - updatedList.size
+            updatedList
+        }
+        
+        repository.saveHookConfigs(currentPackageName, _hookConfigs.value)
+        
         return deletedCount
     }
 
-    fun copyHooksToJson(configsToCopy: List<CustomHookInfo>): String? {
-        val context = getApplication<Application>()
-        return try {
-            val jsonString = prettyJson.encodeToString(configsToCopy)
-
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText(context.getString(R.string.hook_configurations_label), jsonString)
-            clipboard.setPrimaryClip(clip)
-            context.getString(R.string.copied_hooks_count, configsToCopy.size)
-        } catch (e: Exception) {
-            "Error copying hooks: ${e.localizedMessage ?: "Unknown error"}"
-        }
+    fun getJsonStringForConfigs(configs: List<CustomHookInfo>): String {
+        return prettyJson.encodeToString(configs)
     }
 
-    fun getExportableHooks(): List<CustomHookInfo> {
-        return _hookConfigs.value.toList()
-    }
+    fun getExportableHooks(): List<CustomHookInfo> = _hookConfigs.value
 
     private fun updateConfigsList(
         currentConfigs: MutableList<CustomHookInfo>,
         importedConfigs: List<CustomHookInfo>,
         targetPackageName: String?
     ): Boolean {
-        var updated = false
-        for (importedConfig in importedConfigs) {
-            val configToAddOrUpdate = importedConfig.copy(
+        val currentConfigsMap = currentConfigs.associateBy { it.id }.toMutableMap()
+        var hasBeenUpdated = false
+
+        importedConfigs.forEach { importedConfig ->
+            val configWithDefaults = importedConfig.copy(
                 id = importedConfig.id ?: UUID.randomUUID().toString(),
                 packageName = targetPackageName
             )
-            val existingConfigIndex = currentConfigs.indexOfFirst { it.id == configToAddOrUpdate.id }
+            val existingConfig = currentConfigsMap[configWithDefaults.id]
 
-            if (existingConfigIndex == -1) {
-                currentConfigs.add(configToAddOrUpdate)
-                updated = true
-            } else if (currentConfigs[existingConfigIndex] != configToAddOrUpdate) {
-                currentConfigs[existingConfigIndex] = configToAddOrUpdate
-                updated = true
+            if (existingConfig == null || existingConfig != configWithDefaults) {
+                currentConfigsMap[configWithDefaults.id!!] = configWithDefaults
+                hasBeenUpdated = true
             }
         }
-        return updated
+
+        if (hasBeenUpdated) {
+            currentConfigs.clear()
+            currentConfigs.addAll(currentConfigsMap.values)
+        }
+        return hasBeenUpdated
     }
 
-    suspend fun importHooks(importedConfigs: List<CustomHookInfo>): Boolean {
-        val currentConfigs = _hookConfigs.value.toMutableList()
-        val updated = updateConfigsList(currentConfigs, importedConfigs, currentPackageName)
-
-        if (updated) {
-            saveAndRefreshHooks(currentConfigs)
+    fun importHooks(importedConfigs: List<CustomHookInfo>) {
+        updateAndSaveConfigs { currentList ->
+            val mutableCurrentList = currentList.toMutableList()
+            updateConfigsList(mutableCurrentList, importedConfigs, currentPackageName)
+            mutableCurrentList
         }
-        return updated
     }
 
     suspend fun importGlobalHooksToStorage(globalConfigs: List<CustomHookInfo>): Boolean {
@@ -216,15 +217,20 @@ class CustomHookViewModel(
 
         if (updated) {
             repository.saveHookConfigs(null, existingGlobalConfigs)
+            if (currentPackageName == null) {
+                _hookConfigs.value = existingGlobalConfigs
+            }
         }
         return updated
     }
 
     fun getTargetPackageName(): String? = currentPackageName
 
-    private suspend fun saveAndRefreshHooks(configs: List<CustomHookInfo>) {
-        repository.saveHookConfigs(currentPackageName, configs)
-        _hookConfigs.value = configs.toList()
+    private fun updateAndSaveConfigs(transform: (List<CustomHookInfo>) -> List<CustomHookInfo>) {
+        viewModelScope.launch {
+            _hookConfigs.update(transform)
+            repository.saveHookConfigs(currentPackageName, _hookConfigs.value)
+        }
     }
 
     suspend fun getImportAction(importedConfigs: List<CustomHookInfo>): ImportAction {

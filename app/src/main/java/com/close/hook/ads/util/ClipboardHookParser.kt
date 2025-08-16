@@ -21,7 +21,8 @@ object ClipboardHookParser {
             val methodName = methodNoParamMatcher.group(2) ?: ""
 
             return CustomHookInfo(
-                hookMethodType = HookMethodType.HOOK_MULTIPLE_METHODS,
+                hookMethodType = HookMethodType.HOOK_ALL_METHODS,
+                hookPoint = "before",
                 className = className,
                 methodNames = listOf(methodName),
                 returnValue = "null",

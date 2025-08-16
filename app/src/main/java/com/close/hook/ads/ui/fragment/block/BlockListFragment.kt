@@ -40,6 +40,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Url
+import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.databinding.FragmentBlockListBinding
 import com.close.hook.ads.databinding.ItemBlockListAddBinding
 import com.close.hook.ads.ui.activity.MainActivity
@@ -83,7 +84,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         setUpTracker()
         addObserverToTracker()
     }
-    
+
     private fun initView() {
         mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
@@ -91,11 +92,13 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         binding.recyclerView.apply {
             adapter = mAdapter
             layoutManager = LinearLayoutManager(requireContext())
+
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
                 setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
                 clipToPadding = false
             }
+
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
                 private val scrollThreshold = 20
@@ -112,8 +115,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     } else if (dy < 0) {
                         totalDy += dy
                         if (totalDy < -scrollThreshold) {
-                            val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
-                            recyclerView.setPadding(recyclerView.paddingLeft, recyclerView.paddingTop, recyclerView.paddingRight, bottomNavHeight)
                             navContainer?.showNavigation()
                             totalDy = 0
                         }
@@ -336,44 +337,58 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
     }
 
+
     private fun showRuleDialog(url: Url? = null) {
         val dialogBinding = ItemBlockListAddBinding.inflate(LayoutInflater.from(requireContext()))
+        val ruleTypes = arrayOf("Domain", "URL", "KeyWord")
+        var selectedType = url?.type ?: ruleTypes[1]
 
         dialogBinding.editText.setText(url?.url ?: "")
-        dialogBinding.type.setText(url?.type ?: "URL")
+        dialogBinding.type.setText(selectedType)
 
-        dialogBinding.type.setAdapter(
-            ArrayAdapter(
-                requireContext(),
-                android.R.layout.simple_spinner_dropdown_item,
-                arrayOf("Domain", "URL", "KeyWord")
-            )
-        )
-
-        val title = if (url == null) getString(R.string.add_rule) else getString(R.string.edit_rule)
+        dialogBinding.type.setOnClickListener {
+            val currentTypeIndex = ruleTypes.indexOf(selectedType)
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Select Rule Type")
+                .setSingleChoiceItems(ruleTypes, currentTypeIndex) { dialog, which ->
+                    val newType = ruleTypes[which]
+                    if (selectedType != newType) {
+                        if (selectedType == "URL" && newType == "Domain") {
+                            val currentUrl = dialogBinding.editText.text.toString()
+                            if (currentUrl.isNotEmpty()) {
+                                dialogBinding.editText.setText(AppUtils.extractHostOrSelf(currentUrl))
+                            }
+                        }
+                        selectedType = newType
+                        dialogBinding.type.setText(selectedType)
+                    }
+                    dialog.dismiss()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
 
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(title)
+            .setTitle(if (url == null) R.string.add_rule else R.string.edit_rule)
             .setView(dialogBinding.root)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val newType = dialogBinding.type.text.toString()
                 val newUrl = dialogBinding.editText.text.toString().trim()
 
                 if (newUrl.isEmpty()) {
-                    Toast.makeText(requireContext(), getString(R.string.value_empty_error), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), R.string.value_empty_error, Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
 
-                val newItem = Url(type = newType, url = newUrl).also { it.id = url?.id ?: 0L }
+                val newItem = Url(type = selectedType, url = newUrl).also { it.id = url?.id ?: 0L }
 
                 lifecycleScope.launch {
-                    val isExist = viewModel.dataSource.isExist(newType, newUrl)
+                    val isExist = viewModel.dataSource.isExist(selectedType, newUrl)
                     if (url == null) {
                         if (!isExist) {
                             viewModel.addUrl(newItem)
                         } else {
-                            Toast.makeText(requireContext(), getString(R.string.rule_exists), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(requireContext(), R.string.rule_exists, Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         viewModel.updateUrl(newItem)

@@ -34,6 +34,17 @@
 
     </style>
 
+    <style name="Widget.App.ExtendedFloatingActionButton" parent="Widget.Material3.ExtendedFloatingActionButton.Primary">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_gravity">end</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:visibility">invisible</item>
+        <item name="iconPadding">12dp</item>
+        <item name="android:textColor">?attr/colorOnPrimaryContainer</item>
+        tools:visibility="visible"
+    </style>
+
     <style name="circleImageStyle">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">50%</item>

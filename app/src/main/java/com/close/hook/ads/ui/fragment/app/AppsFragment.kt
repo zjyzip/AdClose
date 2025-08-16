@@ -33,7 +33,6 @@ import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
-import com.close.hook.ads.util.LinearItemDecoration
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
@@ -297,9 +296,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     } else if (dy < 0) {
                         totalDy += dy
                         if (totalDy < -scrollThreshold) {
-                            val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
-                            recyclerView.setPadding(recyclerView.paddingLeft, recyclerView.paddingTop, recyclerView.paddingRight, bottomNavHeight)
-                            
                             navContainer?.showNavigation()
                             totalDy = 0
                         }
@@ -308,7 +304,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             })
 
             addItemDecoration(footerSpaceDecoration)
-            addItemDecoration(LinearItemDecoration(4.dp))
             FastScrollerBuilder(this).useMd2Style().build()
         }
     }
