@@ -12,10 +12,9 @@ import java.util.Date
 import java.util.Locale
 
 class LogAdapter(
-    private val onItemClick: (LogEntry) -> Unit
+    private val onItemClick: (LogEntry) -> Unit,
+    private val onItemLongClick: (LogEntry) -> Unit
 ) : ListAdapter<LogEntry, LogAdapter.LogViewHolder>(DIFF_CALLBACK) {
-
-    private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
         val binding = ItemLogBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -29,9 +28,14 @@ class LogAdapter(
     inner class LogViewHolder(private val binding: ItemLogBinding) : RecyclerView.ViewHolder(binding.root) {
         init {
             itemView.setOnClickListener {
-                if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
-                    onItemClick(getItem(bindingAdapterPosition))
-                }
+                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }
+                    ?.let { onItemClick(getItem(it)) }
+            }
+            
+            itemView.setOnLongClickListener {
+                bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }
+                    ?.let { onItemLongClick(getItem(it)) }
+                true
             }
         }
 
@@ -43,6 +47,8 @@ class LogAdapter(
     }
 
     companion object {
+        private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
+
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<LogEntry>() {
             override fun areItemsTheSame(oldItem: LogEntry, newItem: LogEntry): Boolean =
                 oldItem.id == newItem.id

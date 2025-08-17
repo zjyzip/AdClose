@@ -3,9 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/action_enable_log"
+        android:title="Enable Log"
+        android:checkable="true"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_clear_logs"
-        android:icon="@drawable/ic_clear_all"
         android:title="Clear Log"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 
 </menu>

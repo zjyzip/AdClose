@@ -112,7 +112,8 @@ object AutoHookAds {
                     matcher { name(StringMatcher("start", StringMatchType.Equals, true)) }
                 }
                 val buildMethods = bridge.findClass {
-                    matcher { className("com.bytedance.sdk.openadsdk.AdSlot\$Builder") }
+                    searchPackages(adSdkPackages)
+                    matcher { className(StringMatcher("\$Builder", StringMatchType.EndsWith, true)) }
                 }.findMethod {
                     matcher { name(StringMatcher("build", StringMatchType.Equals, true)) }
                 }

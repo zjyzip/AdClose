@@ -7,9 +7,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 
 object LogRepository {
 
-    private val _logFlow = MutableSharedFlow<LogEntry>(
+    private val _logFlow = MutableSharedFlow<List<LogEntry>>(
         replay = 0,
-        extraBufferCapacity = 1000,
+        extraBufferCapacity = 100,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val logFlow = _logFlow.asSharedFlow()
@@ -17,14 +17,14 @@ object LogRepository {
     private val logCache = mutableListOf<LogEntry>()
     private const val MAX_CACHE_SIZE = 1000
 
-    suspend fun addLog(logEntry: LogEntry) {
+    suspend fun addLogs(logEntries: List<LogEntry>) {
         synchronized(logCache) {
-            logCache.add(0, logEntry)
+            logCache.addAll(0, logEntries)
             if (logCache.size > MAX_CACHE_SIZE) {
-                logCache.removeLast()
+                logCache.subList(MAX_CACHE_SIZE, logCache.size).clear()
             }
         }
-        _logFlow.emit(logEntry)
+        _logFlow.emit(logEntries)
     }
 
     fun getLogsForPackage(packageName: String?): List<LogEntry> = synchronized(logCache) {

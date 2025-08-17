@@ -7,11 +7,13 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.RemoteException
 import com.close.hook.ads.data.model.LogEntry
-import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.service.ILoggerService
 import de.robv.android.xposed.XposedBridge
 import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 object LogProxy {
@@ -23,32 +25,47 @@ object LogProxy {
         DISCONNECTING
     }
 
+    private const val BATCH_SIZE = 20
+    private const val FLUSH_INTERVAL_SECONDS = 1L
+
     @Volatile
     private var loggerService: ILoggerService? = null
     private val logQueue = ConcurrentLinkedQueue<LogEntry>()
     private val state = AtomicReference(State.DISCONNECTED)
-    private lateinit var currentPackageName: String
+    private val flushScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+
+    @Volatile private var currentPackageName: String? = null
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            if (state.get() == State.DISCONNECTING) {
-                return
-            }
+            if (state.get() == State.DISCONNECTING) return
+            
             loggerService = ILoggerService.Stub.asInterface(service)
             state.set(State.CONNECTED)
-            log("LogProxy", "Logger service connected for $currentPackageName.")
-            flushLogQueue()
+            XposedBridge.log("LogProxy: Logger service connected for ${currentPackageName ?: "unknown"}.")
+            flushQueueAsync()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            log("LogProxy", "Logger service disconnected for $currentPackageName.")
+            XposedBridge.log("LogProxy: Logger service disconnected for ${currentPackageName ?: "unknown"}.")
             loggerService = null
             state.set(State.DISCONNECTED)
         }
     }
 
     fun init(context: Context) {
-        currentPackageName = context.packageName
+        synchronized(this) {
+            if (currentPackageName != null) return
+            currentPackageName = context.packageName
+
+            flushScheduler.scheduleAtFixedRate(
+                { flushQueueAsync() },
+                FLUSH_INTERVAL_SECONDS,
+                FLUSH_INTERVAL_SECONDS,
+                TimeUnit.SECONDS
+            )
+        }
+
         if (state.compareAndSet(State.DISCONNECTED, State.CONNECTING)) {
             val intent = Intent("com.close.hook.ads.ILoggerService").apply {
                 setPackage("com.close.hook.ads")
@@ -63,45 +80,42 @@ object LogProxy {
     }
 
     fun log(tag: String, message: String, stackTrace: String? = null) {
-        val logEntry = LogEntry(
-            id = UUID.randomUUID().toString(),
-            timestamp = System.currentTimeMillis(),
-            tag = tag,
-            message = message,
-            packageName = currentPackageName,
-            stackTrace = stackTrace
-        )
+        val pkgName = currentPackageName ?: return
 
-        if (state.get() == State.CONNECTED && loggerService != null) {
-            try {
-                loggerService?.log(logEntry)
-            } catch (e: RemoteException) {
-                XposedBridge.log("LogProxy: Failed to send log, re-queuing. Error: ${e.message}")
-                logQueue.offer(logEntry)
-            }
-        } else {
-            logQueue.offer(logEntry)
-            if (state.get() == State.DISCONNECTED) {
-                ContextUtil.applicationContext?.let { init(it) }
-            }
+        logQueue.offer(LogEntry(
+            UUID.randomUUID().toString(),
+            System.currentTimeMillis(),
+            tag, message, pkgName, stackTrace
+        ))
+
+        if (logQueue.size >= BATCH_SIZE) {
+            flushQueueAsync()
         }
     }
 
-    private fun flushLogQueue() {
-        while (logQueue.isNotEmpty()) {
-            val logEntry = logQueue.poll() ?: continue
-            try {
-                loggerService?.log(logEntry)
-            } catch (e: RemoteException) {
-                XposedBridge.log("LogProxy: Error flushing queue, re-queuing log. Error: ${e.message}")
-                logQueue.offer(logEntry)
-                break
+    private fun flushQueueAsync() {
+        if (logQueue.isEmpty() || state.get() != State.CONNECTED) {
+            return
+        }
+
+        flushScheduler.execute {
+            val batch = generateSequence { logQueue.poll() }.toList()
+
+            if (batch.isNotEmpty()) {
+                try {
+                    loggerService?.logBatch(batch)
+                } catch (e: RemoteException) {
+                    XposedBridge.log("LogProxy: Failed to send batch, re-queuing. Error: ${e.message}")
+                    logQueue.addAll(batch)
+                }
             }
         }
     }
 
     fun disconnect(context: Context) {
         if (state.compareAndSet(State.CONNECTED, State.DISCONNECTING) || state.compareAndSet(State.CONNECTING, State.DISCONNECTING)) {
+            flushQueueAsync()
+            flushScheduler.shutdown()
             try {
                 context.unbindService(connection)
             } catch (e: Exception) {

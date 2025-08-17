@@ -3,9 +3,8 @@ package com.close.hook.ads.service
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
-import com.close.hook.ads.data.repository.LogRepository
-import com.close.hook.ads.service.ILoggerService
 import com.close.hook.ads.data.model.LogEntry
+import com.close.hook.ads.data.repository.LogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,10 +16,10 @@ class LogService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val binder = object : ILoggerService.Stub() {
-        override fun log(entry: LogEntry?) {
-            entry?.let {
+        override fun logBatch(entries: List<LogEntry>?) {
+            if (!entries.isNullOrEmpty()) {
                 serviceScope.launch {
-                    LogRepository.addLog(it)
+                    LogRepository.addLogs(entries)
                 }
             }
         }
