@@ -208,7 +208,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:src="@drawable/ic_add" />
+            android:src="@drawable/ic_add"
+            app:elevation="0dp"
+            app:pressedTranslationZ="0dp" />
 
     </LinearLayout>
 

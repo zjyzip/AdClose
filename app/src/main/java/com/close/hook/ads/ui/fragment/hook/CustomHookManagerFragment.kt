@@ -55,6 +55,7 @@ import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.ClipboardHookParser
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +75,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private lateinit var hookAdapter: CustomHookAdapter
+    private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private var tracker: SelectionTracker<CustomHookInfo>? = null
     private var currentActionMode: ActionMode? = null
     private var editingConfig: CustomHookInfo? = null
@@ -282,6 +284,9 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = hookAdapter
+            footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 80.dp)
+
+            addItemDecoration(footerSpaceDecoration)
             FastScrollerBuilder(this).useMd2Style().build()
 
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->

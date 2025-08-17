@@ -118,7 +118,7 @@ class CustomHookViewModel(
                 id = UUID.randomUUID().toString(),
                 packageName = currentPackageName
             )
-            currentList + newConfigWithPackage
+            listOf(newConfigWithPackage) + currentList
         }
     }
 
