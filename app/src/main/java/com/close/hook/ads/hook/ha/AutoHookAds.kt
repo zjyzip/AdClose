@@ -51,7 +51,6 @@ object AutoHookAds {
         "com.huawei.openalliance.ad",
         "com.mbridge.msdk",
         "com.windmill.sdk",
-        "com.alimm.tanx",
         "com.umeng",
         "com.anythink",
         "com.miui.zeus.mimo.sdk",
@@ -111,21 +110,6 @@ object AutoHookAds {
                     searchPackages(adSdkPackages)
                     matcher { name(StringMatcher("start", StringMatchType.Equals, true)) }
                 }
-                val buildMethods = bridge.findClass {
-                    searchPackages(adSdkPackages)
-                    matcher { className(StringMatcher("\$Builder", StringMatchType.EndsWith, true)) }
-                }.findMethod {
-                    matcher { name(StringMatcher("build", StringMatchType.Equals, true)) }
-                }
-                val appIdMethods = bridge.findMethod {
-                    searchPackages(adSdkPackages)
-                    matcher {
-                        name(StringMatcher("getAppId", StringMatchType.Equals, false))
-                        declaredClass(ClassMatcher().apply {
-                            className(StringMatcher("Sdk", StringMatchType.Contains, true))
-                        })
-                    }
-                }
                 val getContextMethods = bridge.findMethod {
                     searchPackages(adSdkPackages)
                     matcher {
@@ -135,7 +119,7 @@ object AutoHookAds {
                         })
                     }
                 }
-                (initMethods + startMethods + buildMethods + appIdMethods + getContextMethods)
+                (initMethods + startMethods + getContextMethods)
             }?.asSequence()
                 ?.filter { isValidSdkMethod(it) }
                 ?.mapNotNull { methodData ->

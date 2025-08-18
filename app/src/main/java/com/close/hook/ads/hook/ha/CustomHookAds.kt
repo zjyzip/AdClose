@@ -1,12 +1,14 @@
 package com.close.hook.ads.hook.ha
 
+import android.content.Context
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.hook.util.LogProxy
 import com.close.hook.ads.hook.util.StringFinderKit
+import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
-import java.lang.NumberFormatException
+import java.lang.reflect.Method
 
 object CustomHookAds {
 
@@ -15,134 +17,172 @@ object CustomHookAds {
     fun hookCustomAds(classLoader: ClassLoader, customConfigs: List<CustomHookInfo>, isScopeEnabled: Boolean) {
         if (!isScopeEnabled) return
 
-        for (customConfig in customConfigs) {
-            if (!customConfig.isEnabled) continue
-
+        customConfigs.filter { it.isEnabled }.forEach { config ->
             try {
-                val parsedReturnValue = parseReturnValue(customConfig.returnValue)
-
-                when (customConfig.hookMethodType) {
-                    HookMethodType.HOOK_MULTIPLE_METHODS -> {
-                        customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
-                            HookUtil.hookMultipleMethods(classLoader, customConfig.className, it.toTypedArray(), parsedReturnValue)
-                            val message = "hookMultipleMethods - Class=${customConfig.className}, Methods=${it}, Return=${parsedReturnValue}"
-                            LogProxy.log(TAG, message) // No callback, so no runtime stack trace
-                        } ?: LogProxy.log(TAG, "Error: Method names are null or empty for HOOK_MULTIPLE_METHODS config: $customConfig")
-                    }
-                    HookMethodType.FIND_AND_HOOK_METHOD -> {
-                        customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
-                            val methodName = it[0]
-                            val paramTypes = resolveParameterTypes(customConfig.parameterTypes, classLoader)
-                            HookUtil.findAndHookMethod(
-                                customConfig.className,
-                                methodName,
-                                paramTypes,
-                                customConfig.hookPoint,
-                                { param ->
-                                    param.result = parsedReturnValue
-                                    val message = "findAndHookMethod - Class=${customConfig.className}, Method=${methodName}, Params=${customConfig.parameterTypes}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}"
-                                    LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
-                                },
-                                classLoader
-                            )
-                        } ?: LogProxy.log(TAG, "Error: Method names are null or empty for FIND_AND_HOOK_METHOD config: $customConfig")
-                    }
-                    HookMethodType.HOOK_ALL_METHODS -> {
-                        customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
-                            val methodName = it[0]
-                            HookUtil.hookAllMethods(
-                                customConfig.className,
-                                methodName,
-                                customConfig.hookPoint,
-                                { param ->
-                                    param.result = parsedReturnValue
-                                    val message = "hookAllMethods - Class=${customConfig.className}, Method=${methodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}"
-                                    LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
-                                },
-                                classLoader
-                            )
-                        } ?: LogProxy.log(TAG, "Error: Method names are null or empty for HOOK_ALL_METHODS config: $customConfig")
-                    }
-                    HookMethodType.SET_STATIC_OBJECT_FIELD -> {
-                        customConfig.fieldName?.takeIf { it.isNotEmpty() }?.let { fieldName ->
-                            val fieldParsedValue = parseReturnValue(customConfig.fieldValue)
-                            HookUtil.setStaticObjectField(customConfig.className, classLoader, fieldName, fieldParsedValue)
-                            val message = "setStaticObjectField - Class=${customConfig.className}, Field=${fieldName}, Value=${fieldParsedValue}"
-                            LogProxy.log(TAG, message) // No callback, so no runtime stack trace
-                        } ?: LogProxy.log(TAG, "Error: Field name is null or empty for SET_STATIC_OBJECT_FIELD config: $customConfig")
-                    }
-                    HookMethodType.HOOK_METHODS_BY_STRING_MATCH -> {
-                        customConfig.searchStrings?.takeIf { it.isNotEmpty() }?.let { searchStrings ->
-                            SDKAdsKit.hookMethodsByStringMatch(customConfig.id, searchStrings) { method ->
-                                HookUtil.hookMethod(method, customConfig.hookPoint) { param ->
-                                    param.result = parsedReturnValue
-                                    val message = "hookMethodsByStringMatch - ID=${customConfig.id}, Strings=${searchStrings}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, MethodData: $method"
-                                    LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
-                                }
-                            }
-                        } ?: LogProxy.log(TAG, "Error: Search strings are null or empty for HOOK_METHODS_BY_STRING_MATCH config: $customConfig")
-                    }
-                    HookMethodType.FIND_METHODS_WITH_STRING -> {
-                        customConfig.searchStrings?.takeIf { it.isNotEmpty() }?.let { searchStrings ->
-                            customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let { methodNames ->
-                                val targetMethodName = methodNames[0]
-                                StringFinderKit.findMethodsWithString(customConfig.id, searchStrings[0], targetMethodName)?.forEach { methodData ->
-                                    methodData.getMethodInstance(classLoader)?.let { method ->
-                                        HookUtil.hookMethod(method, customConfig.hookPoint) { param ->
-                                            param.result = parsedReturnValue
-                                            val message = "findMethodsWithString - ID=${customConfig.id}, String=${searchStrings[0]}, MethodName=${targetMethodName}, HookPoint=${customConfig.hookPoint}, Return=${parsedReturnValue}, FoundMethod=${methodData}"
-                                            LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
-                                        }
-                                    } ?: LogProxy.log(TAG, "Error: Could not get method instance for FIND_METHODS_WITH_STRING config: $customConfig, MethodData: $methodData")
-                                }
-                            } ?: LogProxy.log(TAG, "Error: Method name is null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
-                        } ?: LogProxy.log(TAG, "Error: Search strings are null or empty for FIND_METHODS_WITH_STRING config: $customConfig")
-                    }
-                    HookMethodType.REPLACE_CONTEXT_WITH_FAKE -> {
-                        customConfig.methodNames?.takeIf { it.isNotEmpty() }?.let {
-                        // 不开放内容
-                        } ?: LogProxy.log(TAG, "Error: Method names are null or empty for REPLACE_CONTEXT_WITH_FAKE config: $customConfig")
-                    }
-                }
+                applyHookConfig(config, classLoader)
             } catch (e: Throwable) {
-                val errorMessage = "Error for config ${customConfig.className} - ${customConfig.methodNames}: ${e.message}"
-                LogProxy.log(TAG, errorMessage, HookUtil.getFormattedStackTrace())
+                LogProxy.log(TAG, "Error applying config for ${config.className}: ${e.message}")
             }
         }
+    }
+
+    private fun applyHookConfig(config: CustomHookInfo, classLoader: ClassLoader) {
+        val parsedReturnValue = parseReturnValue(config.returnValue)
+        when (config.hookMethodType) {
+            HookMethodType.HOOK_MULTIPLE_METHODS -> handleHookMultipleMethods(config, classLoader, parsedReturnValue)
+            HookMethodType.FIND_AND_HOOK_METHOD -> handleFindAndHookMethod(config, classLoader, parsedReturnValue)
+            HookMethodType.HOOK_ALL_METHODS -> handleHookAllMethods(config, classLoader, parsedReturnValue)
+            HookMethodType.SET_STATIC_OBJECT_FIELD -> handleSetStaticField(config, classLoader)
+            HookMethodType.HOOK_METHODS_BY_STRING_MATCH -> handleHookByStringMatch(config, parsedReturnValue)
+            HookMethodType.FIND_METHODS_WITH_STRING -> handleFindMethodWithString(config, classLoader, parsedReturnValue)
+            HookMethodType.REPLACE_CONTEXT_WITH_FAKE -> handleReplaceContext(config, classLoader)
+        }
+    }
+
+    private fun handleHookMultipleMethods(config: CustomHookInfo, classLoader: ClassLoader, returnValue: Any?) {
+        config.methodNames?.takeIf { it.isNotEmpty() }?.let {
+            HookUtil.hookMultipleMethods(classLoader, config.className, it.toTypedArray(), returnValue)
+            LogProxy.log(TAG, "hookMultipleMethods - Class=${config.className}, Methods=${it}, Return=$returnValue")
+        }
+    }
+
+    private fun handleFindAndHookMethod(config: CustomHookInfo, classLoader: ClassLoader, returnValue: Any?) {
+        config.methodNames?.firstOrNull()?.let { methodName ->
+            val paramTypes = resolveParameterTypes(config.parameterTypes, classLoader)
+            HookUtil.findAndHookMethod(config.className, methodName, paramTypes, config.hookPoint, { param ->
+                handleHookedMethod(param, config, returnValue)
+            }, classLoader)
+        }
+    }
+
+    private fun handleHookAllMethods(config: CustomHookInfo, classLoader: ClassLoader, returnValue: Any?) {
+        config.methodNames?.firstOrNull()?.let { methodName ->
+            HookUtil.hookAllMethods(config.className, methodName, config.hookPoint, { param ->
+                handleHookedMethod(param, config, returnValue)
+                LogProxy.log(TAG, "hookAllMethods - Class=${config.className}, Method=$methodName", HookUtil.getFormattedStackTrace())
+            }, classLoader)
+        }
+    }
+
+    private fun handleSetStaticField(config: CustomHookInfo, classLoader: ClassLoader) {
+        config.fieldName?.takeIf { it.isNotEmpty() }?.let { fieldName ->
+            val fieldValue = parseReturnValue(config.fieldValue)
+            HookUtil.setStaticObjectField(config.className, classLoader, fieldName, fieldValue)
+            LogProxy.log(TAG, "setStaticObjectField - Class=${config.className}, Field=$fieldName, Value=$fieldValue")
+        }
+    }
+
+    private fun handleHookByStringMatch(config: CustomHookInfo, returnValue: Any?) {
+        config.searchStrings?.takeIf { it.isNotEmpty() }?.let { strings ->
+            SDKAdsKit.hookMethodsByStringMatch(config.id, strings) { method ->
+                HookUtil.hookMethod(method, config.hookPoint) { param ->
+                    param.result = returnValue
+                    LogProxy.log(TAG, "hookMethodsByStringMatch - ID=${config.id}, Method=$method", HookUtil.getFormattedStackTrace())
+                }
+            }
+        }
+    }
+
+    private fun handleFindMethodWithString(config: CustomHookInfo, classLoader: ClassLoader, returnValue: Any?) {
+        val searchString = config.searchStrings?.firstOrNull()
+        val methodName = config.methodNames?.firstOrNull()
+        if (searchString != null && methodName != null) {
+            StringFinderKit.findMethodsWithString(config.id, searchString, methodName)?.forEach { methodData ->
+                methodData.getMethodInstance(classLoader)?.let { method ->
+                    HookUtil.hookMethod(method, config.hookPoint) { param ->
+                        param.result = returnValue
+                        LogProxy.log(TAG, "findMethodsWithString - ID=${config.id}, Found=$method", HookUtil.getFormattedStackTrace())
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleReplaceContext(config: CustomHookInfo, classLoader: ClassLoader) {
+        config.methodNames?.firstOrNull()?.let { methodName ->
+            val paramTypes = resolveParameterTypes(config.parameterTypes, classLoader)
+            HookUtil.findAndHookMethod(config.className, methodName, paramTypes, config.hookPoint, { param ->
+                handleReplaceContextWithFake(param)
+            }, classLoader)
+        }
+    }
+
+    private fun handleHookedMethod(param: XC_MethodHook.MethodHookParam, config: CustomHookInfo, parsedReturnValue: Any?) {
+        val method = param.method as? Method
+        val paramClasses = method?.parameterTypes ?: emptyArray()
+        val fullMethodName = "${config.className}.${config.methodNames?.firstOrNull()}"
+
+        when {
+            parsedReturnValue != null -> {
+                param.result = parsedReturnValue
+                val message = "Set return value to '$parsedReturnValue' for method: $fullMethodName"
+                LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+            }
+            method?.returnType?.let { it == method.declaringClass } == true -> {
+                val hasInterfaceParam = paramClasses.any { it.isInterface }
+                if (hasInterfaceParam) {
+                    param.result = null
+                    val message = "Builder method has interface param, returned null to interrupt chain: $fullMethodName"
+                    LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+                } else {
+                    val message = "Builder method has no interface param, skip original method body: $fullMethodName"
+                    LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+                }
+            }
+            else -> {
+                param.args.forEachIndexed { i, arg ->
+                    if (arg != null && i < paramClasses.size) {
+                        val replacedValue: Pair<Any?, String?> = when {
+                            Boolean::class.java.isAssignableFrom(paramClasses[i]) -> false to "Boolean"
+                            Int::class.java.isAssignableFrom(paramClasses[i]) -> 0 to "Int"
+                            Long::class.java.isAssignableFrom(paramClasses[i]) -> 0L to "Long"
+                            Float::class.java.isAssignableFrom(paramClasses[i]) -> 0.0f to "Float"
+                            Double::class.java.isAssignableFrom(paramClasses[i]) -> 0.0 to "Double"
+                            else -> null to null
+                        }
+                        if (replacedValue.second != null) {
+                            param.args[i] = replacedValue.first
+                            val message = "Replaced ${replacedValue.second} parameter at index $i with '${replacedValue.first}' for method: $fullMethodName"
+                            LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleReplaceContextWithFake(param: XC_MethodHook.MethodHookParam) {
+        // 不开放内容
     }
 
     private fun parseReturnValue(valueStr: String?): Any? {
-        if (valueStr.isNullOrBlank()) return null
-        val trimmedValue = valueStr.trim()
+        val trimmed = valueStr?.trim() ?: return null
         return when {
-            trimmedValue.equals("true", ignoreCase = true) -> true
-            trimmedValue.equals("false", ignoreCase = true) -> false
-            trimmedValue.equals("null", ignoreCase = true) -> null
-            else -> try { Integer.parseInt(trimmedValue) } catch (e: NumberFormatException) {
-                try { java.lang.Long.parseLong(trimmedValue) } catch (ex: NumberFormatException) {
-                    try { java.lang.Float.parseFloat(trimmedValue) } catch (exc: NumberFormatException) {
-                        try { java.lang.Double.parseDouble(trimmedValue) } catch (exc2: NumberFormatException) { trimmedValue }
-                    }
-                }
-            }
+            trimmed.equals("true", ignoreCase = true) -> true
+            trimmed.equals("false", ignoreCase = true) -> false
+            trimmed.equals("null", ignoreCase = true) -> null
+            else -> trimmed.toIntOrNull()
+                ?: trimmed.toLongOrNull()
+                ?: trimmed.toFloatOrNull()
+                ?: trimmed.toDoubleOrNull()
+                ?: trimmed
         }
     }
 
-    private fun resolveParameterTypes(paramTypeNames: List<String>?, classLoader: ClassLoader): Array<Any?> {
-        if (paramTypeNames.isNullOrEmpty()) return emptyArray()
-        return paramTypeNames.map { typeName ->
+    private fun resolveParameterTypes(paramTypeNames: List<String>?, classLoader: ClassLoader): Array<Any> {
+        return paramTypeNames?.mapNotNull { typeName ->
             when (val trimmedName = typeName.trim()) {
-                "boolean" -> java.lang.Boolean.TYPE
-                "byte" -> java.lang.Byte.TYPE
-                "short" -> java.lang.Short.TYPE
-                "int" -> java.lang.Integer.TYPE
-                "long" -> java.lang.Long.TYPE
-                "float" -> java.lang.Float.TYPE
-                "double" -> java.lang.Double.TYPE
-                "char" -> java.lang.Character.TYPE
-                "void" -> java.lang.Void.TYPE
+                "boolean" -> Boolean::class.javaPrimitiveType
+                "byte" -> Byte::class.javaPrimitiveType
+                "short" -> Short::class.javaPrimitiveType
+                "int" -> Int::class.javaPrimitiveType
+                "long" -> Long::class.javaPrimitiveType
+                "float" -> Float::class.javaPrimitiveType
+                "double" -> Double::class.javaPrimitiveType
+                "char" -> Char::class.javaPrimitiveType
+                "void" -> Void.TYPE
                 else -> XposedHelpers.findClassIfExists(trimmedName, classLoader)
             }
-        }.toTypedArray()
+        }?.toTypedArray() ?: emptyArray()
     }
 }

@@ -84,18 +84,15 @@ object SDKAdsKit {
     fun blockAdIdWithString() {
         DexKitUtil.withBridge { bridge ->
             DexKitUtil.getCachedOrFindMethods("$packageName:blockAdIdWithString") {
-                val classDataList = bridge.findClass {
+                bridge.findClass {
                     matcher {
                         usingStrings(listOf("ca-app-pub-"), StringMatchType.StartsWith)
                     }
-                }
-
-                val methodDataList = classDataList.findMethod {
+                }.findMethod {
                     matcher {
                         returnType(Void.TYPE)
                     }
                 }?.filter(::isValidMethodData)
-                methodDataList
             }?.forEach { methodData ->
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
                 XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
@@ -109,18 +106,15 @@ object SDKAdsKit {
     fun blockGoolgeAdsInitialize() {
         DexKitUtil.withBridge { bridge ->
             DexKitUtil.getCachedOrFindMethods("$packageName:blockGoolgeAdsInitialize") {
-                val classDataList = bridge.findClass {
+                bridge.findClass {
                     matcher {
                         className("com.google.android.gms.ads.MobileAds")
                     }
-                }
-
-                val methodDataList = classDataList.findMethod {
+                }.findMethod {
                     matcher {
                         returnType(Void.TYPE)
                     }
                 }?.filter(::isValidMethodData)
-                methodDataList
             }?.forEach {
                 val method = it.getMethodInstance(DexKitUtil.context.classLoader)
                 XposedBridge.log("$LOG_PREFIX Hooked method: ${it}")
