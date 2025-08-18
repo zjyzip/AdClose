@@ -51,6 +51,7 @@ object AutoHookAds {
         "com.huawei.openalliance.ad",
         "com.mbridge.msdk",
         "com.windmill.sdk",
+        "com.alimm.tanx",
         "com.umeng",
         "com.anythink",
         "com.miui.zeus.mimo.sdk",
@@ -100,23 +101,22 @@ object AutoHookAds {
     suspend fun findAndCacheSdkMethods(packageName: String) = withContext(Dispatchers.IO) {
         XposedBridge.log("$TAG | Start finding SDK methods for package: $packageName")
 
+        val adSdkPackageSet = adSdkPackages.toSet()
+
         val hooks = DexKitUtil.withBridge { bridge ->
             DexKitUtil.getCachedOrFindMethods("${packageName}:findSdkMethods") {
                 val initMethods = bridge.findMethod {
-                    searchPackages(adSdkPackages)
+                    searchPackages(adSdkPackageSet)
                     matcher { name(StringMatcher("init", StringMatchType.Contains, true)) }
                 }
                 val startMethods = bridge.findMethod {
-                    searchPackages(adSdkPackages)
-                    matcher { name(StringMatcher("start", StringMatchType.Equals, true)) }
+                    searchPackages(adSdkPackageSet)
+                    matcher { name(StringMatcher("start", StringMatchType.Equals)) }
                 }
                 val getContextMethods = bridge.findMethod {
-                    searchPackages(adSdkPackages)
+                    searchPackages(adSdkPackageSet)
                     matcher {
-                        name(StringMatcher("getContext", StringMatchType.Equals, false))
-                        declaredClass(ClassMatcher().apply {
-                            className(StringMatcher("Sdk", StringMatchType.Contains, true))
-                        })
+                        name(StringMatcher("getContext", StringMatchType.Equals))
                     }
                 }
                 (initMethods + startMethods + getContextMethods)

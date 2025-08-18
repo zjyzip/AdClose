@@ -1,6 +1,7 @@
 package com.close.hook.ads.hook.ha
 
 import android.content.Context
+import android.content.ContextWrapper
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.hook.util.HookUtil
@@ -102,7 +103,7 @@ object CustomHookAds {
         config.methodNames?.firstOrNull()?.let { methodName ->
             val paramTypes = resolveParameterTypes(config.parameterTypes, classLoader)
             HookUtil.findAndHookMethod(config.className, methodName, paramTypes, config.hookPoint, { param ->
-                handleReplaceContextWithFake(param)
+                handleReplaceContextWithFake(param, config)
             }, classLoader)
         }
     }
@@ -113,9 +114,9 @@ object CustomHookAds {
         val fullMethodName = "${config.className}.${config.methodNames?.firstOrNull()}"
 
         when {
-            parsedReturnValue != null -> {
+            !config.returnValue.isNullOrBlank() -> {
                 param.result = parsedReturnValue
-                val message = "Set return value to '$parsedReturnValue' for method: $fullMethodName"
+                val message = "Set return value to '$parsedReturnValue' for method: $fullMethodName (based on config)"
                 LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
             }
             method?.returnType?.let { it == method.declaringClass } == true -> {
@@ -151,8 +152,40 @@ object CustomHookAds {
         }
     }
 
-    private fun handleReplaceContextWithFake(param: XC_MethodHook.MethodHookParam) {
-        // 不开放内容
+    private fun handleReplaceContextWithFake(param: XC_MethodHook.MethodHookParam, config: CustomHookInfo) {
+        val realAppContext = XposedHelpers.callStaticMethod(
+            XposedHelpers.findClass("android.app.ActivityThread", null), "currentApplication"
+        ) as? Context
+        
+        realAppContext ?: return
+
+        val fakeContext = SmartFakeContext(realAppContext) // Stable, 稳定
+        // val fakeContext = createFakeApplicationContext(realAppContext) // Thorough 通彻不稳定
+
+        val method = param.method as Method
+        val fullMethodName = "${config.className}.${config.methodNames?.firstOrNull()}"
+
+        if (Context::class.java.isAssignableFrom(method.returnType)) {
+            param.result = fakeContext
+            val message = "Replaced Context return value with FakeContext for method: $fullMethodName"
+            LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+
+        } else {
+            param.args.forEachIndexed { i, arg ->
+                if (arg is Context) {
+                    val message = "Replaced Context parameter at index $i with FakeContext for method: $fullMethodName"
+                    LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+                }
+            }
+        }
+    }
+
+    private fun createFakeContext(realAppContext: Context): Context {
+        return object : ContextWrapper(realAppContext) {
+            override fun getApplicationContext(): Context {
+                return this
+            }
+        }
     }
 
     private fun parseReturnValue(valueStr: String?): Any? {

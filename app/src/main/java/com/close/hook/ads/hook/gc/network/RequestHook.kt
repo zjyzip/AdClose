@@ -229,7 +229,7 @@ object RequestHook {
                         return@hookAllMethods
                     }
 
-                    val userResponse = XposedHelpers.getObjectField(httpEngine, "userResponse")
+                    var userResponse = XposedHelpers.getObjectField(httpEngine, "userResponse")
                     val request = XposedHelpers.callMethod(httpEngine, "getRequest")
                     val url = URL(XposedHelpers.callMethod(request, "urlString").toString())
                     val stackTrace = HookUtil.getFormattedStackTrace()
@@ -252,7 +252,13 @@ object RequestHook {
                                     val mediaTypeClass = XposedHelpers.findClass("com.android.okhttp.MediaType", applicationContext.classLoader)
                                     val createMethod = XposedHelpers.findMethodExact(responseBodyClass, "create", mediaTypeClass, ByteArray::class.java)
                                     val newResponseBody = createMethod.invoke(null, mediaTypeObj, responseBodyBytes)
-                                    XposedHelpers.setObjectField(userResponse, "body", newResponseBody)
+
+                                    val builder = XposedHelpers.callMethod(userResponse, "newBuilder")
+                                    XposedHelpers.callMethod(builder, "body", newResponseBody)
+                                    val newResponse = XposedHelpers.callMethod(builder, "build")
+                                    
+                                    XposedHelpers.setObjectField(httpEngine, "userResponse", newResponse)
+                                    userResponse = newResponse
                                 }
                             }
                         } catch (e: Throwable) {
@@ -270,8 +276,7 @@ object RequestHook {
                 } catch (e: Exception) {
                     XposedBridge.log("$LOG_PREFIX HTTP hook error: ${e.message}")
                 }
-            },
-            applicationContext.classLoader
+            }
         )
     }
 
@@ -328,7 +333,7 @@ object RequestHook {
 
                 HookUtil.hookMethod(method, "after") { param ->
                     try {
-                        val response = param.result ?: return@hookMethod
+                        var response = param.result ?: return@hookMethod
 
                         val request = XposedHelpers.callMethod(response, "request")
                         val url = URL(XposedHelpers.callMethod(request, "url").toString())
@@ -348,14 +353,20 @@ object RequestHook {
 
                                     if (bodyBytes != null) {
                                         val newResponseBody = XposedHelpers.callStaticMethod(responseBodyCls, "create", mediaType, bodyBytes)
-                                        XposedHelpers.setObjectField(response, "body", newResponseBody)
+
+                                        val newResponseBuilder = XposedHelpers.callMethod(response, "newBuilder")
+                                        XposedHelpers.callMethod(newResponseBuilder, "body", newResponseBody)
+                                        val newResponse = XposedHelpers.callMethod(newResponseBuilder, "build")
+
+                                        param.result = newResponse
+                                        response = newResponse
                                     }
                                 } catch (e: Throwable) {
                                     XposedBridge.log("$LOG_PREFIX OkHttp body reading error: ${e.message}")
                                 }
                             }
                         }
-                        
+
                         val info = buildRequestInfo(url, " OKHTTP", request, response, bodyBytes, contentType, stackTrace)
 
                         if (checkShouldBlockRequest(info)) {
