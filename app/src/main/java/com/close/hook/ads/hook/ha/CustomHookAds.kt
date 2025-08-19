@@ -160,7 +160,7 @@ object CustomHookAds {
         realAppContext ?: return
 
         val fakeContext = SmartFakeContext(realAppContext) // Stable, 稳定
-        // val fakeContext = createFakeApplicationContext(realAppContext) // Thorough 通彻不稳定
+        // val fakeContext = createFakeApplicationContext(realAppContext) // Thorough 简易通彻不稳定
 
         val method = param.method as Method
         val fullMethodName = "${config.className}.${config.methodNames?.firstOrNull()}"
@@ -169,13 +169,13 @@ object CustomHookAds {
             param.result = fakeContext
             val message = "Replaced Context return value with FakeContext for method: $fullMethodName"
             LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+        }
 
-        } else {
-            param.args.forEachIndexed { i, arg ->
-                if (arg is Context) {
-                    val message = "Replaced Context parameter at index $i with FakeContext for method: $fullMethodName"
-                    LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
-                }
+        param.args.forEachIndexed { i, arg ->
+            if (arg is Context) {
+                param.args[i] = fakeContext
+                val message = "Replaced Context parameter at index $i with FakeContext for method: $fullMethodName"
+                LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
             }
         }
     }
