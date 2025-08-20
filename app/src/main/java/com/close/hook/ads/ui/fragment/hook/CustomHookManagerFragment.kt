@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
+import android.util.Log
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
@@ -46,6 +47,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.databinding.FragmentCustomHookManagerBinding
 import com.close.hook.ads.ui.activity.CustomHookActivity
+import com.close.hook.ads.service.ScopeManager
 import com.close.hook.ads.ui.adapter.CustomHookAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.CustomHookViewModel
@@ -80,6 +82,16 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private var currentActionMode: ActionMode? = null
     private var editingConfig: CustomHookInfo? = null
     private var isFabMenuOpen = false
+
+    private val scopeCallback = object : ScopeManager.ScopeCallback {
+        override fun onScopeOperationSuccess(message: String) {
+            Log.i("CustomHookManagerFragment", message)
+        }
+
+        override fun onScopeOperationFail(message: String) {
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     private val snackbarLayoutParams: CoordinatorLayout.LayoutParams by lazy {
         CoordinatorLayout.LayoutParams(
@@ -218,8 +230,22 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun observeGlobalHookToggle() {
-        binding.appHeaderInclude.switchGlobalEnable.setOnCheckedChangeListener { _, isChecked ->
-            viewModel.setGlobalHookStatus(isChecked)
+        val switch = binding.appHeaderInclude.switchGlobalEnable
+
+        switch.setOnClickListener {
+            val isCheckedAfterClick = switch.isChecked
+            val targetPackageName = viewModel.getTargetPackageName()
+
+            if (isCheckedAfterClick) {
+                viewModel.setGlobalHookStatus(true)
+                targetPackageName?.let { pkgName ->
+                    lifecycleScope.launch {
+                        ScopeManager.addScope(pkgName, scopeCallback)
+                    }
+                }
+            } else {
+                showRemoveScopeConfirmationDialog(targetPackageName)
+            }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -236,6 +262,34 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                 }
             }
         }
+    }
+
+    private fun showRemoveScopeConfirmationDialog(packageName: String?) {
+        if (packageName == null) return
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.remove_scope_dialog_title)
+            .setMessage(getString(R.string.disable_scope_dialog_message, packageName))
+            .setNegativeButton(android.R.string.cancel) { dialog, _ ->
+                viewModel.setGlobalHookStatus(true)
+                dialog.dismiss()
+            }
+            .setPositiveButton(R.string.action_remove) { dialog, _ ->
+                viewModel.setGlobalHookStatus(false)
+                lifecycleScope.launch {
+                    val error = ScopeManager.removeScope(packageName)
+                    if (error == null) {
+                        scopeCallback.onScopeOperationSuccess("$packageName disabled successfully.")
+                    } else {
+                        scopeCallback.onScopeOperationFail("Failed to disable $packageName: $error")
+                    }
+                }
+                dialog.dismiss()
+            }
+            .setOnCancelListener {
+                viewModel.setGlobalHookStatus(true)
+            }
+            .show()
     }
 
     private fun loadAppInfoIntoHeader(packageName: String) {

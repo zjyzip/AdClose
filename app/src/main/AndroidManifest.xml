@@ -17,6 +17,7 @@
 
     <application
         android:name=".CloseApplication"
+        android:description="@string/app_description"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
@@ -94,22 +95,5 @@
             android:authorities="com.close.hook.ads.crashinitprovider"
             android:exported="false"
             android:initOrder="101" />
-
-        <meta-data
-            android:name="xposedmodule"
-            android:value="true" />
-        <meta-data
-            android:name="xposeddescription"
-            android:value="本模块用于阻止常见SDK广告初始化加载和拦截屏蔽网络广告请求，仅供学习交流，请勿用于违法违规用途，且模块完全免费使用。\n                            By TG-@AdClose" />
-        <meta-data
-            android:name="xposedminversion"
-            android:value="93" />
-        <meta-data
-            android:name="xposedsharedprefs"
-            android:value="true" />
-        <meta-data
-            android:name="xposedscope"
-            android:resource="@array/scope" />
     </application>
-
 </manifest>

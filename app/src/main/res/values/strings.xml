@@ -1,5 +1,11 @@
 <resources>
     <string name="app_name">AdClose</string>
+    <string name="app_description">本模块用于阻止常见SDK广告初始化加载和拦截屏蔽网络广告请求，仅供学习交流，请勿用于违法违规用途，且模块完全免费使用</string>
+
+    <string name="remove_scope_dialog_title">Remove Scope?</string>
+    <string name="action_remove">Remove</string>
+    <string name="disable_scope_dialog_message">Are you sure you want to disable the module for %s?</string>
+    <string name="remove_scope_dialog_message">All switches for %s are turned off. Do you want to remove this app from the module\'s scope entirely?</string>
 
     <string name="error_title">An unexpected error occurred.\nSorry for the inconvenience.</string>
 

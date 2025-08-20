@@ -1,6 +1,5 @@
 # Built application files
 *.apk
-*.aar
 *.ap_
 *.aab
 
@@ -85,3 +84,6 @@ lint/tmp/
 
 # Android IDE
 .androidide
+
+# Keep local libraries
+!/app/libs/

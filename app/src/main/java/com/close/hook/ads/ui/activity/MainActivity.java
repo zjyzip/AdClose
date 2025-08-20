@@ -11,6 +11,7 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.close.hook.ads.R;
+import com.close.hook.ads.service.ServiceManager;
 import com.close.hook.ads.ui.fragment.block.BlockListFragment;
 import com.close.hook.ads.ui.fragment.home.HomeFragment;
 import com.close.hook.ads.ui.fragment.app.AppsPagerFragment;
@@ -51,7 +52,7 @@ public class MainActivity extends BaseActivity implements OnBackPressContainer, 
     }
 
     public static boolean isModuleActivated() {
-        return false;
+        return ServiceManager.INSTANCE.getService() != null;
     }
 
     private void setupViewPagerAndBottomNavigation() {

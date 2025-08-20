@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.util.Log
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -22,6 +23,7 @@ import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.preference.HookPrefs
+import com.close.hook.ads.service.ScopeManager
 import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
@@ -70,6 +72,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private var appInfoDialog: BottomSheetDialog? = null
     private lateinit var configBinding: BottomDialogSwitchesBinding
     private lateinit var infoBinding: BottomDialogAppInfoBinding
+
+    private val scopeCallback = object : ScopeManager.ScopeCallback {
+        override fun onScopeOperationSuccess(message: String) {
+            Log.i("AppsFragmentScope", message)
+        }
+
+        override fun onScopeOperationFail(message: String) {
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     private val childrenCheckBoxes by lazy {
         listOf(
@@ -350,15 +362,59 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             }
 
             buttonUpdate.setOnClickListener {
+                val pkgName = currentAppPackageName ?: return@setOnClickListener
+
                 childrenCheckBoxes.forEachIndexed { index, checkBox ->
-                    val key = prefKeys[index] + appInfo.packageName
+                    val key = prefKeys[index] + pkgName
                     prefsHelper.setBoolean(key, checkBox.isChecked)
                 }
-                Toast.makeText(requireContext(), getString(R.string.save_success), Toast.LENGTH_SHORT).show()
+                
+                lifecycleScope.launch {
+                    val currentScope = ScopeManager.getScope()
+                    
+                    if (currentScope == null) {
+                        Toast.makeText(requireContext(), "Could not get scope list. Service might not be available.", Toast.LENGTH_LONG).show()
+                        return@launch
+                    }
+
+                    val isPackageInScope = pkgName in currentScope
+                    
+                    val areAllSwitchesOff = childrenCheckBoxes.all { !it.isChecked }
+
+                    if (isPackageInScope) {
+                        if (areAllSwitchesOff) {
+                            showRemoveScopeConfirmationDialog(pkgName)
+                        } else {
+                            Toast.makeText(requireContext(), getString(R.string.save_success), Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        ScopeManager.addScope(pkgName, scopeCallback)
+                        Toast.makeText(requireContext(), getString(R.string.save_success), Toast.LENGTH_SHORT).show()
+                    }
+                }
+
                 appConfigDialog?.dismiss()
             }
         }
         appConfigDialog?.show()
+    }
+
+    private fun showRemoveScopeConfirmationDialog(pkgName: String) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.remove_scope_dialog_title)
+            .setMessage(getString(R.string.remove_scope_dialog_message, pkgName))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.action_remove) { _, _ ->
+                lifecycleScope.launch {
+                    val error = ScopeManager.removeScope(pkgName)
+                    if (error == null) {
+                        scopeCallback.onScopeOperationSuccess("$pkgName removed from scope.")
+                    } else {
+                        scopeCallback.onScopeOperationFail("Failed to remove $pkgName: $error")
+                    }
+                }
+            }
+            .show()
     }
 
     @SuppressLint("SetText18n")

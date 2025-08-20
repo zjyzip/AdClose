@@ -132,6 +132,9 @@ configurations.configureEach {
 dependencies {
     compileOnly(libs.xposedApi)
     implementation(libs.dexkit)
+    compileOnly(files("libs/api-100.aar"))
+    implementation(files("libs/service-100.aar"))
+    implementation(files("libs/interface-100.aar"))
 
     implementation(libs.appcompat)
     implementation(libs.preferenceKtx)

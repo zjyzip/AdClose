@@ -1,6 +1,7 @@
 package com.close.hook.ads.hook
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.util.Log
 import com.close.hook.ads.hook.gc.DisableClipboard
 import com.close.hook.ads.hook.gc.DisableFlagSecure
@@ -22,51 +23,38 @@ import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.callbacks.XC_LoadPackage
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
+import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedInterface
+import io.github.libxposed.api.XposedModuleInterface
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class HookInit : IXposedHookLoadPackage, IXposedHookZygoteInit {
+object HookLogic {
 
-    companion object {
-        private const val TAG = "com.close.hook.ads"
-        private const val ENABLE_DEX_DUMP = false
-        private val hookScope = CoroutineScope(Dispatchers.Default)
-    }
+    var xposedInterface: XposedInterface? = null
 
-    override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
-        ContextUtil.setupContextHooks()
-        HookPrefs.initXPrefs()
-    }
+    private const val TAG = "com.close.hook.ads"
+    private const val ENABLE_DEX_DUMP = false
+    private val hookScope = CoroutineScope(Dispatchers.Default)
 
-    override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
-        if (lpparam.appInfo == null || !lpparam.isFirstApplication) return
-
-        if (lpparam.packageName == TAG) {
-            activateModule(lpparam.classLoader)
+    fun loadPackage(param: XposedModuleInterface.PackageLoadedParam) {
+        if (!param.isFirstPackage || param.packageName == TAG) {
             return
         }
 
         try {
             ContextUtil.addOnApplicationContextInitializedCallback {
                 val ctx = ContextUtil.applicationContext!!
-                val manager = SettingsManager(ctx.packageName, HookPrefs.getXpInstance())
+                val manager = SettingsManager(param.packageName, HookPrefs.getXpInstance())
 
                 setupAppHooks(ctx, manager)
                 applySettings(manager)
             }
         } catch (e: Throwable) {
-            XposedBridge.log("$TAG | handleLoadPackage error: ${Log.getStackTraceString(e)}")
+            XposedBridge.log("$TAG | loadPackage error: ${Log.getStackTraceString(e)}")
         }
-    }
-
-    private fun activateModule(classLoader: ClassLoader) {
-        HookUtil.hookSingleMethod(
-            classLoader,
-            "com.close.hook.ads.ui.activity.MainActivity",
-            "isModuleActivated",
-            true
-        )
     }
 
     private fun setupAppHooks(context: Context, manager: SettingsManager) {
