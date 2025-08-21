@@ -55,7 +55,6 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         )
     }
     private val packageName by lazy { arguments?.getString(ARG_PACKAGE_NAME) }
-    private val hookPrefs by lazy { HookPrefs.getInstance(requireContext()) }
     private val inputMethodManager by lazy { requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -66,7 +65,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         setupSearch()
         observeLogs()
         
-        updateUIForLogState(hookPrefs.getEnableLogging(packageName))
+        updateUIForLogState(HookPrefs.getEnableLogging(packageName))
     }
 
     override fun onResume() {
@@ -97,7 +96,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
             }
 
             override fun onPrepareMenu(menu: Menu) {
-                val isLogEnabled = hookPrefs.getEnableLogging(packageName)
+                val isLogEnabled = HookPrefs.getEnableLogging(packageName)
                 menu.findItem(R.id.action_clear_logs).isVisible = isLogEnabled
                 
                 val enableLogItem = menu.findItem(R.id.action_enable_log)
@@ -123,7 +122,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
     }
 
     private fun onLogSwitchChanged(isChecked: Boolean) {
-        hookPrefs.setEnableLogging(packageName, isChecked)
+        HookPrefs.setEnableLogging(packageName, isChecked)
         updateUIForLogState(isChecked)
         if (isChecked) viewModel.loadLogs()
         
@@ -213,7 +212,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.logs.collectLatest { logs ->
-                    if (hookPrefs.getEnableLogging(packageName)) {
+                    if (HookPrefs.getEnableLogging(packageName)) {
                         logAdapter.submitList(logs)
                         updateEmptyView(logs.isEmpty())
                     }

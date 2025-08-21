@@ -1,4 +1,4 @@
-package com.close.hook.ads.service
+package com.close.hook.ads.manager
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers

@@ -22,8 +22,8 @@ import com.close.hook.ads.data.model.ConfiguredBean
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
+import com.close.hook.ads.manager.ScopeManager
 import com.close.hook.ads.preference.HookPrefs
-import com.close.hook.ads.service.ScopeManager
 import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.AppsAdapter
@@ -105,10 +105,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         "switch_seven_",
         "switch_eight_"
     )
-
-    private val prefsHelper by lazy {
-        HookPrefs.getInstance(requireContext())
-    }
 
     private var currentAppPackageName: String? = null
 
@@ -342,7 +338,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             (parentFragment as? AppsPagerFragment)?.setHint(size)
     }
 
-    @SuppressLint("SetText18n")
+    @SuppressLint("SetTextI1n")
     override fun onItemClick(appInfo: AppInfo, icon: Drawable?) {
         if (!MainActivity.isModuleActivated()) {
             Toast.makeText(requireContext(), getString(R.string.module_not_activated), Toast.LENGTH_SHORT).show()
@@ -358,7 +354,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName
-                checkBox.isChecked = prefsHelper.getBoolean(key, false)
+                checkBox.isChecked = HookPrefs.getBoolean(key, false)
             }
 
             buttonUpdate.setOnClickListener {
@@ -366,40 +362,52 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
                 childrenCheckBoxes.forEachIndexed { index, checkBox ->
                     val key = prefKeys[index] + pkgName
-                    prefsHelper.setBoolean(key, checkBox.isChecked)
+                    HookPrefs.setBoolean(key, checkBox.isChecked)
                 }
-                
+
                 lifecycleScope.launch {
-                    val currentScope = ScopeManager.getScope()
-                    
-                    if (currentScope == null) {
-                        Toast.makeText(requireContext(), "Could not get scope list. Service might not be available.", Toast.LENGTH_LONG).show()
-                        return@launch
-                    }
-
-                    val isPackageInScope = pkgName in currentScope
-                    
-                    val areAllSwitchesOff = childrenCheckBoxes.all { !it.isChecked }
-
-                    if (isPackageInScope) {
-                        if (areAllSwitchesOff) {
-                            showRemoveScopeConfirmationDialog(pkgName)
-                        } else {
-                            Toast.makeText(requireContext(), getString(R.string.save_success), Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        ScopeManager.addScope(pkgName, scopeCallback)
-                        Toast.makeText(requireContext(), getString(R.string.save_success), Toast.LENGTH_SHORT).show()
-                    }
+                    handleScopeLogic(pkgName)
                 }
-
                 appConfigDialog?.dismiss()
             }
         }
         appConfigDialog?.show()
     }
 
-    private fun showRemoveScopeConfirmationDialog(pkgName: String) {
+    private suspend fun handleScopeLogic(pkgName: String) {
+        val currentScope = ScopeManager.getScope() ?: run {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(requireContext(), "Could not get scope list. Service might not be available.", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+
+        val isPackageInScope = pkgName in currentScope
+        val areAllSwitchesOff = childrenCheckBoxes.all { !it.isChecked }
+
+        val showSuccessToast: () -> Unit = {
+            lifecycleScope.launch(Dispatchers.Main) {
+                Toast.makeText(requireContext(), R.string.save_success, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        when {
+            isPackageInScope && areAllSwitchesOff -> {
+                withContext(Dispatchers.Main) {
+                    showRemoveScopeConfirmationDialog(pkgName, onDismissed = showSuccessToast)
+                }
+            }
+            !isPackageInScope && !areAllSwitchesOff -> {
+                ScopeManager.addScope(pkgName, scopeCallback)
+                showSuccessToast()
+            }
+            else -> {
+                showSuccessToast()
+            }
+        }
+    }
+
+    private fun showRemoveScopeConfirmationDialog(pkgName: String, onDismissed: () -> Unit) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.remove_scope_dialog_title)
             .setMessage(getString(R.string.remove_scope_dialog_message, pkgName))
@@ -414,6 +422,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     }
                 }
             }
+            .setOnDismissListener { onDismissed() }
             .show()
     }
 
@@ -508,7 +517,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     override fun onExport() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val allPrefs = prefsHelper.getAll()
+            val allPrefs = HookPrefs.getAll()
 
             val configuredList = viewModel.uiState.value.apps.filter { it.isEnable == 1 }.map { appInfo ->
                 ConfiguredBean(
@@ -625,7 +634,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
                         dataList.forEach { bean ->
                             bean.switchStates.forEachIndexed { index, state ->
-                                prefsHelper.setBoolean(prefKeys[index] + bean.packageName, state)
+                                HookPrefs.setBoolean(prefKeys[index] + bean.packageName, state)
                             }
                         }
                         withContext(Dispatchers.Main) {

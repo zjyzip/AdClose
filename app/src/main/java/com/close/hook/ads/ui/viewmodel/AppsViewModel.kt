@@ -24,7 +24,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         val isLoading: Boolean = false
     )
 
-    private val repo = AppRepository(application.packageManager, application.applicationContext)
+    private val repo = AppRepository(application.packageManager)
     private val _filterState = MutableStateFlow(createDefaultFilterState())
     private val _uiState = MutableStateFlow(UiState())
 

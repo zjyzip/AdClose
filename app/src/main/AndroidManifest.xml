@@ -54,6 +54,9 @@
         <activity android:name=".ui.activity.CustomHookActivity"
             android:exported="true" />
 
+        <activity android:name=".ui.activity.DataManagerActivity"
+            android:exported="true" />
+
         <activity android:name=".debug.PerformanceActivity"
             android:exported="true" />
 

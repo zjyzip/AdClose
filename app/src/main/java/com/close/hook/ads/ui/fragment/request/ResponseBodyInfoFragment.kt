@@ -38,7 +38,6 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
     private var contentToExportAndDisplay: String? = null
     private var imageBytesToExportAndDisplay: ByteArray? = null
     private var contentType: String? = null
-    private lateinit var hookPrefs: HookPrefs
 
     private val createDocumentLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
         uri?.let { fileUri ->
@@ -76,7 +75,6 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        hookPrefs = HookPrefs.getInstance(requireContext())
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -107,9 +105,9 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
 
     private fun setupCollectResponseBodySwitch() {
         binding.collectResponseBodySwitch.apply {
-            isChecked = hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
+            isChecked = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
             setOnCheckedChangeListener { _, isChecked ->
-                hookPrefs.setBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, isChecked)
+                HookPrefs.setBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, isChecked)
             }
         }
     }

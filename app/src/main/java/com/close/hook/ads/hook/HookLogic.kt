@@ -1,7 +1,6 @@
 package com.close.hook.ads.hook
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.util.Log
 import com.close.hook.ads.hook.gc.DisableClipboard
 import com.close.hook.ads.hook.gc.DisableFlagSecure
@@ -15,16 +14,11 @@ import com.close.hook.ads.hook.ha.CustomHookAds
 import com.close.hook.ads.hook.ha.SDKAdsKit
 import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexDumpUtil
-import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.hook.util.LogProxy
+import com.close.hook.ads.manager.SettingsManager
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.util.AppUtils
-import de.robv.android.xposed.IXposedHookLoadPackage
-import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.callbacks.XC_LoadPackage
-import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
-import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
 import kotlinx.coroutines.CoroutineScope
@@ -37,61 +31,63 @@ object HookLogic {
 
     private const val TAG = "com.close.hook.ads"
     private const val ENABLE_DEX_DUMP = false
-    private val hookScope = CoroutineScope(Dispatchers.Default)
+
+    private val hookScope = CoroutineScope(Dispatchers.IO)
 
     fun loadPackage(param: XposedModuleInterface.PackageLoadedParam) {
         if (!param.isFirstPackage || param.packageName == TAG) {
             return
         }
 
-        try {
-            ContextUtil.addOnApplicationContextInitializedCallback {
-                val ctx = ContextUtil.applicationContext!!
-                val manager = SettingsManager(param.packageName, HookPrefs.getXpInstance())
-
-                setupAppHooks(ctx, manager)
-                applySettings(manager)
-            }
-        } catch (e: Throwable) {
-            XposedBridge.log("$TAG | loadPackage error: ${Log.getStackTraceString(e)}")
+        ContextUtil.addOnApplicationContextInitializedCallback {
+            ContextUtil.applicationContext?.let { context ->
+                try {
+                    val manager = SettingsManager(param.packageName, HookPrefs)
+                    setupAppHooks(context, manager)
+                    applySettings(manager)
+                } catch (e: Throwable) {
+                    XposedBridge.log("$TAG | Error in package ${param.packageName}: ${Log.getStackTraceString(e)}")
+                }
+            } ?: XposedBridge.log("$TAG | FATAL: Context was null inside callback for ${param.packageName}. Hooks skipped.")
         }
     }
 
     private fun setupAppHooks(context: Context, manager: SettingsManager) {
-        with(context) {
-            val classLoader = classLoader
-            val packageName = packageName
-            val appName = AppUtils.getAppName(this, packageName)
-            val hookPrefs = manager.prefsHelper
+        val classLoader = context.classLoader
+        val packageName = context.packageName
 
-            try {
-                if (ENABLE_DEX_DUMP) {
-                    DexDumpUtil.dumpDexFilesByPackageName(packageName)
-                }
-
-                if (AppUtils.isMainProcess(this)) {
-                    if (manager.isHookTipEnabled) {
-                        AppUtils.showHookTip(this, packageName)
-                    }
-                    XposedBridge.log("$TAG | App: $appName Package: $packageName")
-                }
-
-                applyCustomHooks(this, classLoader, hookPrefs, packageName)
-                AppAds.progress(classLoader, packageName)
-
-            } catch (e: Throwable) {
-                XposedBridge.log("$TAG | setupAppHooks error: ${Log.getStackTraceString(e)}")
-            }
+        if (ENABLE_DEX_DUMP) {
+            DexDumpUtil.dumpDexFilesByPackageName(packageName)
         }
+
+        if (AppUtils.isMainProcess(context)) {
+            if (manager.isHookTipEnabled) {
+                AppUtils.showHookTip(context, packageName)
+            }
+            val appName = AppUtils.getAppName(context, packageName)
+            XposedBridge.log("$TAG | App: $appName Package: $packageName")
+        }
+
+        applyClassLoaderHooks(classLoader, manager.prefsHelper, packageName, context)
+        AppAds.progress(classLoader, packageName)
     }
 
-    private fun applyCustomHooks(context: Context, classLoader: ClassLoader, hookPrefs: HookPrefs, packageName: String) {
-        CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(null), true)
+    private fun applyClassLoaderHooks(
+        classLoader: ClassLoader,
+        hookPrefs: HookPrefs,
+        packageName: String,
+        context: Context
+    ) {
+        val hookTasks = listOf(
+            { hookPrefs.getCustomHookConfigs(null) } to true,
+            { hookPrefs.getCustomHookConfigs(packageName) } to hookPrefs.getOverallHookEnabled(packageName)
+        )
 
-        val isOverallHookEnabledForPackage = hookPrefs.getOverallHookEnabled(packageName)
-        CustomHookAds.hookCustomAds(classLoader, hookPrefs.getCustomHookConfigs(packageName), isOverallHookEnabledForPackage)
+        hookTasks.forEach { (configProvider, isEnabled) ->
+            CustomHookAds.hookCustomAds(classLoader, configProvider(), isEnabled)
+        }
 
-        if (isOverallHookEnabledForPackage) {
+        if (hookPrefs.getOverallHookEnabled(packageName)) {
             AutoHookAds.registerAutoDetectReceiver(context)
             hookScope.launch {
                 AutoHookAds.findAndCacheSdkMethods(packageName)

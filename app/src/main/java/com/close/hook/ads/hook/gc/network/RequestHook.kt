@@ -54,7 +54,6 @@ object RequestHook {
     private val urlStringCache = ConcurrentHashMap<String, Boolean>()
 
     private lateinit var applicationContext: Context
-    private lateinit var hookPrefs: HookPrefs
 
     private var responseBodyCls: Class<*>? = null
 
@@ -80,16 +79,17 @@ object RequestHook {
     fun init() {
         try {
             ContextUtil.addOnApplicationContextInitializedCallback {
-                applicationContext = ContextUtil.applicationContext!!
-                hookPrefs = HookPrefs.getXpInstance()
-                setupDNSRequestHook()
-                setupHttpRequestHook()
-                setupOkHttpRequestHook()
-                setupWebViewRequestHook()
-
-                // 受严重混淆问题，只做了某音的抓取。对于org.chromium.net类的Hook点需调整至onSucceeded/onResponseStarted，getResponse貌似不行(YouTube/PlayStote)，未进行更多的测试，弃坑。
-                if (applicationContext.packageName == "com.ss.android.ugc.aweme") {
-                    setupCronetRequestHook()
+                ContextUtil.applicationContext?.let { context ->
+                    applicationContext = context
+                    setupDNSRequestHook()
+                    setupHttpRequestHook()
+                    setupOkHttpRequestHook()
+                    setupWebViewRequestHook()
+    
+                    // 受严重混淆问题，只做了某音的抓取。对于org.chromium.net类的Hook点需调整至onSucceeded/onResponseStarted，getResponse貌似不行(YouTube/PlayStote)，未进行更多的测试，弃坑。
+                    if (context.packageName == "com.ss.android.ugc.aweme") {
+                        setupCronetRequestHook()
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -132,51 +132,46 @@ object RequestHook {
     }
 
     private fun checkShouldBlockRequest(info: RequestInfo?): Boolean {
-        if (info == null) return false
-        val queryTypes = listOf("URL", "Domain", "KeyWord")
-        for (queryType in queryTypes) {
-            val processedValue = if (queryType == "Domain") {
-                AppUtils.extractHostOrSelf(info.requestValue)
-            } else {
-                info.requestValue
+        info ?: return false
+
+        val blockResult = sequenceOf("URL", "Domain", "KeyWord")
+            .map { type ->
+                val value = if (type == "Domain") AppUtils.extractHostOrSelf(info.requestValue) else info.requestValue
+                queryContentProvider(type, value)
             }
-            val matchResult = queryContentProvider(queryType, processedValue)
-            if (matchResult.first) {
-                sendBroadcast(info, true, matchResult.second, matchResult.third)
-                return true
-            }
+            .firstOrNull { it.first }
+
+        if (blockResult != null) {
+            sendBroadcast(info, true, blockResult.second, blockResult.third)
+            return true
         }
+
         sendBroadcast(info, false, null, null)
         return false
     }
 
     private fun queryContentProvider(queryType: String, queryValue: String): Triple<Boolean, String?, String?> {
         val cacheKey = "$queryType:$queryValue"
-        queryCache.getIfPresent(cacheKey)?.let { return it }
-
-        val result = performContentQuery(queryType, queryValue)
-        queryCache.put(cacheKey, result)
-        return result
-    }
-
-    private fun performContentQuery(queryType: String, queryValue: String): Triple<Boolean, String?, String?> {
-        val contentResolver = applicationContext.contentResolver
-        val projection = arrayOf(Url.URL_TYPE, Url.URL_ADDRESS)
-        val selectionArgs = arrayOf(queryType, queryValue)
-        try {
-            contentResolver.query(URL_CONTENT_URI, projection, null, selectionArgs, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val urlTypeIndex = cursor.getColumnIndexOrThrow(Url.URL_TYPE)
-                    val urlAddressIndex = cursor.getColumnIndexOrThrow(Url.URL_ADDRESS)
-                    val urlType = cursor.getString(urlTypeIndex)
-                    val urlValue = cursor.getString(urlAddressIndex)
-                    return Triple(true, urlType, urlValue)
+        return queryCache.get(cacheKey) {
+            try {
+                applicationContext.contentResolver.query(
+                    URL_CONTENT_URI,
+                    arrayOf(Url.URL_TYPE, Url.URL_ADDRESS),
+                    null,
+                    arrayOf(queryType, queryValue),
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val urlType = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_TYPE))
+                        val urlAddress = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_ADDRESS))
+                        return@get Triple(true, urlType, urlAddress)
+                    }
                 }
+            } catch (e: Exception) {
+                XposedBridge.log("$LOG_PREFIX Query error: ${e.message}")
             }
-        } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX Query error: ${e.message}")
+            Triple(false, null, null)
         }
-        return Triple(false, null, null)
     }
 
     private fun setupDNSRequestHook() {
@@ -237,7 +232,7 @@ object RequestHook {
                     var responseBodyBytes: ByteArray? = null
                     var contentType: String? = null
 
-                    if (hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && userResponse != null) {
+                    if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && userResponse != null) {
                         try {
                             val originalResponseBody = XposedHelpers.callMethod(userResponse, "body")
                             if (originalResponseBody != null) {
@@ -342,7 +337,7 @@ object RequestHook {
                         var bodyBytes: ByteArray? = null
                         var contentType: String? = null
 
-                        if (hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
+                        if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
                             val responseBody = XposedHelpers.callMethod(response, "body")
                             if (responseBody != null) {
                                 try {
@@ -475,7 +470,7 @@ object RequestHook {
                 responseMessage = response.reasonPhrase
                 contentType = response.mimeType
 
-                if (hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
+                if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
                     response.data?.use { inputStream ->
                         responseBody = readStream(inputStream)
                     }
@@ -580,7 +575,7 @@ object RequestHook {
                     var responseBody: ByteArray? = null
                     var contentType: String? = null
 
-                    if (hookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && httpStatusCode in 200..399) {
+                    if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && httpStatusCode in 200..399) {
                         inputStreamObject?.let { streamObj ->
                             var bufferField: Field? = null
                             try {

@@ -88,7 +88,7 @@ class AppRepoPerformanceFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        appRepository = AppRepository(requireContext().packageManager, requireContext())
+        appRepository = AppRepository(requireContext().packageManager)
         activityManager = requireContext().getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
 
         ChartMetric.values().forEach { metric ->

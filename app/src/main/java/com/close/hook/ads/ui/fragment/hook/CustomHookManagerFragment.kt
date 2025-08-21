@@ -47,7 +47,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.databinding.FragmentCustomHookManagerBinding
 import com.close.hook.ads.ui.activity.CustomHookActivity
-import com.close.hook.ads.service.ScopeManager
+import com.close.hook.ads.manager.ScopeManager
 import com.close.hook.ads.ui.adapter.CustomHookAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.CustomHookViewModel
@@ -236,15 +236,8 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             val isCheckedAfterClick = switch.isChecked
             val targetPackageName = viewModel.getTargetPackageName()
 
-            if (isCheckedAfterClick) {
-                viewModel.setGlobalHookStatus(true)
-                targetPackageName?.let { pkgName ->
-                    lifecycleScope.launch {
-                        ScopeManager.addScope(pkgName, scopeCallback)
-                    }
-                }
-            } else {
-                showRemoveScopeConfirmationDialog(targetPackageName)
+            lifecycleScope.launch {
+                handleGlobalHookToggle(isCheckedAfterClick, targetPackageName)
             }
         }
 
@@ -264,17 +257,46 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         }
     }
 
-    private fun showRemoveScopeConfirmationDialog(packageName: String?) {
-        if (packageName == null) return
+    private suspend fun handleGlobalHookToggle(isEnabling: Boolean, pkgName: String?) {
+        if (pkgName == null) {
+            scopeCallback.onScopeOperationFail("Target package name is not available.")
+            return
+        }
 
+        val currentScope = ScopeManager.getScope() ?: run {
+            withContext(Dispatchers.Main) {
+                scopeCallback.onScopeOperationFail("Failed to get scope. Service might not be connected.")
+            }
+            return
+        }
+
+        val isPackageInScope = pkgName in currentScope
+
+        if (isEnabling) {
+            if (!isPackageInScope) {
+                ScopeManager.addScope(pkgName, scopeCallback)
+            } else {
+                scopeCallback.onScopeOperationSuccess("'$pkgName' is already enabled.")
+            }
+            viewModel.setGlobalHookStatus(true)
+
+        } else {
+            if (isPackageInScope) {
+                withContext(Dispatchers.Main) {
+                    showRemoveScopeConfirmationDialog(pkgName)
+                }
+            } else {
+                viewModel.setGlobalHookStatus(false)
+            }
+        }
+    }
+
+    private fun showRemoveScopeConfirmationDialog(packageName: String) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.remove_scope_dialog_title)
             .setMessage(getString(R.string.disable_scope_dialog_message, packageName))
-            .setNegativeButton(android.R.string.cancel) { dialog, _ ->
-                viewModel.setGlobalHookStatus(true)
-                dialog.dismiss()
-            }
-            .setPositiveButton(R.string.action_remove) { dialog, _ ->
+            .setNegativeButton(android.R.string.cancel, null) 
+            .setPositiveButton(R.string.action_remove) { _, _ ->
                 viewModel.setGlobalHookStatus(false)
                 lifecycleScope.launch {
                     val error = ScopeManager.removeScope(packageName)
@@ -284,10 +306,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                         scopeCallback.onScopeOperationFail("Failed to disable $packageName: $error")
                     }
                 }
-                dialog.dismiss()
-            }
-            .setOnCancelListener {
-                viewModel.setGlobalHookStatus(true)
             }
             .show()
     }

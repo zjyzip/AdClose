@@ -4,7 +4,6 @@ import android.os.BaseBundle
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XposedBridge
-import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
 import com.close.hook.ads.hook.util.HookUtil.hookMethod
@@ -18,14 +17,12 @@ object SDKAdsKit {
     private val packageName: String by lazy { DexKitUtil.context.packageName }
 
     fun hookAds() {
-        ContextUtil.addOnApplicationContextInitializedCallback {
-            handleIQIYI()
-            blockFirebaseWithString()
-            blockAdIdWithString()
-            blockAdIdWithBaseBundle()
-            blockGoolgeAdsInitialize()
-            blockAdsWithPackageName()
-        }
+        handleIQIYI()
+        blockFirebaseWithString()
+        blockAdIdWithString()
+        blockAdIdWithBaseBundle()
+        blockGoolgeAdsInitialize()
+        blockAdsWithPackageName()
     }
 
     fun hookMethodsByStringMatch(cacheKey: String, strings: List<String>, action: (Method) -> Unit) {

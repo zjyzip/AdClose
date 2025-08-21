@@ -1,4 +1,4 @@
-package com.close.hook.ads.hook
+package com.close.hook.ads.manager
 
 import com.close.hook.ads.preference.HookPrefs
 

@@ -6,6 +6,12 @@
             android:icon="@drawable/outline_tune_24"
             android:key="custom_hook_sdk_ads"
             android:title="@string/global_title_custom_hook" />
+
+        <Preference
+            android:icon="@drawable/ic_outline_folder_managed_24" 
+            android:key="data_manager"
+            android:title="@string/data_manager"
+            android:summary="@string/data_manager_summary" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/settings_language">

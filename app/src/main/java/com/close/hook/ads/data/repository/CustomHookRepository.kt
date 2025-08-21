@@ -8,25 +8,19 @@ import kotlinx.coroutines.withContext
 
 class CustomHookRepository(context: Context) {
 
-    private val hookPrefs = HookPrefs.getInstance(context)
-
     suspend fun getHookConfigs(packageName: String?): List<CustomHookInfo> = withContext(Dispatchers.IO) {
-        hookPrefs.getCustomHookConfigs(packageName)
+        HookPrefs.getCustomHookConfigs(packageName)
     }
 
     suspend fun saveHookConfigs(packageName: String?, configs: List<CustomHookInfo>) = withContext(Dispatchers.IO) {
-        hookPrefs.setCustomHookConfigs(packageName, configs)
+        HookPrefs.setCustomHookConfigs(packageName, configs)
     }
 
     suspend fun getHookEnabledStatus(packageName: String?): Boolean = withContext(Dispatchers.IO) {
-        hookPrefs.getOverallHookEnabled(packageName)
+        HookPrefs.getOverallHookEnabled(packageName)
     }
 
     suspend fun setHookEnabledStatus(packageName: String?, isEnabled: Boolean) = withContext(Dispatchers.IO) {
-        hookPrefs.setOverallHookEnabled(packageName, isEnabled)
-    }
-
-    suspend fun getDetectedHooks(packageName: String?): List<CustomHookInfo> = withContext(Dispatchers.IO) {
-        hookPrefs.getDetectedHooks(packageName)
+        HookPrefs.setOverallHookEnabled(packageName, isEnabled)
     }
 }

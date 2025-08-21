@@ -15,19 +15,18 @@ import kotlinx.coroutines.launch
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
 
 object DexKitUtil {
     private const val LOG_TAG = "DexKitUtil"
     private const val ENABLE_DEBUG_LOG = false
 
-    private val bridgeRef = AtomicReference<DexKitBridge?>()
+    @Volatile
+    private var bridge: DexKitBridge? = null
     private val usageCount = AtomicInteger(0)
-    private val isReleasing = AtomicBoolean(false)
     private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var releaseJob: Job? = null
+    private val lock = Any()
 
     private const val BASE_DELAY_MS = 2000L
     private const val MAX_DELAY_MS = 30000L
@@ -40,7 +39,7 @@ object DexKitUtil {
         .softValues()
         .build<String, List<MethodData>>()
 
-    val context: Context by lazy {
+    internal val context: Context by lazy {
         ContextUtil.applicationContext
             ?: throw IllegalStateException("ContextUtil.applicationContext is null")
     }
@@ -63,32 +62,12 @@ object DexKitUtil {
     }
 
     fun <T> withBridge(block: (DexKitBridge) -> T): T? {
-        if (!nativeLoaded) {
-            return null
-        }
-
-        val start = System.nanoTime()
-
-        val bridge = bridgeRef.get() ?: synchronized(this) {
-            bridgeRef.get() ?: createBridge(context)?.also {
-                bridgeRef.set(it)
-                releaseDelay = BASE_DELAY_MS
-                lastScheduleTime = System.currentTimeMillis()
-                log("Bridge created in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
-            }
-        } ?: return null
-
-        cancelPendingRelease()
-        usageCount.incrementAndGet()
-
+        if (!nativeLoaded) return null
+        val bridgeInstance = acquireBridge() ?: return null
         return try {
-            block(bridge)
+            block(bridgeInstance)
         } finally {
-            if (usageCount.decrementAndGet() == 0) {
-                scheduleRelease()
-            }
-            val elapsed = (System.nanoTime() - start) / 1_000_000.0
-            log("Bridge ready. Elapsed: %.2fms, usageCount=%d", elapsed, usageCount.get())
+            releaseUsage()
         }
     }
 
@@ -96,23 +75,47 @@ object DexKitUtil {
         val start = System.nanoTime()
         return methodCache.get(key) {
             findLogic().orEmpty().also {
-                log("Cache miss '%s'. Found %d, took %.2fms", key, it.size, (System.nanoTime() - start) / 1_000_000.0)
+                log("Cache miss for key '%s'. Found %d methods, took %.2fms", key, it.size, (System.nanoTime() - start) / 1_000_000.0)
             }
         }
     }
+    
+    private fun acquireBridge(): DexKitBridge? {
+        bridge?.let { return it.also { postAcquire() } }
 
-    private fun createBridge(context: Context): DexKitBridge? {
-        val loader = context.classLoader
-        log("Attempting to create bridge with ClassLoader: ${loader}")
-        return try {
-            if (loader::class.java.name.endsWith("PathClassLoader")) {
-                DexKitBridge.create(loader, true)
+        return synchronized(lock) {
+            bridge ?: createBridgeInternal(context)?.also {
+                val start = System.nanoTime()
+                bridge = it
+                log("Bridge created in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+            }
+        }?.also { postAcquire() }
+    }
+    
+    private fun postAcquire() {
+        cancelPendingRelease()
+        usageCount.incrementAndGet()
+        log("Bridge acquired on TID:${Thread.currentThread().id}. Usage count: ${usageCount.get()}")
+    }
+    
+    private fun releaseUsage() {
+        if (usageCount.decrementAndGet() == 0) {
+            log("Last usage released on TID:${Thread.currentThread().id}. Scheduling bridge release.")
+            scheduleRelease()
+        }
+    }
+
+    private fun createBridgeInternal(context: Context): DexKitBridge? {
+        log("Attempting to create bridge with ClassLoader: ${context.classLoader}")
+        return runCatching {
+            if (context.classLoader::class.java.name.endsWith("PathClassLoader")) {
+                DexKitBridge.create(context.classLoader, true)
             } else {
-                log("Unknown ClassLoader: ${loader::class.java.name}, fallback to apkPath")
+                log("Unknown ClassLoader, fallback to apkPath")
                 DexKitBridge.create(context.applicationInfo.sourceDir)
             }
-        } catch (e: Exception) {
-            log("Bridge creation failed: ${e.message}")
+        }.getOrElse {
+            log("Bridge creation failed: ${it.message}")
             null
         }
     }
@@ -121,20 +124,17 @@ object DexKitUtil {
         if (releaseJob?.isActive == true) return
 
         val now = System.currentTimeMillis()
-        releaseDelay = if (now - lastScheduleTime > MAX_DELAY_MS) {
-            BASE_DELAY_MS
-        } else {
-            (releaseDelay * 1.5).toLong().coerceAtMost(MAX_DELAY_MS)
-        }
+        releaseDelay = if (now - lastScheduleTime > MAX_DELAY_MS) BASE_DELAY_MS 
+                       else (releaseDelay * 1.5).toLong().coerceAtMost(MAX_DELAY_MS)
         lastScheduleTime = now
 
         releaseJob = releaseScope.launch {
             log("Scheduled release in ${releaseDelay / 1000}s")
             delay(releaseDelay)
-            if (usageCount.get() <= 0) {
+            if (usageCount.get() == 0) {
                 releaseBridge()
             } else {
-                log("Release skipped: usageCount=${usageCount.get()}")
+                log("Release skipped: bridge is in use again. Usage count: ${usageCount.get()}")
             }
         }
     }
@@ -142,37 +142,32 @@ object DexKitUtil {
     private fun cancelPendingRelease() {
         releaseJob?.cancel()
         releaseJob = null
-        releaseDelay = BASE_DELAY_MS
-        lastScheduleTime = 0L
     }
 
     private fun releaseBridge() {
-        if (!isReleasing.compareAndSet(false, true)) {
-            log("Already releasing, skipped")
-            return
-        }
+        synchronized(lock) {
+            if (bridge == null || usageCount.get() != 0) {
+                log("Release skipped: Bridge already null or in use.")
+                return
+            }
 
-        val before = Debug.getNativeHeapAllocatedSize() shr 20
-        log("Memory before close: ${before}MB")
+            val before = Debug.getNativeHeapAllocatedSize() shr 20
+            log("Memory before close: ${before}MB")
 
-        bridgeRef.getAndSet(null)?.run {
-            close()
+            bridge?.close()
+            bridge = null
             log("Bridge released")
-        } ?: log("Release skipped: Bridge already null")
 
-        val after = Debug.getNativeHeapAllocatedSize() shr 20
-        log("Memory after close: ${after}MB")
-
-        isReleasing.set(false)
+            val after = Debug.getNativeHeapAllocatedSize() shr 20
+            log("Memory after close: ${after}MB, Freed: ${before - after}MB")
+        }
         releaseDelay = BASE_DELAY_MS
         lastScheduleTime = 0L
     }
 
     private fun log(msg: String, vararg args: Any?) {
         if (ENABLE_DEBUG_LOG) {
-            val time = System.currentTimeMillis()
-            val mem = Debug.getNativeHeapAllocatedSize() shr 20
-            XposedBridge.log("[$LOG_TAG] T:$time M:${mem}MB ${msg.format(*args)}")
+            XposedBridge.log("[$LOG_TAG] M:${Debug.getNativeHeapAllocatedSize() shr 20}MB | ${String.format(msg, *args)}")
         }
     }
 }

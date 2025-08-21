@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.appcompat.app.AppCompatDelegate
 import com.close.hook.ads.preference.PrefManager
 import com.close.hook.ads.preference.PrefManager.darkTheme
-import com.close.hook.ads.service.ServiceManager
+import com.close.hook.ads.manager.ServiceManager
 import com.microsoft.appcenter.AppCenter
 import com.microsoft.appcenter.analytics.Analytics
 import com.microsoft.appcenter.crashes.Crashes

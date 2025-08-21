@@ -17,9 +17,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
 
-class AppRepository(private val packageManager: PackageManager, private val context: Context) {
-
-    private val prefsHelper by lazy { HookPrefs.getInstance(context) }
+class AppRepository(private val packageManager: PackageManager) {
 
     private val enableKeys = arrayOf(
         "switch_one_", "switch_two_", "switch_three_", "switch_four_",
@@ -41,7 +39,7 @@ class AppRepository(private val packageManager: PackageManager, private val cont
         }.getOrElse { emptyList() }
 
         val modActive = MainActivity.isModuleActivated()
-        val allPrefs = prefsHelper.getAll()
+        val allPrefs = HookPrefs.getAll()
 
         val result = coroutineScope {
             pkgs.map { pkg ->

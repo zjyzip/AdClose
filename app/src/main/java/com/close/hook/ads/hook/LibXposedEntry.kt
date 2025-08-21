@@ -3,10 +3,11 @@ package com.close.hook.ads.hook
 import com.close.hook.ads.hook.util.ContextUtil
 import de.robv.android.xposed.XposedBridge
 import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
 
 class LibXposedEntry(
-    base: io.github.libxposed.api.XposedInterface,
+    base: XposedInterface,
     param: XposedModuleInterface.ModuleLoadedParam
 ) : XposedModule(base, param) {
 

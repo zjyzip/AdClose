@@ -7,6 +7,14 @@
     <string name="disable_scope_dialog_message">Are you sure you want to disable the module for %s?</string>
     <string name="remove_scope_dialog_message">All switches for %s are turned off. Do you want to remove this app from the module\'s scope entirely?</string>
 
+    <string name="data_manager">Data Manager</string>
+    <string name="data_manager_summary">Manage module files and preferences</string>
+    <string name="delete_file_title">Delete File?</string>
+    <string name="delete_prefs_title">Delete Preference Group?</string>
+    <string name="delete_file_message">Are you sure you want to permanently delete the file \"%1$s\"?</string>
+    <string name="delete_prefs_message">Are you sure you want to permanently delete all preferences in the group \"%1$s\"? This cannot be undone.</string>
+    <string name="action_delete">Delete</string>
+    
     <string name="error_title">An unexpected error occurred.\nSorry for the inconvenience.</string>
 
     <string name="bottom_item_1">Apps</string>
