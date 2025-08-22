@@ -52,7 +52,8 @@
         </activity-alias>
 
         <activity android:name=".ui.activity.CustomHookActivity"
-            android:exported="true" />
+            android:exported="true"
+            android:windowSoftInputMode="adjustPan" />
 
         <activity android:name=".ui.activity.DataManagerActivity"
             android:exported="true" />

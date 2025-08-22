@@ -40,7 +40,7 @@ import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.gson.Gson
@@ -83,7 +83,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         }
     }
 
-    private val childrenSwitches by lazy {
+    private val childrenCheckBoxes by lazy {
         listOf(
             configBinding.switchOne,
             configBinding.switchTwo,
@@ -172,44 +172,46 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initAppConfig() {
         configBinding.apply {
             buttonCustomHook.setOnClickListener {
-                currentAppPackageName?.let { pkgName ->
+                currentAppPackageName?.let {
                     val intent = Intent(requireContext(), CustomHookActivity::class.java).apply {
-                        putExtra("packageName", pkgName)
+                        putExtra("packageName", it)
                     }
                     startActivity(intent)
-                } ?: run {
-                    Toast.makeText(requireContext(), "无法获取包名，请重试", Toast.LENGTH_SHORT).show()
                 }
                 appConfigDialog?.dismiss()
             }
 
             var isUpdatingFromParent = false
 
-            fun updateChildrenSwitches(isChecked: Boolean) {
-                isUpdatingFromParent = true
-                childrenSwitches.forEach { it.isChecked = isChecked }
-                isUpdatingFromParent = false
-            }
-
-            selectAll.setOnCheckedChangeListener { _, isChecked ->
-                updateChildrenSwitches(isChecked)
-            }
-
-            fun updateParentSwitchState() {
-                val checkedCount = childrenSwitches.count { it.isChecked }
-                val allChecked = checkedCount == childrenSwitches.size
-                
-                selectAll.setOnCheckedChangeListener(null)
-                selectAll.isChecked = allChecked
-                selectAll.setOnCheckedChangeListener { _, isChecked ->
-                    updateChildrenSwitches(isChecked)
+            val parentListener =
+                MaterialCheckBox.OnCheckedStateChangedListener { _, state ->
+                    if (state != MaterialCheckBox.STATE_INDETERMINATE) {
+                        isUpdatingFromParent = true
+                        childrenCheckBoxes.forEach { it.isChecked = selectAll.isChecked }
+                        isUpdatingFromParent = false
+                    }
                 }
+            
+            fun updateParentState() {
+                val checkedCount = childrenCheckBoxes.count { it.isChecked }
+                val allChecked = checkedCount == childrenCheckBoxes.size
+                val noneChecked = checkedCount == 0
+
+                selectAll.removeOnCheckedStateChangedListener(parentListener)
+                selectAll.checkedState = when {
+                    allChecked -> MaterialCheckBox.STATE_CHECKED
+                    noneChecked -> MaterialCheckBox.STATE_UNCHECKED
+                    else -> MaterialCheckBox.STATE_INDETERMINATE
+                }
+                selectAll.addOnCheckedStateChangedListener(parentListener)
             }
 
-            childrenSwitches.forEach { childSwitch ->
-                childSwitch.setOnCheckedChangeListener { _, _ ->
+            selectAll.addOnCheckedStateChangedListener(parentListener)
+
+            childrenCheckBoxes.forEach { checkBox ->
+                checkBox.setOnCheckedChangeListener { _, _ ->
                     if (!isUpdatingFromParent) {
-                        updateParentSwitchState()
+                        updateParentState()
                     }
                 }
             }
@@ -339,17 +341,17 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             version.text = appInfo.versionName
             this.icon.setImageDrawable(icon)
 
-            childrenSwitches.forEachIndexed { index, switch ->
+            childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName
-                switch.isChecked = HookPrefs.getBoolean(key, false)
+                checkBox.isChecked = HookPrefs.getBoolean(key, false)
             }
 
             buttonUpdate.setOnClickListener {
                 val pkgName = currentAppPackageName ?: return@setOnClickListener
 
-                childrenSwitches.forEachIndexed { index, switch ->
+                childrenCheckBoxes.forEachIndexed { index, checkBox ->
                     val key = prefKeys[index] + pkgName
-                    HookPrefs.setBoolean(key, switch.isChecked)
+                    HookPrefs.setBoolean(key, checkBox.isChecked)
                 }
 
                 lifecycleScope.launch {
@@ -370,7 +372,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         }
 
         val isPackageInScope = pkgName in currentScope
-        val areAllSwitchesOff = childrenSwitches.all { !it.isChecked }
+        val areAllSwitchesOff = childrenCheckBoxes.all { !it.isChecked }
 
         val showSuccessToast: () -> Unit = {
             lifecycleScope.launch(Dispatchers.Main) {

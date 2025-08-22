@@ -34,12 +34,16 @@
         android:id="@+id/version"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
         android:textAppearance="?attr/textAppearanceBodyMedium"
         android:textColor="?attr/colorOnSurfaceVariant"
+        android:maxLines="1"
+        android:ellipsize="middle"
         app:layout_constraintBottom_toBottomOf="@id/icon"
-        app:layout_constraintStart_toStartOf="@id/sheet_app_name"
+        app:layout_constraintEnd_toStartOf="@id/button_custom_hook"
+        app:layout_constraintStart_toEndOf="@id/icon"
         app:layout_constraintTop_toBottomOf="@id/sheet_app_name"
-        tools:text="Version 1.0.0" />
+        tools:text="Version v1.0.0-internal.1+branch.dev.commit.594e380.timestamp.20250209192122" />
 
     <Button
         android:id="@+id/button_custom_hook"
@@ -71,7 +75,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/divider_one" />
 
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/select_all"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -99,7 +103,7 @@
         app:layout_constraintBottom_toBottomOf="@id/switch_one"
         android:layout_marginEnd="16dp"/>
 
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_one"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -131,8 +135,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/switch_two"
         app:layout_constraintBottom_toBottomOf="@id/switch_two"/>
-    
-    <com.google.android.material.materialswitch.MaterialSwitch
+
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_two"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -153,7 +157,7 @@
         app:layout_constraintBottom_toBottomOf="@id/switch_three"
         android:layout_marginEnd="16dp"/>
 
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_three"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -174,7 +178,7 @@
         app:layout_constraintBottom_toBottomOf="@id/switch_four"
         android:layout_marginEnd="16dp"/>
 
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_four"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -195,7 +199,7 @@
         app:layout_constraintBottom_toBottomOf="@id/switch_five"
         android:layout_marginEnd="16dp"/>
 
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_five"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -226,7 +230,7 @@
         app:layout_constraintEnd_toStartOf="@id/switch_six"
         app:layout_constraintBottom_toBottomOf="@id/switch_six"/>
 
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_six"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -247,7 +251,7 @@
         app:layout_constraintBottom_toBottomOf="@id/switch_seven"
         android:layout_marginEnd="16dp"/>
 
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_seven"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -268,7 +272,7 @@
         app:layout_constraintBottom_toBottomOf="@id/switch_eight"
         android:layout_marginEnd="16dp"/>
     
-    <com.google.android.material.materialswitch.MaterialSwitch
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/switch_eight"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
