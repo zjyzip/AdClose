@@ -162,10 +162,10 @@
     <string name="add_hook">Add Hook</string>
     <string name="clear_all_hooks">Clear All Hooks</string>
 
-    <string name="fab_auto_detect_ads">Reklam SDK\'sını Otomatik Algıla</string>
-    <string name="dialog_auto_detect_ads_title">Aşağıdaki reklam başlatma yöntemleri algılandı</string>
-    <string name="import_selected_hooks_count">%d Hook kuralı içe aktarıldı.</string>
-    <string name="no_hook_selected">Hiçbir Hook yapılandırması seçilmedi</string>
+    <string name="fab_auto_detect_ads">Auto-Detect Ad SDKs</string>
+    <string name="dialog_auto_detect_ads_title">Detected Ad Initialization Methods</string>
+    <string name="import_selected_hooks_count">Imported %d hook rules.</string>
+    <string name="no_hook_selected">No hook configuration selected</string>
 
     <string name="import_global_rules_title">Import Global Rules?</string>
     <string name="import_global_rules_message">This configuration belongs to global Hook rules. Do you want to proceed with importing?</string>
