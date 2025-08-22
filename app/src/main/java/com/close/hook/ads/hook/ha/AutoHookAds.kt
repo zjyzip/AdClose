@@ -184,6 +184,13 @@ object AutoHookAds {
     }
 
     private fun isValidSdkMethod(methodData: MethodData): Boolean {
-        return methodData.name !in setOf("<init>", "<clinit>") && !Modifier.isAbstract(methodData.modifiers)
+        val isAbstractClass = methodData.declaredClass?.let {
+            Modifier.isAbstract(it.modifiers)
+        } ?: false
+
+        val isAbstractMethod = Modifier.isAbstract(methodData.modifiers)
+        val isConstructor = methodData.name in setOf("<init>", "<clinit>")
+
+        return !isAbstractClass && !isAbstractMethod && !isConstructor
     }
 }
