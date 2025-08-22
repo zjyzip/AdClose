@@ -8,7 +8,7 @@ import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppFilterState
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.preference.HookPrefs
-import com.close.hook.ads.ui.activity.MainActivity
+import com.close.hook.ads.manager.ServiceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -38,7 +38,7 @@ class AppRepository(private val packageManager: PackageManager) {
             packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
         }.getOrElse { emptyList() }
 
-        val modActive = MainActivity.isModuleActivated()
+        val modActive = ServiceManager.isModuleActivated
         val allPrefs = HookPrefs.getAll()
 
         val result = coroutineScope {

@@ -20,6 +20,10 @@ object ServiceManager {
     val service: XposedService?
         get() = (connectionState.value as? ConnectionState.Connected)?.service
 
+    @JvmStatic
+    val isModuleActivated: Boolean
+        get() = connectionState.value is ConnectionState.Connected
+
     fun init() {
         if (!isInitialized.compareAndSet(false, true)) {
             return

@@ -17,11 +17,11 @@ import androidx.fragment.app.Fragment
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.BaseTablayoutViewpagerBinding
 import com.close.hook.ads.databinding.BottomDialogSearchFilterBinding
-import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.preference.PrefManager
+import com.close.hook.ads.manager.ServiceManager
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -252,7 +252,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
         if (isSortBy) {
             handleSortByChipClick(titleResId, index)
         } else {
-            if (titleResId == R.string.filter_configured && !MainActivity.isModuleActivated()) {
+            if (titleResId == R.string.filter_configured && !ServiceManager.isModuleActivated) {
                 showSnackbar(getString(R.string.module_not_activated))
                 chip.isChecked = false
                 return

@@ -23,6 +23,7 @@ import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
 import com.close.hook.ads.manager.ScopeManager
+import com.close.hook.ads.manager.ServiceManager
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.ui.activity.MainActivity
@@ -329,7 +330,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     @SuppressLint("SetTextI1n")
     override fun onItemClick(appInfo: AppInfo, icon: Drawable?) {
-        if (!MainActivity.isModuleActivated()) {
+        if (!ServiceManager.isModuleActivated) {
             Toast.makeText(requireContext(), getString(R.string.module_not_activated), Toast.LENGTH_SHORT).show()
             return
         }

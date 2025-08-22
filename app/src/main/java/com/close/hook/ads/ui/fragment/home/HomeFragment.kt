@@ -16,6 +16,7 @@ import androidx.appcompat.widget.ThemeUtils
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
 import com.close.hook.ads.BuildConfig
+import com.close.hook.ads.manager.ServiceManager
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHomeBinding
 import com.close.hook.ads.ui.activity.AboutActivity
@@ -34,7 +35,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
     @SuppressLint("SetTextI18n", "RestrictedApi", "HardwareIds")
     private fun initInfo() {
         val context = requireContext()
-        val isActivated = MainActivity.isModuleActivated()
+        val isActivated = ServiceManager.isModuleActivated
         val primaryOrErrorColor = ThemeUtils.getThemeAttrColor(
             context,
             if (isActivated) com.google.android.material.R.attr.colorPrimary
