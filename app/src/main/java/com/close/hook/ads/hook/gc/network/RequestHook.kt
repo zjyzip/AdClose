@@ -19,9 +19,8 @@ import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.hook.util.StringFinderKit
 import com.close.hook.ads.provider.UrlContentProvider
-import com.close.hook.ads.provider.ResponseBodyContentProvider
+import com.close.hook.ads.provider.ResponseBodyProvider
 import com.close.hook.ads.util.AppUtils
-import com.close.hook.ads.util.EncryptionUtil
 import com.close.hook.ads.preference.HookPrefs
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
@@ -68,7 +67,7 @@ object RequestHook {
         .appendPath(UrlContentProvider.URL_TABLE_NAME)
         .build()
 
-    private val RESPONSE_BODY_CONTENT_URI: Uri = ResponseBodyContentProvider.CONTENT_URI
+    private val RESPONSE_BODY_CONTENT_URI: Uri = ResponseBodyProvider.CONTENT_URI
 
     private val queryCache: Cache<String, Triple<Boolean, String?, String?>> = CacheBuilder.newBuilder()
         .maximumSize(8192)
@@ -665,12 +664,11 @@ object RequestHook {
 
             info.responseBody?.let { body ->
                 try {
-                    val encryptedResponseBody = EncryptionUtil.encrypt(body)
                     val values = ContentValues().apply {
-                        put("body_content", encryptedResponseBody)
+                        put("body_content", body) 
                         put("mime_type", info.responseBodyContentType)
                     }
-                    val uri = applicationContext.contentResolver.insert(RESPONSE_BODY_CONTENT_URI, values)
+                    val uri = applicationContext.contentResolver.insert(ResponseBodyProvider.CONTENT_URI, values)
                     if (uri != null) {
                         responseBodyUriString = uri.toString()
                         responseBodyContentType = info.responseBodyContentType
@@ -678,7 +676,7 @@ object RequestHook {
                         Log.e(LOG_PREFIX, "ContentProvider insert failed.")
                     }
                 } catch (e: Exception) {
-                    Log.e(LOG_PREFIX, "Encryption error: ${e.message}", e)
+                    Log.e(LOG_PREFIX, "Error inserting response body into provider: ${e.message}", e)
                 }
             }
 

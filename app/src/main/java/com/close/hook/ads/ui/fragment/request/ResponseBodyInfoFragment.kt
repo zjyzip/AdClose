@@ -15,7 +15,6 @@ import androidx.lifecycle.lifecycleScope
 import com.close.hook.ads.databinding.FragmentResponseBodyBinding
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.util.dp
-import com.close.hook.ads.util.EncryptionUtil
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.gson.GsonBuilder
@@ -176,26 +175,20 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
 
     private fun getResponseBodyData(responseBodyUriString: String): Pair<ByteArray?, String?> {
         val uri = Uri.parse(responseBodyUriString)
-        var bodyBytes: ByteArray? = null
-        var mimeType: String? = null
-        try {
-            requireContext().contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val bodyContentIndex = cursor.getColumnIndex("body_content")
-                    val mimeTypeIndex = cursor.getColumnIndex("mime_type")
-                    if (bodyContentIndex != -1 && mimeTypeIndex != -1) {
-                        val encryptedBody = cursor.getString(bodyContentIndex)
-                        mimeType = cursor.getString(mimeTypeIndex)
-                        bodyBytes = EncryptionUtil.decrypt(encryptedBody)
-                    } else {
-                        Log.e("ResponseBodyInfoFragment", "Column not found")
-                    }
-                }
-            }
+        val resolver = requireContext().contentResolver
+
+        return try {
+            val mimeType = resolver.getType(uri)
+                ?: throw IOException("MIME type is null, data might be expired or invalid.")
+
+            val bodyBytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: throw IOException("Could not open input stream for URI.")
+
+            bodyBytes to mimeType
         } catch (e: Exception) {
-            Log.e("ResponseBodyInfoFragment", "Error reading or decrypting response body", e)
+            Log.e("ResponseBodyInfoFragment", "Error reading response body from provider for URI: $uri", e)
+            null to null
         }
-        return bodyBytes to mimeType
     }
 
     private fun saveImageToGallery(imageBytes: ByteArray) {

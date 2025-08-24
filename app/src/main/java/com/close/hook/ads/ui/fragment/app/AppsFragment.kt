@@ -41,6 +41,7 @@ import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -139,9 +140,22 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     private fun initSheet() {
-        appConfigDialog = BottomSheetDialog(requireContext())
         configBinding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
-        appConfigDialog?.setContentView(configBinding.root)
+
+        appConfigDialog = BottomSheetDialog(requireContext()).apply {
+            setContentView(configBinding.root)
+
+            setOnShowListener {
+                val bottomSheet = findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                if (bottomSheet != null) {
+                    val behavior = BottomSheetBehavior.from(bottomSheet)
+                    val screenHeight = resources.displayMetrics.heightPixels
+
+                    behavior.peekHeight = screenHeight / 2
+                    behavior.state = BottomSheetBehavior.STATE_EXPANDED
+                }
+            }
+        }
         initAppConfig()
 
         appInfoDialog = BottomSheetDialog(requireContext())

@@ -22,36 +22,43 @@ class LogViewModel(private val packageName: String?) : ViewModel() {
 
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    val logs: StateFlow<List<LogEntry>> = 
-        combine(_searchQuery, _allLogs) { query, logs ->
-            if (query.isBlank()) {
-                logs
-            } else {
-                logs.filter {
-                    it.tag.contains(query, ignoreCase = true) ||
-                    it.message.contains(query, ignoreCase = true)
-                }
-            }
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    val logs: StateFlow<List<LogEntry>> =
+        combine(_allLogs, _searchQuery, ::filterLogs)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
 
     init {
         loadLogs()
 
         LogRepository.logFlow
-            .onEach(::processNewLogs)
+            .onEach { newLogs ->
+                if (newLogs.isEmpty() && _allLogs.value.isNotEmpty()) {
+                    _allLogs.value = emptyList()
+                } else {
+                    processNewLogs(newLogs)
+                }
+            }
             .launchIn(viewModelScope)
     }
 
-    private fun processNewLogs(newLogs: List<LogEntry>) {
-        val filteredLogs = newLogs.filter { packageName == null || it.packageName == packageName }
+    private fun filterLogs(logs: List<LogEntry>, query: String): List<LogEntry> {
+        if (query.isBlank()) return logs
         
-        if (filteredLogs.isNotEmpty()) {
+        return logs.filter {
+            it.tag.contains(query, ignoreCase = true) ||
+            it.message.contains(query, ignoreCase = true)
+        }
+    }
+
+    private fun processNewLogs(newLogs: List<LogEntry>) {
+        val filtered = if (packageName == null) newLogs else newLogs.filter { it.packageName == packageName }
+        
+        if (filtered.isNotEmpty()) {
             _allLogs.update { currentLogs ->
-                filteredLogs + currentLogs
+                filtered + currentLogs
             }
         }
     }
@@ -62,7 +69,6 @@ class LogViewModel(private val packageName: String?) : ViewModel() {
 
     fun clearLogs() {
         LogRepository.clearLogs()
-        _allLogs.value = emptyList()
     }
 
     fun setSearchQuery(query: String) {

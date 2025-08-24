@@ -31,6 +31,11 @@ object ServiceManager {
 
         val listener = object : XposedServiceHelper.OnServiceListener {
             override fun onServiceBind(boundService: XposedService) {
+                if (isModuleActivated) {
+                    Log.w(TAG, "Another Xposed service tried to connect: ${boundService.frameworkName}. Ignoring.")
+                    return
+                }
+
                 Log.i(TAG, "LSPosed service connected: ${boundService.frameworkName} v${boundService.frameworkVersion}")
                 _connectionState.value = ConnectionState.Connected(boundService)
             }

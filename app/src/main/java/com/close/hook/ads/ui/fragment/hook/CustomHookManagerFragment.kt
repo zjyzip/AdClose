@@ -82,6 +82,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private var currentActionMode: ActionMode? = null
     private var editingConfig: CustomHookInfo? = null
     private var isFabMenuOpen = false
+    private lateinit var childFabs: List<View>
 
     private val scopeCallback = object : ScopeManager.ScopeCallback {
         override fun onScopeOperationSuccess(message: String) {
@@ -381,7 +382,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                         if (totalDy > scrollThreshold) {
                             navContainer.hideNavigation()
                             totalDy = 0
-                            if (isFabMenuOpen) toggleFabMenu(forceClose = true)
+                            if (isFabMenuOpen) closeFabMenu()
                         }
                     } else if (dy < 0) {
                         totalDy += dy
@@ -517,7 +518,15 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun setupFabMenu() {
-        binding.fabMain.setOnClickListener { toggleFabMenu() }
+        childFabs = listOf(
+            binding.fabAutoDetectAds,
+            binding.fabClipboardAutoDetect,
+            binding.fabAddHook,
+            binding.fabClearAllHooks
+        )
+
+        binding.scrim.setOnClickListener { closeFabMenu() }
+        binding.fabMain.setOnClickListener { if (isFabMenuOpen) closeFabMenu() else openFabMenu() }
 
         val fabClickMap = mapOf(
             binding.fabAutoDetectAds to ::onAutoDetectAdsClicked,
@@ -526,7 +535,10 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             binding.fabClearAllHooks to ::onClearAllHooksClicked
         )
         fabClickMap.forEach { (fab, action) ->
-            fab.setOnClickListener { action() }
+            fab.setOnClickListener {
+                action()
+                closeFabMenu()
+            }
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
@@ -539,61 +551,56 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         }
     }
 
-    private fun toggleFabMenu(forceClose: Boolean = false) {
-        val childFabs = listOf(
-            binding.fabAutoDetectAds,
-            binding.fabClipboardAutoDetect,
-            binding.fabAddHook,
-            binding.fabClearAllHooks
-        )
+    private fun openFabMenu() {
+        if (isFabMenuOpen) return
+        isFabMenuOpen = true
 
-        if (forceClose) {
-            if (!isFabMenuOpen) return
-            isFabMenuOpen = false
-        } else {
-            isFabMenuOpen = !isFabMenuOpen
-        }
+        binding.scrim.visibility = View.VISIBLE
+        binding.scrim.animate().alpha(1f).setDuration(300).start()
 
-        val fabDrawableRes = if (isFabMenuOpen) R.drawable.ic_close else R.drawable.ic_add
-        binding.fabMain.setImageResource(fabDrawableRes)
+        binding.fabMain.setImageResource(R.drawable.ic_close)
         (binding.fabMain.drawable as? AnimatedVectorDrawable)?.start()
 
         childFabs.forEachIndexed { index, fab ->
-            fab.pivotX = fab.width.toFloat()
-            fab.pivotY = fab.height.toFloat() / 2
+            fab.visibility = View.VISIBLE
+            fab.alpha = 0f
+            fab.translationY = ((childFabs.size - index) * 15.dp).toFloat()
+            fab.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(300)
+                .setStartDelay((index * 40).toLong())
+                .start()
+        }
+    }
 
-            if (isFabMenuOpen) {
-                fab.visibility = View.VISIBLE
-                val scale = 1.0f - index * 0.05f
-                fab.scaleX = 0.5f
-                fab.scaleY = 0.5f
-                fab.alpha = 0f
-                fab.animate()
-                    .scaleX(scale)
-                    .scaleY(scale)
-                    .alpha(1f)
-                    .setDuration(300)
-                    .setStartDelay((index * 40).toLong())
-                    .start()
-            } else {
-                fab.animate()
-                    .scaleX(0.5f)
-                    .scaleY(0.5f)
-                    .alpha(0f)
-                    .setDuration(300)
-                    .setStartDelay(((childFabs.size - 1 - index) * 40).toLong())
-                    .withEndAction {
-                        if (!isFabMenuOpen) {
-                            fab.visibility = View.INVISIBLE
-                        }
+    private fun closeFabMenu() {
+        if (!isFabMenuOpen) return
+        isFabMenuOpen = false
+
+        binding.scrim.animate().alpha(0f).setDuration(300).withEndAction {
+            binding.scrim.visibility = View.GONE
+        }.start()
+
+        binding.fabMain.setImageResource(R.drawable.ic_add)
+        (binding.fabMain.drawable as? AnimatedVectorDrawable)?.start()
+
+        childFabs.reversed().forEachIndexed { index, fab ->
+            fab.animate()
+                .alpha(0f)
+                .translationY(((childFabs.size - index) * 15.dp).toFloat())
+                .setDuration(300)
+                .setStartDelay((index * 40).toLong())
+                .withEndAction {
+                    if (!isFabMenuOpen) {
+                        fab.visibility = View.INVISIBLE
                     }
-                    .start()
-            }
+                }
+                .start()
         }
     }
 
     private fun onAutoDetectAdsClicked() {
-        toggleFabMenu(forceClose = true)
         viewModel.getTargetPackageName()?.let { packageName ->
             binding.progressBar.isVisible = true
             viewModel.requestAutoDetectHooks(packageName)
@@ -602,12 +609,10 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
     
     private fun onAddHookClicked() {
-        toggleFabMenu(forceClose = true)
         showAddHookDialog()
     }
     
     private fun onClipboardAutoDetectClicked() {
-        toggleFabMenu(forceClose = true)
         val clipText = clipboardManager.primaryClip?.getItemAt(0)?.text?.toString()
         if (clipText.isNullOrBlank()) {
             showToast(getString(R.string.clipboard_content_unrecognized))
@@ -620,7 +625,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun onClearAllHooksClicked() {
-        toggleFabMenu(forceClose = true)
         showClearAllConfirmDialog()
     }
 
@@ -806,12 +810,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    isFabMenuOpen -> {
+                        closeFabMenu()
+                    }
                     binding.editTextSearch.isFocused -> {
                         binding.editTextSearch.setText("")
                         setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
-                    }
-                    isFabMenuOpen -> {
-                        toggleFabMenu(forceClose = true)
                     }
                     tracker?.hasSelection() == true -> {
                         tracker?.clearSelection()
@@ -913,7 +917,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     override fun onPause() {
         super.onPause()
         currentActionMode?.finish()
-        if (isFabMenuOpen) toggleFabMenu(forceClose = true)
+        if (isFabMenuOpen) closeFabMenu()
         inputMethodManager.hideSoftInputFromWindow(binding.editTextSearch.windowToken, 0)
     }
 

@@ -82,7 +82,7 @@
             android:exported="true" />
 
         <provider
-            android:name=".provider.ResponseBodyContentProvider"
+            android:name=".provider.ResponseBodyProvider"
             android:authorities="com.close.hook.ads.provider.responsebody"
             android:exported="true" />
 
