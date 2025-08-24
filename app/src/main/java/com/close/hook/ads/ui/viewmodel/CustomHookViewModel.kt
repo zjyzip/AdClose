@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.repository.CustomHookRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +67,9 @@ class CustomHookViewModel(
         )
 
     private val prettyJson = Json { prettyPrint = true }
+
+    private var saveJob: Job? = null
+    private val debouncePeriod = 300L
 
     init {
         loadHookConfigs()
@@ -163,6 +168,7 @@ class CustomHookViewModel(
             updatedList
         }
         
+        saveJob?.cancel()
         repository.saveHookConfigs(currentPackageName, _hookConfigs.value)
         
         return deletedCount
@@ -227,8 +233,11 @@ class CustomHookViewModel(
     fun getTargetPackageName(): String? = currentPackageName
 
     private fun updateAndSaveConfigs(transform: (List<CustomHookInfo>) -> List<CustomHookInfo>) {
-        viewModelScope.launch {
-            _hookConfigs.update(transform)
+        _hookConfigs.update(transform)
+
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch {
+            delay(debouncePeriod)
             repository.saveHookConfigs(currentPackageName, _hookConfigs.value)
         }
     }

@@ -364,10 +364,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             buttonUpdate.setOnClickListener {
                 val pkgName = currentAppPackageName ?: return@setOnClickListener
 
+                val updates = mutableMapOf<String, Boolean>()
                 childrenCheckBoxes.forEachIndexed { index, checkBox ->
                     val key = prefKeys[index] + pkgName
-                    HookPrefs.setBoolean(key, checkBox.isChecked)
+                    updates[key] = checkBox.isChecked
                 }
+
+                HookPrefs.setMultiple(updates)
 
                 lifecycleScope.launch {
                     handleScopeLogic(pkgName)
