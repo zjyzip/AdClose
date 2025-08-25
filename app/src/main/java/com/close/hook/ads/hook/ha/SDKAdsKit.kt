@@ -18,6 +18,7 @@ object SDKAdsKit {
 
     fun hookAds() {
         handleIQIYI()
+        blockAnyThinkNet()
         blockFirebaseWithString()
         blockAdIdWithString()
         blockAdIdWithBaseBundle()
@@ -76,6 +77,28 @@ object SDKAdsKit {
                 }
             }
         )
+    }
+
+    fun blockAnyThinkNet() {
+        DexKitUtil.withBridge { bridge ->
+            DexKitUtil.getCachedOrFindMethods("$packageName:blockAnyThinkNet") {
+                bridge.findClass {
+                    matcher {
+                        usingStrings(listOf("anythink_default_thread"), StringMatchType.Equals)
+                    }
+                }.findMethod {
+                    matcher {
+                        returnType(Void.TYPE)
+                    }
+                }?.filter(::isValidMethodData)
+            }?.forEach { methodData ->
+                val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
+                XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+                hookMethod(method, "before") { param ->
+                    param.result = null
+                }
+            }
+        }
     }
 
     fun blockAdIdWithString() {

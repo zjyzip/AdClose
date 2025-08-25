@@ -39,7 +39,6 @@ import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
-import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.checkbox.MaterialCheckBox
@@ -69,7 +68,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private var fragmentType: String = "user"
 
     private lateinit var mAdapter: AppsAdapter
-    private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private var appConfigDialog: BottomSheetDialog? = null
     private var appInfoDialog: BottomSheetDialog? = null
     private lateinit var configBinding: BottomDialogSwitchesBinding
@@ -277,7 +275,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private fun initView() {
         mAdapter = AppsAdapter(this)
-        footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {
             setHasFixedSize(true)
@@ -315,7 +312,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 }
             })
 
-            addItemDecoration(footerSpaceDecoration)
             FastScrollerBuilder(this).useMd2Style().build()
         }
     }
@@ -323,16 +319,31 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collectLatest { state ->
-                val list = state.apps
+                val apps = state.apps
                 val isLoading = state.isLoading
 
-                binding.apply {
-                    vfContainer.displayedChild = if (list.isEmpty()) 0 else 1
-                    updateSearchHint(list.size)
-                    mAdapter.submitList(list)
-                    progressBar.isVisible = isLoading && list.isEmpty()
-                    swipeRefresh.isRefreshing = isLoading && list.isNotEmpty()
+                binding.swipeRefresh.isRefreshing = isLoading && apps.isNotEmpty()
+
+                when {
+                    isLoading && apps.isEmpty() -> {
+                        binding.progressBar.isVisible = true
+                        binding.vfContainer.isVisible = false
+                    }
+                    !isLoading && apps.isEmpty() -> {
+                        binding.progressBar.isVisible = false
+                        binding.vfContainer.isVisible = true
+                        binding.vfContainer.displayedChild = 0
+                    }
+                    apps.isNotEmpty() -> {
+                        binding.progressBar.isVisible = false
+                        binding.vfContainer.isVisible = true
+                        binding.vfContainer.displayedChild = 1
+                    }
                 }
+
+                mAdapter.submitList(apps)
+
+                updateSearchHint(apps.size)
             }
         }
     }

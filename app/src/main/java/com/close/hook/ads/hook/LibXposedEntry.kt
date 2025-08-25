@@ -15,7 +15,6 @@ class LibXposedEntry(
 
     init {
         // 将框架提供的 base 接口实例传递给逻辑核心，连接 Hook 进程与框架功能。
-        // 对应 XposedInterface.getRemotePreferences() 等。
         HookLogic.xposedInterface = base
 
         ContextUtil.setupContextHooks()

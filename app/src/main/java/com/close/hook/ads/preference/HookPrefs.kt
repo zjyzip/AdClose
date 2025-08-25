@@ -19,7 +19,6 @@ import kotlinx.coroutines.sync.withLock
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.InputStreamReader
-import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 
@@ -32,7 +31,7 @@ object HookPrefs {
     private const val FILE_PREFIX_CUSTOM_HOOK = "custom_hooks_"
 
     private const val KEY_PREFIX_OVERALL_HOOK = "overall_hook_enabled_"
-    private const val KEY_PREFIX_DETECTED_HOOK = "detected_hook_configs_"
+    private const val KEY_PREFIX_DETECT_HOOK = "detected_hook_configs_"
     private const val KEY_PREFIX_ENABLE_LOGGING = "enable_logging_"
     const val KEY_COLLECT_RESPONSE_BODY = "collect_response_body_enabled"
 
@@ -47,16 +46,20 @@ object HookPrefs {
     }
 
     private val fileAccessor: IFileAccessor? by lazy {
-        ServiceManager.service?.let {
+        ServiceManager.service?.let { service ->
             object : IFileAccessor {
-                override fun openRemoteFile(fileName: String, mode: String) = it.openRemoteFile(fileName)
-                override fun listRemoteFiles(): Array<String>? = it.listRemoteFiles()
-                override fun deleteRemoteFile(fileName: String) = it.deleteRemoteFile(fileName)
+                override fun openRemoteFile(fileName: String, mode: String) =
+                    service.openRemoteFile(fileName)
+
+                override fun listRemoteFiles(): Array<String>? = service.listRemoteFiles()
+                override fun deleteRemoteFile(fileName: String) = service.deleteRemoteFile(fileName)
             }
-        } ?: HookLogic.xposedInterface?.let {
+        } ?: HookLogic.xposedInterface?.let { xposedInterface ->
             object : IFileAccessor {
-                override fun openRemoteFile(fileName: String, mode: String) = it.openRemoteFile(fileName)
-                override fun listRemoteFiles(): Array<String>? = it.listRemoteFiles()
+                override fun openRemoteFile(fileName: String, mode: String) =
+                    xposedInterface.openRemoteFile(fileName)
+
+                override fun listRemoteFiles(): Array<String>? = xposedInterface.listRemoteFiles()
                 override fun deleteRemoteFile(fileName: String): Boolean = false
             }
         }
@@ -79,77 +82,161 @@ object HookPrefs {
         settingsWriteLock.withLock {
             val currentSettings = readSettingsMapFromFile().toMutableMap()
             transform(currentSettings)
+
             val newSettings = currentSettings.toMap()
             val json = GSON.toJson(newSettings)
             val writeSuccess = writeTextToFile(FILE_GENERAL_SETTINGS, json)
+
             if (writeSuccess) {
                 generalSettingsCache.value = newSettings
             }
         }
     }
 
-    fun getBoolean(key: String, defaultValue: Boolean): Boolean = getSettingsMap()[key] as? Boolean ?: defaultValue
-    fun setBoolean(key: String, value: Boolean) { ioScope.launch { updateAndPersistSettings { it[key] = value } } }
-    fun getString(key: String, defaultValue: String?): String? = getSettingsMap()[key] as? String ?: defaultValue
-    fun setString(key: String, value: String?) { ioScope.launch { updateAndPersistSettings { if (value == null) it.remove(key) else it[key] = value } } }
-    fun setMultiple(updates: Map<String, Any>) { if (updates.isEmpty()) return; ioScope.launch { updateAndPersistSettings { it.putAll(updates) } } }
-    fun remove(key: String) { ioScope.launch { updateAndPersistSettings { it.remove(key) } } }
-    fun clear() { ioScope.launch { updateAndPersistSettings { it.clear() } } }
-    fun contains(key: String): Boolean = getSettingsMap().containsKey(key)
-    fun getAll(): Map<String, *> = getSettingsMap()
+    fun getBoolean(key: String, defaultValue: Boolean): Boolean {
+        return getSettingsMap()[key] as? Boolean ?: defaultValue
+    }
+
+    fun setBoolean(key: String, value: Boolean) {
+        ioScope.launch {
+            updateAndPersistSettings { it[key] = value }
+        }
+    }
+
+    fun getString(key: String, defaultValue: String?): String? {
+        return getSettingsMap()[key] as? String ?: defaultValue
+    }
+
+    fun setString(key: String, value: String?) {
+        ioScope.launch {
+            updateAndPersistSettings {
+                if (value == null) it.remove(key) else it[key] = value
+            }
+        }
+    }
+
+    fun setMultiple(updates: Map<String, Any>) {
+        if (updates.isEmpty()) return
+        ioScope.launch {
+            updateAndPersistSettings { it.putAll(updates) }
+        }
+    }
+
+    fun remove(key: String) {
+        ioScope.launch {
+            updateAndPersistSettings { it.remove(key) }
+        }
+    }
+
+    fun clear() {
+        ioScope.launch {
+            updateAndPersistSettings { it.clear() }
+        }
+    }
+
+    fun contains(key: String): Boolean {
+        return getSettingsMap().containsKey(key)
+    }
+
+    fun getAll(): Map<String, *> {
+        return getSettingsMap()
+    }
 
     private val customHookCache = ConcurrentHashMap<String, List<CustomHookInfo>>()
+
     fun getCustomHookConfigs(packageName: String?): List<CustomHookInfo> {
         val effectiveKey = packageName ?: GLOBAL_KEY
         return customHookCache.getOrPut(effectiveKey) {
             val fileName = buildFileName(FILE_PREFIX_CUSTOM_HOOK, effectiveKey)
             val content = readAllTextFromFile(fileName)
-            if (content.isEmpty()) { emptyList() }
-            else { try { GSON.fromJson<List<CustomHookInfo>>(content, object : TypeToken<List<CustomHookInfo>>() {}.type) ?: emptyList() }
-            catch (e: Exception) { Log.e(TAG, "Error parsing JSON from file: $fileName", e); emptyList() }
+            if (content.isEmpty()) {
+                emptyList()
+            } else {
+                try {
+                    val type = object : TypeToken<List<CustomHookInfo>>() {}.type
+                    GSON.fromJson(content, type) ?: emptyList()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing JSON from file: $fileName", e)
+                    emptyList()
+                }
             }
         }
     }
 
     fun setCustomHookConfigs(packageName: String?, configs: List<CustomHookInfo>) {
         val effectiveKey = packageName ?: GLOBAL_KEY
-        if (configs.isEmpty()) { customHookCache.remove(effectiveKey) } else { customHookCache[effectiveKey] = configs }
+        if (configs.isEmpty()) {
+            customHookCache.remove(effectiveKey)
+        } else {
+            customHookCache[effectiveKey] = configs
+        }
+
         ioScope.launch {
             val fileName = buildFileName(FILE_PREFIX_CUSTOM_HOOK, effectiveKey)
-            if (configs.isEmpty()) { deleteConfigFile(fileName) }
-            else { val json = GSON.toJson(configs); if (!writeTextToFile(fileName, json)) { Log.e(TAG, "Failed to save hooks to file: $fileName") } }
+            if (configs.isEmpty()) {
+                deleteConfigFile(fileName)
+            } else {
+                val json = GSON.toJson(configs)
+                if (!writeTextToFile(fileName, json)) {
+                    Log.e(TAG, "Failed to save hooks to file: $fileName")
+                }
+            }
         }
     }
 
     fun invalidateCaches() {
-        synchronized(this) { generalSettingsCache.value = null }; customHookCache.clear(); Log.d(TAG, "All caches invalidated.")
+        synchronized(this) {
+            generalSettingsCache.value = null
+        }
+        customHookCache.clear()
+        Log.d(TAG, "All caches invalidated.")
     }
 
     private fun readSettingsMapFromFile(): Map<String, Any> {
         val content = readAllTextFromFile(FILE_GENERAL_SETTINGS)
         return if (content.isNotEmpty()) {
-            try { GSON.fromJson<Map<String, Any>>(content, object : TypeToken<Map<String, Any>>() {}.type) ?: emptyMap() }
-            catch (e: JsonSyntaxException) { Log.e(TAG, "Failed to parse $FILE_GENERAL_SETTINGS due to malformed JSON. Returning empty map.", e); emptyMap() }
-            catch (e: Exception) { Log.e(TAG, "Failed to parse $FILE_GENERAL_SETTINGS", e); emptyMap() }
-        } else emptyMap()
+            try {
+                val type = object : TypeToken<Map<String, Any>>() {}.type
+                GSON.fromJson(content, type) ?: emptyMap()
+            } catch (e: JsonSyntaxException) {
+                Log.e(TAG, "Failed to parse $FILE_GENERAL_SETTINGS due to malformed JSON. Returning empty map.", e)
+                emptyMap()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to parse $FILE_GENERAL_SETTINGS", e)
+                emptyMap()
+            }
+        } else {
+            emptyMap()
+        }
     }
 
     private fun readAllTextFromFile(fileName: String): String {
-        if (fileAccessor == null || !remoteFileExists(fileName)) return ""
+        if (fileAccessor == null || !remoteFileExists(fileName)) {
+            return ""
+        }
         return try {
             fileAccessor?.openRemoteFile(fileName, "r")?.use { pfd ->
-                InputStreamReader(ParcelFileDescriptor.AutoCloseInputStream(pfd), StandardCharsets.UTF_8).use { it.readText() }
+                InputStreamReader(ParcelFileDescriptor.AutoCloseInputStream(pfd), StandardCharsets.UTF_8).use {
+                    it.readText()
+                }
             } ?: ""
-        } catch (e: Exception) { if (e !is FileNotFoundException) Log.e(TAG, "Error reading text from file: $fileName", e); "" }
+        } catch (e: Exception) {
+            if (e !is FileNotFoundException) {
+                Log.e(TAG, "Error reading text from file: $fileName", e)
+            }
+            ""
+        }
     }
-    
+
     private fun writeTextToFile(fileName: String, content: String): Boolean {
-        if (fileAccessor == null) return false
+        if (fileAccessor == null) {
+            return false
+        }
         return try {
             fileAccessor?.openRemoteFile(fileName, "rw")?.use { pfd ->
                 FileOutputStream(pfd.fileDescriptor).use { fos ->
                     fos.channel.truncate(0)
-                    
+
                     fos.writer(StandardCharsets.UTF_8).use { writer ->
                         writer.write(content)
                     }
@@ -162,12 +249,45 @@ object HookPrefs {
         }
     }
 
-    private fun deleteConfigFile(fileName: String): Boolean = try { fileAccessor?.deleteRemoteFile(fileName) ?: false } catch (e: Exception) { Log.e(TAG, "Failed to delete config file: $fileName", e); false }
-    private fun remoteFileExists(fileName: String): Boolean = try { fileAccessor?.listRemoteFiles()?.contains(fileName) == true } catch (e: Exception) { Log.e(TAG, "Failed to list remote files to check existence", e); false }
-    internal fun buildKey(prefix: String, packageName: String?): String = prefix + (packageName ?: GLOBAL_KEY)
-    private fun buildFileName(prefix: String, key: String): String = "$prefix$key.json"
-    fun getOverallHookEnabled(packageName: String?): Boolean = getBoolean(buildKey(KEY_PREFIX_OVERALL_HOOK, packageName), false)
-    fun setOverallHookEnabled(packageName: String?, isEnabled: Boolean) = setBoolean(buildKey(KEY_PREFIX_OVERALL_HOOK, packageName), isEnabled)
-    fun getEnableLogging(packageName: String?): Boolean = getBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), false)
-    fun setEnableLogging(packageName: String?, isEnabled: Boolean) = setBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), isEnabled)
+    private fun deleteConfigFile(fileName: String): Boolean {
+        return try {
+            fileAccessor?.deleteRemoteFile(fileName) ?: false
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete config file: $fileName", e)
+            false
+        }
+    }
+
+    private fun remoteFileExists(fileName: String): Boolean {
+        return try {
+            fileAccessor?.listRemoteFiles()?.contains(fileName) == true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list remote files to check existence", e)
+            false
+        }
+    }
+
+    internal fun buildKey(prefix: String, packageName: String?): String {
+        return prefix + (packageName ?: GLOBAL_KEY)
+    }
+
+    private fun buildFileName(prefix: String, key: String): String {
+        return "$prefix$key.json"
+    }
+
+    fun getOverallHookEnabled(packageName: String?): Boolean {
+        return getBoolean(buildKey(KEY_PREFIX_OVERALL_HOOK, packageName), false)
+    }
+
+    fun setOverallHookEnabled(packageName: String?, isEnabled: Boolean) {
+        setBoolean(buildKey(KEY_PREFIX_OVERALL_HOOK, packageName), isEnabled)
+    }
+
+    fun getEnableLogging(packageName: String?): Boolean {
+        return getBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), false)
+    }
+
+    fun setEnableLogging(packageName: String?, isEnabled: Boolean) {
+        setBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), isEnabled)
+    }
 }
