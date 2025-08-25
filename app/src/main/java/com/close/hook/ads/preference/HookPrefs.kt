@@ -31,7 +31,6 @@ object HookPrefs {
     private const val FILE_PREFIX_CUSTOM_HOOK = "custom_hooks_"
 
     private const val KEY_PREFIX_OVERALL_HOOK = "overall_hook_enabled_"
-    private const val KEY_PREFIX_DETECT_HOOK = "detected_hook_configs_"
     private const val KEY_PREFIX_ENABLE_LOGGING = "enable_logging_"
     const val KEY_COLLECT_RESPONSE_BODY = "collect_response_body_enabled"
 

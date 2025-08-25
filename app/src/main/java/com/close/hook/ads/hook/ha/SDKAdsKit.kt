@@ -12,6 +12,7 @@ import org.luckypray.dexkit.result.MethodData
 
 object SDKAdsKit {
 
+    private const val ENABLE_DEBUG_LOG = false
     private const val LOG_PREFIX = "[SDKAdsKit]"
 
     private val packageName: String by lazy { DexKitUtil.context.packageName }
@@ -33,10 +34,10 @@ object SDKAdsKit {
                     matcher { usingStrings = strings }
                 }
             }?.forEach { methodData ->
-                if (isValidMethodData(methodData)) {
+                if (isValidMethod(methodData)) {
                     val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
                     action(method)
-                    XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+                    if (ENABLE_DEBUG_LOG) XposedBridge.log("$LOG_PREFIX Hooked method: $methodData")
                 }
             }
         }
@@ -89,11 +90,12 @@ object SDKAdsKit {
                 }.findMethod {
                     matcher {
                         returnType(Void.TYPE)
+                        name = "run"
                     }
-                }?.filter(::isValidMethodData)
+                }?.filter { isValidMethod(it) }
             }?.forEach { methodData ->
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+                if (ENABLE_DEBUG_LOG) XposedBridge.log("$LOG_PREFIX Hooked method: $methodData")
                 hookMethod(method, "before") { param ->
                     param.result = null
                 }
@@ -112,10 +114,10 @@ object SDKAdsKit {
                     matcher {
                         returnType(Void.TYPE)
                     }
-                }?.filter(::isValidMethodData)
+                }?.filter { isValidMethod(it) }
             }?.forEach { methodData ->
                 val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.log("$LOG_PREFIX Hooked method: ${methodData}")
+                if (ENABLE_DEBUG_LOG) XposedBridge.log("$LOG_PREFIX Hooked method: $methodData")
                 hookMethod(method, "before") { param ->
                     param.result = null
                 }
@@ -134,10 +136,10 @@ object SDKAdsKit {
                     matcher {
                         returnType(Void.TYPE)
                     }
-                }?.filter(::isValidMethodData)
+                }?.filter { isValidMethod(it) }
             }?.forEach {
                 val method = it.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.log("$LOG_PREFIX Hooked method: ${it}")
+                if (ENABLE_DEBUG_LOG) XposedBridge.log("$LOG_PREFIX Hooked method: $it")
                 hookMethod(method, "before") { param ->
                     param.result = null
                 }
@@ -175,10 +177,10 @@ object SDKAdsKit {
                         modifiers = Modifier.PUBLIC
                         returnType(Void.TYPE)
                     }
-                }?.filter(::isValidAdMethod)
+                }?.filter { isValidMethod(it, true) }
             }?.forEach {
                 val method = it.getMethodInstance(DexKitUtil.context.classLoader)
-                XposedBridge.log("$LOG_PREFIX Hooked method: ${it}")
+                if (ENABLE_DEBUG_LOG) XposedBridge.log("$LOG_PREFIX Hooked method: $it")
                 hookMethod(method, "before") { param ->
                     param.result = null
                 }
@@ -186,11 +188,9 @@ object SDKAdsKit {
         }
     }
 
-    private fun isValidMethodData(methodData: MethodData): Boolean {
-        return methodData.name !in setOf("<init>", "<clinit>")
-    }
-
-    private fun isValidAdMethod(methodData: MethodData): Boolean {
-        return !Modifier.isAbstract(methodData.modifiers) && isValidMethodData(methodData) && methodData.methodName in validAdMethods
+    private fun isValidMethod(methodData: MethodData, checkName: Boolean = false): Boolean {
+        return methodData.name !in setOf("<init>", "<clinit>") &&
+               !Modifier.isAbstract(methodData.modifiers) &&
+               (!checkName || methodData.methodName in validAdMethods)
     }
 }
