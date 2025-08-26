@@ -55,7 +55,7 @@ materialThemeBuilder {
 
 android {
     namespace = "com.close.hook.ads"
-    compileSdk = 34
+    compileSdk = 35
 
     signingConfigs {
         create("keyStore") {
@@ -71,12 +71,18 @@ android {
     defaultConfig {
         applicationId = "com.close.hook.ads"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = calculateVersionCode()
         versionName = "4.0.2"
 
         vectorDrawables {
             useSupportLibrary = true
+        }
+
+        packagingOptions {
+            jniLibs {
+                useLegacyPackaging = true
+            }
         }
 
         ndk {
