@@ -42,31 +42,32 @@ class AppRepository(private val packageManager: PackageManager) {
         val allPrefs = HookPrefs.getAll()
 
         val result = coroutineScope {
-            pkgs.map { pkg ->
-                async(Dispatchers.Default) {
-                    val app = pkg.applicationInfo
-                    val verCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) pkg.longVersionCode.toInt() else pkg.versionCode
-                    val isSys = (app.flags and ApplicationInfo.FLAG_SYSTEM != 0) || (app.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0)
-                    val isEn = packageManager.getApplicationEnabledSetting(pkg.packageName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                    
-                    val enabled = if (modActive) {
-                        enableKeys.any { keyPrefix -> (allPrefs["$keyPrefix${pkg.packageName}"] as? Boolean) == true }.let { if (it) 1 else 0 }
-                    } else 0
+            pkgs.mapNotNull { pkg ->
+                pkg.applicationInfo?.let { app ->
+                    async(Dispatchers.Default) {
+                        val verCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) pkg.longVersionCode.toInt() else pkg.versionCode
+                        val isSys = (app.flags and ApplicationInfo.FLAG_SYSTEM != 0) || (app.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0)
+                        val isEn = packageManager.getApplicationEnabledSetting(pkg.packageName) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        
+                        val enabled = if (modActive) {
+                            enableKeys.any { keyPrefix -> (allPrefs["$keyPrefix${pkg.packageName}"] as? Boolean) == true }.let { if (it) 1 else 0 }
+                        } else 0
 
-                    AppInfo(
-                        appName = app.loadLabel(packageManager).toString(),
-                        packageName = pkg.packageName,
-                        versionName = pkg.versionName.orEmpty(),
-                        versionCode = verCode,
-                        firstInstallTime = pkg.firstInstallTime,
-                        lastUpdateTime = pkg.lastUpdateTime,
-                        size = File(app.sourceDir).length(),
-                        targetSdk = app.targetSdkVersion,
-                        minSdk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) app.minSdkVersion else 0,
-                        isAppEnable = if (isEn) 1 else 0,
-                        isEnable = enabled,
-                        isSystem = isSys
-                    )
+                        AppInfo(
+                            appName = app.loadLabel(packageManager).toString(),
+                            packageName = pkg.packageName,
+                            versionName = pkg.versionName.orEmpty(),
+                            versionCode = verCode,
+                            firstInstallTime = pkg.firstInstallTime,
+                            lastUpdateTime = pkg.lastUpdateTime,
+                            size = File(app.sourceDir).length(),
+                            targetSdk = app.targetSdkVersion,
+                            minSdk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) app.minSdkVersion else 0,
+                            isAppEnable = if (isEn) 1 else 0,
+                            isEnable = enabled,
+                            isSystem = isSys
+                        )
+                    }
                 }
             }.map { it.await() }
         }
