@@ -33,7 +33,7 @@
         <activity
             android:name=".ui.activity.MainActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustPan">
+            android:windowSoftInputMode="adjustNothing">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
@@ -53,7 +53,7 @@
 
         <activity android:name=".ui.activity.CustomHookActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustPan" />
+            android:windowSoftInputMode="adjustNothing" />
 
         <activity android:name=".ui.activity.DataManagerActivity"
             android:exported="true" />
@@ -84,7 +84,8 @@
         <provider
             android:name=".provider.ResponseBodyProvider"
             android:authorities="com.close.hook.ads.provider.responsebody"
-            android:exported="true" />
+            android:exported="true"
+            android:grantUriPermissions="true" />
 
         <service
             android:name=".service.LogService"

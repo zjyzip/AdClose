@@ -261,6 +261,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private suspend fun handleGlobalHookToggle(isEnabling: Boolean, pkgName: String?) {
         if (pkgName == null) {
             scopeCallback.onScopeOperationFail("Target package name is not available.")
+            viewModel.setGlobalHookStatus(!isEnabling) 
             return
         }
 
@@ -268,6 +269,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             withContext(Dispatchers.Main) {
                 scopeCallback.onScopeOperationFail("Failed to get scope. Service might not be connected.")
             }
+            viewModel.setGlobalHookStatus(!isEnabling)
             return
         }
 
@@ -280,7 +282,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                 scopeCallback.onScopeOperationSuccess("'$pkgName' is already enabled.")
             }
             viewModel.setGlobalHookStatus(true)
-
         } else {
             if (isPackageInScope) {
                 withContext(Dispatchers.Main) {
@@ -296,17 +297,24 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.remove_scope_dialog_title)
             .setMessage(getString(R.string.disable_scope_dialog_message, packageName))
-            .setNegativeButton(android.R.string.cancel, null) 
+            .setCancelable(false)
+
             .setPositiveButton(R.string.action_remove) { _, _ ->
-                viewModel.setGlobalHookStatus(false)
+                viewModel.setGlobalHookStatus(false) 
+                
                 lifecycleScope.launch {
                     val error = ScopeManager.removeScope(packageName)
                     if (error == null) {
-                        scopeCallback.onScopeOperationSuccess("$packageName disabled successfully.")
+                        scopeCallback.onScopeOperationSuccess("$packageName disabled and removed from scope successfully.")
                     } else {
-                        scopeCallback.onScopeOperationFail("Failed to disable $packageName: $error")
+                        scopeCallback.onScopeOperationFail("Failed to remove $packageName from scope: $error")
                     }
                 }
+            }
+
+            .setNegativeButton(android.R.string.cancel) { dialog, _ ->
+                viewModel.setGlobalHookStatus(false)
+                dialog.dismiss()
             }
             .show()
     }

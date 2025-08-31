@@ -79,12 +79,6 @@ android {
             useSupportLibrary = true
         }
 
-        packagingOptions {
-            jniLibs {
-                useLegacyPackaging = true
-            }
-        }
-
         ndk {
             abiFilters.add("armeabi-v7a")
             abiFilters.add("arm64-v8a")

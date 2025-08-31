@@ -11,7 +11,6 @@ import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import java.io.FileNotFoundException
 import java.io.IOException
-import java.io.OutputStream
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
@@ -23,6 +22,9 @@ class ResponseBodyProvider : ContentProvider() {
         const val AUTHORITY = "com.close.hook.ads.provider.responsebody"
         val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/response_bodies")
 
+        const val KEY_BODY_CONTENT = "body_content"
+        const val KEY_MIME_TYPE = "mime_type"
+
         private const val RESPONSE_BODIES = 1
         private const val RESPONSE_BODY_ID = 2
 
@@ -33,7 +35,7 @@ class ResponseBodyProvider : ContentProvider() {
 
         private val responseBodyStore: Cache<String, Pair<ByteArray, String>> = CacheBuilder.newBuilder()
             .expireAfterWrite(5, TimeUnit.MINUTES)
-            .maximumSize(100)
+            .maximumSize(150)
             .build()
     }
 
@@ -49,68 +51,69 @@ class ResponseBodyProvider : ContentProvider() {
     }
 
     override fun getType(uri: Uri): String? {
-        val id = when (uriMatcher.match(uri)) {
-            RESPONSE_BODY_ID -> uri.lastPathSegment
-            else -> null
-        } ?: return null
-
-        return responseBodyStore.getIfPresent(id)?.second
+        return if (uriMatcher.match(uri) == RESPONSE_BODY_ID) {
+            uri.lastPathSegment?.let { id ->
+                responseBodyStore.getIfPresent(id)?.second
+            }
+        } else {
+            null
+        }
     }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
         if (mode != "r") {
-            throw IllegalArgumentException("Unsupported mode: $mode")
+            throw IllegalArgumentException("Unsupported mode: $mode. Only 'r' (read) is supported.")
         }
-        
-        val id = when (uriMatcher.match(uri)) {
-            RESPONSE_BODY_ID -> uri.lastPathSegment
-            else -> throw FileNotFoundException("Invalid URI for openFile: $uri")
-        } ?: throw FileNotFoundException("No ID found in URI: $uri")
 
-        val data = responseBodyStore.getIfPresent(id)
+        val id = uri.lastPathSegment.takeIf { uriMatcher.match(uri) == RESPONSE_BODY_ID }
+            ?: throw FileNotFoundException("Invalid or malformed URI for openFile: $uri")
+
+        val (bodyBytes, _) = responseBodyStore.getIfPresent(id)
             ?: throw FileNotFoundException("Data not found or expired for URI: $uri")
 
-        val bodyBytes = data.first
-
-        try {
-            val pipe = ParcelFileDescriptor.createPipe()
+        return try {
+            val pipe = ParcelFileDescriptor.createReliablePipe()
             val readSide = pipe[0]
             val writeSide = pipe[1]
 
-            thread(isDaemon = true) {
+            thread(isDaemon = true, name = "ResponseBodyProvider-PipeWriter") {
                 try {
-                    ParcelFileDescriptor.AutoCloseOutputStream(writeSide).use {
-                        it.write(bodyBytes)
+                    ParcelFileDescriptor.AutoCloseOutputStream(writeSide).use { outputStream ->
+                        outputStream.write(bodyBytes)
                     }
                 } catch (e: IOException) {
-                    Log.e(TAG, "Error writing to pipe", e)
+                    Log.e(TAG, "Error writing to pipe for URI: $uri", e)
+                    try {
+                        writeSide.closeWithError("IO error during write: ${e.message}")
+                    } catch (closeError: IOException) {
+                        Log.e(TAG, "Error closing pipe with error message", closeError)
+                    }
                 }
             }
             
-            return readSide
+            readSide
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to create pipe", e)
-            throw FileNotFoundException("Could not open file for URI: $uri")
+            Log.e(TAG, "Failed to create pipe for URI: $uri", e)
+            throw FileNotFoundException("Could not open file for URI: $uri due to pipe creation failure.")
         }
     }
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
         if (uriMatcher.match(uri) != RESPONSE_BODIES) {
-            throw IllegalArgumentException("Cannot insert into URI: $uri")
+            throw IllegalArgumentException("Cannot insert into URI: $uri. Use CONTENT_URI.")
         }
         
-        val bodyContent = values?.getAsByteArray("body_content")
-        val mimeType = values?.getAsString("mime_type")
-
-        if (bodyContent == null || mimeType == null) {
-            Log.e(TAG, "ContentValues must contain 'body_content' and 'mime_type'.")
-            return null
-        }
+        val bodyContent = values?.getAsByteArray(KEY_BODY_CONTENT)
+        val mimeType = values?.getAsString(KEY_MIME_TYPE)
+        requireNotNull(bodyContent) { "'$KEY_BODY_CONTENT' must not be null." }
+        requireNotNull(mimeType) { "'$KEY_MIME_TYPE' must not be null." }
 
         val id = UUID.randomUUID().toString()
-        responseBodyStore.put(id, Pair(bodyContent, mimeType))
+        responseBodyStore.put(id, bodyContent to mimeType)
 
-        return Uri.withAppendedPath(CONTENT_URI, id)
+        val newUri = Uri.withAppendedPath(CONTENT_URI, id)
+        Log.d(TAG, "Inserted new response body with URI: $newUri")
+        return newUri
     }
 
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {

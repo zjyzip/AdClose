@@ -219,8 +219,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:src="@drawable/ic_add"
-            app:elevation="6dp"
-            app:pressedTranslationZ="12dp" />
+            android:stateListAnimator="@null"
+            app:elevation="0dp"
+            app:pressedTranslationZ="0dp" />
 
     </LinearLayout>
 

@@ -1,38 +1,33 @@
 package com.close.hook.ads.hook.gc.network
 
-import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
 import android.util.Log
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.content.contentValuesOf
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.hook.util.ContextUtil
-import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.hook.util.StringFinderKit
-import com.close.hook.ads.provider.UrlContentProvider
-import com.close.hook.ads.provider.ResponseBodyProvider
-import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.preference.HookPrefs
+import com.close.hook.ads.provider.ResponseBodyProvider
+import com.close.hook.ads.provider.UrlContentProvider
+import com.close.hook.ads.util.AppUtils
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
-import org.luckypray.dexkit.result.MethodData
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.lang.reflect.Field
-import java.lang.reflect.Method
 import java.net.InetAddress
 import java.net.URL
 import java.net.URLDecoder
@@ -47,19 +42,42 @@ object RequestHook {
     private const val LOG_PREFIX = "[RequestHook] "
     private val UTF8: Charset = StandardCharsets.UTF_8
 
-    private var emptyWebResponse: Any? = null
+    private val emptyWebResponse: WebResourceResponse? by lazy { createEmptyWebResourceResponse() }
 
-    private val dnsHostCache = ConcurrentHashMap<String, Boolean>()
-    private val urlStringCache = ConcurrentHashMap<String, Boolean>()
+    private val dnsHostCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val urlStringCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private lateinit var applicationContext: Context
 
-    private var responseBodyCls: Class<*>? = null
+    private val responseBodyCls: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.classLoader)
+        } catch (e: Throwable) {
+            XposedBridge.log("$LOG_PREFIX OkHttp3 ResponseBody class not found: ${e.message}")
+            null
+        }
+    }
 
-    private var cronetHttpURLConnectionCls: Class<*>? = null // org.chromium.net.urlconnection.CronetHttpURLConnection
-    private var urlResponseInfoCls: Class<*>? = null // org.chromium.net.ResponseInfo
-    private var urlRequestCls: Class<*>? = null // org.chromium.net.UrlRequest
-    private var cronetInputStreamCls: Class<*>? = null // org.chromium.net.urlconnection.CronetInputStream
+    private val cronetHttpURLConnectionCls: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("com.ttnet.org.chromium.net.urlconnection.CronetHttpURLConnection", applicationContext.classLoader)
+        } catch (e: Throwable) { null }
+    }
+    private val urlResponseInfoCls: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("com.ttnet.org.chromium.net.UrlResponseInfo", applicationContext.classLoader)
+        } catch (e: Throwable) { null }
+    }
+    private val urlRequestCls: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("com.ttnet.org.chromium.net.UrlRequest", applicationContext.classLoader)
+        } catch (e: Throwable) { null }
+    }
+    private val cronetInputStreamCls: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("com.ttnet.org.chromium.net.urlconnection.CronetInputStream", applicationContext.classLoader)
+        } catch (e: Throwable) { null }
+    }
 
     private val URL_CONTENT_URI: Uri = Uri.Builder()
         .scheme("content")
@@ -84,7 +102,7 @@ object RequestHook {
                     setupHttpRequestHook()
                     setupOkHttpRequestHook()
                     setupWebViewRequestHook()
-    
+
                     // 受严重混淆问题，只做了某音的抓取。对于org.chromium.net类的Hook点需调整至onSucceeded/onResponseStarted，getResponse貌似不行(YouTube/PlayStote)，未进行更多的测试，弃坑。
                     if (context.packageName == "com.ss.android.ugc.aweme") {
                         setupCronetRequestHook()
@@ -97,14 +115,14 @@ object RequestHook {
     }
 
     private fun formatUrlWithoutQuery(urlObject: Any?): String {
-        try {
-            return when (urlObject) {
+        return try {
+            when (urlObject) {
                 is URL -> {
                     val decodedPath = URLDecoder.decode(urlObject.path, UTF8.name())
                     URL(urlObject.protocol, urlObject.host, urlObject.port, decodedPath).toExternalForm()
                 }
                 is Uri -> {
-                    val decodedPath = urlObject.path?.let { URLDecoder.decode(it, UTF8.name()) } ?: ""
+                    val decodedPath = URLDecoder.decode(urlObject.path ?: "", UTF8.name())
                     Uri.Builder()
                         .scheme(urlObject.scheme)
                         .authority(urlObject.authority)
@@ -116,32 +134,32 @@ object RequestHook {
             }
         } catch (e: Exception) {
             XposedBridge.log("$LOG_PREFIX URL format error: ${e.message}")
-            return urlObject?.toString() ?: ""
+            urlObject?.toString() ?: ""
         }
     }
 
     private fun readStream(inputStream: InputStream): ByteArray {
-        val buffer = ByteArrayOutputStream()
-        val data = ByteArray(4096)
-        var nRead: Int
-        while (inputStream.read(data, 0, data.size).also { nRead = it } != -1) {
-            buffer.write(data, 0, nRead)
+        return try {
+            inputStream.readBytes()
+        } catch (e: IOException) {
+            XposedBridge.log("$LOG_PREFIX Error reading stream: ${e.message}")
+            ByteArray(0)
         }
-        return buffer.toByteArray()
     }
 
     private fun checkShouldBlockRequest(info: RequestInfo?): Boolean {
         info ?: return false
 
         val blockResult = sequenceOf("URL", "Domain", "KeyWord")
-            .map { type ->
+            .mapNotNull { type ->
                 val value = if (type == "Domain") AppUtils.extractHostOrSelf(info.requestValue) else info.requestValue
-                queryContentProvider(type, value)
+                val result = queryContentProvider(type, value)
+                if (result.first) result else null
             }
-            .firstOrNull { it.first }
+            .firstOrNull()
 
-        if (blockResult != null) {
-            sendBroadcast(info, true, blockResult.second, blockResult.third)
+        blockResult?.let {
+            sendBroadcast(info, true, it.second, it.third)
             return true
         }
 
@@ -199,108 +217,111 @@ object RequestHook {
     private fun processDnsRequest(hostObject: Any?, result: Any?, methodName: String): Boolean {
         val host = hostObject as? String ?: return false
         val stackTrace = HookUtil.getFormattedStackTrace()
-        val fullAddress = when {
-            methodName == "getByName" && result is InetAddress -> result.hostAddress
-            methodName == "getAllByName" && result is Array<*> -> result.filterIsInstance<InetAddress>()
-                .filter { it.hostAddress != null }
-                .joinToString(", ") { it.hostAddress }
+        val fullAddress = when (result) {
+            is InetAddress -> result.hostAddress
+            is Array<*> -> result.filterIsInstance<InetAddress>()
+                .joinToString(", ") { it.hostAddress.orEmpty() }
             else -> null
         }
         if (fullAddress.isNullOrEmpty()) return false
-        val info = RequestInfo(" DNS", host, null, null, null, -1, null, null, null, null, stackTrace, host, fullAddress)
+
+        val info = RequestInfo(
+            requestType = " DNS",
+            requestValue = host,
+            method = null,
+            urlString = null,
+            requestHeaders = null,
+            responseCode = -1,
+            responseMessage = null,
+            responseHeaders = null,
+            responseBody = null,
+            responseBodyContentType = null,
+            stack = stackTrace,
+            dnsHost = host,
+            fullAddress = fullAddress
+        )
         return checkShouldBlockRequest(info)
     }
 
     private fun setupHttpRequestHook() {
         HookUtil.hookAllMethods(
-            "com.android.okhttp.internal.huc.HttpURLConnectionImpl",
-            "getResponse",
-            "after",
-            { param ->
-                try {
-                    val httpEngine = XposedHelpers.getObjectField(param.thisObject, "httpEngine")
-                    if (httpEngine == null || !(XposedHelpers.callMethod(httpEngine, "hasResponse") as? Boolean ?: false)) {
-                        return@hookAllMethods
-                    }
+            "com.android.okhttp.internal.http.HttpEngine",
+            "readResponse",
+            "after"
+        ) { param ->
+            try {
+                val httpEngine = param.thisObject
+                val userResponse = XposedHelpers.getObjectField(httpEngine, "userResponse") ?: return@hookAllMethods
+                val request = XposedHelpers.getObjectField(httpEngine, "userRequest") ?: return@hookAllMethods
 
-                    var userResponse = XposedHelpers.getObjectField(httpEngine, "userResponse")
-                    val request = XposedHelpers.callMethod(httpEngine, "getRequest")
-                    val url = URL(XposedHelpers.callMethod(request, "urlString").toString())
-                    val stackTrace = HookUtil.getFormattedStackTrace()
+                val url = URL(XposedHelpers.callMethod(request, "urlString").toString())
+                val stackTrace = HookUtil.getFormattedStackTrace()
 
-                    var responseBodyBytes: ByteArray? = null
-                    var contentType: String? = null
+                var responseBodyBytes: ByteArray? = null
+                var contentType: String? = null
 
-                    if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && userResponse != null) {
-                        try {
-                            val originalResponseBody = XposedHelpers.callMethod(userResponse, "body")
-                            if (originalResponseBody != null) {
-                                val mediaTypeObj = XposedHelpers.callMethod(originalResponseBody, "contentType")
-                                contentType = mediaTypeObj?.toString()
+                if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
+                    try {
+                        XposedHelpers.callMethod(userResponse, "body")?.let { originalResponseBody ->
+                            val mediaTypeObj = XposedHelpers.callMethod(originalResponseBody, "contentType")
+                            contentType = mediaTypeObj?.toString()
 
-                                val inputStream = XposedHelpers.callMethod(originalResponseBody, "byteStream") as? InputStream
-                                inputStream?.use { responseBodyBytes = readStream(it) }
-
-                                if (responseBodyBytes != null) {
-                                    val responseBodyClass = XposedHelpers.findClass("com.android.okhttp.ResponseBody", applicationContext.classLoader)
-                                    val mediaTypeClass = XposedHelpers.findClass("com.android.okhttp.MediaType", applicationContext.classLoader)
-                                    val createMethod = XposedHelpers.findMethodExact(responseBodyClass, "create", mediaTypeClass, ByteArray::class.java)
-                                    val newResponseBody = createMethod.invoke(null, mediaTypeObj, responseBodyBytes)
-
-                                    val builder = XposedHelpers.callMethod(userResponse, "newBuilder")
-                                    XposedHelpers.callMethod(builder, "body", newResponseBody)
-                                    val newResponse = XposedHelpers.callMethod(builder, "build")
-                                    
-                                    XposedHelpers.setObjectField(httpEngine, "userResponse", newResponse)
-                                    userResponse = newResponse
+                            XposedHelpers.callMethod(originalResponseBody, "source")?.let { source ->
+                                XposedHelpers.callMethod(source, "request", Long.MAX_VALUE)
+                                XposedHelpers.callMethod(source, "buffer")?.let { buffer ->
+                                    val clonedBuffer = XposedHelpers.callMethod(buffer, "clone")
+                                    responseBodyBytes = XposedHelpers.callMethod(clonedBuffer, "readByteArray") as? ByteArray
                                 }
                             }
-                        } catch (e: Throwable) {
-                            XposedBridge.log("$LOG_PREFIX Android OkHttp body reading error: ${e.message}")
                         }
+                    } catch (e: Throwable) {
+                        XposedBridge.log("$LOG_PREFIX Android OkHttp non-destructive body reading error: ${e.message}")
                     }
-
-                    val info = buildRequestInfo(url, " HTTP", request, userResponse, responseBodyBytes, contentType, stackTrace)
-
-                    if (checkShouldBlockRequest(info)) {
-                        createEmptyResponseForHttp(userResponse)?.let { emptyResponse ->
-                            XposedHelpers.setObjectField(httpEngine, "userResponse", emptyResponse)
-                        }
-                    }
-                } catch (e: Exception) {
-                    XposedBridge.log("$LOG_PREFIX HTTP hook error: ${e.message}")
                 }
+
+                val info = buildRequestInfo(url, " HTTP", request, userResponse, responseBodyBytes, contentType, stackTrace)
+
+                if (checkShouldBlockRequest(info)) {
+                    createEmptyResponseForHttp(userResponse)?.let { emptyResponse ->
+                        XposedHelpers.setObjectField(httpEngine, "userResponse", emptyResponse)
+                    }
+                }
+            } catch (e: Exception) {
+                XposedBridge.log("$LOG_PREFIX HTTP hook (HttpEngine) error: ${e.message}")
             }
-        )
+        }
     }
 
     private fun createEmptyResponseForHttp(response: Any?): Any? {
-        if (response == null || response::class.java.name != "com.android.okhttp.Response") {
+        if (response == null) {
             return null
         }
 
-        val builderClass = Class.forName("com.android.okhttp.Response\$Builder")
-        val requestClass = Class.forName("com.android.okhttp.Request")
-        val protocolClass = Class.forName("com.android.okhttp.Protocol")
-        val responseBodyClass = Class.forName("com.android.okhttp.ResponseBody")
+        return try {
+            val builderClass = Class.forName("com.android.okhttp.Response\$Builder")
+            val protocolClass = Class.forName("com.android.okhttp.Protocol")
+            val responseBodyClass = Class.forName("com.android.okhttp.ResponseBody")
+            val mediaTypeClass = Class.forName("com.android.okhttp.MediaType")
 
-        val request = XposedHelpers.callMethod(response, "request")
+            val request = XposedHelpers.callMethod(response, "request")
+            val protocolHTTP11 = XposedHelpers.getStaticObjectField(protocolClass, "HTTP_1_1")
 
-        val builder = builderClass.getDeclaredConstructor().newInstance()
-        XposedHelpers.callMethod(builder, "request", request)
+            val builder = builderClass.getDeclaredConstructor().newInstance().apply {
+                XposedHelpers.callMethod(this, "request", request)
+                XposedHelpers.callMethod(this, "protocol", protocolHTTP11)
+                XposedHelpers.callMethod(this, "code", 204)
+                XposedHelpers.callMethod(this, "message", "No Content")
+            }
 
-        val protocolHTTP11 = protocolClass.getDeclaredField("HTTP_1_1").get(null)
-        XposedHelpers.callMethod(builder, "protocol", protocolHTTP11)
+            val createMethod = XposedHelpers.findMethodExact(responseBodyClass, "create", mediaTypeClass, String::class.java)
+            val emptyResponseBody = createMethod.invoke(null, null, "")
 
-        XposedHelpers.callMethod(builder, "code", 204)
-        XposedHelpers.callMethod(builder, "message", "No Content")
-
-        val createMethod = XposedHelpers.findMethodExact(responseBodyClass, "create", Class.forName("com.android.okhttp.MediaType"), String::class.java)
-        val emptyResponseBody = createMethod.invoke(null, null, "")
-
-        XposedHelpers.callMethod(builder, "body", emptyResponseBody)
-
-        return XposedHelpers.callMethod(builder, "build")
+            XposedHelpers.callMethod(builder, "body", emptyResponseBody)
+            XposedHelpers.callMethod(builder, "build")
+        } catch(e: Exception) {
+            XposedBridge.log("$LOG_PREFIX createEmptyResponseForHttp error: ${e.message}")
+            null
+        }
     }
 
     fun setupOkHttpRequestHook() {
@@ -308,26 +329,18 @@ object RequestHook {
         hookOkHttpMethod("setupOkHttpRequestHook_execute", "Already Executed", "execute")
         // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
         hookOkHttpMethod("setupOkHttp2RequestHook_intercept", "Canceled", "intercept")
-
-        try {
-            responseBodyCls = XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.classLoader)
-        } catch (e: Throwable) {
-            XposedBridge.log("$LOG_PREFIX OkHttp load error: ${e.message}")
-        }
     }
 
     private fun hookOkHttpMethod(cacheKeySuffix: String, methodDescription: String, methodName: String) {
         val cacheKey = "${applicationContext.packageName}:$cacheKeySuffix"
-        val foundMethods = StringFinderKit.findMethodsWithString(cacheKey, methodDescription, methodName)
-
-        foundMethods?.forEach { methodData ->
+        StringFinderKit.findMethodsWithString(cacheKey, methodDescription, methodName)?.forEach { methodData ->
             try {
                 val method = methodData.getMethodInstance(applicationContext.classLoader)
                 XposedBridge.log("$LOG_PREFIX setupOkHttpRequestHook $methodData")
 
                 HookUtil.hookMethod(method, "after") { param ->
                     try {
-                        var response = param.result ?: return@hookMethod
+                        val response = param.result ?: return@hookMethod
 
                         val request = XposedHelpers.callMethod(response, "request")
                         val url = URL(XposedHelpers.callMethod(request, "url").toString())
@@ -337,26 +350,20 @@ object RequestHook {
                         var contentType: String? = null
 
                         if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
-                            val responseBody = XposedHelpers.callMethod(response, "body")
-                            if (responseBody != null) {
+                            XposedHelpers.callMethod(response, "body")?.let { responseBody ->
                                 try {
                                     val mediaType = XposedHelpers.callMethod(responseBody, "contentType")
                                     contentType = mediaType?.toString()
 
-                                    bodyBytes = XposedHelpers.callMethod(responseBody, "bytes") as? ByteArray
-
-                                    if (bodyBytes != null) {
-                                        val newResponseBody = XposedHelpers.callStaticMethod(responseBodyCls, "create", mediaType, bodyBytes)
-
-                                        val newResponseBuilder = XposedHelpers.callMethod(response, "newBuilder")
-                                        XposedHelpers.callMethod(newResponseBuilder, "body", newResponseBody)
-                                        val newResponse = XposedHelpers.callMethod(newResponseBuilder, "build")
-
-                                        param.result = newResponse
-                                        response = newResponse
+                                    XposedHelpers.callMethod(responseBody, "source")?.let { source ->
+                                        XposedHelpers.callMethod(source, "request", Long.MAX_VALUE)
+                                        XposedHelpers.callMethod(source, "buffer")?.let { buffer ->
+                                            val clonedBuffer = XposedHelpers.callMethod(buffer, "clone")
+                                            bodyBytes = XposedHelpers.callMethod(clonedBuffer, "readByteArray") as? ByteArray
+                                        }
                                     }
                                 } catch (e: Throwable) {
-                                    XposedBridge.log("$LOG_PREFIX OkHttp body reading error: ${e.message}")
+                                    XposedBridge.log("$LOG_PREFIX OkHttp3 non-destructive body reading error: ${e.message}")
                                 }
                             }
                         }
@@ -364,12 +371,12 @@ object RequestHook {
                         val info = buildRequestInfo(url, " OKHTTP", request, response, bodyBytes, contentType, stackTrace)
 
                         if (checkShouldBlockRequest(info)) {
-                            param.throwable = IOException("Request blocked by AdClose")
+                            param.throwable = IOException("Request blocked by AdClose: ${url.host}")
                         }
                     } catch (e: IOException) {
                         param.throwable = e
                     } catch (e: Throwable) {
-                        XposedBridge.log("$LOG_PREFIX OkHttp hook error: ${e.message}")
+                        XposedBridge.log("$LOG_PREFIX OkHttp hook error ($methodName): ${e.message}")
                     }
                 }
             } catch (e: Exception) {
@@ -392,27 +399,36 @@ object RequestHook {
             val formattedUrl = formatUrlWithoutQuery(url)
 
             RequestInfo(
-                requestFrameworkType, formattedUrl, method, urlString,
-                requestHeaders, code, message, responseHeaders, responseBody, contentType, stack, null, null
+                requestType = requestFrameworkType,
+                requestValue = formattedUrl,
+                method = method,
+                urlString = urlString,
+                requestHeaders = requestHeaders,
+                responseCode = code,
+                responseMessage = message,
+                responseHeaders = responseHeaders,
+                responseBody = responseBody,
+                responseBodyContentType = contentType,
+                stack = stack,
+                dnsHost = null,
+                fullAddress = null
             )
         } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX Block check error: ${e.message}")
+            XposedBridge.log("$LOG_PREFIX buildRequestInfo error: ${e.message}")
             null
         }
     }
 
     fun setupWebViewRequestHook() {
-        if (emptyWebResponse == null) {
-            emptyWebResponse = createEmptyWebResourceResponse()
-        }
         HookUtil.findAndHookMethod(
             WebView::class.java,
             "setWebViewClient",
             arrayOf(WebViewClient::class.java),
             "before"
         ) { param ->
-            val client = param.args[0]
-            hookClientMethods(client.javaClass.name, applicationContext.classLoader)
+            param.args[0]?.let {
+                hookClientMethods(it.javaClass.name, applicationContext.classLoader)
+            }
         }
     }
 
@@ -448,52 +464,35 @@ object RequestHook {
 
     private fun processWebRequest(request: Any?, response: Any?): Boolean {
         try {
-            var method: String? = null
-            var urlString: String? = null
-            var requestHeaders: String? = null
-            if (request is WebResourceRequest) {
-                method = request.method
-                urlString = request.url.toString()
-                requestHeaders = request.requestHeaders?.toString()
-            }
+            val urlString = (request as? WebResourceRequest)?.url?.toString()
+            val formattedUrl = urlString?.let { formatUrlWithoutQuery(Uri.parse(it)) } ?: return false
 
-            var responseCode = -1
-            var responseMessage: String? = null
-            var responseHeaders: String? = null
-            var responseBody: ByteArray? = null
-            var contentType: String? = null
+            val method = (request as? WebResourceRequest)?.method
+            val requestHeaders = (request as? WebResourceRequest)?.requestHeaders?.toString()
 
-            if (response is WebResourceResponse) {
-                responseHeaders = response.responseHeaders?.toString()
-                responseCode = response.statusCode
-                responseMessage = response.reasonPhrase
-                contentType = response.mimeType
-
-                if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
-                    response.data?.use { inputStream ->
-                        responseBody = readStream(inputStream)
-                    }
-                }
-            }
-
-            val stack = HookUtil.getFormattedStackTrace()
-            val formattedUrl = urlString?.let { formatUrlWithoutQuery(Uri.parse(it)) }
-
-            if (formattedUrl != null) {
-                val info = RequestInfo(
-                    " Web", formattedUrl, method, urlString, requestHeaders,
-                    responseCode, responseMessage, responseHeaders, responseBody, contentType,
-                    stack, null, null
-                )
-                return checkShouldBlockRequest(info)
-            }
+            val info = RequestInfo(
+                requestType = " Web",
+                requestValue = formattedUrl,
+                method = method,
+                urlString = urlString,
+                requestHeaders = requestHeaders,
+                responseCode = -1,
+                responseMessage = null,
+                responseHeaders = null,
+                responseBody = null,
+                responseBodyContentType = null,
+                stack = HookUtil.getFormattedStackTrace(),
+                dnsHost = null,
+                fullAddress = null
+            )
+            return checkShouldBlockRequest(info)
         } catch (e: Exception) {
             XposedBridge.log("$LOG_PREFIX Web request error: ${e.message}")
         }
         return false
     }
 
-    private fun createEmptyWebResourceResponse(): Any? {
+    private fun createEmptyWebResourceResponse(): WebResourceResponse? {
         return try {
             WebResourceResponse(
                 "text/plain",
@@ -511,12 +510,6 @@ object RequestHook {
 
     fun setupCronetRequestHook() {
         try {
-            val classLoader = applicationContext.classLoader
-            cronetHttpURLConnectionCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.urlconnection.CronetHttpURLConnection", classLoader)
-            urlResponseInfoCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.UrlResponseInfo", classLoader)
-            urlRequestCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.UrlRequest", classLoader)
-            cronetInputStreamCls = XposedHelpers.findClass("com.ttnet.org.chromium.net.urlconnection.CronetInputStream", classLoader)
-
             HookUtil.hookAllMethods(
                 cronetHttpURLConnectionCls,
                 "getResponse",
@@ -646,50 +639,53 @@ object RequestHook {
         type: String, info: RequestInfo, isBlocked: Boolean,
         ruleUrl: String?, blockRuleType: String?
     ) {
-        if (info.dnsHost?.isNotBlank() == true) {
-            if (dnsHostCache.putIfAbsent(info.dnsHost, true) != null) return
-        } else if (info.urlString?.isNotBlank() == true) {
-            if (urlStringCache.putIfAbsent(info.urlString, true) != null) return
-        } else {
-            Log.d(LOG_PREFIX, "No DNS or URL.")
-            return
-        }
+        val added = info.dnsHost?.takeIf { it.isNotBlank() }?.let(dnsHostCache::add)
+            ?: info.urlString?.takeIf { it.isNotBlank() }?.let(urlStringCache::add)
+        if (added == false) return
 
-        val intent = Intent("com.rikkati.REQUEST")
         try {
-            val appName = "${applicationContext.applicationInfo.loadLabel(applicationContext.packageManager)}${info.requestType}"
-            val packageName = applicationContext.packageName
             var responseBodyUriString: String? = null
             var responseBodyContentType: String? = null
 
             info.responseBody?.let { body ->
                 try {
-                    val values = ContentValues().apply {
-                        put("body_content", body) 
-                        put("mime_type", info.responseBodyContentType)
-                    }
-                    val uri = applicationContext.contentResolver.insert(ResponseBodyProvider.CONTENT_URI, values)
-                    if (uri != null) {
+                    val values = contentValuesOf("body_content" to body, "mime_type" to info.responseBodyContentType)
+                    applicationContext.contentResolver.insert(ResponseBodyProvider.CONTENT_URI, values)?.let { uri ->
                         responseBodyUriString = uri.toString()
                         responseBodyContentType = info.responseBodyContentType
-                    } else {
-                        Log.e(LOG_PREFIX, "ContentProvider insert failed.")
-                    }
+                    } ?: Log.e(LOG_PREFIX, "ContentProvider insert failed, returned null URI.")
                 } catch (e: Exception) {
                     Log.e(LOG_PREFIX, "Error inserting response body into provider: ${e.message}", e)
                 }
             }
 
             val blockedRequest = BlockedRequest(
-                appName, packageName, info.requestValue, System.currentTimeMillis(),
-                type, isBlocked, ruleUrl, blockRuleType, info.method, info.urlString,
-                info.requestHeaders, info.responseCode, info.responseMessage,
-                info.responseHeaders, responseBodyUriString, responseBodyContentType,
-                info.stack, info.dnsHost, info.fullAddress
+                appName = "${applicationContext.applicationInfo.loadLabel(applicationContext.packageManager)}${info.requestType}",
+                packageName = applicationContext.packageName,
+                request = info.requestValue,
+                timestamp = System.currentTimeMillis(),
+                requestType = type,
+                isBlocked = isBlocked,
+                url = ruleUrl,
+                blockType = blockRuleType,
+                method = info.method,
+                urlString = info.urlString,
+                requestHeaders = info.requestHeaders,
+                responseCode = info.responseCode,
+                responseMessage = info.responseMessage,
+                responseHeaders = info.responseHeaders,
+                responseBodyUriString = responseBodyUriString,
+                responseBodyContentType = responseBodyContentType,
+                stack = info.stack,
+                dnsHost = info.dnsHost,
+                fullAddress = info.fullAddress
             )
-
-            intent.putExtra("request", blockedRequest)
-            applicationContext.sendBroadcast(intent)
+            
+            Intent("com.rikkati.REQUEST").apply {
+                putExtra("request", blockedRequest)
+            }.also {
+                applicationContext.sendBroadcast(it)
+            }
         } catch (e: Exception) {
             Log.w(LOG_PREFIX, "Broadcast send error.", e)
         }
