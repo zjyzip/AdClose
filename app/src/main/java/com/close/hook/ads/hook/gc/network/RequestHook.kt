@@ -50,14 +50,7 @@ object RequestHook {
 
     private lateinit var applicationContext: Context
 
-    private val okHttp3OkioBufferCls: Class<*>? by lazy {
-        try {
-            XposedHelpers.findClass("okio.Buffer", applicationContext.classLoader)
-        } catch (e: Throwable) {
-            XposedBridge.log("$LOG_PREFIX okio.Buffer class not found: ${e.message}")
-            null
-        }
-    }
+    private var okHttp3OkioBufferCls: Class<*>? = null
 
     private val httpRetryableSinkCls: Class<*>? by lazy {
         try {
@@ -153,40 +146,6 @@ object RequestHook {
         } catch (e: IOException) {
             XposedBridge.log("$LOG_PREFIX Error reading stream: ${e.message}")
             ByteArray(0)
-        }
-    }
-
-    private fun readHttpRequestBody(httpEngine: Any): ByteArray? {
-        val localHttpRetryableSinkCls = httpRetryableSinkCls ?: return null
-        
-        try {
-            val sink = XposedHelpers.getObjectField(httpEngine, "requestBodyOut")
-            if (localHttpRetryableSinkCls.isInstance(sink)) {
-                val contentBuffer = XposedHelpers.getObjectField(sink, "content")
-                if ((XposedHelpers.callMethod(contentBuffer, "size") as Long) > 0) {
-                    val clonedBuffer = XposedHelpers.callMethod(contentBuffer, "clone")
-                    val bytes = XposedHelpers.callMethod(clonedBuffer, "readByteArray") as ByteArray
-
-                    return bytes
-                }
-            }
-        } catch (e: Throwable) {
-            XposedBridge.log("$LOG_PREFIX Error reading HTTP request body from RetryableSink: ${e.message}")
-        }
-        return null
-    }
-    
-    private fun readOkHttp3RequestBody(request: Any): ByteArray? {
-        val requestBody = XposedHelpers.callMethod(request, "body") ?: return null
-        val localOkHttp3OkioBufferCls = okHttp3OkioBufferCls ?: return null
-
-        return try {
-            val buffer = localOkHttp3OkioBufferCls.newInstance()
-            XposedHelpers.callMethod(requestBody, "writeTo", buffer)
-            XposedHelpers.callMethod(buffer, "readByteArray") as? ByteArray
-        } catch (e: Throwable) {
-            XposedBridge.log("$LOG_PREFIX Error reading OkHttp3 request body: ${e.message}")
-            null
         }
     }
 
@@ -297,7 +256,25 @@ object RequestHook {
                 val url = URL(XposedHelpers.callMethod(request, "urlString").toString())
                 val stackTrace = HookUtil.getFormattedStackTrace()
 
-                val requestBodyBytes = readHttpRequestBody(httpEngine)
+                val requestBodyBytes: ByteArray? = try {
+                    httpRetryableSinkCls?.let { localHttpRetryableSinkCls ->
+                        val sink = XposedHelpers.getObjectField(httpEngine, "requestBodyOut")
+                        if (localHttpRetryableSinkCls.isInstance(sink)) {
+                            val contentBuffer = XposedHelpers.getObjectField(sink, "content")
+                            if ((XposedHelpers.callMethod(contentBuffer, "size") as Long) > 0) {
+                                val clonedBuffer = XposedHelpers.callMethod(contentBuffer, "clone")
+                                XposedHelpers.callMethod(clonedBuffer, "readByteArray") as ByteArray
+                            } else {
+                                null
+                            }
+                        } else {
+                            null
+                        }
+                    }
+                } catch (e: Throwable) {
+                    XposedBridge.log("$LOG_PREFIX Error reading HTTP request body from RetryableSink: ${e.message}")
+                    null
+                }
 
                 var responseBodyBytes: ByteArray? = null
                 var responseContentType: String? = null
@@ -379,26 +356,36 @@ object RequestHook {
                         val request = XposedHelpers.callMethod(response, "request")
                         val url = URL(XposedHelpers.callMethod(request, "url").toString())
                         val stackTrace = HookUtil.getFormattedStackTrace()
+                        
+                        val responseBody = XposedHelpers.callMethod(response, "body")
 
-                        val requestBodyBytes = readOkHttp3RequestBody(request)
+                        val requestBodyBytes = XposedHelpers.callMethod(request, "body")?.let { requestBody ->
+                            if (okHttp3OkioBufferCls == null && responseBody != null) {
+                                val source = XposedHelpers.callMethod(responseBody, "source")
+                                val bufferFromResponse = XposedHelpers.callMethod(source, "buffer")
+                                okHttp3OkioBufferCls = bufferFromResponse.javaClass
+                            }
+                            okHttp3OkioBufferCls?.let { bufferCls ->
+                                val bufferInstance = bufferCls.getDeclaredConstructor().newInstance()
+                                XposedHelpers.callMethod(requestBody, "writeTo", bufferInstance)
+                                XposedHelpers.callMethod(bufferInstance, "readByteArray") as? ByteArray
+                            }
+                        }
                         
                         var responseBodyBytes: ByteArray? = null
                         var responseContentType: String? = null
                         if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
-                            XposedHelpers.callMethod(response, "body")?.let { responseBody ->
-                                try {
-                                    responseContentType = XposedHelpers.callMethod(responseBody, "contentType")?.toString()
-                                    XposedHelpers.callMethod(responseBody, "source")?.let { source ->
-                                        XposedHelpers.callMethod(source, "request", Long.MAX_VALUE)
-                                        XposedHelpers.callMethod(source, "buffer")?.let { buffer ->
-                                            responseBodyBytes = XposedHelpers.callMethod(XposedHelpers.callMethod(buffer, "clone"), "readByteArray") as? ByteArray
-                                        }
+                            responseBody?.let { body ->
+                                responseContentType = XposedHelpers.callMethod(body, "contentType")?.toString()
+                                XposedHelpers.callMethod(body, "source")?.let { source ->
+                                    XposedHelpers.callMethod(source, "request", Long.MAX_VALUE)
+                                    XposedHelpers.callMethod(source, "buffer")?.let { buffer ->
+                                        responseBodyBytes = XposedHelpers.callMethod(XposedHelpers.callMethod(buffer, "clone"), "readByteArray") as? ByteArray
                                     }
-                                } catch (e: Throwable) {
-                                    XposedBridge.log("$LOG_PREFIX OkHttp3 non-destructive body reading error: ${e.message}")
                                 }
                             }
                         }
+
                         val info = buildRequestInfo(
                             url, " OKHTTP", request, response,
                             requestBodyBytes,

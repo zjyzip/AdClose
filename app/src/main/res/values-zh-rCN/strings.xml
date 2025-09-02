@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">AdClose</string>
+    <string name="app_description">屏蔽SDK广告和拦截网络请求，免费，仅供学习交流使用。</string>
 
     <string name="error_title">An unexpected error occurred.\nSorry for the inconvenience.</string>
 
