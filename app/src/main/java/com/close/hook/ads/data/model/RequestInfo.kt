@@ -10,6 +10,7 @@ data class RequestInfo(
     val method: String?,
     val urlString: String?,
     val requestHeaders: String?,
+    val requestBody: ByteArray?,
     val responseCode: Int,
     val responseMessage: String?,
     val responseHeaders: String?,

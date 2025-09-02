@@ -16,6 +16,7 @@ data class BlockedRequest(
     var method: String?,
     var urlString: String?,
     var requestHeaders: String?,
+    var requestBodyUriString: String?,
     var responseCode: Int,
     var responseMessage: String?,
     var responseHeaders: String?,

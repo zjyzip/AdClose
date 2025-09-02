@@ -54,6 +54,7 @@ class AboutActivity : AbsAboutActivity() {
 
         items.add(Category("Open Source"))
         items.add(License("XposedBridge", "rovo89", License.APACHE_2, "https://github.com/rovo89/XposedBridge"))
+        items.add(License("LibXposed", "libxposed", License.APACHE_2, "https://github.com/libxposed"))
         items.add(License("DexKit", "LuckyPray", License.GPL_V3, "https://github.com/LuckyPray/DexKit"))
         items.add(License("AndroidX", "Google", License.APACHE_2, "https://source.google.com"))
         items.add(License("material-components-android", "Google", License.APACHE_2, "https://github.com/material-components/material-components-android"))

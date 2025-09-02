@@ -82,8 +82,8 @@
             android:exported="true" />
 
         <provider
-            android:name=".provider.ResponseBodyProvider"
-            android:authorities="com.close.hook.ads.provider.responsebody"
+            android:name=".provider.TemporaryFileProvider"
+            android:authorities="com.close.hook.ads.provider.temporaryfile"
             android:exported="true"
             android:grantUriPermissions="true" />
 

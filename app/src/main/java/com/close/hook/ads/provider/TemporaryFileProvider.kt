@@ -15,25 +15,25 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-class ResponseBodyProvider : ContentProvider() {
+class TemporaryFileProvider : ContentProvider() {
 
     companion object {
-        private const val TAG = "ResponseBodyProvider"
-        const val AUTHORITY = "com.close.hook.ads.provider.responsebody"
-        val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/response_bodies")
+        private const val TAG = "TemporaryFileProvider"
+        const val AUTHORITY = "com.close.hook.ads.provider.temporaryfile"
+        val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/temporary_files")
 
         const val KEY_BODY_CONTENT = "body_content"
         const val KEY_MIME_TYPE = "mime_type"
 
-        private const val RESPONSE_BODIES = 1
-        private const val RESPONSE_BODY_ID = 2
+        private const val TEMPORARY_FILES = 1
+        private const val TEMPORARY_FILE_ID = 2
 
         private val uriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
-            addURI(AUTHORITY, "response_bodies", RESPONSE_BODIES)
-            addURI(AUTHORITY, "response_bodies/*", RESPONSE_BODY_ID)
+            addURI(AUTHORITY, "temporary_files", TEMPORARY_FILES)
+            addURI(AUTHORITY, "temporary_files/*", TEMPORARY_FILE_ID)
         }
 
-        private val responseBodyStore: Cache<String, Pair<ByteArray, String>> = CacheBuilder.newBuilder()
+        private val contentStore: Cache<String, Pair<ByteArray, String>> = CacheBuilder.newBuilder()
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .maximumSize(150)
             .build()
@@ -51,9 +51,9 @@ class ResponseBodyProvider : ContentProvider() {
     }
 
     override fun getType(uri: Uri): String? {
-        return if (uriMatcher.match(uri) == RESPONSE_BODY_ID) {
+        return if (uriMatcher.match(uri) == TEMPORARY_FILE_ID) {
             uri.lastPathSegment?.let { id ->
-                responseBodyStore.getIfPresent(id)?.second
+                contentStore.getIfPresent(id)?.second
             }
         } else {
             null
@@ -65,10 +65,10 @@ class ResponseBodyProvider : ContentProvider() {
             throw IllegalArgumentException("Unsupported mode: $mode. Only 'r' (read) is supported.")
         }
 
-        val id = uri.lastPathSegment.takeIf { uriMatcher.match(uri) == RESPONSE_BODY_ID }
+        val id = uri.lastPathSegment.takeIf { uriMatcher.match(uri) == TEMPORARY_FILE_ID }
             ?: throw FileNotFoundException("Invalid or malformed URI for openFile: $uri")
 
-        val (bodyBytes, _) = responseBodyStore.getIfPresent(id)
+        val (bodyBytes, _) = contentStore.getIfPresent(id)
             ?: throw FileNotFoundException("Data not found or expired for URI: $uri")
 
         return try {
@@ -76,7 +76,7 @@ class ResponseBodyProvider : ContentProvider() {
             val readSide = pipe[0]
             val writeSide = pipe[1]
 
-            thread(isDaemon = true, name = "ResponseBodyProvider-PipeWriter") {
+            thread(isDaemon = true, name = "TemporaryFileProvider-PipeWriter") {
                 try {
                     ParcelFileDescriptor.AutoCloseOutputStream(writeSide).use { outputStream ->
                         outputStream.write(bodyBytes)
@@ -99,7 +99,7 @@ class ResponseBodyProvider : ContentProvider() {
     }
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        if (uriMatcher.match(uri) != RESPONSE_BODIES) {
+        if (uriMatcher.match(uri) != TEMPORARY_FILES) {
             throw IllegalArgumentException("Cannot insert into URI: $uri. Use CONTENT_URI.")
         }
         
@@ -109,10 +109,10 @@ class ResponseBodyProvider : ContentProvider() {
         requireNotNull(mimeType) { "'$KEY_MIME_TYPE' must not be null." }
 
         val id = UUID.randomUUID().toString()
-        responseBodyStore.put(id, bodyContent to mimeType)
+        contentStore.put(id, bodyContent to mimeType)
 
         val newUri = Uri.withAppendedPath(CONTENT_URI, id)
-        Log.d(TAG, "Inserted new response body with URI: $newUri")
+        Log.d(TAG, "Inserted new temporary file with URI: $newUri")
         return newUri
     }
 
