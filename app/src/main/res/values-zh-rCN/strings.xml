@@ -10,6 +10,20 @@
     <string name="bottom_item_4">Block</string>
     <string name="bottom_item_5">Home</string>
 
+    <string name="advanced_settings">高级</string>
+    <string name="dex_dump_title">DEX Dump</string>
+    <string name="dex_dump_summary">为所有启用 Hook 的应用进行 DEX Dump \n存储目录：Download/DexKitDump</string>
+    <string name="request_cache_expiration_title">请求缓存有效期</string>
+    <string name="request_cache_expiration_summary">设置临时的请求/响应体数据的有效期 \n当前：%s</string>
+
+    <string name="data_manager">数据管理</string>
+    <string name="data_manager_summary">管理模块配置文件</string>
+    <string name="delete_file_title">删除文件</string>
+    <string name="delete_prefs_title">删除偏好设置组</string>
+    <string name="delete_file_message">是否删除文件“%1$s”</string>
+    <string name="delete_prefs_message">是否删除“%1$s”组中的所有偏好设置</string>
+    <string name="action_delete">删除</string>
+
     <string name="search_hint">搜索</string>
     <string name="search_hint_with_count">搜索 %1$d 个应用</string>
 
@@ -23,9 +37,9 @@
     <string name="tab_configured_apps">已配置应用</string>
     <string name="tab_system_apps">系统应用</string>
 
-    <string name="tab_domain_list">请求列表</string>
-    <string name="tab_host_list">拦截列表</string>
-    <string name="tab_host_whitelist">放行列表</string>
+    <string name="tab_request_list">请求列表</string>
+    <string name="tab_block_list">拦截列表</string>
+    <string name="tab_pass_list">放行列表</string>
 
     <string name="export">导出</string>
     <string name="restore">导入</string>

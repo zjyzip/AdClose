@@ -10,7 +10,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.lifecycle.lifecycleScope
-import com.close.hook.ads.databinding.FragmentRequestBodyBinding
+import com.close.hook.ads.databinding.FragmentRequestBodyInfoBinding
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
@@ -26,7 +26,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class RequestBodyInfoFragment : BaseFragment<FragmentRequestBodyBinding>() {
+class RequestBodyInfoFragment : BaseFragment<FragmentRequestBodyInfoBinding>() {
 
     private var contentToExportAndDisplay: String? = null
 

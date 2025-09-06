@@ -78,8 +78,6 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         (activity as? OnBackPressContainer)?.backController = null
     }
 
-
-
     override fun onBackPressed(): Boolean {
         if (binding.editTextSearch.isFocused) {
             setIconAndFocus(isFocused = false)

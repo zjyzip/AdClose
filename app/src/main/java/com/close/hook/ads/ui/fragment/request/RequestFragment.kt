@@ -17,29 +17,30 @@ import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.close.hook.ads.R
-import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.databinding.BaseTablayoutViewpagerBinding
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
-import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
-class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressContainer {
+class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private val viewModel by lazy {
         ViewModelProvider(requireActivity())[BlockListViewModel::class.java]
     }
     override val tabList: List<Int> =
-        listOf(R.string.tab_domain_list, R.string.tab_host_list, R.string.tab_host_whitelist)
+        listOf(R.string.tab_request_list, R.string.tab_block_list, R.string.tab_pass_list)
     override var fabController: IOnFabClickListener? = null
-    override var backController: OnBackPressListener? = null
+
     private lateinit var fab: FloatingActionButton
     private val fabViewBehavior by lazy { HideBottomViewOnScrollBehavior<FloatingActionButton>() }
+    
+    private val backPressDelegates = mutableMapOf<Int, OnBackPressListener>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -94,7 +95,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
 
     private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val request = intent.getParcelableExtra<BlockedRequest>("request")
+            val request = intent.getParcelableExtra<RequestInfo>("request")
             request?.let { item ->
                 viewModel.updateRequestList(item)
             }
@@ -127,28 +128,30 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer, OnBackPressCo
         controller?.search(text)
     }
 
-    override fun getFragment(position: Int): Fragment =
-        when (position) {
+    override fun getFragment(position: Int): Fragment {
+        val fragment = when (position) {
             0 -> RequestListFragment.newInstance("all")
             1 -> RequestListFragment.newInstance("block")
             2 -> RequestListFragment.newInstance("pass")
             else -> throw IllegalArgumentException()
         }
-
+        if (fragment is OnBackPressListener) {
+            backPressDelegates[position] = fragment
+        }
+        return fragment
+    }
+    
     override fun onBackPressed(): Boolean {
-        if (backController?.onBackPressed() == true)
-            return true
-        if (binding.editText.isFocused) {
-            binding.editText.setText("")
-            setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
+        val currentChildListener = backPressDelegates[binding.viewPager.currentItem]
+        if (currentChildListener?.onBackPressed() == true) {
             return true
         }
-        return false
+
+        return super.onBackPressed()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         requireContext().unregisterReceiver(receiver)
     }
-    
 }

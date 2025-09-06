@@ -2,10 +2,19 @@
     <string name="app_name">AdClose</string>
     <string name="app_description">Blocks SDK ads and intercepts network requests. Free, for educational purposes only.</string>
 
-    <string name="remove_scope_dialog_title">Remove Scope?</string>
-    <string name="action_remove">Remove</string>
-    <string name="disable_scope_dialog_message">Are you sure you want to disable the module for %s?</string>
-    <string name="remove_scope_dialog_message">All switches for %s are turned off. Do you want to remove this app from the module\'s scope entirely?</string>
+    <string name="error_title">An unexpected error occurred.\nSorry for the inconvenience.</string>
+
+    <string name="bottom_item_1">Apps</string>
+    <string name="bottom_item_2">Request</string>
+    <string name="bottom_item_3">Setting</string>
+    <string name="bottom_item_4">Block</string>
+    <string name="bottom_item_5">Home</string>
+
+    <string name="advanced_settings">Advanced</string>
+    <string name="dex_dump_title">DEX Dump</string>
+    <string name="dex_dump_summary">Perform DEX Dump for all hooked apps \nStorage directory: Download/DexKitDump</string>
+    <string name="request_cache_expiration_title">Request Cache Expiration</string>
+    <string name="request_cache_expiration_summary">Set the expiration time for temporary request/response body data \nCurrent: %s</string>
 
     <string name="data_manager">Data Manager</string>
     <string name="data_manager_summary">Manage module files and preferences</string>
@@ -14,14 +23,11 @@
     <string name="delete_file_message">Are you sure you want to permanently delete the file \"%1$s\"?</string>
     <string name="delete_prefs_message">Are you sure you want to permanently delete all preferences in the group \"%1$s\"? This cannot be undone.</string>
     <string name="action_delete">Delete</string>
-    
-    <string name="error_title">An unexpected error occurred.\nSorry for the inconvenience.</string>
 
-    <string name="bottom_item_1">Apps</string>
-    <string name="bottom_item_2">Request</string>
-    <string name="bottom_item_3">Setting</string>
-    <string name="bottom_item_4">Block</string>
-    <string name="bottom_item_5">Home</string>
+    <string name="remove_scope_dialog_title">Remove Scope?</string>
+    <string name="action_remove">Remove</string>
+    <string name="disable_scope_dialog_message">Are you sure you want to disable the module for %s?</string>
+    <string name="remove_scope_dialog_message">All switches for %s are turned off. Do you want to remove this app from the module\'s scope entirely?</string>
 
     <string name="search_hint">Search</string>
     <string name="search_hint_with_count">Search %1$d apps</string>
@@ -36,9 +42,9 @@
     <string name="tab_configured_apps">Configured Apps</string>
     <string name="tab_system_apps">System Apps</string>
 
-    <string name="tab_domain_list">Request List</string>
-    <string name="tab_host_list">Block List</string>
-    <string name="tab_host_whitelist">Pass List</string>
+    <string name="tab_request_list">Request List</string>
+    <string name="tab_block_list">Block List</string>
+    <string name="tab_pass_list">Pass List</string>
 
     <string name="export">Export</string>
     <string name="restore">Import</string>

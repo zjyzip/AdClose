@@ -1,17 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory android:title="Beta">
+    <PreferenceCategory android:title="@string/advanced_settings">
         <Preference
             android:icon="@drawable/outline_tune_24"
             android:key="custom_hook_sdk_ads"
             android:title="@string/global_title_custom_hook" />
 
         <Preference
-            android:icon="@drawable/ic_outline_folder_managed_24" 
+            android:icon="@drawable/ic_outline_folder_managed_24"
             android:key="data_manager"
             android:title="@string/data_manager"
             android:summary="@string/data_manager_summary" />
+
+        <rikka.preference.SimpleMenuPreference
+            android:key="request_cache_expiration"
+            android:title="@string/request_cache_expiration_title"
+            android:summary="@string/request_cache_expiration_summary"
+            android:entries="@array/cache_expiration_entries"
+            android:entryValues="@array/cache_expiration_values"
+            android:defaultValue="5"
+            android:icon="@drawable/ic_outline_timer_24" />
+
+        <rikka.material.preference.MaterialSwitchPreference
+            android:key="enable_dex_dump"
+            android:title="@string/dex_dump_title"
+            android:summary="@string/dex_dump_summary"
+            android:defaultValue="false"
+            android:icon="@drawable/ic_outline_file_save_24" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/settings_language">
@@ -79,7 +96,6 @@
     </PreferenceCategory>
 
     <Preference android:enabled="false" />
-
     <Preference android:enabled="false" />
 
 </PreferenceScreen>

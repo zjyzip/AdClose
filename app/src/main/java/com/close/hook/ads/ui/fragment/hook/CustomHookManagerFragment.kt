@@ -20,7 +20,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -58,6 +57,8 @@ import com.close.hook.ads.util.ClipboardHookParser
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.FooterSpaceItemDecoration
+import com.close.hook.ads.util.OnBackPressContainer
+import com.close.hook.ads.util.OnBackPressListener
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
@@ -67,7 +68,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
-class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>() {
+class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>(), OnBackPressListener {
 
     private val viewModel: CustomHookViewModel by viewModels {
         CustomHookViewModel.Factory(
@@ -185,7 +186,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         observeViewModel()
         setupHeaderDisplay(targetPkgName)
         setupFragmentResultListener()
-        setupOnBackPressed()
         setupBroadcastReceiver()
     }
 
@@ -755,7 +755,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun onExportHooksClicked() {
-        val fileName = viewModel.getTargetPackageName()?.let { "${it}_custom_hooks.json" } ?: "global_custom_hooks.json"
+        val fileName = viewModel.getTargetPackageName()?.let { "custom_hooks_${it}.json" } ?: "custom_hooks_global.json"
         backupLauncher.launch(fileName)
     }
 
@@ -812,29 +812,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                 withContext(Dispatchers.Main) { showMessageDialog(R.string.import_failed, it.message ?: "Unknown error", it) }
             }
         }
-    }
-
-    private fun setupOnBackPressed() {
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                when {
-                    isFabMenuOpen -> {
-                        closeFabMenu()
-                    }
-                    binding.editTextSearch.isFocused -> {
-                        binding.editTextSearch.setText("")
-                        setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
-                    }
-                    tracker?.hasSelection() == true -> {
-                        tracker?.clearSelection()
-                    }
-                    else -> {
-                        this.isEnabled = false
-                        requireActivity().onBackPressedDispatcher.onBackPressed()
-                    }
-                }
-            }
-        })
     }
 
     private suspend fun handleImportAction(action: ImportAction) {
@@ -922,11 +899,36 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        (activity as? OnBackPressContainer)?.backController = this
+    }
+
     override fun onPause() {
         super.onPause()
+        (activity as? OnBackPressContainer)?.backController = null
         currentActionMode?.finish()
         if (isFabMenuOpen) closeFabMenu()
         inputMethodManager.hideSoftInputFromWindow(binding.editTextSearch.windowToken, 0)
+    }
+
+    override fun onBackPressed(): Boolean {
+        return when {
+            isFabMenuOpen -> {
+                closeFabMenu()
+                true
+            }
+            binding.editTextSearch.isFocused -> {
+                binding.editTextSearch.setText("")
+                setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
+                true
+            }
+            tracker?.hasSelection() == true -> {
+                tracker?.clearSelection()
+                true
+            }
+            else -> false
+        }
     }
 
     override fun onDestroyView() {

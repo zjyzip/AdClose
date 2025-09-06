@@ -2,6 +2,7 @@ package com.close.hook.ads.data.repository
 
 import android.content.Context
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.util.Log
 import com.close.hook.ads.manager.ServiceManager
@@ -11,6 +12,8 @@ import com.close.hook.ads.data.model.ManagedItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
+import java.io.IOException
 
 class DataManagerRepository(private val context: Context) {
 
@@ -85,6 +88,35 @@ class DataManagerRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("DataManagerRepository", "getPreferenceGroups failed", e)
             emptyList()
+        }
+    }
+    
+    suspend fun getFileContent(fileName: String): ByteArray? = withContext(Dispatchers.IO) {
+        ServiceManager.service?.let {
+            try {
+                it.openRemoteFile(fileName).use { pfd ->
+                    FileInputStream(pfd.fileDescriptor).use { fis ->
+                        fis.readBytes()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("DataManagerRepository", "Failed to get content for file: $fileName", e)
+                null
+            }
+        }
+    }
+
+    suspend fun getPreferenceContent(groupName: String): ByteArray? = withContext(Dispatchers.IO) {
+        try {
+            val prefsFile = File("${context.applicationInfo.dataDir}/shared_prefs", "$groupName.xml")
+            if (prefsFile.exists()) {
+                prefsFile.readBytes()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("DataManagerRepository", "Failed to get content for preference: $groupName", e)
+            null
         }
     }
 

@@ -108,12 +108,7 @@ object DexKitUtil {
     private fun createBridgeInternal(context: Context): DexKitBridge? {
         log("Attempting to create bridge with ClassLoader: ${context.classLoader}")
         return runCatching {
-            if (context.classLoader::class.java.name.endsWith("PathClassLoader")) {
-                DexKitBridge.create(context.classLoader, true)
-            } else {
-                log("Unknown ClassLoader, fallback to apkPath")
-                DexKitBridge.create(context.applicationInfo.sourceDir)
-            }
+            DexKitBridge.create(context.classLoader, true)
         }.getOrElse {
             log("Bridge creation failed: ${it.message}")
             null

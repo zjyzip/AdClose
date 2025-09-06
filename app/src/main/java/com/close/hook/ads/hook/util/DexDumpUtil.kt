@@ -8,7 +8,7 @@ import java.io.File
 object DexDumpUtil {
 
     private const val LOG_PREFIX = "[DexDumpUtil] "
-    private const val DUMP_SUB_PATH = "Download/DexkitDump/"
+    private const val DUMP_SUB_PATH = "Download/DexKitDump/"
 
     private val defaultOutputPath: String
         get() = "${Environment.getExternalStorageDirectory().absolutePath}/$DUMP_SUB_PATH"

@@ -40,7 +40,7 @@ class CustomHookActivity : BaseActivity(), OnBackPressContainer, INavContainer {
 
         setupViewPager()
         setupBottomNavigation()
-        setupBackButton()
+        setupCustomizedBackPress()
     }
 
     private fun setupViewPager() {
@@ -68,8 +68,8 @@ class CustomHookActivity : BaseActivity(), OnBackPressContainer, INavContainer {
         }
     }
 
-    private fun setupBackButton() {
-        onBackPressedDispatcher.addCallback(this) {
+    private fun setupCustomizedBackPress() {
+        onBackPressedDispatcher.addCallback(this, true) {
             if (backController?.onBackPressed() == true) {
                 return@addCallback
             }

@@ -26,11 +26,11 @@ import androidx.recyclerview.selection.StorageStrategy
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
-import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
-import com.close.hook.ads.databinding.FragmentHostsListBinding
+import com.close.hook.ads.databinding.FragmentRequestListBinding
 import com.close.hook.ads.ui.activity.MainActivity
-import com.close.hook.ads.ui.adapter.BlockedRequestsAdapter
+import com.close.hook.ads.ui.adapter.RequestListAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
@@ -39,7 +39,6 @@ import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
-import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
@@ -48,26 +47,25 @@ import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.collectLatest
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 
-class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearClickListener,
+class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearClickListener,
     IOnTabClickListener, IOnFabClickListener, OnBackPressListener {
 
     private val viewModel by lazy {
         ViewModelProvider(requireActivity())[BlockListViewModel::class.java]
     }
     private val appsViewModel by viewModels<AppsViewModel>(ownerProducer = { requireActivity() })
-    private lateinit var mAdapter: BlockedRequestsAdapter
+    private lateinit var mAdapter: RequestListAdapter
     private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private lateinit var type: String
-    private var tracker: SelectionTracker<BlockedRequest>? = null
-    private var selectedItems: Selection<BlockedRequest>? = null
+    private var tracker: SelectionTracker<RequestInfo>? = null
+    private var selectedItems: Selection<RequestInfo>? = null
     private var mActionMode: ActionMode? = null
 
     private val snackbarLayoutParams: CoordinatorLayout.LayoutParams by lazy {
@@ -118,7 +116,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun initView() {
-        mAdapter = BlockedRequestsAdapter(viewModel.dataSource)
+        mAdapter = RequestListAdapter(viewModel.dataSource)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {
@@ -161,7 +159,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
     }
 
     private fun addObserverToTracker() {
-        tracker?.addObserver(object : SelectionTracker.SelectionObserver<BlockedRequest>() {
+        tracker?.addObserver(object : SelectionTracker.SelectionObserver<RequestInfo>() {
             override fun onSelectionChanged() {
                 super.onSelectionChanged()
                 selectedItems = tracker?.selection
@@ -183,7 +181,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     private val mActionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            mode?.menuInflater?.inflate(R.menu.menu_requset, menu)
+            mode?.menuInflater?.inflate(R.menu.menu_request, menu)
             mode?.title = "Choose option"
             return true
         }
@@ -217,7 +215,7 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
             binding.recyclerView,
             CategoryItemKeyProvider(mAdapter),
             CategoryItemDetailsLookup(binding.recyclerView),
-            StorageStrategy.createParcelableStorage(BlockedRequest::class.java)
+            StorageStrategy.createParcelableStorage(RequestInfo::class.java)
         ).withSelectionPredicate(
             SelectionPredicates.createSelectAnything()
         ).build()
@@ -240,19 +238,14 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
 
     override fun onPause() {
         super.onPause()
-        (requireParentFragment() as? OnCLearCLickContainer)?.controller = null
-        (requireParentFragment() as? IOnTabClickContainer)?.tabController = null
-        (requireParentFragment() as? IOnFabClickContainer)?.fabController = null
-        (requireParentFragment() as? OnBackPressContainer)?.backController = null
         tracker?.clearSelection()
     }
 
     override fun onResume() {
         super.onResume()
-        (requireParentFragment() as? OnCLearCLickContainer)?.controller = this
-        (requireParentFragment() as? IOnTabClickContainer)?.tabController = this
-        (requireParentFragment() as? IOnFabClickContainer)?.fabController = this
-        (requireParentFragment() as? OnBackPressContainer)?.backController = this
+        (parentFragment as? OnCLearCLickContainer)?.controller = this
+        (parentFragment as? IOnTabClickContainer)?.tabController = this
+        (parentFragment as? IOnFabClickContainer)?.fabController = this
     }
 
     private fun saveFile(content: String): Boolean {
@@ -362,35 +355,33 @@ class RequestListFragment : BaseFragment<FragmentHostsListBinding>(), OnClearCli
         }
 
     class CategoryItemDetailsLookup(private val recyclerView: RecyclerView) :
-        ItemDetailsLookup<BlockedRequest>() {
-        override fun getItemDetails(e: MotionEvent): ItemDetails<BlockedRequest>? {
+        ItemDetailsLookup<RequestInfo>() {
+        override fun getItemDetails(e: MotionEvent): ItemDetails<RequestInfo>? {
             val view = recyclerView.findChildViewUnder(e.x, e.y)
             if (view != null) {
-                return (recyclerView.getChildViewHolder(view) as? BlockedRequestsAdapter.ViewHolder)?.getItemDetails()
+                return (recyclerView.getChildViewHolder(view) as? RequestListAdapter.ViewHolder)?.getItemDetails()
             }
             return null
         }
     }
 
-    class CategoryItemKeyProvider(private val adapter: BlockedRequestsAdapter) :
-        ItemKeyProvider<BlockedRequest>(SCOPE_CACHED) {
-        override fun getKey(position: Int): BlockedRequest? {
+    class CategoryItemKeyProvider(private val adapter: RequestListAdapter) :
+        ItemKeyProvider<RequestInfo>(SCOPE_CACHED) {
+        override fun getKey(position: Int): RequestInfo? {
             return adapter.currentList.getOrNull(position)
         }
 
-        override fun getPosition(key: BlockedRequest): Int {
+        override fun getPosition(key: RequestInfo): Int {
             val index = adapter.currentList.indexOfFirst { it == key }
             return if (index >= 0) index else RecyclerView.NO_POSITION
         }
     }
 
     override fun onBackPressed(): Boolean {
-        selectedItems?.let {
-            if (it.size() > 0) {
-                tracker?.clearSelection()
-                return true
-            }
+        if (tracker?.hasSelection() == true) {
+            tracker?.clearSelection()
+            return true
         }
-        return binding.recyclerView.closeMenus()
+        return false
     }
 }

@@ -19,9 +19,9 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.DataSource
-import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
-import com.close.hook.ads.databinding.ItemBlockedRequestBinding
+import com.close.hook.ads.databinding.ItemRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
 import com.close.hook.ads.util.AppIconLoader
 import com.google.android.material.color.MaterialColors
@@ -32,14 +32,14 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 
-class BlockedRequestsAdapter(
+class RequestListAdapter(
     private val dataSource: DataSource
-) : ListAdapter<BlockedRequest, BlockedRequestsAdapter.ViewHolder>(DIFF_CALLBACK) {
+) : ListAdapter<RequestInfo, RequestListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
-    var tracker: SelectionTracker<BlockedRequest>? = null
+    var tracker: SelectionTracker<RequestInfo>? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-        ViewHolder(ItemBlockedRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false), tracker)
+        ViewHolder(ItemRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false), tracker)
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
@@ -47,8 +47,8 @@ class BlockedRequestsAdapter(
     }
 
     inner class ViewHolder(
-        private val binding: ItemBlockedRequestBinding,
-        private val tracker: SelectionTracker<BlockedRequest>?
+        private val binding: ItemRequestBinding,
+        private val tracker: SelectionTracker<RequestInfo>?
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val targetIconSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
@@ -57,14 +57,14 @@ class BlockedRequestsAdapter(
             setupListeners()
         }
 
-        fun getItemDetails(): ItemDetailsLookup.ItemDetails<BlockedRequest> =
-            object : ItemDetailsLookup.ItemDetails<BlockedRequest>() {
+        fun getItemDetails(): ItemDetailsLookup.ItemDetails<RequestInfo> =
+            object : ItemDetailsLookup.ItemDetails<RequestInfo>() {
                 override fun getPosition(): Int = bindingAdapterPosition
-                override fun getSelectionKey(): BlockedRequest? = getItem(bindingAdapterPosition)
+                override fun getSelectionKey(): RequestInfo? = getItem(bindingAdapterPosition)
             }
 
         @SuppressLint("SetTextI18n")
-        fun bind(request: BlockedRequest, isSelected: Boolean) = with(binding) {
+        fun bind(request: RequestInfo, isSelected: Boolean) = with(binding) {
             root.tag = request
             cardView.isChecked = isSelected
 
@@ -85,14 +85,14 @@ class BlockedRequestsAdapter(
             binding.apply {
                 cardView.setOnClickListener {
                     if (tracker == null || !tracker.hasSelection()) {
-                        (root.tag as? BlockedRequest)?.let { openRequestInfoActivity(it) }
+                        (root.tag as? RequestInfo)?.let { openRequestInfoActivity(it) }
                     }
                 }
                 copy.setOnClickListener {
-                    (root.tag as? BlockedRequest)?.request?.let { copyToClipboard(it) }
+                    (root.tag as? RequestInfo)?.request?.let { copyToClipboard(it) }
                 }
                 block.setOnClickListener {
-                    (root.tag as? BlockedRequest)?.let { toggleBlockStatus(it) }
+                    (root.tag as? RequestInfo)?.let { toggleBlockStatus(it) }
                 }
             }
         }
@@ -100,7 +100,7 @@ class BlockedRequestsAdapter(
         private fun loadAppIcon(packageName: String) {
             (binding.root.context as? LifecycleOwner)?.lifecycleScope?.launch {
                 val iconDrawable = AppIconLoader.loadAndCompressIcon(binding.root.context, packageName, targetIconSizePx)
-                if ((binding.root.tag as? BlockedRequest)?.packageName == packageName) {
+                if ((binding.root.tag as? RequestInfo)?.packageName == packageName) {
                     withContext(Dispatchers.Main) {
                         binding.icon.setImageDrawable(iconDrawable)
                     }
@@ -108,7 +108,7 @@ class BlockedRequestsAdapter(
             }
         }
 
-        private fun openRequestInfoActivity(request: BlockedRequest) {
+        private fun openRequestInfoActivity(request: RequestInfo) {
             Intent(itemView.context, RequestInfoActivity::class.java).apply {
                 putExtra("method", request.method)
                 putExtra("urlString", request.urlString)
@@ -130,7 +130,7 @@ class BlockedRequestsAdapter(
             Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, text), Toast.LENGTH_SHORT).show()
         }
 
-        private fun toggleBlockStatus(request: BlockedRequest) {
+        private fun toggleBlockStatus(request: RequestInfo) {
             CoroutineScope(Dispatchers.IO).launch {
                 val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
                     if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
@@ -156,7 +156,7 @@ class BlockedRequestsAdapter(
             }
         }
 
-        private fun updateBlockStatusUI(request: BlockedRequest) {
+        private fun updateBlockStatusUI(request: RequestInfo) {
             val context = itemView.context
             val isBlocked = request.isBlocked == true
 
@@ -179,11 +179,11 @@ class BlockedRequestsAdapter(
         @SuppressLint("SimpleDateFormat")
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
-        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<BlockedRequest>() {
-            override fun areItemsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
+        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<RequestInfo>() {
+            override fun areItemsTheSame(oldItem: RequestInfo, newItem: RequestInfo): Boolean =
                 oldItem.timestamp == newItem.timestamp
 
-            override fun areContentsTheSame(oldItem: BlockedRequest, newItem: BlockedRequest): Boolean =
+            override fun areContentsTheSame(oldItem: RequestInfo, newItem: RequestInfo): Boolean =
                 oldItem == newItem
         }
     }

@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.DataSource
-import com.close.hook.ads.data.model.BlockedRequest
+import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,13 +32,13 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _requestList = MutableStateFlow<List<BlockedRequest>>(emptyList())
-    val requestList: StateFlow<List<BlockedRequest>> = _requestList.asStateFlow()
+    private val _requestList = MutableStateFlow<List<RequestInfo>>(emptyList())
+    val requestList: StateFlow<List<RequestInfo>> = _requestList.asStateFlow()
 
     private val _requestSearchQuery = MutableStateFlow("")
     val requestSearchQuery: StateFlow<String> = _requestSearchQuery.asStateFlow()
 
-    fun getFilteredRequestList(filterType: String): StateFlow<List<BlockedRequest>> {
+    fun getFilteredRequestList(filterType: String): StateFlow<List<RequestInfo>> {
         return combine(
             _requestList,
             _requestSearchQuery.debounce(300L)
@@ -98,7 +98,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
         dataSource.removeUrlString(type, url)
     }
 
-    fun updateRequestList(item: BlockedRequest) {
+    fun updateRequestList(item: RequestInfo) {
         _requestList.update { list ->
             listOf(item) + list
         }

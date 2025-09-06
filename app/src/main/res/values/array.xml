@@ -21,6 +21,20 @@
         <item>com.sup.android.superb</item>
     </string-array>
 
+    <string-array name="cache_expiration_entries">
+        <item>1 Minute</item>
+        <item>5 Minutes (Default)</item>
+        <item>15 Minutes</item>
+        <item>30 Minutes</item>
+        <item>1 Hour</item>
+    </string-array>
+    <string-array name="cache_expiration_values">
+        <item>1</item>
+        <item>5</item>
+        <item>15</item>
+        <item>30</item>
+        <item>60</item>
+    </string-array>
 
     <string-array name="theme_texts" translatable="false">
         <item>@string/dark_theme_off</item>

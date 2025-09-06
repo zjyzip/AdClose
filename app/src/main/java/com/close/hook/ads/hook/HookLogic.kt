@@ -30,7 +30,6 @@ object HookLogic {
     var xposedInterface: XposedInterface? = null
 
     private const val TAG = "com.close.hook.ads"
-    private const val ENABLE_DEX_DUMP = false
 
     private val hookScope = CoroutineScope(Dispatchers.IO)
 
@@ -58,7 +57,7 @@ object HookLogic {
         val classLoader = context.classLoader
         val packageName = context.packageName
 
-        if (ENABLE_DEX_DUMP) {
+        if (HookPrefs.getBoolean(HookPrefs.KEY_ENABLE_DEX_DUMP, false)) {
             DexDumpUtil.dumpDexFilesByPackageName(packageName)
         }
 
@@ -70,8 +69,10 @@ object HookLogic {
             XposedBridge.log("$TAG | App: $appName Package: $packageName")
         }
 
-        applyClassLoaderHooks(classLoader, manager.prefsHelper, packageName, context)
+        SDKAdsKit.hookAds()
         AppAds.progress(classLoader, packageName)
+
+        applyClassLoaderHooks(classLoader, manager.prefsHelper, packageName, context)
     }
 
     private fun applyClassLoaderHooks(
@@ -102,13 +103,12 @@ object HookLogic {
 
     private fun applySettings(manager: SettingsManager) {
         manager.run {
-            if (isHideVPNStatusEnabled) HideVPNStatus.proxy()
             if (isRequestHookEnabled) RequestHook.init()
-            if (isDisableClipboard) DisableClipboard.handle()
+            if (isHideVPNStatusEnabled) HideVPNStatus.proxy()
             if (isDisableFlagSecureEnabled) DisableFlagSecure.process()
-            if (isHideEnivEnabled) HideEnvi.handle()
-            if (isHandlePlatformAdEnabled) SDKAdsKit.hookAds()
             if (isDisableShakeAdEnabled) DisableShakeAd.handle()
+            if (isHideEnivEnabled) HideEnvi.handle()
+            if (isDisableClipboard) DisableClipboard.handle()
         }
     }
 }

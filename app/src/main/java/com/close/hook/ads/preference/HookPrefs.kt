@@ -33,6 +33,8 @@ object HookPrefs {
     private const val KEY_PREFIX_OVERALL_HOOK = "overall_hook_enabled_"
     private const val KEY_PREFIX_ENABLE_LOGGING = "enable_logging_"
     const val KEY_COLLECT_RESPONSE_BODY = "collect_response_body_enabled"
+    const val KEY_ENABLE_DEX_DUMP = "enable_dex_dump"
+    const val KEY_REQUEST_CACHE_EXPIRATION = "request_cache_expiration"
 
     private val GSON by lazy { Gson() }
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -97,6 +99,16 @@ object HookPrefs {
     }
 
     fun setBoolean(key: String, value: Boolean) {
+        ioScope.launch {
+            updateAndPersistSettings { it[key] = value }
+        }
+    }
+    
+    fun getLong(key: String, defaultValue: Long): Long {
+        return (getSettingsMap()[key] as? Double)?.toLong() ?: defaultValue
+    }
+
+    fun setLong(key: String, value: Long) {
         ioScope.launch {
             updateAndPersistSettings { it[key] = value }
         }
@@ -288,5 +300,9 @@ object HookPrefs {
 
     fun setEnableLogging(packageName: String?, isEnabled: Boolean) {
         setBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), isEnabled)
+    }
+
+    fun getRequestCacheExpiration(): Long {
+        return getString(KEY_REQUEST_CACHE_EXPIRATION, "5")?.toLongOrNull() ?: 5L
     }
 }

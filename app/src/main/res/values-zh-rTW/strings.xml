@@ -11,6 +11,20 @@
     <string name="bottom_item_4">Block</string>
     <string name="bottom_item_5">Home</string>
 
+    <string name="advanced_settings">進階設定</string>
+    <string name="dex_dump_title">DEX Dump</string>
+    <string name="dex_dump_summary">為所有已啟用 Hook 的應用程式進行 DEX Dump \n儲存目錄：Download/DexKitDump</string>
+    <string name="request_cache_expiration_title">請求快取有效期</string>
+    <string name="request_cache_expiration_summary">設定暫存的請求/回應主體資料的有效期 \n目前：%s</string>
+
+    <string name="data_manager">資料管理</string>
+    <string name="data_manager_summary">管理模組設定檔</string>
+    <string name="delete_file_title">刪除檔案</string>
+    <string name="delete_prefs_title">刪除偏好設定群組</string>
+    <string name="delete_file_message">是否要刪除檔案「%1$s」？</string>
+    <string name="delete_prefs_message">是否要刪除「%1$s」群組中的所有偏好設定？</string>
+    <string name="action_delete">刪除</string>
+
     <string name="search_hint">搜尋</string>
     <string name="search_hint_with_count">搜尋 %1$d 個應用程式</string>
 
@@ -24,9 +38,9 @@
     <string name="tab_configured_apps">已設定應用程式</string>
     <string name="tab_system_apps">系統應用程式</string>
 
-    <string name="tab_domain_list">請求列表</string>
-    <string name="tab_host_list">阻擋列表</string>
-    <string name="tab_host_whitelist">放行列表</string>
+    <string name="tab_request_list">請求列表</string>
+    <string name="tab_block_list">阻擋列表</string>
+    <string name="tab_pass_list">放行列表</string>
 
     <string name="export">匯出</string>
     <string name="restore">匯入</string>

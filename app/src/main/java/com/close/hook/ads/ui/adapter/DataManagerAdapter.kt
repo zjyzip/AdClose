@@ -13,6 +13,7 @@ import java.util.Date
 import java.util.Locale
 
 class DataManagerAdapter(
+    private val onExportClick: (ManagedItem) -> Unit,
     private val onDeleteClick: (ManagedItem) -> Unit
 ) : ListAdapter<ManagedItem, DataManagerAdapter.ViewHolder>(DiffCallback) {
 
@@ -38,6 +39,7 @@ class DataManagerAdapter(
             binding.itemName.text = item.name
             binding.itemSize.text = Formatter.formatShortFileSize(binding.root.context, item.size)
             binding.itemDate.text = dateFormat.format(Date(item.lastModified))
+            binding.exportButton.setOnClickListener { onExportClick(item) }
             binding.deleteButton.setOnClickListener { onDeleteClick(item) }
         }
     }

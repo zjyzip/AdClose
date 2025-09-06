@@ -1,18 +1,21 @@
 package com.close.hook.ads.ui.fragment.request
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
-import android.util.Log
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.content.ContentValues
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.lifecycle.lifecycleScope
-import com.close.hook.ads.databinding.FragmentResponseBodyBinding
+import com.close.hook.ads.databinding.FragmentResponseBodyInfoBinding
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
@@ -22,17 +25,17 @@ import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.IOException
 import java.io.ByteArrayInputStream
+import java.io.IOException
+import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.close.hook.ads.preference.HookPrefs
-import android.graphics.BitmapFactory
-import android.graphics.Bitmap
+import java.util.zip.GZIPInputStream
+import java.util.zip.InflaterInputStream
 
-class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
+class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyInfoBinding>() {
 
     private var contentToExportAndDisplay: String? = null
     private var imageBytesToExportAndDisplay: ByteArray? = null
@@ -70,10 +73,6 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
                 }
             }
         }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -121,22 +120,40 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            val (bodyBytes, mimeType) = getResponseBodyData(responseBodyUriString)
-            withContext(Dispatchers.Main) {
-                when {
-                    bodyBytes == null || mimeType == null -> {
-                        binding.responseBodyText.text = "Error: No content or MIME type found."
-                        binding.exportFab.visibility = View.GONE
+            try {
+                val (rawInputStream, combinedMimeType) = getResponseBodyStream(responseBodyUriString)
+                    ?: throw IOException("Could not retrieve response body stream.")
+
+                val parts = combinedMimeType!!.split(";").map { it.trim() }
+                val mimeType = parts.firstOrNull() ?: "application/octet-stream"
+                val encoding = parts.find { it.startsWith("encoding=") }?.substringAfter("encoding=")
+
+                val decompressedBytes = decompressStream(encoding, rawInputStream)?.use {
+                    it.readBytes()
+                }
+
+                withContext(Dispatchers.Main) {
+                    if (decompressedBytes == null) {
+                        throw IOException("Failed to decompress response body.")
                     }
-                    mimeType.startsWith("image/") -> displayImage(bodyBytes, mimeType)
-                    else -> displayText(bodyBytes, mimeType)
+                    when {
+                        mimeType.startsWith("image/") -> displayImage(decompressedBytes, mimeType)
+                        else -> displayText(decompressedBytes, mimeType)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ResponseBodyInfoFragment", "Error processing response body", e)
+                withContext(Dispatchers.Main) {
+                    binding.responseBodyText.text = "Error: ${e.message}"
+                    binding.exportFab.visibility = View.GONE
                 }
             }
         }
     }
 
     private fun displayImage(bodyBytes: ByteArray, mimeType: String) {
-        val bitmap: Bitmap? = BitmapFactory.decodeByteArray(bodyBytes, 0, bodyBytes.size)
+        val bitmap = BitmapFactory.decodeByteArray(bodyBytes, 0, bodyBytes.size)
+        
         if (bitmap != null) {
             binding.responseBodyImage.setImageBitmap(bitmap)
             binding.responseBodyImage.visibility = View.VISIBLE
@@ -146,8 +163,6 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
         } else {
             Log.e("ResponseBodyInfoFragment", "Error decoding image from byte array.")
             binding.responseBodyText.text = "Error: Could not display image.\n\n$mimeType"
-            binding.responseBodyText.visibility = View.VISIBLE
-            binding.responseBodyImage.visibility = View.GONE
             contentToExportAndDisplay = String(bodyBytes, StandardCharsets.UTF_8)
             imageBytesToExportAndDisplay = null
         }
@@ -164,6 +179,7 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
         }.getOrElse {
             String(bodyBytes, StandardCharsets.UTF_8)
         }
+
         binding.responseBodyText.text = content
         binding.responseBodyText.visibility = View.VISIBLE
         binding.responseBodyImage.visibility = View.GONE
@@ -173,28 +189,56 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyBinding>() {
         binding.exportFab.visibility = View.VISIBLE
     }
 
-    private fun getResponseBodyData(responseBodyUriString: String): Pair<ByteArray?, String?> {
+    private fun getResponseBodyStream(responseBodyUriString: String): Pair<InputStream?, String?> {
         val uri = Uri.parse(responseBodyUriString)
         val resolver = requireContext().contentResolver
-
         return try {
-            val mimeType = resolver.getType(uri)
-                ?: throw IOException("MIME type is null, data might be expired or invalid.")
-
-            val bodyBytes = resolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: throw IOException("Could not open input stream for URI.")
-
-            bodyBytes to mimeType
+            val combinedMimeType = resolver.getType(uri)
+                ?: throw IOException("MIME type is null.")
+            val inputStream = resolver.openInputStream(uri)
+                ?: throw IOException("Could not open input stream.")
+            inputStream to combinedMimeType
         } catch (e: Exception) {
-            Log.e("ResponseBodyInfoFragment", "Error reading response body from provider for URI: $uri", e)
+            Log.e("ResponseBodyInfoFragment", "Error getting response body stream for URI: $uri", e)
             null to null
+        }
+    }
+    
+    private fun decompressStream(encoding: String?, compressedStream: InputStream?): InputStream? {
+        if (compressedStream == null) return null
+        return try {
+            when (encoding?.lowercase()) {
+                "gzip" -> GZIPInputStream(compressedStream)
+                "deflate" -> InflaterInputStream(compressedStream)
+                "br" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        try {
+                            // Android 10+ has a built-in Brotli decompressor
+                            // https://cs.android.com/android/platform/superproject/+/master:external/brotli/java/org/brotli/dec/BrotliInputStream.java;
+                            val brotliClass = Class.forName("android.brotli.BrotliInputStream")
+                            val constructor = brotliClass.getConstructor(InputStream::class.java)
+                            constructor.newInstance(compressedStream) as InputStream
+                        } catch (e: Exception) {
+                            Log.e("ResponseBodyInfoFragment", "Brotli decompression failed", e)
+                            compressedStream
+                        }
+                    } else {
+                        Log.w("ResponseBodyInfoFragment", "Brotli decompression skipped: requires Android 10+.")
+                        compressedStream
+                    }
+                }
+                else -> compressedStream
+            }
+        } catch (e: Exception) {
+            Log.e("ResponseBodyInfoFragment", "Decompression stream creation failed for encoding '$encoding'", e)
+            compressedStream
         }
     }
 
     private fun saveImageToGallery(imageBytes: ByteArray) {
         val mimeType = contentType ?: "image/jpeg"
         val fileName = "AdClose_${System.currentTimeMillis()}.${mimeType.substringAfter("/")}"
-        val contentValues = ContentValues().apply {
+        val contentValues = android.content.ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
         }

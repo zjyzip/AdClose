@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.closeApp
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.ui.activity.DataManagerActivity
@@ -52,7 +53,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         recyclerView = createdRecyclerView
         createdRecyclerView.apply {
             isVerticalScrollBarEnabled = false
-
             addOnScrollListener(scrollListener)
         }
         return createdRecyclerView
@@ -65,12 +65,14 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     }
 
     class SettingsPreferenceDataStore : PreferenceDataStore() {
-        override fun getString(key: String?, defValue: String?): String {
+
+        override fun getString(key: String?, defValue: String?): String? {
             return when (key) {
                 "darkTheme" -> PrefManager.darkTheme.toString()
                 "themeColor" -> PrefManager.themeColor
                 "language" -> PrefManager.language
                 "defaultPage" -> PrefManager.defaultPage.toString()
+                HookPrefs.KEY_REQUEST_CACHE_EXPIRATION -> HookPrefs.getString(key, defValue)
                 else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }
@@ -81,6 +83,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "themeColor" -> PrefManager.themeColor = value!!
                 "language" -> PrefManager.language = value!!
                 "defaultPage" -> PrefManager.defaultPage = value!!.toInt()
+                HookPrefs.KEY_REQUEST_CACHE_EXPIRATION -> HookPrefs.setString(key, value)
                 else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }
@@ -90,7 +93,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "blackDarkTheme" -> PrefManager.blackDarkTheme
                 "followSystemAccent" -> PrefManager.followSystemAccent
                 "hideIcon" -> PrefManager.hideIcon
-                else -> throw IllegalArgumentException("Invalid key: $key")
+                HookPrefs.KEY_ENABLE_DEX_DUMP -> HookPrefs.getBoolean(key, defValue)
+                else -> defValue
             }
         }
 
@@ -99,6 +103,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "blackDarkTheme" -> PrefManager.blackDarkTheme = value
                 "followSystemAccent" -> PrefManager.followSystemAccent = value
                 "hideIcon" -> PrefManager.hideIcon = value
+                HookPrefs.KEY_ENABLE_DEX_DUMP -> HookPrefs.setBoolean(key, value)
                 else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }

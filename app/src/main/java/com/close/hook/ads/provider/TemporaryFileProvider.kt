@@ -7,6 +7,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import com.close.hook.ads.preference.HookPrefs
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import java.io.FileNotFoundException
@@ -32,9 +33,12 @@ class TemporaryFileProvider : ContentProvider() {
             addURI(AUTHORITY, "temporary_files", TEMPORARY_FILES)
             addURI(AUTHORITY, "temporary_files/*", TEMPORARY_FILE_ID)
         }
+    }
 
-        private val contentStore: Cache<String, Pair<ByteArray, String>> = CacheBuilder.newBuilder()
-            .expireAfterWrite(5, TimeUnit.MINUTES)
+    private val contentStore: Cache<String, Pair<ByteArray, String>> by lazy {
+        val expirationTime = HookPrefs.getRequestCacheExpiration()
+        CacheBuilder.newBuilder()
+            .expireAfterWrite(expirationTime, TimeUnit.MINUTES)
             .maximumSize(150)
             .build()
     }

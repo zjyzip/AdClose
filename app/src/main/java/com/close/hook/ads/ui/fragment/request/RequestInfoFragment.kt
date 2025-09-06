@@ -2,10 +2,10 @@ package com.close.hook.ads.ui.fragment.request
 
 import android.os.Bundle
 import android.view.View
-import com.close.hook.ads.databinding.FragmentRequestBinding
+import com.close.hook.ads.databinding.FragmentRequestInfoBinding
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 
-class RequestInfoFragment : BaseFragment<FragmentRequestBinding>() {
+class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
 
     companion object {
         private const val METHOD = "method"

@@ -2,10 +2,10 @@ package com.close.hook.ads.ui.fragment.request
 
 import android.os.Bundle
 import android.view.View
-import com.close.hook.ads.databinding.FragmentResponseBinding
+import com.close.hook.ads.databinding.FragmentResponseInfoBinding
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 
-class ResponseInfoFragment : BaseFragment<FragmentResponseBinding>() {
+class ResponseInfoFragment : BaseFragment<FragmentResponseInfoBinding>() {
 
     companion object {
         private const val RESPONSE_CODE = "responseCode"

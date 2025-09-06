@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.model.FrameworkInfo
+import com.close.hook.ads.data.model.ItemType
 import com.close.hook.ads.data.model.ManagedItem
 import com.close.hook.ads.data.repository.DataManagerRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,13 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
                     preferenceGroups = preferenceGroups
                 )
             }
+        }
+    }
+    
+    suspend fun getItemContent(item: ManagedItem): ByteArray? {
+        return when (item.type) {
+            ItemType.FILE -> repository.getFileContent(item.name)
+            ItemType.PREFERENCE -> repository.getPreferenceContent(item.name)
         }
     }
 

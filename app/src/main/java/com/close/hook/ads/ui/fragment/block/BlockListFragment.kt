@@ -207,7 +207,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private val mActionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            mode?.menuInflater?.inflate(R.menu.menu_hosts, menu)
+            mode?.menuInflater?.inflate(R.menu.menu_block, menu)
             return true
         }
 
@@ -538,14 +538,17 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     override fun onBackPressed(): Boolean {
-        return if (binding.editText.isFocused) {
+        if (tracker?.hasSelection() == true) {
+            tracker?.clearSelection()
+            return true
+        }
+
+        if (binding.editText.isFocused) {
             binding.editText.setText("")
             setIconAndFocus(R.drawable.ic_back_to_magnifier, false)
-            true
-        } else if (selectedItems?.isEmpty == false) {
-            tracker?.clearSelection()
-            true
-        } else binding.recyclerView.closeMenus()
+            return true
+        }
+        return false
     }
 
     override fun onPause() {

@@ -1,9 +1,12 @@
 package com.close.hook.ads.ui.fragment
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -16,19 +19,35 @@ import com.close.hook.ads.databinding.FragmentDataManagerBinding
 import com.close.hook.ads.ui.adapter.DataManagerAdapter
 import com.close.hook.ads.ui.viewmodel.DataManagerViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 
 class DataManagerFragment : Fragment() {
 
     private var _binding: FragmentDataManagerBinding? = null
     private val binding get() = _binding!!
     private val viewModel by viewModels<DataManagerViewModel>()
+
+    private val createDocumentLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+            uri?.let { onFileSelectedForExport(it) }
+        }
+    
+    private var contentToExport: ByteArray? = null
     
     private val filesAdapter by lazy { 
-        DataManagerAdapter { item -> showDeleteConfirmationDialog(item) } 
+        DataManagerAdapter(
+            onExportClick = { item -> handleExportClick(item) },
+            onDeleteClick = { item -> showDeleteConfirmationDialog(item) }
+        ) 
     }
     private val prefsAdapter by lazy { 
-        DataManagerAdapter { item -> showDeleteConfirmationDialog(item) } 
+        DataManagerAdapter(
+            onExportClick = { item -> handleExportClick(item) },
+            onDeleteClick = { item -> showDeleteConfirmationDialog(item) }
+        ) 
     }
 
     override fun onCreateView(
@@ -74,6 +93,43 @@ class DataManagerFragment : Fragment() {
 
                 binding.prefsCard.isVisible = state.preferenceGroups.isNotEmpty()
                 prefsAdapter.submitList(state.preferenceGroups)
+            }
+        }
+    }
+
+    private fun handleExportClick(item: ManagedItem) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            binding.progressBar.isVisible = true
+            val content = viewModel.getItemContent(item)
+            binding.progressBar.isVisible = false
+
+            if (content != null) {
+                contentToExport = content
+                val exportFileName = if (item.type == ItemType.PREFERENCE) "${item.name}.xml" else item.name
+                createDocumentLauncher.launch(exportFileName)
+            } else {
+                Toast.makeText(requireContext(), "Failed to read content for export", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun onFileSelectedForExport(uri: Uri) {
+        val content = contentToExport ?: return
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(content)
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "Export successful", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "Export failed", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                contentToExport = null
             }
         }
     }

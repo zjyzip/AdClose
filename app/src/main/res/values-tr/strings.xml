@@ -10,6 +10,20 @@
     <string name="bottom_item_4">Engelle</string>
     <string name="bottom_item_5">Ev</string>
 
+    <string name="advanced_settings">Gelişmiş</string>
+    <string name="dex_dump_title">DEX Dökümü</string>
+    <string name="dex_dump_summary">Hook etkinleştirilmiş tüm uygulamalar için DEX dökümü yapın \nDepolama dizini: Download/DexKitDump</string>
+    <string name="request_cache_expiration_title">İstek Önbelleği Geçerlilik Süresi</string>
+    <string name="request_cache_expiration_summary">Geçici istek/yanıt gövdesi verilerinin geçerlilik süresini ayarlayın \nMevcut: %s</string>
+
+    <string name="data_manager">Veri Yönetimi</string>
+    <string name="data_manager_summary">Modül yapılandırma dosyalarını yönetin</string>
+    <string name="delete_file_title">Dosyayı Sil</string>
+    <string name="delete_prefs_title">Tercih Grubunu Sil</string>
+    <string name="delete_file_message">"%1$s" dosyası silinsin mi?</string>
+    <string name="delete_prefs_message">"%1$s" grubundaki tüm tercihler silinsin mi?</string>
+    <string name="action_delete">Sil</string>
+
     <string name="search_hint">Ara</string>
     <string name="search_hint_with_count">%1$d uygulama ara</string>
 
@@ -23,9 +37,9 @@
     <string name="tab_configured_apps">Yapılandırılmış Uygulamalar</string>
     <string name="tab_system_apps">Sistem Uygulamaları</string>
 
-    <string name="tab_domain_list">İstek Listesi</string>
-    <string name="tab_host_list">Engelleme Listesi</string>
-    <string name="tab_host_whitelist">Beyaz Liste</string>
+    <string name="tab_request_list">İstek Listesi</string>
+    <string name="tab_block_list">Engelleme Listesi</string>
+    <string name="tab_pass_list">Beyaz Liste</string>
 
     <string name="export">Dışa Aktar</string>
     <string name="restore">İçe Aktar</string>
