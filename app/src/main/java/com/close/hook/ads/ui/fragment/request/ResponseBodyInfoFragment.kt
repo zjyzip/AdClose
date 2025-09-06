@@ -3,13 +3,13 @@ package com.close.hook.ads.ui.fragment.request
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.content.ContentValues
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -25,6 +25,7 @@ import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.brotli.dec.BrotliInputStream
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -210,23 +211,7 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyInfoBinding>()
             when (encoding?.lowercase()) {
                 "gzip" -> GZIPInputStream(compressedStream)
                 "deflate" -> InflaterInputStream(compressedStream)
-                "br" -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        try {
-                            // Android 10+ has a built-in Brotli decompressor
-                            // https://cs.android.com/android/platform/superproject/+/master:external/brotli/java/org/brotli/dec/BrotliInputStream.java;
-                            val brotliClass = Class.forName("android.brotli.BrotliInputStream")
-                            val constructor = brotliClass.getConstructor(InputStream::class.java)
-                            constructor.newInstance(compressedStream) as InputStream
-                        } catch (e: Exception) {
-                            Log.e("ResponseBodyInfoFragment", "Brotli decompression failed", e)
-                            compressedStream
-                        }
-                    } else {
-                        Log.w("ResponseBodyInfoFragment", "Brotli decompression skipped: requires Android 10+.")
-                        compressedStream
-                    }
-                }
+                "br" -> BrotliInputStream(compressedStream)
                 else -> compressedStream
             }
         } catch (e: Exception) {
@@ -238,7 +223,7 @@ class ResponseBodyInfoFragment : BaseFragment<FragmentResponseBodyInfoBinding>()
     private fun saveImageToGallery(imageBytes: ByteArray) {
         val mimeType = contentType ?: "image/jpeg"
         val fileName = "AdClose_${System.currentTimeMillis()}.${mimeType.substringAfter("/")}"
-        val contentValues = android.content.ContentValues().apply {
+        val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
         }

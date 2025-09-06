@@ -25,6 +25,7 @@ rikkaMaterialPreference = "2.0.0"
 mpandroidchart = "v3.1.0"
 kotlinxSerialization = "1.9.0"
 kotlinSerializationPlugin = "2.2.10"
+brotli = "0.1.2"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -50,6 +51,7 @@ appcenterAnalytics = { module = "com.microsoft.appcenter:appcenter-analytics", v
 appcenterCrashes = { module = "com.microsoft.appcenter:appcenter-crashes", version.ref = "appcenterCrashes" }
 mpandroidchart = { module = "com.github.PhilJay:MPAndroidChart", version.ref = "mpandroidchart" }
 kotlinxSerializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+brotli-dec = { group = "org.brotli", name = "dec", version.ref = "brotli" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "androidApplicationPlugin" }

@@ -5,7 +5,6 @@ import de.robv.android.xposed.XposedBridge
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
-import com.close.hook.ads.util.AppUtils
 
 class LibXposedEntry(
     base: XposedInterface,

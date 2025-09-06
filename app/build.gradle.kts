@@ -73,7 +73,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = calculateVersionCode()
-        versionName = "4.0.4"
+        versionName = "4.0.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -154,6 +154,7 @@ dependencies {
 
     implementation(libs.kotlinxSerializationJson)
 
+    implementation(libs.brotli.dec)
     implementation(libs.gson)
     implementation(libs.guava)
     implementation(libs.appcenterAnalytics)

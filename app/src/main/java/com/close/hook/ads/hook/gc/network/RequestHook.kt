@@ -16,6 +16,7 @@ import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.HookUtil
+import com.close.hook.ads.hook.util.StringFinderKit
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.provider.TemporaryFileProvider
 import com.close.hook.ads.provider.UrlContentProvider
@@ -57,6 +58,24 @@ object RequestHook {
     private val responseBuffers = ConcurrentHashMap<Int, ByteArrayOutputStream>()
     private val pendingRequests = ConcurrentHashMap<Int, BlockedRequest>()
     private val headerEndMarker = "\r\n\r\n".toByteArray()
+
+    private val okHttp3OkioBufferCls: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("okio.Buffer", applicationContext.classLoader)
+        } catch (e: Throwable) {
+            XposedBridge.log("$LOG_PREFIX ${e.message}")
+            null
+        }
+    }
+
+    private val okhttp3ResponseBodyClass: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("okhttp3.ResponseBody", applicationContext.classLoader)
+        } catch (e: Throwable) {
+            XposedBridge.log("$LOG_PREFIX ${e.message}")
+            null
+        }
+    }
 
     private val emptyWebResponse: WebResourceResponse? by lazy { createEmptyWebResourceResponse() }
 
@@ -101,7 +120,8 @@ object RequestHook {
                     applicationContext = context
                     setupDNSRequestHook()
                     setupSocketHook() // HTTP/1.1
-                    setupConscryptEngineHook() // HTTP/1.1
+                    setupConscryptEngineHook() // HTTPS over HTTP/1.1
+                    setupOkHttpRequestHook() // HTTP/2 (via okhttp3)
                     // setupProtocolDowngradeHook()
                     setupWebViewRequestHook()
                     
@@ -390,8 +410,13 @@ object RequestHook {
 
             val headerBytes = buffer.copyOfRange(startIndex, headerEndIndex)
             val headerString = headerBytes.toString(Charsets.UTF_8)
-            val contentLength = parseContentLength(headerString)
+            
+            if (headerString.startsWith("CONNECT ", ignoreCase = true)) {
+                currentIndex = headerEndIndex + headerEndMarker.size
+                continue
+            }
 
+            val contentLength = parseContentLength(headerString)
             val bodyStartIndex = headerEndIndex + headerEndMarker.size
             val totalRequestSize = bodyStartIndex + contentLength
             if (buffer.size < totalRequestSize) break
@@ -565,6 +590,114 @@ object RequestHook {
 
             bodyStream.write(buffer, chunkDataStart, chunkSize)
             currentIndex = chunkDataEnd + 2
+        }
+    }
+
+    fun setupOkHttpRequestHook() {
+        // okhttp3.Call.execute
+        hookOkHttpMethod("setupOkHttpRequestHook_execute", "Already Executed", "execute")
+        // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
+        hookOkHttpMethod("setupOkHttp2RequestHook_intercept", "Canceled", "intercept")
+    }
+
+    private fun hookOkHttpMethod(cacheKeySuffix: String, methodDescription: String, methodName: String) {
+        val cacheKey = "${applicationContext.packageName}:$cacheKeySuffix"
+        StringFinderKit.findMethodsWithString(cacheKey, methodDescription, methodName)?.forEach { methodData ->
+            try {
+                val method = methodData.getMethodInstance(applicationContext.classLoader)
+                XposedBridge.log("$LOG_PREFIX setupOkHttpRequestHook $methodData")
+                HookUtil.hookMethod(method, "after") { param ->
+                    try {
+                        val response = param.result ?: return@hookMethod
+                        val request = XposedHelpers.callMethod(response, "request")
+                        val url = URL(XposedHelpers.callMethod(request, "url").toString())
+                        val stackTrace = HookUtil.getFormattedStackTrace()
+
+                        val requestBodyBytes = try {
+                            XposedHelpers.callMethod(request, "body")?.let { requestBody ->
+                                val bufferClass = XposedHelpers.findClass("okio.Buffer", applicationContext.classLoader)
+                                val bufferInstance = bufferClass.getDeclaredConstructor().newInstance()
+                                XposedHelpers.callMethod(requestBody, "writeTo", bufferInstance)
+                                XposedHelpers.callMethod(bufferInstance, "readByteArray") as? ByteArray
+                            }
+                        } catch (e: Throwable) {
+                            // XposedBridge.log("$LOG_PREFIX OkHttp request body reading failed (likely due to obfuscation): ${e.message}")
+                            null
+                        }
+
+                        var responseBodyBytes: ByteArray? = null
+                        var responseContentType: String? = null
+
+                        if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
+                            val originalBody = XposedHelpers.callMethod(response, "body")
+                            if (originalBody != null) {
+                                try {
+                                    val mediaType = XposedHelpers.callMethod(originalBody, "contentType")
+                                    responseContentType = mediaType?.toString()
+                                    responseBodyBytes = XposedHelpers.callMethod(originalBody, "bytes") as? ByteArray
+
+                                    if (responseBodyBytes != null && okhttp3ResponseBodyClass != null) {
+                                        val newBody = XposedHelpers.callStaticMethod(okhttp3ResponseBodyClass, "create", mediaType, responseBodyBytes)
+                                        XposedHelpers.setObjectField(response, "body", newBody)
+                                    }
+                                } catch (e: Throwable) {
+                                    XposedBridge.log("$LOG_PREFIX OkHttp response body reading failed (likely due to obfuscation): ${e.message}")
+                                }
+                            }
+                        }
+
+                        val info = buildOkHttpRequest(
+                            url, " OKHTTP", request, response,
+                            requestBodyBytes,
+                            responseBodyBytes, responseContentType, stackTrace
+                        )
+                        if (checkShouldBlockRequest(info)) {
+                            param.throwable = IOException("Request blocked by AdClose: ${url.host}")
+                        }
+                    } catch (e: IOException) {
+                        param.throwable = e
+                    } catch (e: Throwable) {
+                        XposedBridge.log("$LOG_PREFIX OkHttp hook error ($methodName): ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                XposedBridge.log("$LOG_PREFIX Error hooking OkHttp method: $methodData, ${e.message}")
+            }
+        }
+    }
+
+    private fun buildOkHttpRequest(
+        url: URL, requestFrameworkType: String, request: Any, response: Any,
+        requestBody: ByteArray?,
+        responseBody: ByteArray?, responseBodyContentType: String?, stack: String
+    ): BlockedRequest? {
+        return try {
+            val method = XposedHelpers.callMethod(request, "method") as? String
+            val urlString = url.toString()
+            val requestHeaders = XposedHelpers.callMethod(request, "headers")?.toString()
+            val code = XposedHelpers.callMethod(response, "code") as? Int ?: -1
+            val message = XposedHelpers.callMethod(response, "message") as? String
+            val responseHeaders = XposedHelpers.callMethod(response, "headers")?.toString()
+            val formattedUrl = formatUrlWithoutQuery(url)
+            BlockedRequest(
+                requestType = requestFrameworkType,
+                requestValue = formattedUrl,
+                method = method,
+                urlString = urlString,
+                requestHeaders = requestHeaders,
+                requestBody = requestBody,
+                responseCode = code,
+                responseMessage = message,
+                responseHeaders = responseHeaders,
+                responseBody = responseBody,
+                responseBodyContentType = responseBodyContentType,
+                stack = stack,
+                dnsHost = null,
+                fullAddress = null
+            )
+        } catch (e: Exception) {
+            XposedBridge.log("$LOG_PREFIX buildOkHttpRequest error: ${e.message}")
+            null
         }
     }
 
@@ -831,6 +964,7 @@ object RequestHook {
             )
             Intent("com.rikkati.REQUEST").apply {
                 putExtra("request", requestInfoForBroadcast)
+                setPackage("com.close.hook.ads")
             }.also {
                 applicationContext.sendBroadcast(it)
             }
