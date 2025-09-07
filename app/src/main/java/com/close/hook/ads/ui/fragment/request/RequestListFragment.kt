@@ -15,7 +15,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
@@ -34,6 +33,7 @@ import com.close.hook.ads.ui.adapter.RequestListAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
+import com.close.hook.ads.ui.viewmodel.RequestViewModel
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
@@ -57,10 +57,10 @@ import java.io.IOException
 class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearClickListener,
     IOnTabClickListener, IOnFabClickListener, OnBackPressListener {
 
-    private val viewModel by lazy {
-        ViewModelProvider(requireActivity())[BlockListViewModel::class.java]
-    }
-    private val appsViewModel by viewModels<AppsViewModel>(ownerProducer = { requireActivity() })
+    private val requestViewModel: RequestViewModel by viewModels({ requireActivity() })
+    private val blockListViewModel: BlockListViewModel by viewModels({ requireActivity() })
+
+    private val appsViewModel by viewModels<AppsViewModel>({ requireActivity() })
     private lateinit var mAdapter: RequestListAdapter
     private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private lateinit var type: String
@@ -104,7 +104,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
 
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.getFilteredRequestList(type).collectLatest { filteredList ->
+            requestViewModel.getFilteredRequestList(type).collectLatest { filteredList ->
                 mAdapter.submitList(filteredList) {
                     val targetChild = if (filteredList.isEmpty()) 0 else 1
                     if (binding.vfContainer.displayedChild != targetChild) {
@@ -116,7 +116,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     }
 
     private fun initView() {
-        mAdapter = RequestListAdapter(viewModel.dataSource)
+        mAdapter = RequestListAdapter(requestViewModel.dataSource)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {
@@ -223,11 +223,11 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     }
 
     override fun search(keyword: String) {
-        viewModel.setRequestSearchQuery(keyword)
+        requestViewModel.setRequestSearchQuery(keyword)
     }
 
     override fun onClearAll() {
-        viewModel.onClearAllRequests()
+        requestViewModel.onClearAllRequests()
         (activity as? INavContainer)?.showNavigation()
     }
 
@@ -263,13 +263,15 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     }
 
     override fun onExport() {
-        if (viewModel.requestList.value.isEmpty()) {
-            Toast.makeText(requireContext(), getString(R.string.export_empty_request_list), Toast.LENGTH_SHORT).show()
+        if (requestViewModel.requestList.value.isEmpty()) {
+            Toast.makeText(requireContext(), getString(R.string.export_empty_request_list), Toast.LENGTH_SHORT)
+                .show()
             return
         }
 
         try {
-            val content = GsonBuilder().setPrettyPrinting().create().toJson(viewModel.requestList.value)
+            val content =
+                GsonBuilder().setPrettyPrinting().create().toJson(requestViewModel.requestList.value)
             if (saveFile(content)) {
                 backupSAFLauncher.launch("${type}_request_list.json")
             } else {
@@ -292,9 +294,9 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
                         val type = if (it.appName.trim().endsWith("DNS")) "Domain" else "URL"
                         Url(type, it.request)
                     }.filterNot {
-                        viewModel.dataSource.isExist(it.type, it.url)
+                        blockListViewModel.dataSource.isExist(it.type, it.url)
                     }
-                    viewModel.addListUrl(updateList)
+                    blockListViewModel.addListUrl(updateList)
 
                     withContext(Dispatchers.Main) {
                         tracker?.clearSelection()

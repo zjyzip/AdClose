@@ -1,19 +1,12 @@
 package com.close.hook.ads.ui.activity
 
-import android.content.Context
 import android.os.Bundle
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentManager
-import androidx.lifecycle.Lifecycle
+import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
-import com.close.hook.ads.ui.fragment.request.DnsInfoFragment
 import com.close.hook.ads.ui.fragment.request.RequestInfoFragment
-import com.close.hook.ads.ui.fragment.request.RequestBodyInfoFragment
-import com.close.hook.ads.ui.fragment.request.RequestStackFragment
-import com.close.hook.ads.ui.fragment.request.ResponseInfoFragment
-import com.close.hook.ads.ui.fragment.request.ResponseBodyInfoFragment
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -26,7 +19,7 @@ class RequestInfoActivity : BaseActivity() {
 
         val toolbar: MaterialToolbar = findViewById(R.id.toolbar)
         toolbar.setNavigationOnClickListener {
-            onBackPressed()
+            onBackPressedDispatcher.onBackPressed()
         }
 
         val method = intent.getStringExtra("method") ?: ""
@@ -42,13 +35,14 @@ class RequestInfoActivity : BaseActivity() {
         val fullAddress = intent.getStringExtra("fullAddress")
 
         val sectionsPagerAdapter = SectionsPagerAdapter(
-            this, supportFragmentManager, lifecycle,
+            this,
             method, urlString, requestHeaders, requestBodyUriString,
             responseCode, responseMessage, responseHeaders, responseBodyUriString,
             stack, dnsHost, fullAddress
         )
         val viewPager: ViewPager2 = findViewById(R.id.view_pager)
         viewPager.adapter = sectionsPagerAdapter
+        viewPager.offscreenPageLimit = sectionsPagerAdapter.itemCount
 
         val tabs: TabLayout = findViewById(R.id.tabs)
         TabLayoutMediator(tabs, viewPager) { tab, position ->
@@ -57,9 +51,7 @@ class RequestInfoActivity : BaseActivity() {
     }
 
     class SectionsPagerAdapter(
-        private val context: Context,
-        fm: FragmentManager,
-        lifecycle: Lifecycle,
+        activity: FragmentActivity,
         private val method: String,
         private val urlString: String,
         private val requestHeaders: String,
@@ -71,46 +63,53 @@ class RequestInfoActivity : BaseActivity() {
         private val stack: String,
         private val dnsHost: String?,
         private val fullAddress: String?
-    ) : FragmentStateAdapter(fm, lifecycle) {
+    ) : FragmentStateAdapter(activity) {
 
-        private val fragments = mutableListOf<Fragment>()
         private val fragmentTitles = mutableListOf<String>()
 
         init {
             if (!dnsHost.isNullOrEmpty()) {
-                fragments.add(DnsInfoFragment.newInstance(dnsHost, fullAddress))
                 fragmentTitles.add("DNS Info")
             }
 
             if (method.isNotEmpty() || urlString.isNotEmpty() || requestHeaders.isNotEmpty()) {
-                fragments.add(RequestInfoFragment.newInstance(method, urlString, requestHeaders))
                 fragmentTitles.add("Request")
             }
 
             requestBodyUriString?.let {
                 if (it.isNotEmpty()) {
-                    fragments.add(RequestBodyInfoFragment.newInstance(it))
                     fragmentTitles.add("RequestBody")
                 }
             }
 
             if (responseMessage.isNotEmpty() || responseHeaders.isNotEmpty()) {
-                fragments.add(ResponseInfoFragment.newInstance(responseCode, responseMessage, responseHeaders))
                 fragmentTitles.add("Response")
-
-                fragments.add(ResponseBodyInfoFragment.newInstance(responseBodyUriString))
-                fragmentTitles.add("ResponseBody")
+                if (!responseBodyUriString.isNullOrEmpty()) {
+                    fragmentTitles.add("ResponseBody")
+                }
             }
 
             if (stack.isNotEmpty()) {
-                fragments.add(RequestStackFragment.newInstance(stack))
                 fragmentTitles.add("Stack")
             }
         }
 
-        override fun getItemCount(): Int = fragments.size
+        override fun getItemCount(): Int = fragmentTitles.size
 
-        override fun createFragment(position: Int): Fragment = fragments[position]
+        override fun createFragment(position: Int): Fragment = RequestInfoFragment.newInstance(
+            getPageTitle(position),
+            method,
+            urlString,
+            requestHeaders,
+            requestBodyUriString,
+            responseCode,
+            responseMessage,
+            responseHeaders,
+            responseBodyUriString,
+            stack,
+            dnsHost,
+            fullAddress
+        )
 
         fun getPageTitle(position: Int): String = fragmentTitles[position]
     }

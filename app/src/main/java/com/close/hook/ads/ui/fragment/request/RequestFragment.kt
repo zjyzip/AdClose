@@ -15,12 +15,12 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import androidx.fragment.app.viewModels
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.databinding.BaseTablayoutViewpagerBinding
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
-import com.close.hook.ads.ui.viewmodel.BlockListViewModel
+import com.close.hook.ads.ui.viewmodel.RequestViewModel
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.OnBackPressListener
@@ -30,16 +30,15 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
 
-    private val viewModel by lazy {
-        ViewModelProvider(requireActivity())[BlockListViewModel::class.java]
-    }
+    private val viewModel: RequestViewModel by viewModels({ requireActivity() })
+
     override val tabList: List<Int> =
         listOf(R.string.tab_request_list, R.string.tab_block_list, R.string.tab_pass_list)
     override var fabController: IOnFabClickListener? = null
 
     private lateinit var fab: FloatingActionButton
     private val fabViewBehavior by lazy { HideBottomViewOnScrollBehavior<FloatingActionButton>() }
-    
+
     private val backPressDelegates = mutableMapOf<Int, OnBackPressListener>()
 
     override fun onCreateView(

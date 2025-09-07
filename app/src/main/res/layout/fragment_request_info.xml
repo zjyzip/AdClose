@@ -1,71 +1,298 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="16dp">
+    android:layout_height="match_parent">
 
-    <TableLayout
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_view"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-        <TableRow>
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Request Method"/>
-            <TextView
-                android:id="@+id/methodText"
-                android:textIsSelectable="true"
-                android:fontFamily="monospace"
-                android:lineSpacingExtra="4dp"
-                android:gravity="start"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"/>
-        </TableRow>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <View
-            android:layout_height="16dp"
-            android:layout_width="match_parent"/>
-
-        <TableRow>
-            <TextView
-                android:layout_width="0dp"
+            <TableLayout
+                android:id="@+id/dns_section"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Request URL"/>
-            <TextView
-                android:id="@+id/urlStringText"
-                android:textIsSelectable="true"
-                android:fontFamily="monospace"
-                android:lineSpacingExtra="4dp"
-                android:gravity="start"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"/>
-        </TableRow>
+                android:visibility="gone">
 
-        <View
-            android:layout_height="16dp"
-            android:layout_width="match_parent"/>
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="DNS Host" />
+                    <TextView
+                        android:id="@+id/dnsHostText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:fontFamily="monospace"
+                        android:gravity="start"
+                        android:lineSpacingExtra="4dp"
+                        android:textIsSelectable="true" />
+                </TableRow>
 
-        <TableRow>
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Request Headers"/>
-            <TextView
-                android:id="@+id/requestHeadersText"
-                android:textIsSelectable="true"
-                android:fontFamily="monospace"
-                android:lineSpacingExtra="4dp"
-                android:gravity="start"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"/>
-        </TableRow>
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="16dp" />
 
-    </TableLayout>
-</ScrollView>
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Full Address" />
+                    <TextView
+                        android:id="@+id/fullAddressText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:fontFamily="monospace"
+                        android:gravity="start"
+                        android:lineSpacingExtra="4dp"
+                        android:textIsSelectable="true" />
+                </TableRow>
+
+            </TableLayout>
+
+            <TableLayout
+                android:id="@+id/request_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone">
+
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Request Method" />
+                    <TextView
+                        android:id="@+id/methodText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:fontFamily="monospace"
+                        android:gravity="start"
+                        android:lineSpacingExtra="4dp"
+                        android:textIsSelectable="true" />
+                </TableRow>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="16dp" />
+
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Request URL" />
+                    <TextView
+                        android:id="@+id/urlStringText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:fontFamily="monospace"
+                        android:gravity="start"
+                        android:lineSpacingExtra="4dp"
+                        android:textIsSelectable="true" />
+                </TableRow>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="16dp" />
+
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Request Headers" />
+                    <TextView
+                        android:id="@+id/requestHeadersText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:fontFamily="monospace"
+                        android:gravity="start"
+                        android:lineSpacingExtra="4dp"
+                        android:textIsSelectable="true" />
+                </TableRow>
+
+            </TableLayout>
+
+            <LinearLayout
+                android:id="@+id/request_body_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingBottom="8dp"
+                    android:text="Request Body"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/requestBodyText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    android:breakStrategy="simple"
+                    android:fontFamily="monospace"
+                    android:gravity="start"
+                    android:lineSpacingExtra="4dp"
+                    android:padding="8dp"
+                    android:textIsSelectable="true" />
+            </LinearLayout>
+
+            <TableLayout
+                android:id="@+id/response_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone">
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Response Code"/>
+                    <TextView
+                        android:id="@+id/responseCodeText"
+                        android:textIsSelectable="true"
+                        android:fontFamily="monospace"
+                        android:lineSpacingExtra="4dp"
+                        android:gravity="start"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"/>
+                </TableRow>
+                <View
+                    android:layout_height="16dp"
+                    android:layout_width="match_parent"/>
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Response Message"/>
+                    <TextView
+                        android:id="@+id/responseMessageText"
+                        android:textIsSelectable="true"
+                        android:fontFamily="monospace"
+                        android:lineSpacingExtra="4dp"
+                        android:gravity="start"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"/>
+                </TableRow>
+                <View
+                    android:layout_height="16dp"
+                    android:layout_width="match_parent"/>
+                <TableRow>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Response Headers"/>
+                    <TextView
+                        android:id="@+id/responseHeadersText"
+                        android:textIsSelectable="true"
+                        android:fontFamily="monospace"
+                        android:lineSpacingExtra="4dp"
+                        android:gravity="start"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"/>
+                </TableRow>
+            </TableLayout>
+
+            <LinearLayout
+                android:id="@+id/response_body_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/collectResponseBodySwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:checked="false"
+                    android:text="Collect Response Body" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingBottom="8dp"
+                    android:text="Response Body"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/responseBodyText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    android:breakStrategy="simple"
+                    android:fontFamily="monospace"
+                    android:gravity="start"
+                    android:lineSpacingExtra="4dp"
+                    android:padding="8dp"
+                    android:textIsSelectable="true" />
+
+                <ImageView
+                    android:id="@+id/responseBodyImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="Response body as image"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stack_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <TextView
+                    android:id="@+id/stackText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:gravity="start"
+                    android:lineSpacingExtra="4dp"
+                    android:padding="8dp"
+                    android:textIsSelectable="true"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/exportFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_export"
+        android:tooltipText="@string/export"
+        android:visibility="gone"
+        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
