@@ -139,7 +139,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         }
         return fragment
     }
-    
+
     override fun onBackPressed(): Boolean {
         val currentChildListener = backPressDelegates[binding.viewPager.currentItem]
         if (currentChildListener?.onBackPressed() == true) {
@@ -149,8 +149,8 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         return super.onBackPressed()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onDestroyView() {
+        super.onDestroyView()
         requireContext().unregisterReceiver(receiver)
     }
 }
