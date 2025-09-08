@@ -14,7 +14,6 @@
             android:id="@+id/toolBar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize">
-
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/toolbar_search"
                 android:layout_width="match_parent"
@@ -25,7 +24,6 @@
                 app:cardBackgroundColor="@color/searchBar"
                 app:cardCornerRadius="24dp"
                 app:strokeWidth="0dp">
-
                 <LinearLayout
                     android:id="@+id/search_container"
                     android:layout_width="match_parent"
@@ -34,7 +32,6 @@
                     android:focusableInTouchMode="true"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
-
                     <ImageView
                         android:id="@+id/search_icon"
                         android:layout_width="wrap_content"
@@ -43,7 +40,6 @@
                         android:paddingLeft="16dp"
                         android:paddingRight="16dp"
                         android:src="@drawable/ic_back" />
-
                     <EditText
                         android:id="@+id/editText"
                         android:layout_width="0dp"
@@ -60,7 +56,6 @@
                         android:paddingEnd="0dp"
                         android:singleLine="true"
                         android:textSize="16sp" />
-
                     <ImageButton
                         android:id="@+id/clear"
                         android:layout_width="wrap_content"
@@ -70,282 +65,23 @@
                         android:paddingRight="16dp"
                         android:src="@drawable/ic_close"
                         android:visibility="gone" />
-
                 </LinearLayout>
-
             </com.google.android.material.card.MaterialCardView>
-
         </com.google.android.material.appbar.MaterialToolbar>
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabs"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            app:tabMode="scrollable"/>
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scroll_view"
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/view_pager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TableLayout
-                android:id="@+id/dns_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone">
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="DNS Host" />
-                    <TextView
-                        android:id="@+id/dnsHostText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start"/>
-                </TableRow>
-                <View
-                    android:layout_height="16dp"
-                    android:layout_width="match_parent"/>
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Full Address" />
-                    <TextView
-                        android:id="@+id/fullAddressText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start"/>
-                </TableRow>
-            </TableLayout>
-
-            <TableLayout
-                android:id="@+id/request_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone">
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Request Method"/>
-                    <TextView
-                        android:id="@+id/methodText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start" />
-                </TableRow>
-                <View
-                    android:layout_height="16dp"
-                    android:layout_width="match_parent"/>
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Request URL"/>
-                    <TextView
-                        android:id="@+id/urlStringText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start" />
-                </TableRow>
-                <View
-                    android:layout_height="16dp"
-                    android:layout_width="match_parent"/>
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Request Headers"/>
-                    <TextView
-                        android:id="@+id/requestHeadersText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start" />
-                </TableRow>
-            </TableLayout>
-
-            <LinearLayout
-                android:id="@+id/request_body_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Request Body"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:paddingBottom="8dp"/>
-                <TextView
-                    android:id="@+id/requestBodyText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textIsSelectable="true"
-                    android:fontFamily="monospace"
-                    android:lineSpacingExtra="4dp"
-                    android:gravity="start"
-                    android:padding="8dp"
-                    android:background="@android:color/transparent"
-                    android:breakStrategy="simple" />
-            </LinearLayout>
-
-            <TableLayout
-                android:id="@+id/response_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone">
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Response Code"/>
-                    <TextView
-                        android:id="@+id/responseCodeText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start"/>
-                </TableRow>
-                <View
-                    android:layout_height="16dp"
-                    android:layout_width="match_parent"/>
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Response Message"/>
-                    <TextView
-                        android:id="@+id/responseMessageText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start" />
-                </TableRow>
-                <View
-                    android:layout_height="16dp"
-                    android:layout_width="match_parent"/>
-                <TableRow>
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Response Headers"/>
-                    <TextView
-                        android:id="@+id/responseHeadersText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="2"
-                        android:textIsSelectable="true"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="4dp"
-                        android:gravity="start"/>
-                </TableRow>
-            </TableLayout>
-
-            <LinearLayout
-                android:id="@+id/response_body_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/collectResponseBodySwitch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Collect Response Body"
-                    android:checked="false"
-                    android:layout_marginBottom="8dp"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Response Body"
-                    android:textStyle="bold"
-                    android:paddingBottom="8dp"/>
-                <TextView
-                    android:id="@+id/responseBodyText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textIsSelectable="true"
-                    android:fontFamily="monospace"
-                    android:lineSpacingExtra="4dp"
-                    android:gravity="start"
-                    android:padding="8dp"
-                    android:background="@android:color/transparent"
-                    android:breakStrategy="simple" />
-                <ImageView
-                    android:id="@+id/responseBodyImage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:adjustViewBounds="true"
-                    android:contentDescription="Response body as image"
-                    android:visibility="gone" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/stack_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <TextView
-                    android:id="@+id/stackText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textIsSelectable="true"
-                    android:textSize="12sp"
-                    android:padding="8dp"
-                    android:fontFamily="monospace"
-                    android:lineSpacingExtra="4dp"
-                    android:gravity="start" />
-            </LinearLayout>
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/exportFab"
