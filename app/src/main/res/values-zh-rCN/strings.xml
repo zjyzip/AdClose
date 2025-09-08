@@ -217,6 +217,8 @@
     <string name="import_failed">导入失败</string>
     <string name="export_success">导出成功</string>
     <string name="crash_log">崩溃日志</string>
+    <string name="import_success_count">成功导入 %1$d 条新规则。</string>
+    <string name="import_no_new_rules">导入成功，未发现可添加的新规则。</string>
     <string name="clear_block_list_confirm">确定清除全部黑名单？</string>
     <string name="batch_remove_success">已批量移出黑名单</string>
     <string name="batch_copy_to_clipboard">已批量复制到剪贴板</string>

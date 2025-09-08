@@ -223,6 +223,8 @@
     <string name="import_failed">Import failed</string>
     <string name="export_success">Export successful</string>
     <string name="crash_log">Crash log</string>
+    <string name="import_success_count">Successfully imported %1$d new rules.</string>
+    <string name="import_no_new_rules">Import successful. No new rules were found to add.</string>
     <string name="clear_block_list_confirm">Are you sure you want to clear all blacklists? </string>
     <string name="batch_remove_success">Batch removed from blacklist</string>
     <string name="batch_copy_to_clipboard">Batch copied to clipboard</string>

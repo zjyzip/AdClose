@@ -186,21 +186,21 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
             return true
         }
 
-        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
+        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+            val isBlockTab = type == "block"
+            menu?.findItem(R.id.action_block)?.isVisible = !isBlockTab
+            menu?.findItem(R.id.action_clear_block)?.isVisible = isBlockTab
+            return true
+        }
 
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             when (item?.itemId) {
-                R.id.action_copy -> {
-                    onCopy()
-                    return true
-                }
-
-                R.id.action_block -> {
-                    onBlock()
-                    return true
-                }
+                R.id.action_copy -> onCopy()
+                R.id.action_block -> onBlock()
+                R.id.action_clear_block -> onUnBlock()
+                else -> return false
             }
-            return false
+            return true
         }
 
         override fun onDestroyActionMode(mode: ActionMode?) {
@@ -251,9 +251,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     private fun saveFile(content: String): Boolean {
         return try {
             val dir = File(requireContext().cacheDir, "temp_exports")
-            if (!dir.exists()) {
-                dir.mkdirs()
-            }
+            if (!dir.exists()) dir.mkdirs()
             val file = File(dir, "request_list.json")
             file.writeText(content)
             true
@@ -264,25 +262,19 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
 
     override fun onExport() {
         if (requestViewModel.requestList.value.isEmpty()) {
-            Toast.makeText(requireContext(), getString(R.string.export_empty_request_list), Toast.LENGTH_SHORT)
-                .show()
+            Toast.makeText(requireContext(), getString(R.string.export_empty_request_list), Toast.LENGTH_SHORT).show()
             return
         }
 
         try {
-            val content =
-                GsonBuilder().setPrettyPrinting().create().toJson(requestViewModel.requestList.value)
+            val content = GsonBuilder().setPrettyPrinting().create().toJson(requestViewModel.requestList.value)
             if (saveFile(content)) {
                 backupSAFLauncher.launch("${type}_request_list.json")
             } else {
                 Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
             }
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.export_no_app_found),
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(requireContext(), getString(R.string.export_no_app_found), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -290,17 +282,43 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
         selectedItems?.let { selection ->
             if (selection.size() != 0) {
                 lifecycleScope.launch(Dispatchers.IO) {
-                    val updateList = selection.toList().map {
-                        val type = if (it.appName.trim().endsWith("DNS")) "Domain" else "URL"
-                        Url(type, it.request)
-                    }.filterNot {
+                    val urlsToAdd = selection.map { request ->
+                        val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
+                            if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
+                        }
+                        val url = request.url ?: request.request
+                        Url(requestType, url)
+                    }.distinct().filterNot {
                         blockListViewModel.dataSource.isExist(it.type, it.url)
                     }
-                    blockListViewModel.addListUrl(updateList)
 
+                    if (urlsToAdd.isNotEmpty()) {
+                        blockListViewModel.addListUrl(urlsToAdd)
+                    }
+                    
                     withContext(Dispatchers.Main) {
                         tracker?.clearSelection()
                         showSnackbar(getString(R.string.add_to_blocklist_success))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun onUnBlock() {
+        selectedItems?.let { selection ->
+            if (selection.iterator().hasNext()) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    selection.forEach { request ->
+                        val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
+                            if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
+                        }
+                        val urlToRemove = request.url ?: request.request
+                        blockListViewModel.removeUrlString(requestType, urlToRemove)
+                    }
+                    withContext(Dispatchers.Main) {
+                        tracker?.clearSelection()
+                        showSnackbar(getString(R.string.batch_remove_success))
                     }
                 }
             }

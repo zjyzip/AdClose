@@ -216,6 +216,8 @@
     <string name="import_failed">İçe aktarma başarısız</string>
     <string name="export_success">Dışa aktarma başarılı</string>
     <string name="crash_log">Çökme Günlüğü</string>
+    <string name="import_success_count">%1$d yeni kural başarıyla içe aktarıldı.</string>
+    <string name="import_no_new_rules">İçe aktarma başarılı. Eklenecek yeni kural bulunamadı.</string>
     <string name="clear_block_list_confirm">Engelleme listesini tamamen temizlemek istediğinizden emin misiniz?</string>
     <string name="batch_remove_success">Toplu olarak engelleme listesinden çıkarıldı</string>
     <string name="batch_copy_to_clipboard">Toplu olarak panoya kopyalandı</string>

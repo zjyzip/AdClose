@@ -18,7 +18,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
-import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
@@ -328,7 +327,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }
 
             restore.setOnClickListener {
-                restoreSAFLauncher.launch(arrayOf("application/octet-stream"))
+                restoreSAFLauncher.launch(arrayOf("application/octet-stream", "text/plain"))
             }
 
             clear.setOnClickListener {
@@ -336,7 +335,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             }
         }
     }
-
 
     private fun showRuleDialog(url: Url? = null) {
         val dialogBinding = ItemBlockListAddBinding.inflate(LayoutInflater.from(requireContext()))
@@ -424,42 +422,46 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-            uri?.let { uri ->
+            uri?.let { validUri ->
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        val currentList: List<Url> = viewModel.blackList.value
                         val contentResolver = requireContext().contentResolver
 
-                        val fileName = contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        val fileName = contentResolver.query(validUri, null, null, null, null)?.use { cursor ->
                             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                            if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
-                        }
-                        if (fileName == null || !fileName.matches(Regex(".*\\.rule(\\s*\\(\\d+\\))?"))) {
+                            cursor.moveToFirst()
+                            if (nameIndex != -1) cursor.getString(nameIndex) else "unknown"
+                        } ?: "unknown"
+
+                        if (!fileName.endsWith(".rule")) {
                             throw IllegalArgumentException(getString(R.string.invalid_file_format))
                         }
 
-                        val inputStream = contentResolver.openInputStream(uri)
-                        val newList: List<Url> = inputStream?.bufferedReader()?.useLines { lines ->
+                        val currentRules = viewModel.blackList.value.map { "${it.type.lowercase()},${it.url}" }.toSet()
+
+                        val newUrls = contentResolver.openInputStream(validUri)?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
-                                val parts: List<String> = line.split(",\\s*".toRegex()).map { it.trim() }
-                                if (parts.size == 2 && (
-                                            parts[0].equals("Domain", ignoreCase = true) ||
-                                            parts[0].equals("URL", ignoreCase = true) ||
-                                            parts[0].equals("KeyWord", ignoreCase = true)
-                                            )) {
+                                val parts = line.split(",\\s*".toRegex(), 2).map(String::trim)
+                                if (parts.size == 2 && parts[0].equals("Domain", true) || parts[0].equals("URL", true) || parts[0].equals("KeyWord", true)) {
                                     Url(parts[0], parts[1])
                                 } else null
                             }.toList()
-                        } ?: listOf()
+                        }?.distinct() ?: emptyList()
 
-                        val updateList = if (currentList.isEmpty()) newList else newList.filter { it !in currentList }
+                        val urlsToAdd = newUrls.filter { "${it.type.lowercase()},${it.url}" !in currentRules }
 
-                        if (updateList.isNotEmpty()) {
-                            viewModel.addListUrl(updateList)
+                        if (urlsToAdd.isNotEmpty()) {
+                            viewModel.addListUrl(urlsToAdd)
+                        }
+                        
+                        val message = if (urlsToAdd.isNotEmpty()) {
+                            getString(R.string.import_success_count, urlsToAdd.size)
+                        } else {
+                            getString(R.string.import_no_new_rules)
                         }
 
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), getString(R.string.import_success), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
                         }
                     }.onFailure {
                         withContext(Dispatchers.Main) {
@@ -482,7 +484,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         }
 
     private val backupSAFLauncher =
-        registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri: Uri? ->
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
             uri?.let {
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {

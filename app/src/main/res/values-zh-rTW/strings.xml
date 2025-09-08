@@ -217,6 +217,8 @@
     <string name="import_failed">匯入失敗</string>
     <string name="export_success">匯出成功</string>
     <string name="crash_log">當機日誌</string>
+    <string name="import_success_count">成功匯入 %1$d 條新規則。</string>
+    <string name="import_no_new_rules">匯入成功，未發現可新增的規則。</string>
     <string name="clear_block_list_confirm">確定清除全部黑名單嗎？</string>
     <string name="batch_remove_success">已批次移出黑名單</string>
     <string name="batch_copy_to_clipboard">已批次複製到剪貼簿</string>
