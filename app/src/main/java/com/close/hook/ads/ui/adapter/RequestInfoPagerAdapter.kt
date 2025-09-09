@@ -2,6 +2,7 @@ package com.close.hook.ads.ui.adapter
 
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.text.SpannableString
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,8 +17,7 @@ class RequestInfoPagerAdapter(
     private val arguments: Bundle,
     private val tabs: List<String>,
     private val viewModel: RequestInfoViewModel,
-    private val lifecycleOwner: LifecycleOwner,
-    private val onTextViewPopulated: (viewId: Int, text: CharSequence) -> Unit
+    private val lifecycleOwner: LifecycleOwner
 ) : RecyclerView.Adapter<RequestInfoPagerAdapter.RequestInfoViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RequestInfoViewHolder {
@@ -41,49 +41,53 @@ class RequestInfoPagerAdapter(
             when (tabTitle) {
                 "DNS Info" -> {
                     binding.dnsSection.visibility = View.VISIBLE
-                    binding.dnsHostText.text = arguments.getString("dnsHost")?.also { onTextViewPopulated(R.id.dnsHostText, it) }
-                    binding.fullAddressText.text = arguments.getString("fullAddress")?.also { onTextViewPopulated(R.id.fullAddressText, it) }
+                    binding.dnsHostText.text = arguments.getString("dnsHost")
+                    binding.fullAddressText.text = arguments.getString("fullAddress")
                 }
                 "Request" -> {
                     binding.requestSection.visibility = View.VISIBLE
-                    binding.methodText.text = arguments.getString("method")?.also { onTextViewPopulated(R.id.methodText, it) }
-                    binding.urlStringText.text = arguments.getString("urlString")?.also { onTextViewPopulated(R.id.urlStringText, it) }
-                    binding.requestHeadersText.text = arguments.getString("requestHeaders")?.also { onTextViewPopulated(R.id.requestHeadersText, it) }
+                    binding.methodText.text = arguments.getString("method")
+                    binding.urlStringText.text = arguments.getString("urlString")
+                    binding.requestHeadersText.text = arguments.getString("requestHeaders")
                 }
                 "RequestBody" -> {
                     binding.requestBodySection.visibility = View.VISIBLE
+                    binding.requestBodyText.visibility = View.GONE
                     viewModel.requestBody.observe(lifecycleOwner) { content ->
-                        binding.requestBodyText.text = content
-                        onTextViewPopulated(R.id.requestBodyText, content)
+                        binding.requestBodyText.post {
+                            binding.requestBodyText.text = content
+                            binding.requestBodyText.visibility = View.VISIBLE
+                        }
                     }
                 }
                 "Response" -> {
                     binding.responseSection.visibility = View.VISIBLE
-                    binding.responseCodeText.text = arguments.getString("responseCode")?.also { onTextViewPopulated(R.id.responseCodeText, it) }
-                    binding.responseMessageText.text = arguments.getString("responseMessage")?.also { onTextViewPopulated(R.id.responseMessageText, it) }
-                    binding.responseHeadersText.text = arguments.getString("responseHeaders")?.also { onTextViewPopulated(R.id.responseHeadersText, it) }
+                    binding.responseCodeText.text = arguments.getString("responseCode")
+                    binding.responseMessageText.text = arguments.getString("responseMessage")
+                    binding.responseHeadersText.text = arguments.getString("responseHeaders")
                 }
                 "ResponseBody" -> {
                     binding.responseBodySection.visibility = View.VISIBLE
                     setupCollectResponseBodySwitch()
+                    binding.responseBodyText.visibility = View.GONE
+                    binding.responseBodyImage.visibility = View.GONE
+
                     viewModel.responseBody.observe(lifecycleOwner) { result ->
                         result.text?.let {
-                            binding.responseBodyText.text = it
-                            binding.responseBodyText.visibility = View.VISIBLE
-                            binding.responseBodyImage.visibility = View.GONE
-                            onTextViewPopulated(R.id.responseBodyText, it)
+                            binding.responseBodyText.post {
+                                binding.responseBodyText.text = SpannableString(it)
+                                binding.responseBodyText.visibility = View.VISIBLE
+                            }
                         }
                         result.imageBytes?.let {
-                            val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
-                            binding.responseBodyImage.setImageBitmap(bitmap)
+                            binding.responseBodyImage.setImageBitmap(BitmapFactory.decodeByteArray(it, 0, it.size))
                             binding.responseBodyImage.visibility = View.VISIBLE
-                            binding.responseBodyText.visibility = View.GONE
                         }
                     }
                 }
                 "Stack" -> {
                     binding.stackSection.visibility = View.VISIBLE
-                    binding.stackText.text = arguments.getString("stack")?.also { onTextViewPopulated(R.id.stackText, it) }
+                    binding.stackText.text = arguments.getString("stack")
                 }
             }
         }

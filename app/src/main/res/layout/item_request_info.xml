@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scroll_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
@@ -206,19 +207,22 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:visibility="gone">
+
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/collectResponseBodySwitch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Collect Response Body"
+                android:layout_marginBottom="8dp"
                 android:checked="false"
-                android:layout_marginBottom="8dp"/>
+                android:text="Collect Response Body" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Response Body"
                 android:textStyle="bold"
                 android:paddingBottom="8dp"/>
+            
             <TextView
                 android:id="@+id/responseBodyText"
                 android:layout_width="match_parent"
@@ -230,6 +234,7 @@
                 android:padding="8dp"
                 android:background="@android:color/transparent"
                 android:breakStrategy="simple" />
+
             <ImageView
                 android:id="@+id/responseBodyImage"
                 android:layout_width="match_parent"
@@ -256,6 +261,5 @@
                 android:lineSpacingExtra="4dp"
                 android:gravity="start" />
         </LinearLayout>
-
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

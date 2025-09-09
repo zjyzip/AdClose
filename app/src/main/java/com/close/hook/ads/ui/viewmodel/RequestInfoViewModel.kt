@@ -35,7 +35,6 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private val _responseBody = MutableLiveData<ResponseBodyResult>()
     val responseBody: LiveData<ResponseBodyResult> = _responseBody
 
-    val originalTexts = mutableMapOf<Int, CharSequence>()
     val currentQuery = MutableLiveData("")
 
     fun init(arguments: Bundle) {
