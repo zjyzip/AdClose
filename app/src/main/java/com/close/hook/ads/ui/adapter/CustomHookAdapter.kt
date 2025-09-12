@@ -79,7 +79,8 @@ class CustomHookAdapter(
             HookField.FIELD_NAME to (binding.tvFieldName to R.string.field_name_format),
             HookField.FIELD_VALUE to (binding.tvFieldValue to R.string.field_value_format),
             HookField.SEARCH_STRINGS to (binding.tvSearchStrings to R.string.search_strings_format),
-            HookField.HOOK_POINT to (binding.tvHookPoint to R.string.hook_point_format)
+            HookField.HOOK_POINT to (binding.tvHookPoint to R.string.hook_point_format),
+            HookField.PARAMETER_REPLACEMENTS to (binding.tvParameterReplacements to R.string.parameter_replacements_format)
         )
 
         init {
@@ -140,6 +141,8 @@ class CustomHookAdapter(
                     "after" -> afterHookPoint
                     else -> config.hookPoint ?: noneString
                 }
+                HookField.PARAMETER_REPLACEMENTS ->
+                    config.parameterReplacements?.entries?.joinToString(", ") { "arg[${it.key}]=${it.value}" } ?: noneString
             }
         }
         

@@ -19,5 +19,6 @@ data class CustomHookInfo(
     val parameterTypes: List<String>? = null,
     val fieldName: String? = null,
     val fieldValue: String? = null,
-    val returnValue: String? = null
+    val returnValue: String? = null,
+    val parameterReplacements: Map<Int, String>? = null
 ) : Parcelable

@@ -1,162 +1,195 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:layout_height="wrap_content">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_hook_method_type"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/hint_hook_method_type"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-        <Spinner
-            android:id="@+id/spinner_hook_method_type"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_hook_method_type"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:spinnerMode="dropdown" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:hint="@string/hint_hook_method_type">
 
-    <TextView
-        android:id="@+id/tv_hook_point_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/hint_hook_point"
-        android:layout_marginTop="16dp"
-        android:labelFor="@id/toggle_group_hook_point"
-        android:textAppearance="?attr/textAppearanceTitleSmall" />
+            <Spinner
+                android:id="@+id/spinner_hook_method_type"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                android:spinnerMode="dropdown" />
 
-    <com.google.android.material.button.MaterialButtonToggleGroup
-        android:id="@+id/toggle_group_hook_point"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        app:selectionRequired="true"
-        app:singleSelection="true"
-        android:visibility="gone">
+        </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_hook_after"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/tv_hook_point_label"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            style="?attr/materialButtonOutlinedStyle"
-            android:text="@string/hook_point_after" />
+            android:layout_marginTop="16dp"
+            android:labelFor="@id/toggle_group_hook_point"
+            android:text="@string/hint_hook_point"
+            android:textAppearance="?attr/textAppearanceTitleSmall" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_hook_before"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            style="?attr/materialButtonOutlinedStyle"
-            android:text="@string/hook_point_before" />
-
-    </com.google.android.material.button.MaterialButtonToggleGroup>
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_class_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_class_name"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_class_name"
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggle_group_hook_point"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            app:selectionRequired="true"
+            app:singleSelection="true">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_search_strings"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_search_strings"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:visibility="gone">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_search_strings"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_hook_after"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hook_point_after" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_hook_before"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hook_point_before" />
+
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_class_name"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textMultiLine" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_class_name">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_method_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_method_names"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:visibility="gone">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_method_name"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_class_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_search_strings"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_search_strings"
+            android:visibility="gone">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_parameter_types"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_parameter_types"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:visibility="gone">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_parameter_types"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_search_strings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_method_name"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_method_names"
+            android:visibility="gone">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_field_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_field_name"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:visibility="gone">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_field_name"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_method_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_parameter_types"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_parameter_types"
+            android:visibility="gone">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_field_value"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_field_value"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:visibility="gone">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_field_value"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_parameter_types"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_field_name"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_field_name"
+            android:visibility="gone">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_return_value"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_return_value"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:visibility="gone">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_return_value"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_field_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_field_value"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_field_value"
+            android:visibility="gone">
 
-</LinearLayout>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_field_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_return_value"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_return_value"
+            android:visibility="gone">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_return_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/tv_parameter_replacements"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/parameter_replacements_label"
+            android:textAppearance="?attr/textAppearanceTitleSmall"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/ll_parameter_replacements"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</ScrollView>

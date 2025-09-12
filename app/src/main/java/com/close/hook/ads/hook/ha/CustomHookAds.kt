@@ -1,7 +1,6 @@
 package com.close.hook.ads.hook.ha
 
 import android.content.Context
-import android.content.ContextWrapper
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.hook.util.HookUtil
@@ -114,6 +113,16 @@ object CustomHookAds {
         val fullMethodName = "${config.className}.${config.methodNames?.firstOrNull()}"
 
         when {
+            !config.parameterReplacements.isNullOrEmpty() -> {
+                config.parameterReplacements.forEach { (index, value) ->
+                    if (index >= 0 && index < param.args.size) {
+                        val parsedValue = parseReturnValue(value)
+                        param.args[index] = parsedValue
+                        val message = "Replaced parameter at index $index with value '$parsedValue' for method: $fullMethodName"
+                        LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
+                    }
+                }
+            }
             !config.returnValue.isNullOrBlank() -> {
                 param.result = parsedReturnValue
                 val message = "Set return value to '$parsedReturnValue' for method: $fullMethodName (based on config)"
@@ -159,8 +168,7 @@ object CustomHookAds {
         
         realAppContext ?: return
 
-        val fakeContext = SmartFakeContext(realAppContext) // Stable, 稳定
-        // val fakeContext = createFakeApplicationContext(realAppContext) // Thorough 简易通彻不稳定
+        val fakeContext = SmartFakeContext(realAppContext)
 
         val method = param.method as Method
         val fullMethodName = "${config.className}.${config.methodNames?.firstOrNull()}"
@@ -176,14 +184,6 @@ object CustomHookAds {
                 param.args[i] = fakeContext
                 val message = "Replaced Context parameter at index $i with FakeContext for method: $fullMethodName"
                 LogProxy.log(TAG, message, HookUtil.getFormattedStackTrace())
-            }
-        }
-    }
-
-    private fun createFakeContext(realAppContext: Context): Context {
-        return object : ContextWrapper(realAppContext) {
-            override fun getApplicationContext(): Context {
-                return this
             }
         }
     }

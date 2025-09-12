@@ -8,8 +8,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.os.BundleCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.setFragmentResult
 import com.close.hook.ads.R
@@ -17,7 +20,9 @@ import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookField
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.databinding.DialogAddCustomHookBinding
+import com.close.hook.ads.databinding.ItemHookParameterBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputLayout
 import java.util.UUID
 
@@ -25,8 +30,10 @@ class CustomHookDialogFragment : DialogFragment() {
 
     private var _binding: DialogAddCustomHookBinding? = null
     private val binding get() = _binding!!
-    
+
     private var initialConfig: CustomHookInfo? = null
+    
+    private val textInputEditTexts = mutableListOf<TextInputLayout>()
 
     private val fieldViews by lazy {
         mapOf(
@@ -36,7 +43,7 @@ class CustomHookDialogFragment : DialogFragment() {
             HookField.RETURN_VALUE to (binding.tilReturnValue to binding.etReturnValue),
             HookField.FIELD_NAME to (binding.tilFieldName to binding.etFieldName),
             HookField.FIELD_VALUE to (binding.tilFieldValue to binding.etFieldValue),
-            HookField.SEARCH_STRINGS to (binding.tilSearchStrings to binding.etSearchStrings)
+            HookField.SEARCH_STRINGS to (binding.tilSearchStrings to binding.etSearchStrings),
         )
     }
 
@@ -59,6 +66,7 @@ class CustomHookDialogFragment : DialogFragment() {
         setupSpinner()
         setupInitialState()
         setupInputValidationListeners()
+        setupParameterTypesWatcher()
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(binding.root)
@@ -92,7 +100,7 @@ class CustomHookDialogFragment : DialogFragment() {
     private fun setupInitialState() {
         val config = initialConfig
         val initialType = config?.hookMethodType ?: HookMethodType.HOOK_ALL_METHODS
-        
+
         binding.spinnerHookMethodType.setSelection(initialType.ordinal)
         updateFieldVisibility(initialType)
 
@@ -104,14 +112,18 @@ class CustomHookDialogFragment : DialogFragment() {
             binding.etFieldName.setText(config.fieldName)
             binding.etFieldValue.setText(config.fieldValue)
             binding.etSearchStrings.setText(config.searchStrings?.joinToString(", "))
-            
+
             val hookPointButtonId = when (config.hookPoint) {
                 "before" -> R.id.btn_hook_before
                 else -> R.id.btn_hook_after
             }
             binding.toggleGroupHookPoint.check(hookPointButtonId)
+            
+            updateParameterReplacementFields(config.parameterTypes ?: emptyList())
+
         } else {
             binding.toggleGroupHookPoint.check(R.id.btn_hook_before)
+            updateParameterReplacementFields(emptyList())
         }
     }
 
@@ -122,6 +134,14 @@ class CustomHookDialogFragment : DialogFragment() {
         }
         binding.toggleGroupHookPoint.isVisible = HookField.HOOK_POINT in visibleFields
         binding.tvHookPointLabel.isVisible = binding.toggleGroupHookPoint.isVisible
+
+        val showReplacements = HookField.PARAMETER_REPLACEMENTS in visibleFields
+        binding.tvParameterReplacements.isVisible = showReplacements
+        binding.llParameterReplacements.isVisible = showReplacements
+        if (showReplacements) {
+            val paramTypes = binding.etParameterTypes.text.toString().split(',').filter { it.isNotBlank() }
+            updateParameterReplacementFields(paramTypes)
+        }
     }
     
     private fun setupInputValidationListeners() {
@@ -130,6 +150,43 @@ class CustomHookDialogFragment : DialogFragment() {
             getErrorResIdForField(field)?.let { errorResId ->
                 editText.addTextChangedListener(createValidationTextWatcher(layout, errorResId))
             }
+        }
+    }
+    
+    private fun setupParameterTypesWatcher() {
+        binding.etParameterTypes.doOnTextChanged { text, _, _, _ ->
+            if (binding.llParameterReplacements.isVisible) {
+                val paramTypes = text?.toString()?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
+                updateParameterReplacementFields(paramTypes)
+            }
+        }
+    }
+    
+    private fun updateParameterReplacementFields(paramTypes: List<String>) {
+        binding.llParameterReplacements.removeAllViews()
+        textInputEditTexts.clear()
+
+        paramTypes.forEachIndexed { i, type ->
+            val paramBinding = ItemHookParameterBinding.inflate(LayoutInflater.from(context), binding.llParameterReplacements, false)
+            
+            paramBinding.parameterTitle.text = "参数 ${i + 1}"
+            paramBinding.parameterSignature.text = type
+            
+            val initialValue = initialConfig?.parameterReplacements?.get(i)
+            val isSwitchChecked = !initialValue.isNullOrEmpty()
+            
+            paramBinding.parameterSwitch.isChecked = isSwitchChecked
+            paramBinding.tilParameterReplacement.isVisible = isSwitchChecked
+            if (isSwitchChecked) {
+                paramBinding.etParameterReplacement.setText(initialValue)
+            }
+            
+            paramBinding.parameterSwitch.setOnCheckedChangeListener { _, isChecked ->
+                paramBinding.tilParameterReplacement.isVisible = isChecked
+            }
+            
+            textInputEditTexts.add(paramBinding.tilParameterReplacement)
+            binding.llParameterReplacements.addView(paramBinding.root)
         }
     }
 
@@ -162,9 +219,28 @@ class CustomHookDialogFragment : DialogFragment() {
 
     private fun handlePositiveButtonClick(dialog: Dialog) {
         val selectedType = HookMethodType.entries[binding.spinnerHookMethodType.selectedItemPosition]
-        
+
         fun getTextFor(field: HookField): String? = fieldViews[field]?.second?.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
         fun getListFor(field: HookField): List<String>? = getTextFor(field)?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
+
+        val parameterReplacements = mutableMapOf<Int, String>()
+        for (i in 0 until binding.llParameterReplacements.childCount) {
+            val view = binding.llParameterReplacements.getChildAt(i)
+            val switch = view.findViewById<MaterialSwitch>(R.id.parameter_switch)
+            if (switch.isChecked) {
+                val textInputLayout = view.findViewById<TextInputLayout>(R.id.til_parameter_replacement)
+                val value = textInputLayout.editText?.text?.toString()?.trim()
+                if (!value.isNullOrEmpty()) {
+                    parameterReplacements[i] = value
+                }
+            }
+        }
+        
+        val finalReturnValue = if (parameterReplacements.isNotEmpty()) {
+            null
+        } else {
+            getTextFor(HookField.RETURN_VALUE)
+        }
 
         val newConfig = CustomHookInfo(
             id = initialConfig?.id ?: UUID.randomUUID().toString(),
@@ -174,20 +250,21 @@ class CustomHookDialogFragment : DialogFragment() {
             className = getTextFor(HookField.CLASS_NAME) ?: "",
             methodNames = getListFor(HookField.METHOD_NAME),
             parameterTypes = getListFor(HookField.PARAMETER_TYPES),
-            returnValue = getTextFor(HookField.RETURN_VALUE),
+            returnValue = finalReturnValue,
             fieldName = getTextFor(HookField.FIELD_NAME),
             fieldValue = getTextFor(HookField.FIELD_VALUE),
             searchStrings = getListFor(HookField.SEARCH_STRINGS),
             hookPoint = when (binding.toggleGroupHookPoint.checkedButtonId) {
                 R.id.btn_hook_before -> "before"
                 else -> "after"
-            }.takeIf { HookField.HOOK_POINT in selectedType.visibleFields }
+            }.takeIf { HookField.HOOK_POINT in selectedType.visibleFields },
+            parameterReplacements = parameterReplacements.takeIf { it.isNotEmpty() }
         )
 
         setFragmentResult(REQUEST_KEY_HOOK_CONFIG, Bundle().apply { putParcelable(BUNDLE_KEY_HOOK_CONFIG, newConfig) })
         dialog.dismiss()
     }
-    
+
     private fun getErrorResIdForField(field: HookField): Int? {
         return when (field) {
             HookField.CLASS_NAME -> R.string.error_class_name_empty
@@ -198,7 +275,7 @@ class CustomHookDialogFragment : DialogFragment() {
             else -> null
         }
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

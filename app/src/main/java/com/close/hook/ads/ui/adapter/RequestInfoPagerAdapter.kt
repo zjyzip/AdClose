@@ -55,7 +55,7 @@ class RequestInfoPagerAdapter(
                     binding.requestBodyText.visibility = View.GONE
                     viewModel.requestBody.observe(lifecycleOwner) { content ->
                         binding.requestBodyText.post {
-                            binding.requestBodyText.text = content
+                            binding.requestBodyText.text = SpannableString(content)
                             binding.requestBodyText.visibility = View.VISIBLE
                         }
                     }

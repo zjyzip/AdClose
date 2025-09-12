@@ -138,6 +138,10 @@
     <string name="hint_field_value">字段值 (true/false/null/数字/字符串)</string>
     <string name="hint_search_strings">查找字符串 (多个用逗号分隔)</string>
 
+    <string name="parameter_replacements_format">参数替换: %s</string>
+    <string name="parameter_replacements_label">参数值替换</string>
+    <string name="hint_replace_with_value">替换为该值</string>
+
     <string name="hook_point_after">方法执行后</string>
     <string name="hook_point_before">方法执行前</string>
 

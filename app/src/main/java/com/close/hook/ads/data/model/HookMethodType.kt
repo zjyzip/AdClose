@@ -13,7 +13,7 @@ enum class HookMethodType(
     FIND_AND_HOOK_METHOD(
         displayName = "findAndHookMethod",
         requiredFields = setOf(HookField.CLASS_NAME, HookField.METHOD_NAME, HookField.PARAMETER_TYPES),
-        optionalFields = setOf(HookField.RETURN_VALUE, HookField.HOOK_POINT)
+        optionalFields = setOf(HookField.RETURN_VALUE, HookField.HOOK_POINT, HookField.PARAMETER_REPLACEMENTS)
     ),
     HOOK_ALL_METHODS(
         displayName = "hookAllMethods",

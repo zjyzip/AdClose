@@ -137,6 +137,10 @@
     <string name="hint_field_value">Alan Değeri (true/false/null/sayı/metin)</string>
     <string name="hint_search_strings">Arama Dizileri (virgülle ayrılmış)</string>
 
+    <string name="parameter_replacements_format">Parametre Değiştirmeleri: %s</string>
+    <string name="parameter_replacements_label">Parametre Değeri Değiştirmeleri</string>
+    <string name="hint_replace_with_value">Bu değerle değiştir</string>
+
     <string name="hook_point_after">Yöntem Yürütüldükten Sonra</string>
     <string name="hook_point_before">Yöntem Yürütülmeden Önce</string>
 

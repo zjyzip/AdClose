@@ -8,5 +8,6 @@ enum class HookField {
     FIELD_NAME,
     FIELD_VALUE,
     SEARCH_STRINGS,
-    HOOK_POINT
+    HOOK_POINT,
+    PARAMETER_REPLACEMENTS
 }

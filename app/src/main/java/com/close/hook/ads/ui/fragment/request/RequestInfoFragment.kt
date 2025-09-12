@@ -186,15 +186,16 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
     }
     
     private fun updateSearchNavigationVisibility() {
+        val currentTab = availableTabs.getOrNull(binding.viewPager.currentItem)
         binding.searchNavigationContainer.isVisible = binding.editText.isFocused &&
-                availableTabs.getOrNull(binding.viewPager.currentItem) == "ResponseBody" &&
+                (currentTab == "RequestBody" || currentTab == "ResponseBody") &&
                 matchPositions.isNotEmpty()
     }
 
     private fun scrollToMatch(index: Int) {
         if (index < 0 || index >= matchPositions.size) return
 
-        val textView = getCurrentResponseBodyTextView() ?: return
+        val textView = getCurrentSearchableTextView() ?: return
         val scrollView = getCurrentScrollView() ?: return
         
         textView.post {
@@ -212,7 +213,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
         searchJob?.cancel()
         searchJob = lifecycleScope.launch {
             val query = viewModel.currentQuery.value.orEmpty()
-            val textView = getCurrentResponseBodyTextView() ?: return@launch
+            val textView = getCurrentSearchableTextView() ?: return@launch
             val originalText = (textView.text as? Spannable)?.toString() ?: return@launch
 
             clearAllHighlights()
@@ -238,7 +239,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
     }
 
     private fun applyHighlights() {
-        val textView = getCurrentResponseBodyTextView() ?: return
+        val textView = getCurrentSearchableTextView() ?: return
         val spannable = textView.text as Spannable
         matchPositions.forEachIndexed { index, (start, end) ->
             val color = if (index == currentMatchIndex) ACTIVE_HIGHLIGHT_COLOR else HIGHLIGHT_COLOR
@@ -249,7 +250,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
     }
 
     private fun updateActiveHighlight(oldIndex: Int, newIndex: Int) {
-        val textView = getCurrentResponseBodyTextView() ?: return
+        val textView = getCurrentSearchableTextView() ?: return
         val spannable = textView.text as Spannable
 
         if (oldIndex in matchSpans.indices) {
@@ -270,7 +271,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
     }
 
     private fun clearAllHighlights() {
-        val textView = getCurrentResponseBodyTextView()
+        val textView = getCurrentSearchableTextView()
         (textView?.text as? Spannable)?.let { spannable ->
             matchSpans.forEach { spannable.removeSpan(it) }
         }
@@ -296,9 +297,14 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
             ?.findViewHolderForAdapterPosition(binding.viewPager.currentItem)
     }
 
-    private fun getCurrentResponseBodyTextView(): TextView? {
-        if (availableTabs.getOrNull(binding.viewPager.currentItem) != "ResponseBody") return null
-        return getCurrentViewHolder()?.itemView?.findViewById(R.id.responseBodyText)
+    private fun getCurrentSearchableTextView(): TextView? {
+        val currentTab = availableTabs.getOrNull(binding.viewPager.currentItem)
+        val viewId = when (currentTab) {
+            "RequestBody" -> R.id.requestBodyText
+            "ResponseBody" -> R.id.responseBodyText
+            else -> return null
+        }
+        return getCurrentViewHolder()?.itemView?.findViewById(viewId)
     }
 
     private fun getCurrentScrollView(): NestedScrollView? {

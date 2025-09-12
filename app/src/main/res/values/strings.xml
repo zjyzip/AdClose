@@ -143,6 +143,10 @@
     <string name="hint_field_value">Field Value (true/false/null/number/string)</string>
     <string name="hint_search_strings">Search Strings (comma-separated)</string>
 
+    <string name="parameter_replacements_format">Parameter Replacements: %s</string>
+    <string name="parameter_replacements_label">Parameter Value Replacements</string>
+    <string name="hint_replace_with_value">Replace with this value</string>
+
     <string name="hook_point_after">After Method Execution</string>
     <string name="hook_point_before">Before Method Execution</string>
 

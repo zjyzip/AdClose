@@ -97,6 +97,17 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/tv_method_names" />
+            
+        <TextView
+            android:id="@+id/tv_parameter_replacements"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textAppearance="?attr/textAppearanceCaption"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_parameter_types" />
 
         <TextView
             android:id="@+id/tv_field_name"
@@ -107,7 +118,7 @@
             android:visibility="gone"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tv_parameter_types" />
+            app:layout_constraintTop_toBottomOf="@+id/tv_parameter_replacements" />
 
         <TextView
             android:id="@+id/tv_field_value"
