@@ -2,28 +2,23 @@ package com.close.hook.ads.ui.fragment.request
 
 import android.content.ContentValues
 import android.content.Context
-import android.graphics.Color
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.text.Layout
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.BackgroundColorSpan
 import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
-import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import androidx.core.widget.NestedScrollView
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
@@ -31,10 +26,11 @@ import com.close.hook.ads.databinding.FragmentRequestInfoBinding
 import com.close.hook.ads.ui.adapter.RequestInfoPagerAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
+import com.close.hook.ads.util.OnBackPressContainer
+import com.close.hook.ads.util.OnBackPressListener
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -44,22 +40,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
+class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPressListener {
 
     private val viewModel: RequestInfoViewModel by viewModels()
     private lateinit var availableTabs: List<String>
     private var contentToSave: String? = null
     private lateinit var pagerAdapter: RequestInfoPagerAdapter
-
-    private var matchPositions = listOf<Pair<Int, Int>>()
-    private val matchSpans = mutableListOf<BackgroundColorSpan>()
-    private var currentMatchIndex = -1
-    private var searchJob: Job? = null
-
-    companion object {
-        private val HIGHLIGHT_COLOR = Color.YELLOW
-        private val ACTIVE_HIGHLIGHT_COLOR = Color.parseColor("#FF9800")
-    }
 
     private val createDocumentLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri: Uri? ->
@@ -70,101 +56,91 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
                 contentToSave = null
             }
         }
-
-    private val onBackPressedCallback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
-            if (binding.editText.isFocused) {
-                updateSearchUI(isFocused = false)
-            } else {
-                isEnabled = false
-                requireActivity().onBackPressedDispatcher.onBackPressed()
-            }
-        }
-    }
-
+    
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, onBackPressedCallback)
-
+        
         viewModel.init(requireArguments())
         availableTabs = getAvailableTabs()
 
         setupToolbarAndSearch()
         setupViewPagerAndTabs()
         setupSearchNavigation()
+        observeSearchState()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (activity as? OnBackPressContainer)?.backController = this
+    }
+
+    override fun onPause() {
+        super.onPause()
+        (activity as? OnBackPressContainer)?.backController = null
+    }
+
+    override fun onBackPressed(): Boolean {
+        if (binding.editText.isFocused) {
+            updateSearchUI(isFocused = false)
+            return true
+        }
+        return false
+    }
+
+    private fun observeSearchState() {
+        lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.searchState.collectLatest { state ->
+                    updateSearchNavigationVisibility(state.matches.size, state.currentMatchIndex)
+                    pagerAdapter.updateSearchState(state)
+                    getCurrentViewHolder()?.updateHighlight(state.textContent)
+                    if (state.currentMatchIndex != -1) {
+                        scrollToMatch(state.currentMatchIndex)
+                    }
+                }
+            }
+        }
     }
 
     private fun setupSearchNavigation() {
-        binding.buttonNextMatch.setOnClickListener { navigateMatch(true) }
-        binding.buttonPrevMatch.setOnClickListener { navigateMatch(false) }
-    }
-
-    private fun navigateMatch(forward: Boolean) {
-        if (matchPositions.isEmpty()) return
-
-        val oldIndex = currentMatchIndex
-        currentMatchIndex = if (forward) {
-            (oldIndex + 1) % matchPositions.size
-        } else {
-            (oldIndex - 1 + matchPositions.size) % matchPositions.size
-        }
-        updateActiveHighlight(oldIndex, currentMatchIndex)
-        scrollToMatch(currentMatchIndex)
+        binding.buttonNextMatch.setOnClickListener { viewModel.navigateToNextMatch() }
+        binding.buttonPrevMatch.setOnClickListener { viewModel.navigateToPreviousMatch() }
     }
     
     private fun setupToolbarAndSearch() {
-        binding.searchIcon.setOnClickListener {
-            val isFocused = binding.editText.isFocused
-            updateSearchUI(isFocused = !isFocused)
-            if (isFocused) {
-                onBackPressedCallback.handleOnBackPressed()
-            }
-        }
-
-        binding.editText.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) updateSearchUI(isFocused = true)
-            updateSearchNavigationVisibility()
-        }
-
-        binding.clear.setOnClickListener { binding.editText.text.clear() }
-
+        binding.searchIcon.setImageResource(R.drawable.ic_magnifier_to_back)
+        binding.searchIcon.isActivated = false
+        binding.clear.setOnClickListener { binding.editText.setText("") }
         binding.editText.addTextChangedListener {
-            val query = it.toString()
-            searchJob?.cancel()
-            searchJob = lifecycleScope.launch {
-                delay(300)
-                viewModel.currentQuery.value = query
-                performSearch()
-            }
-            binding.clear.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
+            viewModel.currentQuery.value = it.toString()
+            binding.clear.isVisible = !it.isNullOrEmpty()
         }
-        updateSearchUI(isFocused = false)
+        binding.searchIcon.setOnClickListener {
+            updateSearchUI(isFocused = !binding.editText.isFocused)
+        }
+        binding.editText.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus != binding.searchIcon.isActivated) {
+                 updateSearchUI(isFocused = hasFocus)
+            }
+        }
     }
 
     private fun updateSearchUI(isFocused: Boolean) {
+        binding.searchIcon.isActivated = isFocused
         val drawableId = if (isFocused) R.drawable.ic_magnifier_to_back else R.drawable.ic_back_to_magnifier
-        binding.searchIcon.apply {
-            setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
-            (drawable as? AnimatedVectorDrawable)?.start()
-        }
+        binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
+        (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
 
         if (isFocused) {
             binding.editText.showKeyboard()
         } else {
+            binding.editText.setText("")
             binding.editText.hideKeyboard()
-            if (binding.editText.text.isNotEmpty()) {
-                binding.editText.setText("")
-            }
         }
     }
-
+    
     private fun setupViewPagerAndTabs() {
-        pagerAdapter = RequestInfoPagerAdapter(
-            requireArguments(),
-            availableTabs,
-            viewModel,
-            viewLifecycleOwner
-        )
+        pagerAdapter = RequestInfoPagerAdapter(requireArguments(), availableTabs, viewModel, viewLifecycleOwner.lifecycleScope)
         binding.viewPager.adapter = pagerAdapter
 
         TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
@@ -174,34 +150,59 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
-                updateFabVisibility(availableTabs[position])
-                clearAllHighlights()
-                performSearch()
-                updateSearchNavigationVisibility()
+                val newTab = availableTabs[position]
+                updateFabVisibility(newTab)
+                
+                val contentProvider = when(newTab) {
+                    "RequestBody" -> ( { viewModel.requestBody.value } )
+                    "ResponseBody" -> ( { viewModel.responseBody.value?.text } )
+                    else -> ( { null } )
+                }
+                viewModel.setCurrentContentProvider(contentProvider)
+                viewModel.resetSearchState()
             }
         })
+
         if (availableTabs.isNotEmpty()) {
-            updateFabVisibility(availableTabs.first())
+            val firstTab = availableTabs.first()
+            updateFabVisibility(firstTab)
+            viewModel.setCurrentContentProvider {
+                when(firstTab) {
+                    "RequestBody" -> viewModel.requestBody.value
+                    "ResponseBody" -> viewModel.responseBody.value?.text
+                    else -> null
+                }
+            }
         }
     }
     
-    private fun updateSearchNavigationVisibility() {
+    private fun updateSearchNavigationVisibility(matchesCount: Int, currentIndex: Int) {
         val currentTab = availableTabs.getOrNull(binding.viewPager.currentItem)
-        binding.searchNavigationContainer.isVisible = binding.editText.isFocused &&
-                (currentTab == "RequestBody" || currentTab == "ResponseBody") &&
-                matchPositions.isNotEmpty()
+        val hasFocus = binding.editText.isFocused
+        binding.searchNavigationContainer.isVisible = hasFocus &&
+            (currentTab == "RequestBody" || currentTab == "ResponseBody") &&
+            matchesCount > 0
+        binding.matchesCount.text = if (matchesCount > 0 && hasFocus) {
+            "${currentIndex + 1}/$matchesCount"
+        } else ""
     }
 
     private fun scrollToMatch(index: Int) {
-        if (index < 0 || index >= matchPositions.size) return
+        val vh = getCurrentViewHolder() ?: return
+        val scrollView = vh.binding.scrollView
+        val textView = when (availableTabs.getOrNull(binding.viewPager.currentItem)) {
+            "RequestBody" -> vh.binding.requestBodyText
+            "ResponseBody" -> vh.binding.responseBodyText
+            else -> null
+        } ?: return
 
-        val textView = getCurrentSearchableTextView() ?: return
-        val scrollView = getCurrentScrollView() ?: return
-        
+        val searchState = viewModel.searchState.value
+        if (index !in searchState.matches.indices) return
+
         textView.post {
             val layout: Layout? = textView.layout
             if (layout != null) {
-                val line = layout.getLineForOffset(matchPositions[index].first)
+                val line = layout.getLineForOffset(searchState.matches[index].first)
                 val y = layout.getLineTop(line)
                 val scrollY = textView.top + y - (scrollView.height / 3)
                 scrollView.smoothScrollTo(0, scrollY.coerceAtLeast(0))
@@ -209,106 +210,9 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
         }
     }
 
-    private fun performSearch() {
-        searchJob?.cancel()
-        searchJob = lifecycleScope.launch {
-            val query = viewModel.currentQuery.value.orEmpty()
-            val textView = getCurrentSearchableTextView() ?: return@launch
-            val originalText = (textView.text as? Spannable)?.toString() ?: return@launch
-
-            clearAllHighlights()
-            if (query.isEmpty()) {
-                updateSearchNavigationVisibility()
-                return@launch
-            }
-
-            binding.searchProgressBar.isVisible = true
-            val positions = withContext(Dispatchers.Default) {
-                findMatches(originalText, query)
-            }
-            binding.searchProgressBar.isVisible = false
-
-            matchPositions = positions
-            if (matchPositions.isNotEmpty()) {
-                currentMatchIndex = 0
-                applyHighlights()
-                scrollToMatch(currentMatchIndex)
-            }
-            updateSearchNavigationVisibility()
-        }
-    }
-
-    private fun applyHighlights() {
-        val textView = getCurrentSearchableTextView() ?: return
-        val spannable = textView.text as Spannable
-        matchPositions.forEachIndexed { index, (start, end) ->
-            val color = if (index == currentMatchIndex) ACTIVE_HIGHLIGHT_COLOR else HIGHLIGHT_COLOR
-            val span = BackgroundColorSpan(color)
-            spannable.setSpan(span, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            matchSpans.add(span)
-        }
-    }
-
-    private fun updateActiveHighlight(oldIndex: Int, newIndex: Int) {
-        val textView = getCurrentSearchableTextView() ?: return
-        val spannable = textView.text as Spannable
-
-        if (oldIndex in matchSpans.indices) {
-            val (start, end) = matchPositions[oldIndex]
-            spannable.removeSpan(matchSpans[oldIndex])
-            val newSpan = BackgroundColorSpan(HIGHLIGHT_COLOR)
-            spannable.setSpan(newSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            matchSpans[oldIndex] = newSpan
-        }
-
-        if (newIndex in matchSpans.indices) {
-            val (start, end) = matchPositions[newIndex]
-            spannable.removeSpan(matchSpans[newIndex])
-            val newSpan = BackgroundColorSpan(ACTIVE_HIGHLIGHT_COLOR)
-            spannable.setSpan(newSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            matchSpans[newIndex] = newSpan
-        }
-    }
-
-    private fun clearAllHighlights() {
-        val textView = getCurrentSearchableTextView()
-        (textView?.text as? Spannable)?.let { spannable ->
-            matchSpans.forEach { spannable.removeSpan(it) }
-        }
-        matchSpans.clear()
-        matchPositions = emptyList()
-        currentMatchIndex = -1
-    }
-
-    private fun findMatches(text: String, query: String): List<Pair<Int, Int>> {
-        val positions = mutableListOf<Pair<Int, Int>>()
-        val normalizedText = text.lowercase(Locale.ROOT)
-        val normalizedQuery = query.lowercase(Locale.ROOT)
-        var index = normalizedText.indexOf(normalizedQuery)
-        while (index >= 0) {
-            positions.add(Pair(index, index + query.length))
-            index = normalizedText.indexOf(normalizedQuery, index + 1)
-        }
-        return positions
-    }
-
-    private fun getCurrentViewHolder(): RecyclerView.ViewHolder? {
-        return (binding.viewPager.getChildAt(0) as? RecyclerView)
-            ?.findViewHolderForAdapterPosition(binding.viewPager.currentItem)
-    }
-
-    private fun getCurrentSearchableTextView(): TextView? {
-        val currentTab = availableTabs.getOrNull(binding.viewPager.currentItem)
-        val viewId = when (currentTab) {
-            "RequestBody" -> R.id.requestBodyText
-            "ResponseBody" -> R.id.responseBodyText
-            else -> return null
-        }
-        return getCurrentViewHolder()?.itemView?.findViewById(viewId)
-    }
-
-    private fun getCurrentScrollView(): NestedScrollView? {
-        return getCurrentViewHolder()?.itemView?.findViewById(R.id.scroll_view)
+    private fun getCurrentViewHolder(): RequestInfoPagerAdapter.RequestInfoViewHolder? {
+        val recyclerView = binding.viewPager.getChildAt(0) as? RecyclerView
+        return recyclerView?.findViewHolderForAdapterPosition(binding.viewPager.currentItem) as? RequestInfoPagerAdapter.RequestInfoViewHolder
     }
 
     private fun getAvailableTabs(): List<String> = arguments?.run {
@@ -331,10 +235,12 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
         }
         if (fabIsVisible) binding.exportFab.show() else binding.exportFab.hide()
 
-        if (tabText == "RequestBody") {
-            binding.exportFab.setOnClickListener { exportRequestBody() }
-        } else if (tabText == "ResponseBody") {
-            binding.exportFab.setOnClickListener { exportResponseContent() }
+        binding.exportFab.setOnClickListener {
+            if (tabText == "RequestBody") {
+                exportRequestBody()
+            } else if (tabText == "ResponseBody") {
+                exportResponseContent()
+            }
         }
     }
 
@@ -344,7 +250,6 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
             Toast.makeText(requireContext(), "内容为空或仍在加载中", Toast.LENGTH_SHORT).show()
             return
         }
-
         contentToSave = content
         val ext = if (content.trimStart().startsWith("{") || content.trimStart().startsWith("[")) "json" else "txt"
         val fileName = "requestbody_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.$ext"
@@ -357,7 +262,6 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
             Toast.makeText(requireContext(), "内容为空或仍在加载中", Toast.LENGTH_SHORT).show()
             return
         }
-
         contentToSave = content
         val ext = if (content.trimStart().startsWith("{") || content.trimStart().startsWith("[")) "json" else "txt"
         val fileName = "responsebody_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.$ext"
@@ -366,7 +270,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
 
 
     private fun saveTextToFile(uri: Uri, content: String) {
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 requireContext().contentResolver.openOutputStream(uri)?.use {
                     it.write(content.toByteArray(StandardCharsets.UTF_8))
@@ -393,7 +297,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>() {
     }
 
     private fun saveImageToGallery(bytes: ByteArray, mimeType: String?) {
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             val mime = mimeType ?: "image/jpeg"
             val fileName = "ResponseBody_${System.currentTimeMillis()}.${mime.substringAfter('/')}"
             val values = ContentValues().apply {

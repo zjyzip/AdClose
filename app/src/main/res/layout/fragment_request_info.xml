@@ -7,6 +7,7 @@
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBar"
+        android:background="@null"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
@@ -103,6 +104,7 @@
         android:background="@drawable/background_search_nav"
         android:elevation="8dp"
         android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:visibility="gone"
         app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior">
 
@@ -113,6 +115,14 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Previous Match"
             android:src="@drawable/ic_keyboard_arrow_up" />
+        
+        <TextView
+            android:id="@+id/matchesCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="8dp"
+            android:textColor="?attr/colorOnSurface"
+            android:text="1/5"/>
 
         <ImageButton
             android:id="@+id/button_next_match"

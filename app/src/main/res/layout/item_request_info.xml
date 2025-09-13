@@ -16,7 +16,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:visibility="gone">
-            <TableRow>
+            <TableRow
+                android:layout_marginBottom="16dp">
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -32,9 +33,6 @@
                     android:lineSpacingExtra="4dp"
                     android:gravity="start"/>
             </TableRow>
-            <View
-                android:layout_height="16dp"
-                android:layout_width="match_parent"/>
             <TableRow>
                 <TextView
                     android:layout_width="0dp"
@@ -58,7 +56,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:visibility="gone">
-            <TableRow>
+            <TableRow
+                android:layout_marginBottom="16dp">
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -74,10 +73,8 @@
                     android:lineSpacingExtra="4dp"
                     android:gravity="start" />
             </TableRow>
-            <View
-                android:layout_height="16dp"
-                android:layout_width="match_parent"/>
-            <TableRow>
+            <TableRow
+                android:layout_marginBottom="16dp">
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -93,9 +90,6 @@
                     android:lineSpacingExtra="4dp"
                     android:gravity="start" />
             </TableRow>
-            <View
-                android:layout_height="16dp"
-                android:layout_width="match_parent"/>
             <TableRow>
                 <TextView
                     android:layout_width="0dp"
@@ -131,6 +125,7 @@
                 android:id="@+id/requestBodyText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:textIsSelectable="true"
                 android:fontFamily="monospace"
                 android:lineSpacingExtra="4dp"
@@ -145,7 +140,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:visibility="gone">
-            <TableRow>
+            <TableRow
+                android:layout_marginBottom="16dp">
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -161,10 +157,8 @@
                     android:lineSpacingExtra="4dp"
                     android:gravity="start"/>
             </TableRow>
-            <View
-                android:layout_height="16dp"
-                android:layout_width="match_parent"/>
-            <TableRow>
+            <TableRow
+                android:layout_marginBottom="16dp">
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -180,9 +174,6 @@
                     android:lineSpacingExtra="4dp"
                     android:gravity="start" />
             </TableRow>
-            <View
-                android:layout_height="16dp"
-                android:layout_width="match_parent"/>
             <TableRow>
                 <TextView
                     android:layout_width="0dp"
@@ -222,11 +213,12 @@
                 android:text="Response Body"
                 android:textStyle="bold"
                 android:paddingBottom="8dp"/>
-            
+
             <TextView
                 android:id="@+id/responseBodyText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:textIsSelectable="true"
                 android:fontFamily="monospace"
                 android:lineSpacingExtra="4dp"
