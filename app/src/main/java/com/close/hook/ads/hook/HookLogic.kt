@@ -41,11 +41,9 @@ object HookLogic {
         ContextUtil.addOnApplicationContextInitializedCallback {
             ContextUtil.applicationContext?.let { context ->
                 try {
-                    if (AppUtils.isMainProcess(context)) {
-                        val manager = SettingsManager(param.packageName, HookPrefs)
-                        setupAppHooks(context, manager)
-                        applySettings(manager)
-                    }
+                    val manager = SettingsManager(param.packageName, HookPrefs)
+                    setupAppHooks(context, manager)
+                    applySettings(manager)
                 } catch (e: Throwable) {
                     XposedBridge.log("$TAG | Error in package ${param.packageName}: ${Log.getStackTraceString(e)}")
                 }

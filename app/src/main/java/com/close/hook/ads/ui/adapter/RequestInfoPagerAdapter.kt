@@ -10,35 +10,25 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.databinding.ItemRequestInfoBinding
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
-import com.close.hook.ads.ui.viewmodel.ResponseBodyResult
-import com.close.hook.ads.ui.viewmodel.SearchState
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
+import com.close.hook.ads.ui.viewmodel.ResponseBodyContent
 
 class RequestInfoPagerAdapter(
     private val arguments: Bundle,
     private val tabs: List<String>,
-    private val viewModel: RequestInfoViewModel,
-    private val lifecycleScope: LifecycleCoroutineScope
+    private val viewModel: RequestInfoViewModel
 ) : RecyclerView.Adapter<RequestInfoPagerAdapter.RequestInfoViewHolder>() {
 
-    private var searchState: SearchState = SearchState()
-
-    fun updateSearchState(newState: SearchState) {
-        val oldQuery = this.searchState.query
-        this.searchState = newState
-        if (oldQuery != newState.query) {
-            notifyDataSetChanged()
-        }
+    object Payload {
+        const val REFRESH_HIGHLIGHT = 1
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RequestInfoViewHolder {
-        val binding = ItemRequestInfoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding =
+            ItemRequestInfoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return RequestInfoViewHolder(binding)
     }
 
@@ -48,25 +38,29 @@ class RequestInfoPagerAdapter(
         holder.bind(tabs[position])
     }
 
-    inner class RequestInfoViewHolder(val binding: ItemRequestInfoBinding) : RecyclerView.ViewHolder(binding.root) {
-        
-        init {
-            lifecycleScope.launch {
-                viewModel.requestBody.collectLatest { content ->
-                    if (bindingAdapterPosition != RecyclerView.NO_POSITION && tabs[bindingAdapterPosition] == "RequestBody") {
-                        content?.let { updateWithRequestBody(it) }
-                    }
-                }
-            }
-            lifecycleScope.launch {
-                viewModel.responseBody.collectLatest { result ->
-                    if (bindingAdapterPosition != RecyclerView.NO_POSITION && tabs[bindingAdapterPosition] == "ResponseBody") {
-                        result?.let { updateWithResponseBody(it) }
-                    }
-                }
-            }
+    override fun onBindViewHolder(
+        holder: RequestInfoViewHolder,
+        position: Int,
+        payloads: MutableList<Any>
+    ) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+            return
         }
 
+        payloads.forEach { payload ->
+            when (payload) {
+                Payload.REFRESH_HIGHLIGHT -> holder.refreshHighlights()
+                is CharSequence -> holder.updateTextHighlight(payload)
+                is String -> holder.updateRequestBodyContent(payload)
+                is ResponseBodyContent -> holder.updateResponseBodyContent(payload)
+            }
+        }
+    }
+
+    inner class RequestInfoViewHolder(val binding: ItemRequestInfoBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        
         fun bind(tabTitle: String) {
             val sections = listOf(
                 binding.dnsSection, binding.requestSection, binding.requestBodySection,
@@ -74,100 +68,132 @@ class RequestInfoPagerAdapter(
             )
             sections.forEach { it.visibility = View.GONE }
 
-            val query = searchState.query
-            fun highlightTextView(textView: TextView, fullText: String?) {
-                if (fullText.isNullOrEmpty()) {
-                    textView.text = ""
-                    return
-                }
-                textView.text = if (query.isEmpty()) {
-                    SpannableString(fullText)
-                } else {
-                    val spannable = SpannableString(fullText)
-                    var index = fullText.lowercase().indexOf(query.lowercase())
-                    while (index >= 0) {
-                        spannable.setSpan(BackgroundColorSpan(Color.YELLOW), index, index + query.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                        index = fullText.lowercase().indexOf(query.lowercase(), index + 1)
-                    }
-                    spannable
-                }
-            }
-            
             when (tabTitle) {
                 "DNS Info" -> {
                     binding.dnsSection.visibility = View.VISIBLE
-                    highlightTextView(binding.dnsHostText, arguments.getString("dnsHost"))
-                    highlightTextView(binding.fullAddressText, arguments.getString("fullAddress"))
+                    updateStaticTextViews(
+                        binding.dnsHostText to arguments.getString("dnsHost"),
+                        binding.fullAddressText to arguments.getString("fullAddress")
+                    )
                 }
                 "Request" -> {
                     binding.requestSection.visibility = View.VISIBLE
-                    highlightTextView(binding.methodText, arguments.getString("method"))
-                    highlightTextView(binding.urlStringText, arguments.getString("urlString"))
-                    highlightTextView(binding.requestHeadersText, arguments.getString("requestHeaders"))
+                    updateStaticTextViews(
+                        binding.methodText to arguments.getString("method"),
+                        binding.urlStringText to arguments.getString("urlString"),
+                        binding.requestHeadersText to arguments.getString("requestHeaders")
+                    )
                 }
                 "RequestBody" -> {
                     binding.requestBodySection.visibility = View.VISIBLE
-                    viewModel.requestBody.value?.let { updateWithRequestBody(it) }
+                    viewModel.requestBody.value?.let { updateRequestBodyContent(it) }
                 }
                 "Response" -> {
                     binding.responseSection.visibility = View.VISIBLE
-                    highlightTextView(binding.responseCodeText, arguments.getString("responseCode"))
-                    highlightTextView(binding.responseMessageText, arguments.getString("responseMessage"))
-                    highlightTextView(binding.responseHeadersText, arguments.getString("responseHeaders"))
+                    updateStaticTextViews(
+                        binding.responseCodeText to arguments.getString("responseCode"),
+                        binding.responseMessageText to arguments.getString("responseMessage"),
+                        binding.responseHeadersText to arguments.getString("responseHeaders")
+                    )
                 }
                 "ResponseBody" -> {
                     binding.responseBodySection.visibility = View.VISIBLE
                     setupCollectResponseBodySwitch()
-                    viewModel.responseBody.value?.let { updateWithResponseBody(it) }
+                    updateResponseBodyContent(viewModel.responseBody.value)
                 }
                 "Stack" -> {
                     binding.stackSection.visibility = View.VISIBLE
-                    highlightTextView(binding.stackText, arguments.getString("stack"))
+                    updateStaticTextViews(binding.stackText to arguments.getString("stack"))
                 }
             }
         }
 
-        fun updateHighlight(highlightedText: CharSequence?) {
-            if (highlightedText == null) return
-            
-            val currentTab = tabs.getOrNull(bindingAdapterPosition)
-            val textView = when (currentTab) {
+        fun refreshHighlights() {
+            when (tabs.getOrNull(bindingAdapterPosition)) {
+                "DNS Info" -> updateStaticTextViews(
+                    binding.dnsHostText to arguments.getString("dnsHost"),
+                    binding.fullAddressText to arguments.getString("fullAddress")
+                )
+                "Request" -> updateStaticTextViews(
+                    binding.methodText to arguments.getString("method"),
+                    binding.urlStringText to arguments.getString("urlString"),
+                    binding.requestHeadersText to arguments.getString("requestHeaders")
+                )
+                "Response" -> updateStaticTextViews(
+                    binding.responseCodeText to arguments.getString("responseCode"),
+                    binding.responseMessageText to arguments.getString("responseMessage"),
+                    binding.responseHeadersText to arguments.getString("responseHeaders")
+                )
+                "Stack" -> updateStaticTextViews(binding.stackText to arguments.getString("stack"))
+            }
+        }
+
+        fun updateTextHighlight(highlightedText: CharSequence) {
+            val textView = when (tabs.getOrNull(bindingAdapterPosition)) {
                 "RequestBody" -> binding.requestBodyText
                 "ResponseBody" -> binding.responseBodyText
                 else -> null
             }
             textView?.text = highlightedText
         }
-
-        private fun updateWithRequestBody(content: String) {
+        
+        fun updateRequestBodyContent(content: String) {
             binding.requestBodyText.visibility = View.VISIBLE
             binding.responseBodyImage.visibility = View.GONE
-            binding.requestBodyText.text = if (searchState.query.isNotEmpty() && content == searchState.textContent?.toString()) {
-                searchState.textContent
-            } else {
-                SpannableString(content)
+            binding.requestBodyText.text = content
+        }
+
+        fun updateResponseBodyContent(result: ResponseBodyContent) {
+            binding.responseBodyText.visibility = View.GONE
+            binding.responseBodyImage.visibility = View.GONE
+            
+            when(result) {
+                is ResponseBodyContent.Text -> {
+                    binding.responseBodyText.visibility = View.VISIBLE
+                    binding.responseBodyText.text = result.content
+                }
+                is ResponseBodyContent.Image -> {
+                    binding.responseBodyImage.visibility = View.VISIBLE
+                    val bytes = result.bytes
+                    binding.responseBodyImage.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                }
+                is ResponseBodyContent.Error -> {
+                    binding.responseBodyText.visibility = View.VISIBLE
+                    binding.responseBodyText.text = result.message
+                }
+                is ResponseBodyContent.Loading -> {
+                    binding.responseBodyText.visibility = View.VISIBLE
+                    binding.responseBodyText.text = "Loading..."
+                }
             }
         }
 
-        private fun updateWithResponseBody(result: ResponseBodyResult) {
-            binding.requestBodyText.visibility = View.GONE
-            binding.responseBodyImage.visibility = View.GONE
-            result.text?.let {
-                binding.responseBodyText.visibility = View.VISIBLE
-                binding.responseBodyText.text = if (searchState.query.isNotEmpty() && it == searchState.textContent?.toString()) {
-                    searchState.textContent
-                } else {
-                    SpannableString(it)
-                }
+        private fun updateStaticTextViews(vararg pairs: Pair<TextView, String?>) {
+            pairs.forEach { (textView, text) ->
+                highlightTextView(textView, text)
             }
-            result.imageBytes?.let {
-                binding.responseBodyImage.visibility = View.VISIBLE
-                binding.responseBodyImage.setImageBitmap(BitmapFactory.decodeByteArray(it, 0, it.size))
+        }
+
+        private fun highlightTextView(textView: TextView, fullText: String?) {
+            if (fullText.isNullOrEmpty()) {
+                textView.text = ""
+                return
             }
-            result.error?.let {
-                binding.responseBodyText.visibility = View.VISIBLE
-                binding.responseBodyText.text = it
+            val query = viewModel.currentQuery.value
+            if (query.isEmpty()) {
+                textView.text = fullText
+                return
             }
+            val spannable = SpannableString(fullText)
+            var index = fullText.lowercase().indexOf(query.lowercase())
+            while (index >= 0) {
+                spannable.setSpan(
+                    BackgroundColorSpan(Color.YELLOW), index, index + query.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                index = fullText.lowercase().indexOf(query.lowercase(), index + 1)
+            }
+            textView.text = spannable
         }
         
         private fun setupCollectResponseBodySwitch() {

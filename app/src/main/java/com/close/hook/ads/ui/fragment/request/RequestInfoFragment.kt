@@ -26,6 +26,7 @@ import com.close.hook.ads.databinding.FragmentRequestInfoBinding
 import com.close.hook.ads.ui.adapter.RequestInfoPagerAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
+import com.close.hook.ads.ui.viewmodel.ResponseBodyContent
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.google.android.material.tabs.TabLayoutMediator
@@ -56,17 +57,17 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 contentToSave = null
             }
         }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         viewModel.init(requireArguments())
         availableTabs = getAvailableTabs()
 
         setupToolbarAndSearch()
         setupViewPagerAndTabs()
         setupSearchNavigation()
-        observeSearchState()
+        observeViewModel()
     }
 
     override fun onResume() {
@@ -87,15 +88,52 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         return false
     }
 
-    private fun observeSearchState() {
+    private fun observeViewModel() {
         lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.searchState.collectLatest { state ->
-                    updateSearchNavigationVisibility(state.matches.size, state.currentMatchIndex)
-                    pagerAdapter.updateSearchState(state)
-                    getCurrentViewHolder()?.updateHighlight(state.textContent)
-                    if (state.currentMatchIndex != -1) {
-                        scrollToMatch(state.currentMatchIndex)
+                launch {
+                    viewModel.currentQuery.collect {
+                        (0 until pagerAdapter.itemCount).forEach { position ->
+                            val tab = availableTabs[position]
+                            if (tab !in listOf("RequestBody", "ResponseBody")) {
+                                pagerAdapter.notifyItemChanged(position, RequestInfoPagerAdapter.Payload.REFRESH_HIGHLIGHT)
+                            }
+                        }
+                    }
+                }
+
+                launch {
+                    viewModel.matches.collectLatest { updateSearchNavigationVisibility() }
+                }
+                
+                launch {
+                    viewModel.currentMatchIndex.collectLatest { index ->
+                        updateSearchNavigationVisibility()
+                        if (index != -1) scrollToMatch(index)
+                    }
+                }
+                
+                launch {
+                    viewModel.highlightedContent.collectLatest { content ->
+                        val position = binding.viewPager.currentItem
+                        val tab = availableTabs.getOrNull(position)
+                        if (content != null && tab in listOf("RequestBody", "ResponseBody")) {
+                            pagerAdapter.notifyItemChanged(position, content)
+                        }
+                    }
+                }
+                
+                launch {
+                    viewModel.requestBody.collectLatest { content ->
+                        val position = availableTabs.indexOf("RequestBody")
+                        if (position != -1) pagerAdapter.notifyItemChanged(position, content)
+                    }
+                }
+                
+                launch {
+                    viewModel.responseBody.collectLatest { result ->
+                        val position = availableTabs.indexOf("ResponseBody")
+                        if (position != -1) pagerAdapter.notifyItemChanged(position, result)
                     }
                 }
             }
@@ -106,7 +144,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         binding.buttonNextMatch.setOnClickListener { viewModel.navigateToNextMatch() }
         binding.buttonPrevMatch.setOnClickListener { viewModel.navigateToPreviousMatch() }
     }
-    
+
     private fun setupToolbarAndSearch() {
         binding.searchIcon.setImageResource(R.drawable.ic_magnifier_to_back)
         binding.searchIcon.isActivated = false
@@ -120,7 +158,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         }
         binding.editText.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus != binding.searchIcon.isActivated) {
-                 updateSearchUI(isFocused = hasFocus)
+                updateSearchUI(isFocused = hasFocus)
             }
         }
     }
@@ -138,9 +176,9 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
             binding.editText.hideKeyboard()
         }
     }
-    
+
     private fun setupViewPagerAndTabs() {
-        pagerAdapter = RequestInfoPagerAdapter(requireArguments(), availableTabs, viewModel, viewLifecycleOwner.lifecycleScope)
+        pagerAdapter = RequestInfoPagerAdapter(requireArguments(), availableTabs, viewModel)
         binding.viewPager.adapter = pagerAdapter
 
         TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
@@ -152,14 +190,16 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 super.onPageSelected(position)
                 val newTab = availableTabs[position]
                 updateFabVisibility(newTab)
-                
-                val contentProvider = when(newTab) {
-                    "RequestBody" -> ( { viewModel.requestBody.value } )
-                    "ResponseBody" -> ( { viewModel.responseBody.value?.text } )
-                    else -> ( { null } )
+
+                val contentProvider = when (newTab) {
+                    "RequestBody" -> ({ viewModel.requestBody.value })
+                    "ResponseBody" -> ({ (viewModel.responseBody.value as? ResponseBodyContent.Text)?.content })
+                    else -> ({ null })
                 }
                 viewModel.setCurrentContentProvider(contentProvider)
-                viewModel.resetSearchState()
+                if (binding.editText.isFocused) {
+                    viewModel.resetSearchState()
+                }
             }
         })
 
@@ -167,28 +207,33 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
             val firstTab = availableTabs.first()
             updateFabVisibility(firstTab)
             viewModel.setCurrentContentProvider {
-                when(firstTab) {
+                when (firstTab) {
                     "RequestBody" -> viewModel.requestBody.value
-                    "ResponseBody" -> viewModel.responseBody.value?.text
+                    "ResponseBody" -> (viewModel.responseBody.value as? ResponseBodyContent.Text)?.content
                     else -> null
                 }
             }
         }
     }
-    
-    private fun updateSearchNavigationVisibility(matchesCount: Int, currentIndex: Int) {
+
+    private fun updateSearchNavigationVisibility() {
+        val matchesCount = viewModel.matches.value.size
+        val currentIndex = viewModel.currentMatchIndex.value
         val currentTab = availableTabs.getOrNull(binding.viewPager.currentItem)
         val hasFocus = binding.editText.isFocused
         binding.searchNavigationContainer.isVisible = hasFocus &&
-            (currentTab == "RequestBody" || currentTab == "ResponseBody") &&
-            matchesCount > 0
+                (currentTab == "RequestBody" || currentTab == "ResponseBody") &&
+                matchesCount > 0
         binding.matchesCount.text = if (matchesCount > 0 && hasFocus) {
             "${currentIndex + 1}/$matchesCount"
         } else ""
     }
 
     private fun scrollToMatch(index: Int) {
-        val vh = getCurrentViewHolder() ?: return
+        val vh = (binding.viewPager.getChildAt(0) as? RecyclerView)?.findViewHolderForAdapterPosition(
+            binding.viewPager.currentItem
+        ) as? RequestInfoPagerAdapter.RequestInfoViewHolder ?: return
+
         val scrollView = vh.binding.scrollView
         val textView = when (availableTabs.getOrNull(binding.viewPager.currentItem)) {
             "RequestBody" -> vh.binding.requestBodyText
@@ -196,13 +241,13 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
             else -> null
         } ?: return
 
-        val searchState = viewModel.searchState.value
-        if (index !in searchState.matches.indices) return
+        val matches = viewModel.matches.value
+        if (index !in matches.indices) return
 
         textView.post {
             val layout: Layout? = textView.layout
             if (layout != null) {
-                val line = layout.getLineForOffset(searchState.matches[index].first)
+                val line = layout.getLineForOffset(matches[index].first)
                 val y = layout.getLineTop(line)
                 val scrollY = textView.top + y - (scrollView.height / 3)
                 scrollView.smoothScrollTo(0, scrollY.coerceAtLeast(0))
@@ -210,15 +255,12 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         }
     }
 
-    private fun getCurrentViewHolder(): RequestInfoPagerAdapter.RequestInfoViewHolder? {
-        val recyclerView = binding.viewPager.getChildAt(0) as? RecyclerView
-        return recyclerView?.findViewHolderForAdapterPosition(binding.viewPager.currentItem) as? RequestInfoPagerAdapter.RequestInfoViewHolder
-    }
-
     private fun getAvailableTabs(): List<String> = arguments?.run {
         mutableListOf<String>().apply {
             if (!getString("dnsHost").isNullOrEmpty()) add("DNS Info")
-            if (!getString("method").isNullOrEmpty() || !getString("urlString").isNullOrEmpty() || !getString("requestHeaders").isNullOrEmpty()) add("Request")
+            if (!getString("method").isNullOrEmpty() || !getString("urlString").isNullOrEmpty() || !getString("requestHeaders").isNullOrEmpty()) add(
+                "Request"
+            )
             if (!getString("requestBodyUriString").isNullOrEmpty()) add("RequestBody")
             if (!getString("responseMessage").isNullOrEmpty() || !getString("responseHeaders").isNullOrEmpty()) {
                 add("Response")
@@ -256,9 +298,8 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         createDocumentLauncher.launch(fileName)
     }
 
-    private fun exportResponseBodyText() {
-        val content = viewModel.responseBody.value?.text
-        if (content.isNullOrEmpty()) {
+    private fun exportResponseBodyText(content: String) {
+        if (content.isEmpty()) {
             Toast.makeText(requireContext(), "内容为空或仍在加载中", Toast.LENGTH_SHORT).show()
             return
         }
@@ -267,7 +308,6 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         val fileName = "responsebody_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.$ext"
         createDocumentLauncher.launch(fileName)
     }
-
 
     private fun saveTextToFile(uri: Uri, content: String) {
         lifecycleScope.launch(Dispatchers.IO) {
@@ -288,10 +328,9 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     }
 
     private fun exportResponseContent() {
-        val responseData = viewModel.responseBody.value
-        when {
-            responseData?.imageBytes != null -> saveImageToGallery(responseData.imageBytes, responseData.mimeType)
-            responseData?.text != null -> exportResponseBodyText()
+        when (val responseData = viewModel.responseBody.value) {
+            is ResponseBodyContent.Image -> saveImageToGallery(responseData.bytes, responseData.mimeType)
+            is ResponseBodyContent.Text -> exportResponseBodyText(responseData.content)
             else -> Toast.makeText(requireContext(), "内容为空或仍在加载中", Toast.LENGTH_SHORT).show()
         }
     }

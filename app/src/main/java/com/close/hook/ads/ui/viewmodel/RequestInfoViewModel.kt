@@ -32,19 +32,12 @@ import java.util.Locale
 import java.util.zip.GZIPInputStream
 import java.util.zip.InflaterInputStream
 
-data class ResponseBodyResult(
-    val text: String? = null,
-    val imageBytes: ByteArray? = null,
-    val error: String? = null,
-    val mimeType: String?
-)
-
-data class SearchState(
-    val query: String = "",
-    val matches: List<Pair<Int, Int>> = emptyList(),
-    val currentMatchIndex: Int = -1,
-    val textContent: CharSequence? = null
-)
+sealed class ResponseBodyContent {
+    data class Text(val content: String, val mimeType: String?) : ResponseBodyContent()
+    data class Image(val bytes: ByteArray, val mimeType: String?) : ResponseBodyContent()
+    data class Error(val message: String) : ResponseBodyContent()
+    object Loading : ResponseBodyContent()
+}
 
 class RequestInfoViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -56,14 +49,20 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private val _requestBody = MutableStateFlow<String?>(null)
     val requestBody: StateFlow<String?> = _requestBody.asStateFlow()
 
-    private val _responseBody = MutableStateFlow<ResponseBodyResult?>(null)
-    val responseBody: StateFlow<ResponseBodyResult?> = _responseBody.asStateFlow()
-    
+    private val _responseBody = MutableStateFlow<ResponseBodyContent>(ResponseBodyContent.Loading)
+    val responseBody: StateFlow<ResponseBodyContent> = _responseBody.asStateFlow()
+
     val currentQuery = MutableStateFlow("")
-    
-    private val _searchState = MutableStateFlow(SearchState())
-    val searchState: StateFlow<SearchState> = _searchState.asStateFlow()
-    
+
+    private val _highlightedContent = MutableStateFlow<CharSequence?>(null)
+    val highlightedContent: StateFlow<CharSequence?> = _highlightedContent.asStateFlow()
+
+    private val _matches = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
+    val matches: StateFlow<List<Pair<Int, Int>>> = _matches.asStateFlow()
+
+    private val _currentMatchIndex = MutableStateFlow(-1)
+    val currentMatchIndex: StateFlow<Int> = _currentMatchIndex.asStateFlow()
+
     private var currentContentProvider: (() -> String?)? = null
 
     fun init(arguments: Bundle) {
@@ -78,53 +77,60 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
                     flow {
                         val content = currentContentProvider?.invoke()
                         if (query.isEmpty() || content.isNullOrEmpty()) {
-                            emit(SearchState(query = query))
+                            emit(Triple(content, emptyList(), -1))
                         } else {
                             val matches = findMatches(content, query)
                             val newIndex = if (matches.isNotEmpty()) 0 else -1
-                            emit(SearchState(query, matches, newIndex, highlightText(content, matches, newIndex)))
+                            emit(Triple(content, matches, newIndex))
                         }
                     }.flowOn(Dispatchers.Default)
                 }
-                .collect { state ->
-                    _searchState.value = state
+                .collect { (content, matches, index) ->
+                    _matches.value = matches
+                    _currentMatchIndex.value = index
+                    _highlightedContent.value = content?.let {
+                        highlightText(it, matches, index)
+                    }
                 }
         }
     }
 
     fun setCurrentContentProvider(provider: (() -> String?)) {
         currentContentProvider = provider
-        currentQuery.value = currentQuery.value 
+        currentQuery.value = currentQuery.value
     }
-    
+
     fun resetSearchState() {
-        _searchState.value = SearchState(query = currentQuery.value)
+        val currentContent = currentContentProvider?.invoke()
+        _matches.value = emptyList()
+        _currentMatchIndex.value = -1
+        _highlightedContent.value = currentContent
     }
-    
+
     fun navigateToNextMatch() {
-        _searchState.update { currentState ->
-            if (currentState.matches.isEmpty()) return@update currentState
-            val newIndex = (currentState.currentMatchIndex + 1) % currentState.matches.size
-            currentState.copy(
-                currentMatchIndex = newIndex,
-                textContent = highlightText(currentState.textContent.toString(), currentState.matches, newIndex)
-            )
+        if (_matches.value.isEmpty()) return
+        _currentMatchIndex.update {
+            (it + 1) % _matches.value.size
         }
+        updateHighlight()
     }
 
     fun navigateToPreviousMatch() {
-        _searchState.update { currentState ->
-            if (currentState.matches.isEmpty()) return@update currentState
-            val newIndex = (currentState.currentMatchIndex - 1 + currentState.matches.size) % currentState.matches.size
-            currentState.copy(
-                currentMatchIndex = newIndex,
-                textContent = highlightText(currentState.textContent.toString(), currentState.matches, newIndex)
-            )
+        if (_matches.value.isEmpty()) return
+        _currentMatchIndex.update {
+            (it - 1 + _matches.value.size) % _matches.value.size
+        }
+        updateHighlight()
+    }
+
+    private fun updateHighlight() {
+        val content = currentContentProvider?.invoke()
+        if (content != null) {
+            _highlightedContent.value = highlightText(content, _matches.value, _currentMatchIndex.value)
         }
     }
-    
+
     private fun findMatches(text: String, query: String): List<Pair<Int, Int>> {
-        if (query.isEmpty()) return emptyList()
         val positions = mutableListOf<Pair<Int, Int>>()
         val normalizedText = text.lowercase(Locale.ROOT)
         val normalizedQuery = query.lowercase(Locale.ROOT)
@@ -161,52 +167,57 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private fun loadResponseBody(uriString: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val (stream, mime) = getResponseBodyStream(uriString) ?: throw IOException("Failed to open response body stream.")
-                stream?.use { inputStream ->
-                    val encoding = mime?.split(";")?.find { it.trim().startsWith("encoding=") }?.substringAfter("=")
-                    decompressStream(encoding, inputStream)?.use { decompressedStream ->
+                val (stream, mime) = getResponseBodyStream(uriString)
+                    ?: throw IOException("Failed to open response body stream.")
+                stream.use { inputStream ->
+                    val encoding =
+                        mime?.split(";")?.find { it.trim().startsWith("encoding=") }?.substringAfter("=")
+                    decompressStream(encoding, inputStream).use { decompressedStream ->
                         val bytes = decompressedStream.readBytes()
                         if (mime?.startsWith("image/") == true && isBitmap(bytes)) {
-                            _responseBody.value = ResponseBodyResult(imageBytes = bytes, mimeType = mime)
+                            _responseBody.value = ResponseBodyContent.Image(bytes, mime)
                         } else {
-                            _responseBody.value = ResponseBodyResult(text = formatText(bytes), mimeType = mime)
+                            _responseBody.value = ResponseBodyContent.Text(formatText(bytes), mime)
                         }
-                    } ?: throw IOException("Decompression failed, resulting stream is null.")
-                } ?: throw IOException("Stream is null after getting it from URI.")
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("RequestInfoViewModel", "Error processing response body", e)
-                _responseBody.value = ResponseBodyResult(error = "Error: ${e.message}", mimeType = null)
+                _responseBody.value = ResponseBodyContent.Error("Error: ${e.message}")
             }
         }
     }
 
-    private fun isBitmap(bytes: ByteArray): Boolean {
-        return try {
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-            options.outWidth != -1 && options.outHeight != -1
-        } catch (e: Exception) {
-            false
+    private fun isBitmap(bytes: ByteArray): Boolean = try {
+        BitmapFactory.Options().run {
+            inJustDecodeBounds = true
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, this)
+            outWidth != -1 && outHeight != -1
         }
+    } catch (e: Exception) {
+        false
     }
 
     private fun getBytesFromUri(uriString: String): ByteArray? = try {
-        getApplication<Application>().contentResolver.openInputStream(Uri.parse(uriString))?.use { it.readBytes() }
+        getApplication<Application>().contentResolver.openInputStream(Uri.parse(uriString))
+            ?.use { it.readBytes() }
     } catch (e: Exception) {
         Log.e("RequestInfoViewModel", "Failed to get bytes from URI", e)
         null
     }
 
-    private fun getResponseBodyStream(uriString: String): Pair<InputStream?, String?> = try {
+    private fun getResponseBodyStream(uriString: String): Pair<InputStream, String?>? = try {
         val uri = Uri.parse(uriString)
         val resolver = getApplication<Application>().contentResolver
         resolver.openInputStream(uri) to (resolver.getType(uri) ?: "application/octet-stream;")
     } catch (e: Exception) {
         Log.e("RequestInfoViewModel", "Failed to get response body stream", e)
-        null to null
+        null
+    }?.let { (stream, mime) ->
+        if (stream == null) null else stream to mime
     }
 
-    private fun decompressStream(encoding: String?, stream: InputStream): InputStream? = try {
+    private fun decompressStream(encoding: String?, stream: InputStream): InputStream = try {
         when (encoding?.lowercase(Locale.ROOT)) {
             "gzip" -> GZIPInputStream(stream)
             "deflate" -> InflaterInputStream(stream)
@@ -219,7 +230,8 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun formatText(bytes: ByteArray): String = try {
-        GsonBuilder().setPrettyPrinting().create().toJson(JsonParser.parseString(String(bytes, StandardCharsets.UTF_8)))
+        GsonBuilder().setPrettyPrinting().create()
+            .toJson(JsonParser.parseString(String(bytes, StandardCharsets.UTF_8)))
     } catch (e: Exception) {
         String(bytes, StandardCharsets.UTF_8)
     }
