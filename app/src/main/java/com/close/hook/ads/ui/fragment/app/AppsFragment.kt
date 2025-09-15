@@ -7,6 +7,7 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.util.Log
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.view.View
 import android.widget.Toast
@@ -20,7 +21,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.AppInfo
-import com.close.hook.ads.data.model.ConfiguredBean
 import com.close.hook.ads.databinding.BottomDialogAppInfoBinding
 import com.close.hook.ads.databinding.BottomDialogSwitchesBinding
 import com.close.hook.ads.databinding.FragmentAppsBinding
@@ -46,18 +46,21 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
-import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
@@ -110,6 +113,9 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private var currentAppPackageName: String? = null
 
     companion object {
+        private const val PREFS_FILE_NAME = "com.close.hook.ads_preferences.json"
+        private const val CUSTOM_HOOKS_PREFIX = "custom_hooks_"
+        
         @JvmStatic
         fun newInstance(type: String) =
             AppsFragment().apply {
@@ -537,107 +543,54 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     override fun onExport() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val allPrefs = HookPrefs.getAll()
-
-            val configuredList = viewModel.uiState.value.apps.filter { it.isEnable == 1 }.map { appInfo ->
-                ConfiguredBean(
-                    appInfo.packageName,
-                    prefKeys.map { keyPrefix ->
-                        (allPrefs[keyPrefix + appInfo.packageName] as? Boolean) ?: false
-                    })
-            }
-
-            if (configuredList.isEmpty()) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-                }
-                return@launch
-            }
-
-            try {
-                val content = GsonBuilder().setPrettyPrinting().create().toJson(configuredList)
-                val tempFileSaved = saveTempFileForExport(content)
-                if (tempFileSaved) {
-                    withContext(Dispatchers.Main) {
-                        backupSAFLauncher.launch("configured_list.json")
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        requireContext(),
-                        "${getString(R.string.export_failed)}: ${e.message ?: "Unknown error"}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        }
-    }
-
-    private fun saveTempFileForExport(content: String): Boolean {
-        return try {
-            val dir = File(requireContext().cacheDir, "export_temp")
-            if (!dir.exists()) {
-                dir.mkdirs()
-            }
-
-            val file = File(dir, "configured_list.json")
-            file.writeText(content)
-            true
-        } catch (e: IOException) {
-            false
-        }
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val fileName = "AdClose_Backup_${dateFormat.format(Date())}.zip"
+        backupSAFLauncher.launch(fileName)
     }
 
     private val backupSAFLauncher =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-            if (uri == null) {
-                return@registerForActivityResult
-            }
-            lifecycleScope.launch(Dispatchers.IO) {
-                val sourceFile = File(requireContext().cacheDir, "export_temp/configured_list.json")
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            uri?.let {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching {
+                        val service = ServiceManager.service ?: throw IOException("Service not available.")
+                        val remoteFiles = service.listRemoteFiles() ?: emptyArray()
 
-                if (!sourceFile.exists()) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-                    }
-                    return@launch
-                }
+                        val filesToZip = remoteFiles.filter {
+                            it == PREFS_FILE_NAME || it.startsWith(CUSTOM_HOOKS_PREFIX)
+                        }
 
-                try {
-                    sourceFile.inputStream().use { input ->
-                        requireContext().contentResolver.openOutputStream(uri).use { output ->
-                            if (output == null) {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                input.copyTo(output)
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                        if (filesToZip.isEmpty()) {
+                            throw IOException("No configuration files found to export.")
+                        }
+
+                        requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
+                            ZipOutputStream(outputStream).use { zos ->
+                                filesToZip.forEach { fileName ->
+                                    service.openRemoteFile(fileName)?.use { pfd ->
+                                        FileInputStream(pfd.fileDescriptor).use { fis ->
+                                            zos.putNextEntry(ZipEntry(fileName))
+                                            fis.copyTo(zos)
+                                            zos.closeEntry()
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                } catch (e: IOException) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(requireContext(), "${getString(R.string.export_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
-                } finally {
-                    if (sourceFile.exists()) {
-                        sourceFile.delete()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                        }
+                    }.onFailure { e ->
+                        withContext(Dispatchers.Main) {
+                            showErrorDialog(getString(R.string.export_failed), e)
+                        }
                     }
                 }
             }
         }
 
     override fun onRestore() {
-        restoreSAFLauncher.launch(arrayOf("application/json"))
+        restoreSAFLauncher.launch(arrayOf("application/json", "application/zip", "*/*"))
     }
 
     private val restoreSAFLauncher =
@@ -645,19 +598,19 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             uri?.let {
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        val string = requireContext().contentResolver
-                            .openInputStream(uri)?.reader().use { it?.readText() }
-                            ?: throw IOException("Backup file was damaged or empty.")
-                        val dataList: List<ConfiguredBean> = Gson().fromJson(
-                            string,
-                            Array<ConfiguredBean>::class.java
-                        ).toList()
-
-                        dataList.forEach { bean ->
-                            bean.switchStates.forEachIndexed { index, state ->
-                                HookPrefs.setBoolean(prefKeys[index] + bean.packageName, state)
+                        val contentResolver = requireContext().contentResolver
+                        val (fileName, mimeType) = getFileInfo(it)
+                        
+                        contentResolver.openInputStream(it)?.use { inputStream ->
+                            when {
+                                mimeType == "application/zip" || fileName.endsWith(".zip") -> handleZipRestore(inputStream)
+                                fileName.endsWith(".json") -> handleSingleJsonRestore(inputStream, fileName)
+                                else -> throw IOException("Unsupported file type: $mimeType. Please select a .zip or .json file.")
                             }
-                        }
+                        } ?: throw IOException("Failed to open input stream.")
+                        
+                        HookPrefs.invalidateCaches()
+
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), getString(R.string.import_success), Toast.LENGTH_SHORT).show()
                             if (fragmentType == "configured") {
@@ -666,21 +619,76 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         }
                     }.onFailure { e ->
                         withContext(Dispatchers.Main) {
-                            MaterialAlertDialogBuilder(requireContext())
-                                .setTitle(getString(R.string.import_failed))
-                                .setMessage(e.message ?: "Unknown error")
-                                .setPositiveButton(android.R.string.ok, null)
-                                .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
-                                    MaterialAlertDialogBuilder(requireContext())
-                                        .setTitle(getString(R.string.crash_log))
-                                        .setMessage(e.stackTraceToString())
-                                        .setPositiveButton(android.R.string.ok, null)
-                                        .show()
-                                }
-                                .show()
+                            showErrorDialog(getString(R.string.import_failed), e)
                         }
                     }
                 }
             }
         }
+
+    private fun getFileInfo(uri: Uri): Pair<String, String?> {
+        val contentResolver = requireContext().contentResolver
+        val mimeType = contentResolver.getType(uri)
+        var fileName = "unknown"
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1) {
+                    fileName = cursor.getString(nameIndex)
+                }
+            }
+        }
+        return Pair(fileName, mimeType)
+    }
+
+    private fun handleSingleJsonRestore(inputStream: InputStream, fileName: String) {
+        if (fileName != PREFS_FILE_NAME && !fileName.startsWith(CUSTOM_HOOKS_PREFIX)) {
+            throw IOException("Invalid JSON file name. Only '$PREFS_FILE_NAME' or files starting with '$CUSTOM_HOOKS_PREFIX' can be imported individually.")
+        }
+
+        val service = ServiceManager.service ?: throw IOException("Service not available.")
+        val content = inputStream.reader().use { it.readText() }
+        if (content.isBlank()) throw IOException("Backup file is empty.")
+        
+        service.openRemoteFile(fileName)?.use { pfd ->
+            FileOutputStream(pfd.fileDescriptor).use { fos ->
+                fos.channel.truncate(0)
+                fos.write(content.toByteArray(Charsets.UTF_8))
+            }
+        } ?: throw IOException("Could not open remote file for writing: $fileName")
+    }
+
+    private fun handleZipRestore(inputStream: InputStream) {
+        val service = ServiceManager.service ?: throw IOException("Service not available.")
+        ZipInputStream(inputStream).use { zis ->
+            var zipEntry: ZipEntry? = zis.nextEntry
+            while (zipEntry != null) {
+                val fileName = zipEntry.name
+                if (fileName == PREFS_FILE_NAME || fileName.startsWith(CUSTOM_HOOKS_PREFIX)) {
+                    service.openRemoteFile(fileName)?.use { pfd ->
+                        FileOutputStream(pfd.fileDescriptor).use { fos ->
+                            fos.channel.truncate(0)
+                            zis.copyTo(fos)
+                        }
+                    }
+                }
+                zipEntry = zis.nextEntry
+            }
+        }
+    }
+
+    private fun showErrorDialog(title: String, e: Throwable) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(title)
+            .setMessage(e.message ?: "Unknown error")
+            .setPositiveButton(android.R.string.ok, null)
+            .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(getString(R.string.crash_log))
+                    .setMessage(e.stackTraceToString())
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+            }
+            .show()
+    }
 }
