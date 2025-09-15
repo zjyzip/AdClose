@@ -2,7 +2,6 @@ package com.close.hook.ads.data.repository
 
 import android.content.Context
 import android.os.Build
-import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.util.Log
 import com.close.hook.ads.manager.ServiceManager
@@ -13,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
-import java.io.IOException
 
 class DataManagerRepository(private val context: Context) {
 
@@ -69,16 +67,24 @@ class DataManagerRepository(private val context: Context) {
     }
 
     suspend fun getPreferenceGroups(): List<ManagedItem> = withContext(Dispatchers.IO) {
-        try {
-            val prefsDir = File("${context.applicationInfo.dataDir}/shared_prefs")
-            prefsDir.listFiles { _, name -> name.endsWith(".xml") }
+        getLocalDirectoryItems("shared_prefs", ".xml", ItemType.PREFERENCE)
+    }
+
+    suspend fun getDatabases(): List<ManagedItem> = withContext(Dispatchers.IO) {
+        getLocalDirectoryItems("databases", null, ItemType.DATABASE)
+    }
+
+    private fun getLocalDirectoryItems(dirName: String, extension: String?, itemType: ItemType): List<ManagedItem> {
+        return try {
+            val dir = File("${context.applicationInfo.dataDir}/$dirName")
+            dir.listFiles { _, name -> extension == null || name.endsWith(extension) }
                 ?.mapNotNull { file ->
                     try {
                         ManagedItem(
-                            name = file.nameWithoutExtension,
+                            name = if (extension != null) file.nameWithoutExtension else file.name,
                             size = file.length(),
                             lastModified = file.lastModified(),
-                            type = ItemType.PREFERENCE
+                            type = itemType
                         )
                     } catch (e: Exception) {
                         null
@@ -86,11 +92,11 @@ class DataManagerRepository(private val context: Context) {
                 }
                 ?: emptyList()
         } catch (e: Exception) {
-            Log.e("DataManagerRepository", "getPreferenceGroups failed", e)
+            Log.e("DataManagerRepository", "Failed to get items from $dirName", e)
             emptyList()
         }
     }
-    
+
     suspend fun getFileContent(fileName: String): ByteArray? = withContext(Dispatchers.IO) {
         ServiceManager.service?.let {
             try {
@@ -107,15 +113,19 @@ class DataManagerRepository(private val context: Context) {
     }
 
     suspend fun getPreferenceContent(groupName: String): ByteArray? = withContext(Dispatchers.IO) {
-        try {
-            val prefsFile = File("${context.applicationInfo.dataDir}/shared_prefs", "$groupName.xml")
-            if (prefsFile.exists()) {
-                prefsFile.readBytes()
-            } else {
-                null
-            }
+        getLocalFileContent("shared_prefs", "$groupName.xml")
+    }
+
+    suspend fun getDatabaseContent(dbName: String): ByteArray? = withContext(Dispatchers.IO) {
+        getLocalFileContent("databases", dbName)
+    }
+
+    private fun getLocalFileContent(dirName: String, fileName: String): ByteArray? {
+        return try {
+            val file = File("${context.applicationInfo.dataDir}/$dirName", fileName)
+            if (file.exists()) file.readBytes() else null
         } catch (e: Exception) {
-            Log.e("DataManagerRepository", "Failed to get content for preference: $groupName", e)
+            Log.e("DataManagerRepository", "Failed to get content for $dirName/$fileName", e)
             null
         }
     }
@@ -136,6 +146,15 @@ class DataManagerRepository(private val context: Context) {
             context.deleteSharedPreferences(groupName)
         } catch (e: Exception) {
             Log.e("DataManagerRepository", "Failed to delete local preference group: $groupName", e)
+            false
+        }
+    }
+
+    suspend fun deleteDatabase(dbName: String): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            context.deleteDatabase(dbName)
+        } catch (e: Exception) {
+            Log.e("DataManagerRepository", "Failed to delete database: $dbName", e)
             false
         }
     }

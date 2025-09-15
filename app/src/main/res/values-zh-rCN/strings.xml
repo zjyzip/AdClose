@@ -22,6 +22,8 @@
     <string name="delete_prefs_title">删除偏好设置组</string>
     <string name="delete_file_message">是否删除文件“%1$s”</string>
     <string name="delete_prefs_message">是否删除“%1$s”组中的所有偏好设置</string>
+    <string name="delete_db_title">删除数据库？</string>
+    <string name="delete_db_message">您确定要删除数据库“%1$s”吗？此操作无法撤销。</string>
     <string name="action_delete">删除</string>
 
     <string name="search_hint">搜索</string>

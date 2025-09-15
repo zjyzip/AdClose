@@ -9,5 +9,6 @@ data class ManagedItem(
 
 enum class ItemType {
     FILE,
-    PREFERENCE
+    PREFERENCE,
+    DATABASE
 }

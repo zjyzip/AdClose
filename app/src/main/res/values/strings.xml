@@ -22,6 +22,8 @@
     <string name="delete_prefs_title">Delete Preference Group?</string>
     <string name="delete_file_message">Are you sure you want to permanently delete the file \"%1$s\"?</string>
     <string name="delete_prefs_message">Are you sure you want to permanently delete all preferences in the group \"%1$s\"? This cannot be undone.</string>
+    <string name="delete_db_title">Delete Database?</string>
+    <string name="delete_db_message">Are you sure you want to delete the database \"%1$s\"? This action cannot be undone.</string>
     <string name="action_delete">Delete</string>
 
     <string name="remove_scope_dialog_title">Remove Scope?</string>

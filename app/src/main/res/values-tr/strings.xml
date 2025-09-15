@@ -22,6 +22,8 @@
     <string name="delete_prefs_title">Tercih Grubunu Sil</string>
     <string name="delete_file_message">"%1$s" dosyası silinsin mi?</string>
     <string name="delete_prefs_message">"%1$s" grubundaki tüm tercihler silinsin mi?</string>
+    <string name="delete_db_title">Veritabanını Sil?</string>
+    <string name="delete_db_message">\"%1$s\" veritabanını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</string>
     <string name="action_delete">Sil</string>
 
     <string name="search_hint">Ara</string>

@@ -23,6 +23,8 @@
     <string name="delete_prefs_title">刪除偏好設定群組</string>
     <string name="delete_file_message">是否要刪除檔案「%1$s」？</string>
     <string name="delete_prefs_message">是否要刪除「%1$s」群組中的所有偏好設定？</string>
+    <string name="delete_db_title">刪除資料庫？</string>
+    <string name="delete_db_message">您確定要刪除資料庫「%1$s」嗎？此操作無法撤銷。</string>
     <string name="action_delete">刪除</string>
 
     <string name="search_hint">搜尋</string>

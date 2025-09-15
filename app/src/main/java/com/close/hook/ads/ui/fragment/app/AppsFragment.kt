@@ -13,7 +13,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
@@ -52,7 +54,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -318,32 +319,34 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.uiState.collectLatest { state ->
-                val apps = state.apps
-                val isLoading = state.isLoading
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collectLatest { state ->
+                    val apps = state.apps
+                    val isLoading = state.isLoading
 
-                binding.swipeRefresh.isRefreshing = isLoading && apps.isNotEmpty()
+                    binding.swipeRefresh.isRefreshing = isLoading && apps.isNotEmpty()
 
-                when {
-                    isLoading && apps.isEmpty() -> {
-                        binding.progressBar.isVisible = true
-                        binding.vfContainer.isVisible = false
+                    when {
+                        isLoading && apps.isEmpty() -> {
+                            binding.progressBar.isVisible = true
+                            binding.vfContainer.isVisible = false
+                        }
+                        !isLoading && apps.isEmpty() -> {
+                            binding.progressBar.isVisible = false
+                            binding.vfContainer.isVisible = true
+                            binding.vfContainer.displayedChild = 0
+                        }
+                        apps.isNotEmpty() -> {
+                            binding.progressBar.isVisible = false
+                            binding.vfContainer.isVisible = true
+                            binding.vfContainer.displayedChild = 1
+                        }
                     }
-                    !isLoading && apps.isEmpty() -> {
-                        binding.progressBar.isVisible = false
-                        binding.vfContainer.isVisible = true
-                        binding.vfContainer.displayedChild = 0
-                    }
-                    apps.isNotEmpty() -> {
-                        binding.progressBar.isVisible = false
-                        binding.vfContainer.isVisible = true
-                        binding.vfContainer.displayedChild = 1
-                    }
+
+                    mAdapter.submitList(apps)
+
+                    updateSearchHint(apps.size)
                 }
-
-                mAdapter.submitList(apps)
-
-                updateSearchHint(apps.size)
             }
         }
     }

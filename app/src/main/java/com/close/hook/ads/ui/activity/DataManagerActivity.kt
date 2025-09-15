@@ -3,7 +3,7 @@ package com.close.hook.ads.ui.activity
 import android.os.Bundle
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.ActivityDataManagerBinding
-import com.close.hook.ads.ui.fragment.DataManagerFragment
+import com.close.hook.ads.ui.fragment.data.DataManagerFragment
 
 class DataManagerActivity : BaseActivity() {
 

@@ -15,7 +15,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
 import androidx.recyclerview.selection.Selection
@@ -104,11 +106,13 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
 
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
-            requestViewModel.getFilteredRequestList(type).collectLatest { filteredList ->
-                mAdapter.submitList(filteredList) {
-                    val targetChild = if (filteredList.isEmpty()) 0 else 1
-                    if (binding.vfContainer.displayedChild != targetChild) {
-                        binding.vfContainer.displayedChild = targetChild
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                requestViewModel.getFilteredRequestList(type).collectLatest { filteredList ->
+                    mAdapter.submitList(filteredList) {
+                        val targetChild = if (filteredList.isEmpty()) 0 else 1
+                        if (binding.vfContainer.displayedChild != targetChild) {
+                            binding.vfContainer.displayedChild = targetChild
+                        }
                     }
                 }
             }
