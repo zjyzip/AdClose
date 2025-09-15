@@ -1,6 +1,5 @@
 package com.close.hook.ads.data.dao
 
-import android.database.Cursor
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -16,7 +15,7 @@ interface UrlDao {
     fun insert(url: Url): Long
 
     @Query("SELECT * FROM url_info")
-    fun findAllList(): Cursor
+    fun findAllList(): List<Url>
 
     @Query("DELETE FROM url_info WHERE id = :id")
     fun deleteById(id: Long): Int
@@ -34,21 +33,21 @@ interface UrlDao {
     fun searchUrls(searchText: String): Flow<List<Url>>
 
     @Query("SELECT * FROM url_info WHERE type = 'URL' AND :fullUrl LIKE url || '%' LIMIT 1")
-    fun findUrlMatch(fullUrl: String): Cursor
+    fun findUrlMatch(fullUrl: String): Url?
 
     @Query("SELECT * FROM url_info WHERE type = 'Domain' AND url = :host LIMIT 1")
-    fun findDomainMatch(host: String): Cursor
+    fun findDomainMatch(host: String): Url?
 
     @Query("SELECT * FROM url_info WHERE type = 'KeyWord' AND INSTR(:value, url) > 0 LIMIT 1")
-    fun findKeywordMatch(value: String): Cursor
+    fun findKeywordMatch(value: String): Url?
 
-    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'URL' AND :fullUrl LIKE url || '%' LIMIT 1")
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'URL' AND :fullUrl LIKE url || '%'")
     fun existsUrlMatch(fullUrl: String): Boolean
 
-    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'Domain' AND url = :host LIMIT 1")
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'Domain' AND url = :host")
     fun existsDomainMatch(host: String): Boolean
 
-    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'KeyWord' AND INSTR(:value, url) > 0 LIMIT 1")
+    @Query("SELECT COUNT(*) > 0 FROM url_info WHERE type = 'KeyWord' AND INSTR(:value, url) > 0")
     fun existsKeywordMatch(value: String): Boolean
 
     @Query("SELECT COUNT(*) > 0 FROM url_info WHERE url = :url")

@@ -5,6 +5,7 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.UriMatcher
 import android.database.Cursor
+import android.database.MatrixCursor
 import android.net.Uri
 import com.close.hook.ads.data.dao.UrlDao
 import com.close.hook.ads.data.database.UrlDatabase
@@ -32,18 +33,27 @@ class UrlContentProvider : ContentProvider() {
     }
 
     private fun handleQueryData(selectionArgs: Array<String>?): Cursor? {
-        if (selectionArgs == null || selectionArgs.size != 2) {
-            return urlDao.findAllList()
+        val urls: List<Url> = if (selectionArgs == null || selectionArgs.size != 2) {
+            urlDao.findAllList()
+        } else {
+            val (queryType, queryValue) = selectionArgs
+            val result = when (queryType) {
+                "URL" -> urlDao.findUrlMatch(queryValue)
+                "Domain" -> urlDao.findDomainMatch(queryValue)
+                "KeyWord" -> urlDao.findKeywordMatch(queryValue)
+                else -> null
+            }
+            listOfNotNull(result)
         }
+        return urlsToCursor(urls)
+    }
 
-        val (queryType, queryValue) = selectionArgs
-
-        return when (queryType) {
-            "URL" -> urlDao.findUrlMatch(queryValue)
-            "Domain" -> urlDao.findDomainMatch(queryValue)
-            "KeyWord" -> urlDao.findKeywordMatch(queryValue)
-            else -> null
+    private fun urlsToCursor(urls: List<Url>): MatrixCursor {
+        val cursor = MatrixCursor(arrayOf(Url.URL_TYPE, Url.URL_ADDRESS))
+        urls.forEach { url ->
+            cursor.addRow(arrayOf(url.type, url.url))
         }
+        return cursor
     }
 
     override fun getType(uri: Uri): String? = when (uriMatcher.match(uri)) {

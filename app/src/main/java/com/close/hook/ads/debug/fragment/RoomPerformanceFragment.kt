@@ -9,9 +9,11 @@ import android.view.ViewGroup
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.close.hook.ads.data.DataSource
+import androidx.room.Room
+import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentRoomPerformanceBinding
+import com.close.hook.ads.debug.datasource.TestDataSource
 import com.github.mikephil.charting.components.Legend
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
@@ -21,7 +23,6 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.system.measureTimeMillis
@@ -30,7 +31,10 @@ import kotlin.system.measureTimeMillis
 class RoomPerformanceFragment : Fragment() {
     private var _binding: FragmentRoomPerformanceBinding? = null
     private val binding get() = _binding!!
-    private lateinit var dataSource: DataSource
+
+    private lateinit var testDatabase: UrlDatabase
+    private lateinit var testDataSource: TestDataSource
+
     private val chartDataEntries = mutableMapOf<ChartMetric, MutableList<Entry>>()
     private val chartLabels = mutableListOf<String>()
     private val TEST_REPEAT_TIMES = 3
@@ -54,7 +58,14 @@ class RoomPerformanceFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        dataSource = DataSource(requireContext())
+        
+        testDatabase = Room.inMemoryDatabaseBuilder(
+            requireContext().applicationContext,
+            UrlDatabase::class.java
+        ).build()
+
+        testDataSource = TestDataSource(testDatabase.urlDao)
+
         ChartMetric.values().forEach { metric -> chartDataEntries[metric] = mutableListOf() }
         setupPerformanceChart()
         setupListeners()
@@ -62,6 +73,7 @@ class RoomPerformanceFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        testDatabase.close()
         _binding = null
     }
 
@@ -130,42 +142,42 @@ class RoomPerformanceFragment : Fragment() {
                 }
             }
 
-            val insertTime = measurePerformance { dataSource.insertAll(urlList) }
+            val insertTime = measurePerformance { testDataSource.insertAll(urlList) }
             postLog("📦 批量插入$TEST_DATA_SIZE 条: ${insertTime}ms")
             totalTimes[ChartMetric.INSERT] = totalTimes[ChartMetric.INSERT]!! + insertTime
             delay(400)
 
-            val queryAllTime = measurePerformance { dataSource.getUrlListOnce() }
+            val queryAllTime = measurePerformance { testDataSource.getUrlListOnce() }
             postLog("🔍 查询所有: ${queryAllTime}ms")
             totalTimes[ChartMetric.QUERY_ALL] = totalTimes[ChartMetric.QUERY_ALL]!! + queryAllTime
             delay(400)
 
             val existsUrlToFind = urlList.firstOrNull { it.type == "URL" }?.url ?: "https://nonexistent.com/path/0"
-            val existsUrlMatchTime = measurePerformance { dataSource.existsUrlMatch(existsUrlToFind) }
+            val existsUrlMatchTime = measurePerformance { testDataSource.existsUrlMatch(existsUrlToFind) }
             postLog("🟢 精准URL前缀查找 (找到): ${existsUrlMatchTime}ms")
             totalTimes[ChartMetric.EXISTS_URL_MATCH] = totalTimes[ChartMetric.EXISTS_URL_MATCH]!! + existsUrlMatchTime
 
             val existsKeywordToFind = urlList.firstOrNull { it.type == "KeyWord" }?.url ?: "nonexistent-keyword"
-            val queryLikeTime = measurePerformance { dataSource.existsKeywordMatch("text containing $existsKeywordToFind") }
+            val queryLikeTime = measurePerformance { testDataSource.existsKeywordMatch("text containing $existsKeywordToFind") }
             postLog("🟡 任意包含 (关键词查找 - 找到): ${queryLikeTime}ms")
             totalTimes[ChartMetric.EXISTS_KEYWORD_MATCH] = totalTimes[ChartMetric.EXISTS_KEYWORD_MATCH]!! + queryLikeTime
 
             val notFoundUrl = "https://nonexistent.com/path/999999"
-            val notFoundUrlPrefixTime = measurePerformance { dataSource.existsUrlMatch(notFoundUrl) }
+            val notFoundUrlPrefixTime = measurePerformance { testDataSource.existsUrlMatch(notFoundUrl) }
             postLog("🔷 URL前缀查找 (未找到): ${notFoundUrlPrefixTime}ms")
             totalTimes[ChartMetric.NOT_FOUND_URL_PREFIX] = totalTimes[ChartMetric.NOT_FOUND_URL_PREFIX]!! + notFoundUrlPrefixTime
 
             val existsDomainToFind = urlList.firstOrNull { it.type == "Domain" }?.url ?: "nonexistent-domain.com"
-            val existsDomainTime = measurePerformance { dataSource.existsDomainMatch("http://$existsDomainToFind/some/path") }
+            val existsDomainTime = measurePerformance { testDataSource.existsDomainMatch("http://$existsDomainToFind/some/path") }
             postLog("🔶 Domain包含查找 (找到): ${existsDomainTime}ms")
             totalTimes[ChartMetric.EXISTS_DOMAIN] = totalTimes[ChartMetric.EXISTS_DOMAIN]!! + existsDomainTime
 
             val notFoundKeyword = "absolutely-nonexistent-keyword"
-            val notFoundKeywordTime = measurePerformance { dataSource.existsKeywordMatch("some text without $notFoundKeyword") }
+            val notFoundKeywordTime = measurePerformance { testDataSource.existsKeywordMatch("some text without $notFoundKeyword") }
             postLog("🔸 Keyword查找 (未找到): ${notFoundKeywordTime}ms")
             totalTimes[ChartMetric.NOT_FOUND_KEYWORD] = totalTimes[ChartMetric.NOT_FOUND_KEYWORD]!! + notFoundKeywordTime
 
-            val deleteTime = measurePerformance { dataSource.deleteAll() }
+            val deleteTime = measurePerformance { testDataSource.deleteAll() }
             postLog("❌ 删除全部: ${deleteTime}ms")
             totalTimes[ChartMetric.DELETE] = totalTimes[ChartMetric.DELETE]!! + deleteTime
 

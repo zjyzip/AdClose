@@ -60,21 +60,6 @@ class DataSource(context: Context) {
     suspend fun deleteAll(): Int =
         withContext(Dispatchers.IO) { urlDao.deleteAll() }
 
-    suspend fun getUrlListOnce(): List<Url> =
-        withContext(Dispatchers.IO) { urlDao.loadAllList().first() }
-
-    suspend fun existsUrlMatch(fullUrl: String): Boolean =
-        withContext(Dispatchers.IO) { urlDao.existsUrlMatch(fullUrl) }
-
-    suspend fun existsDomainMatch(inputUrl: String): Boolean =
-        withContext(Dispatchers.IO) {
-            val host = AppUtils.extractHostOrSelf(inputUrl)
-            urlDao.existsDomainMatch(host)
-        }
-
-    suspend fun existsKeywordMatch(value: String): Boolean =
-        withContext(Dispatchers.IO) { urlDao.existsKeywordMatch(value) }
-
     companion object {
         @Volatile
         private var INSTANCE: DataSource? = null

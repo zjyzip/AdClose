@@ -5,7 +5,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,14 +17,11 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
-import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.model.RequestInfo
-import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
 import com.close.hook.ads.util.AppIconLoader
 import com.google.android.material.color.MaterialColors
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,13 +29,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 class RequestListAdapter(
-    private val dataSource: DataSource
+    private val onToggleBlock: (RequestInfo) -> Unit
 ) : ListAdapter<RequestInfo, RequestListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<RequestInfo>? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-        ViewHolder(ItemRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false), tracker)
+        ViewHolder(ItemRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false))
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
@@ -47,8 +43,7 @@ class RequestListAdapter(
     }
 
     inner class ViewHolder(
-        private val binding: ItemRequestBinding,
-        private val tracker: SelectionTracker<RequestInfo>?
+        private val binding: ItemRequestBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val targetIconSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
@@ -84,7 +79,8 @@ class RequestListAdapter(
         private fun setupListeners() {
             binding.apply {
                 cardView.setOnClickListener {
-                    if (tracker == null || !tracker.hasSelection()) {
+                    val currentTracker = tracker
+                    if (currentTracker == null || !currentTracker.hasSelection()) {
                         (root.tag as? RequestInfo)?.let { openRequestInfoActivity(it) }
                     }
                 }
@@ -92,7 +88,7 @@ class RequestListAdapter(
                     (root.tag as? RequestInfo)?.request?.let { copyToClipboard(it) }
                 }
                 block.setOnClickListener {
-                    (root.tag as? RequestInfo)?.let { toggleBlockStatus(it) }
+                    (root.tag as? RequestInfo)?.let { onToggleBlock(it) }
                 }
             }
         }
@@ -128,32 +124,6 @@ class RequestListAdapter(
             val context = itemView.context
             (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(ClipData.newPlainText("request", text))
             Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, text), Toast.LENGTH_SHORT).show()
-        }
-
-        private fun toggleBlockStatus(request: RequestInfo) {
-            CoroutineScope(Dispatchers.IO).launch {
-                val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
-                    if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
-                }
-                val urlToToggle = request.url ?: request.request.orEmpty()
-
-                val newIsBlocked = if (request.isBlocked == true) {
-                    dataSource.removeUrlString(requestType, urlToToggle)
-                    false
-                } else {
-                    dataSource.addUrl(Url(requestType, urlToToggle))
-                    true
-                }
-
-                withContext(Dispatchers.Main) {
-                    val currentListCopy = currentList.toMutableList()
-                    val index = currentListCopy.indexOfFirst { it.timestamp == request.timestamp }
-                    if (index != -1) {
-                        currentListCopy[index] = request.copy(isBlocked = newIsBlocked)
-                        submitList(currentListCopy)
-                    }
-                }
-            }
         }
 
         private fun updateBlockStatusUI(request: RequestInfo) {

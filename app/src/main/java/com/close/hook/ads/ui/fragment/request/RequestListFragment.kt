@@ -116,7 +116,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     }
 
     private fun initView() {
-        mAdapter = RequestListAdapter(requestViewModel.dataSource)
+        mAdapter = RequestListAdapter(requestViewModel::toggleBlockStatus)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {

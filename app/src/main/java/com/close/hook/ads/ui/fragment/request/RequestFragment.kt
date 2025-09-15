@@ -41,6 +41,20 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private val backPressDelegates = mutableMapOf<Int, OnBackPressListener>()
 
+    private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val request = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra("request", RequestInfo::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra("request")
+            }
+            request?.let { item ->
+                viewModel.updateRequestList(item)
+            }
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -55,6 +69,19 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         setupFab()
         initBar()
         setupBroadcastReceiver()
+    }
+
+    private fun setupBroadcastReceiver() {
+        val filter = IntentFilter("com.rikkati.REQUEST")
+        val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Context.RECEIVER_EXPORTED
+        } else 0
+        requireContext().registerReceiver(receiver, filter, options)
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        requireContext().unregisterReceiver(receiver)
     }
 
     private fun setupFab() {
@@ -85,24 +112,6 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
             }
             insets
         }
-    }
-
-    private fun setupBroadcastReceiver() {
-        val filter = IntentFilter("com.rikkati.REQUEST")
-        requireContext().registerReceiver(receiver, filter, getReceiverOptions())
-    }
-
-    private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val request = intent.getParcelableExtra<RequestInfo>("request")
-            request?.let { item ->
-                viewModel.updateRequestList(item)
-            }
-        }
-    }
-
-    private fun getReceiverOptions(): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Context.RECEIVER_EXPORTED else 0
     }
 
     private fun initBar() {
@@ -145,12 +154,6 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         if (currentChildListener?.onBackPressed() == true) {
             return true
         }
-
         return super.onBackPressed()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        requireContext().unregisterReceiver(receiver)
     }
 }

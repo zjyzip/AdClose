@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.model.RequestInfo
+import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class RequestViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -62,5 +64,26 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
 
     fun onClearAllRequests() {
         _requestList.value = emptyList()
+    }
+
+    fun toggleBlockStatus(request: RequestInfo) = viewModelScope.launch(Dispatchers.IO) {
+        val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
+            if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
+        }
+        val urlToToggle = request.url ?: request.request
+
+        val newIsBlocked = if (request.isBlocked == true) {
+            dataSource.removeUrlString(requestType, urlToToggle)
+            false
+        } else {
+            dataSource.addUrl(Url(requestType, urlToToggle))
+            true
+        }
+
+        _requestList.update { currentList ->
+            currentList.map {
+                if (it.timestamp == request.timestamp) it.copy(isBlocked = newIsBlocked) else it
+            }
+        }
     }
 }
