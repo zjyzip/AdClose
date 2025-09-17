@@ -284,12 +284,15 @@ object RequestHook {
         val scheme = if (isHttps) "https" else "http"
         val url = "$scheme://$host$path"
 
+        val firstNewline = headers.indexOf("\r\n")
+        val cleanedHeaders = if (firstNewline != -1) headers.substring(firstNewline + 2) else headers
+
         val info = BlockedRequest(
             requestType = if (isHttps) " HTTPS" else " HTTP",
             requestValue = formatUrlWithoutQuery(Uri.parse(url)),
             method = method,
             urlString = url,
-            requestHeaders = headers,
+            requestHeaders = cleanedHeaders,
             requestBody = body,
             responseCode = -1,
             responseMessage = null,
@@ -317,10 +320,13 @@ object RequestHook {
             contentType
         }
 
+        val firstNewline = headers.indexOf("\r\n")
+        val cleanedHeaders = if (firstNewline != -1) headers.substring(firstNewline + 2) else headers
+
         val finalInfo = requestInfo.copy(
             responseCode = responseCode,
             responseMessage = responseMessage,
-            responseHeaders = headers,
+            responseHeaders = cleanedHeaders,
             responseBody = body,
             responseBodyContentType = mimeTypeForProvider
         )
