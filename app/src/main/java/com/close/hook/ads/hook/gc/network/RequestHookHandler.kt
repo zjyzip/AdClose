@@ -267,15 +267,23 @@ internal object RequestHookHandler {
                         }
 
                         var responseBodyBytes: ByteArray? = null
-                        var responseContentType: String? = null
+                        var mimeTypeWithEncoding: String? = null
 
                         if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
                             val originalBody = XposedHelpers.callMethod(response, "body")
                             if (originalBody != null) {
                                 try {
                                     val mediaType = XposedHelpers.callMethod(originalBody, "contentType")
-                                    responseContentType = mediaType?.toString()
+                                    val responseContentType = mediaType?.toString()
                                     responseBodyBytes = XposedHelpers.callMethod(originalBody, "bytes") as? ByteArray
+                                    
+                                    val contentEncoding = XposedHelpers.callMethod(response, "header", "Content-Encoding") as? String
+
+                                    mimeTypeWithEncoding = if (!contentEncoding.isNullOrEmpty()) {
+                                        "$responseContentType; encoding=$contentEncoding"
+                                    } else {
+                                        responseContentType
+                                    }
 
                                     if (responseBodyBytes != null && okhttp3ResponseBodyClass != null) {
                                         val newBody = XposedHelpers.callStaticMethod(okhttp3ResponseBodyClass, "create", mediaType, responseBodyBytes)
@@ -290,7 +298,7 @@ internal object RequestHookHandler {
                         val info = buildOkHttpRequest(
                             url, " OKHTTP", request, response,
                             requestBodyBytes,
-                            responseBodyBytes, responseContentType, stackTrace
+                            responseBodyBytes, mimeTypeWithEncoding, stackTrace
                         )
                         if (RequestHook.checkShouldBlockRequest(info)) {
                             param.throwable = IOException("Request blocked by AdClose: ${url.host}")
