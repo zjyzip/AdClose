@@ -47,8 +47,11 @@ class RequestListAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val targetIconSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
+        
+        private val defaultTextColor: Int
 
         init {
+            defaultTextColor = binding.request.currentTextColor
             setupListeners()
         }
 
@@ -139,7 +142,7 @@ class RequestListAdapter(
             val textColor = if (isBlocked) {
                 context.resolveColorAttr(android.R.attr.colorError)
             } else {
-                context.resolveColorAttr(android.R.attr.colorControlNormal)
+                defaultTextColor
             }
             binding.request.setTextColor(textColor)
         }
