@@ -1,6 +1,5 @@
 package com.close.hook.ads.data.repository
 
-import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -83,6 +82,7 @@ class AppRepository(private val packageManager: PackageManager) {
         return apps.asSequence()
             .filter { app ->
                 val typeMatch = when (filter.appType) {
+                    "all" -> true
                     "user" -> !app.isSystem
                     "system" -> app.isSystem
                     "configured" -> app.isEnable == 1

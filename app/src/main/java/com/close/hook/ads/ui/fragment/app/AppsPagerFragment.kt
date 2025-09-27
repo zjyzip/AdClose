@@ -13,10 +13,12 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.BaseTablayoutViewpagerBinding
 import com.close.hook.ads.databinding.BottomDialogSearchFilterBinding
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
+import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.preference.PrefManager
@@ -33,6 +35,8 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
     override val tabList: List<Int> =
         listOf(R.string.tab_user_apps, R.string.tab_configured_apps, R.string.tab_system_apps)
+
+    private val viewModel by viewModels<AppsViewModel>()
 
     private var bottomSheet: BottomSheetDialog? = null
     private lateinit var filerBinding: BottomDialogSearchFilterBinding
@@ -175,7 +179,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     }
 
     private fun updateSortAndFilters() {
-        controller?.updateSortList(
+        viewModel.updateFilterAndSort(
             PrefManager.order,
             binding.editText.text.toString(),
             PrefManager.isReverse,

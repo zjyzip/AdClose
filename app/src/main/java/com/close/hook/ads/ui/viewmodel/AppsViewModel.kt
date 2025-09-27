@@ -35,7 +35,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun createDefaultFilterState() = AppFilterState(
-        appType = "user",
+        appType = "all",
         filterOrder = PrefManager.order,
         isReverse = PrefManager.isReverse,
         keyword = "",
@@ -60,10 +60,6 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             combineFlows()
                 .collectLatest { _uiState.value = it }
         }
-    }
-
-    fun setAppType(type: String) {
-        _filterState.update { it.copy(appType = type) }
     }
 
     fun updateFilterAndSort(

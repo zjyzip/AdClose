@@ -48,6 +48,8 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -65,9 +67,7 @@ import java.util.zip.ZipOutputStream
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
 
-    private val viewModel by viewModels<AppsViewModel>(ownerProducer = {
-        if (arguments?.getString("type") == "configured") requireActivity() else this
-    })
+    private val viewModel by viewModels<AppsViewModel>(ownerProducer = { requireParentFragment() })
 
     private var fragmentType: String = "user"
 
@@ -128,7 +128,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         fragmentType = arguments?.getString("type") ?: "user"
-        viewModel.setAppType(fragmentType)
 
         if (fragmentType == "configured") {
             (parentFragment as? IOnFabClickContainer)?.fabController = this@AppsFragment
@@ -326,33 +325,46 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collectLatest { state ->
-                    val apps = state.apps
-                    val isLoading = state.isLoading
-
-                    binding.swipeRefresh.isRefreshing = isLoading && apps.isNotEmpty()
-
-                    when {
-                        isLoading && apps.isEmpty() -> {
-                            binding.progressBar.isVisible = true
-                            binding.vfContainer.isVisible = false
+                viewModel.uiState
+                    .map { state ->
+                        val filteredApps = state.apps.filter { app ->
+                            when (fragmentType) {
+                                "user" -> !app.isSystem
+                                "system" -> app.isSystem
+                                "configured" -> app.isEnable == 1
+                                else -> true
+                            }
                         }
-                        !isLoading && apps.isEmpty() -> {
-                            binding.progressBar.isVisible = false
-                            binding.vfContainer.isVisible = true
-                            binding.vfContainer.displayedChild = 0
-                        }
-                        apps.isNotEmpty() -> {
-                            binding.progressBar.isVisible = false
-                            binding.vfContainer.isVisible = true
-                            binding.vfContainer.displayedChild = 1
-                        }
+                        state.copy(apps = filteredApps)
                     }
+                    .distinctUntilChanged()
+                    .collectLatest { state ->
+                        val apps = state.apps
+                        val isLoading = state.isLoading
 
-                    mAdapter.submitList(apps)
+                        binding.swipeRefresh.isRefreshing = isLoading && apps.isNotEmpty()
 
-                    updateSearchHint(apps.size)
-                }
+                        when {
+                            isLoading && apps.isEmpty() -> {
+                                binding.progressBar.isVisible = true
+                                binding.vfContainer.isVisible = false
+                            }
+                            !isLoading && apps.isEmpty() -> {
+                                binding.progressBar.isVisible = false
+                                binding.vfContainer.isVisible = true
+                                binding.vfContainer.displayedChild = 0
+                            }
+                            apps.isNotEmpty() -> {
+                                binding.progressBar.isVisible = false
+                                binding.vfContainer.isVisible = true
+                                binding.vfContainer.displayedChild = 1
+                            }
+                        }
+
+                        mAdapter.submitList(apps)
+
+                        updateSearchHint(apps.size)
+                    }
             }
         }
     }
@@ -506,7 +518,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         super.onResume()
         (parentFragment as? IOnTabClickContainer)?.tabController = this
         (parentFragment as? OnCLearCLickContainer)?.controller = this
-        updateSearchHint(viewModel.uiState.value.apps.size)
+        updateSearchHint(mAdapter.currentList.size)
     }
 
     override fun onPause() {
@@ -516,6 +528,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     override fun onDestroyView() {
+        binding.recyclerView.adapter = null
         super.onDestroyView()
         appConfigDialog?.dismiss()
         appInfoDialog?.dismiss()
@@ -532,14 +545,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         showUpdated: Boolean,
         showDisabled: Boolean
     ) {
-        viewModel.updateFilterAndSort(
-            filterOrder,
-            keyWord,
-            isReverse,
-            showConfigured,
-            showUpdated,
-            showDisabled
-        )
     }
 
     override fun onExport() {
