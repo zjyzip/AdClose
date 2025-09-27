@@ -21,7 +21,7 @@ import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.databinding.ItemRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
 import com.close.hook.ads.util.AppIconLoader
-import com.google.android.material.color.MaterialColors
+import com.close.hook.ads.util.resolveColorAttr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,7 +58,7 @@ class RequestListAdapter(
                 override fun getSelectionKey(): RequestInfo? = getItem(bindingAdapterPosition)
             }
 
-        @SuppressLint("SetTextI18n")
+        @SuppressLint("SetTextI1n")
         fun bind(request: RequestInfo, isSelected: Boolean) = with(binding) {
             root.tag = request
             cardView.isChecked = isSelected
@@ -137,9 +137,9 @@ class RequestListAdapter(
             }
 
             val textColor = if (isBlocked) {
-                MaterialColors.getColor(context, com.google.android.material.R.attr.colorError, 0)
+                context.resolveColorAttr(android.R.attr.colorError)
             } else {
-                MaterialColors.getColor(context, com.google.android.material.R.attr.colorControlNormal, 0)
+                context.resolveColorAttr(android.R.attr.colorControlNormal)
             }
             binding.request.setTextColor(textColor)
         }

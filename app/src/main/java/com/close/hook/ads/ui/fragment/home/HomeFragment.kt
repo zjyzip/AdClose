@@ -1,28 +1,26 @@
 package com.close.hook.ads.ui.fragment.home
 
 import android.annotation.SuppressLint
-import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.method.LinkMovementMethod
-import android.view.View
-import android.view.MotionEvent
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
-import androidx.appcompat.widget.ThemeUtils
+import android.view.MotionEvent
+import android.view.View
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
 import com.close.hook.ads.BuildConfig
-import com.close.hook.ads.manager.ServiceManager
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHomeBinding
-import com.close.hook.ads.ui.activity.AboutActivity
-import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.debug.PerformanceActivity
+import com.close.hook.ads.manager.ServiceManager
+import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.ui.fragment.base.BaseFragment
+import com.close.hook.ads.util.resolveColorAttr
 
 class HomeFragment : BaseFragment<FragmentHomeBinding>() {
 
@@ -32,15 +30,17 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
         initInfo()
     }
 
-    @SuppressLint("SetTextI18n", "RestrictedApi", "HardwareIds")
+    @SuppressLint("SetTextI1n", "HardwareIds")
     private fun initInfo() {
         val context = requireContext()
         val isActivated = ServiceManager.isModuleActivated
-        val primaryOrErrorColor = ThemeUtils.getThemeAttrColor(
-            context,
-            if (isActivated) com.google.android.material.R.attr.colorPrimary
-            else com.google.android.material.R.attr.colorError
-        )
+
+        val colorAttr = if (isActivated) {
+            android.R.attr.colorPrimary
+        } else {
+            android.R.attr.colorError
+        }
+        val primaryOrErrorColor = context.resolveColorAttr(colorAttr)
 
         binding.apply {
             status.setCardBackgroundColor(primaryOrErrorColor)
@@ -91,7 +91,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
                 getString(R.string.about_view_source_code, "<b><a href=\"https://github.com/zjyzip/AdClose\">GitHub</a></b>"),
                 HtmlCompat.FROM_HTML_MODE_LEGACY
             )
-            
+
             feedback.movementMethod = linkMovementMethod
             feedback.text = HtmlCompat.fromHtml(
                 getString(R.string.join_telegram_channel, "<b><a href=\"https://t.me/AdClose\">Telegram</a></b>"),
@@ -121,6 +121,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
 
             setOnTouchListener { _, event ->
                 gestureDetector.onTouchEvent(event)
+                true
             }
         }
     }

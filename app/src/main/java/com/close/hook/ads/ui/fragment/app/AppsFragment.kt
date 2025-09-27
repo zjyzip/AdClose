@@ -41,10 +41,10 @@ import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.resolveColorAttr
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.checkbox.MaterialCheckBox
-import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -265,13 +265,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private fun initRefresh() {
         binding.swipeRefresh.apply {
-            setColorSchemeColors(
-                MaterialColors.getColor(
-                    requireContext(),
-                    com.google.android.material.R.attr.colorPrimary,
-                    -1
-                )
-            )
+            setColorSchemeColors(requireContext().resolveColorAttr(android.R.attr.colorPrimary))
             setOnRefreshListener {
                 viewModel.refreshApps()
                 (activity as? INavContainer)?.showNavigation()
