@@ -38,6 +38,15 @@ internal object RequestHookHandler {
         }
     }
 
+    private val okioBufferClass: Class<*>? by lazy {
+        try {
+            XposedHelpers.findClass("okio.Buffer", applicationContext.classLoader)
+        } catch (e: Throwable) {
+            XposedBridge.log("$LOG_PREFIX ${e.message}")
+            null
+        }
+    }
+
     private val emptyWebResponse: WebResourceResponse? by lazy { createEmptyWebResourceResponse() }
 
     private val cronetHttpURLConnectionCls: Class<*>? by lazy {
@@ -207,8 +216,8 @@ internal object RequestHookHandler {
                 "after"
             ) { param ->
                 try {
+                    val result = param.result as? SSLEngineResult ?: return@findAndHookMethod
                     val dstBuffer = param.args[1] as ByteBuffer
-                    val result = param.result as SSLEngineResult
                     val bytesProduced = result.bytesProduced()
                     
                     if (bytesProduced > 0) {
@@ -235,10 +244,8 @@ internal object RequestHookHandler {
     }
 
     fun setupOkHttpRequestHook() {
-        // okhttp3.Call.execute
-        hookOkHttpMethod("setupOkHttpRequestHook_execute", "Already Executed", "execute")
-        // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
-        hookOkHttpMethod("setupOkHttp2RequestHook_intercept", "Canceled", "intercept")
+        // okhttp3.internal.http.RealInterceptorChain.proceed
+        hookOkHttpMethod("setupOkHttp2RequestHook_proceed", "returned a response with no body", "proceed")
     }
 
     private fun hookOkHttpMethod(cacheKeySuffix: String, methodDescription: String, methodName: String) {
@@ -249,14 +256,14 @@ internal object RequestHookHandler {
                 XposedBridge.log("$LOG_PREFIX setupOkHttpRequestHook $methodData")
                 HookUtil.hookMethod(method, "after") { param ->
                     try {
+                        val request = param.args[0] ?: return@hookMethod
                         val response = param.result ?: return@hookMethod
-                        val request = XposedHelpers.callMethod(response, "request")
                         val url = URL(XposedHelpers.callMethod(request, "url").toString())
                         val stackTrace = HookUtil.getFormattedStackTrace()
 
                         val requestBodyBytes = try {
                             XposedHelpers.callMethod(request, "body")?.let { requestBody ->
-                                val bufferClass = XposedHelpers.findClass("okio.Buffer", applicationContext.classLoader)
+                                val bufferClass = okioBufferClass ?: return@let null
                                 val bufferInstance = bufferClass.getDeclaredConstructor().newInstance()
                                 XposedHelpers.callMethod(requestBody, "writeTo", bufferInstance)
                                 XposedHelpers.callMethod(bufferInstance, "readByteArray") as? ByteArray
@@ -270,9 +277,9 @@ internal object RequestHookHandler {
                         var mimeTypeWithEncoding: String? = null
 
                         if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
-                            val originalBody = XposedHelpers.callMethod(response, "body")
-                            if (originalBody != null) {
-                                try {
+                            try {
+                                val originalBody = XposedHelpers.callMethod(response, "body")
+                                if (originalBody != null) {
                                     val mediaType = XposedHelpers.callMethod(originalBody, "contentType")
                                     val responseContentType = mediaType?.toString()
                                     responseBodyBytes = XposedHelpers.callMethod(originalBody, "bytes") as? ByteArray
@@ -289,9 +296,9 @@ internal object RequestHookHandler {
                                         val newBody = XposedHelpers.callStaticMethod(okhttp3ResponseBodyClass, "create", mediaType, responseBodyBytes)
                                         XposedHelpers.setObjectField(response, "body", newBody)
                                     }
-                                } catch (e: Throwable) {
-                                    XposedBridge.log("$LOG_PREFIX OkHttp response body reading failed: ${e.message}")
                                 }
+                            } catch (e: Throwable) {
+                                XposedBridge.log("$LOG_PREFIX OkHttp response body reading failed: ${e.message}")
                             }
                         }
 
@@ -366,12 +373,12 @@ internal object RequestHookHandler {
     private fun hookClientMethods(clientClassName: String, classLoader: ClassLoader) {
         XposedBridge.log("$LOG_PREFIX WebViewClient set: $clientClassName")
 
-        HookUtil.findAndHookMethod(
+        HookUtil.hookAllMethods(
             clientClassName,
             "shouldInterceptRequest",
-            arrayOf(WebView::class.java, WebResourceRequest::class.java),
             "before",
             { param ->
+                if (param.args.size != 2) return@hookAllMethods
                 if (processWebRequest(param.args[1])) {
                     param.result = emptyWebResponse
                 }
@@ -379,12 +386,12 @@ internal object RequestHookHandler {
             classLoader
         )
 
-        HookUtil.findAndHookMethod(
+        HookUtil.hookAllMethods(
             clientClassName,
             "shouldOverrideUrlLoading",
-            arrayOf(WebView::class.java, WebResourceRequest::class.java),
             "before",
             { param ->
+                if (param.args.size != 2) return@hookAllMethods
                 if (processWebRequest(param.args[1])) {
                     param.result = true
                 }

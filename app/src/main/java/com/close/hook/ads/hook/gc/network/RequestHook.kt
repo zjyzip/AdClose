@@ -208,8 +208,9 @@ object RequestHook {
 
         if (currentIndex > 0) {
             val remainingBytes = buffer.copyOfRange(currentIndex, buffer.size)
+            bufferStream.reset()
             if (remainingBytes.isNotEmpty()) {
-                requestBuffers[key] = ByteArrayOutputStream().apply { write(remainingBytes) }
+                bufferStream.write(remainingBytes)
             } else {
                 requestBuffers.remove(key)
             }
@@ -265,8 +266,9 @@ object RequestHook {
 
         if (currentIndex > 0) {
             val remainingBytes = buffer.copyOfRange(currentIndex, buffer.size)
+            bufferStream.reset()
             if (remainingBytes.isNotEmpty()) {
-                responseBuffers[key] = ByteArrayOutputStream().apply { write(remainingBytes) }
+                bufferStream.write(remainingBytes)
             } else {
                 responseBuffers.remove(key)
             }

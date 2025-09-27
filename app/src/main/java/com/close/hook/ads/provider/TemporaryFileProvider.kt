@@ -39,7 +39,7 @@ class TemporaryFileProvider : ContentProvider() {
         val expirationTime = HookPrefs.getRequestCacheExpiration()
         CacheBuilder.newBuilder()
             .expireAfterWrite(expirationTime, TimeUnit.MINUTES)
-            .maximumSize(150)
+            .maximumSize(8192)
             .build()
     }
 
