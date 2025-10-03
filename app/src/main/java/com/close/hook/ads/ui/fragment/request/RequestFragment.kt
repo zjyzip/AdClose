@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
@@ -73,10 +74,15 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private fun setupBroadcastReceiver() {
         val filter = IntentFilter("com.rikkati.REQUEST")
-        val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Context.RECEIVER_EXPORTED
-        } else 0
-        requireContext().registerReceiver(receiver, filter, options)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requireContext().registerReceiver(
+                receiver,
+                filter,
+                Context.RECEIVER_EXPORTED
+            )
+        } else {
+            requireContext().registerReceiver(receiver, filter)
+        }
     }
     
     override fun onDestroyView() {
