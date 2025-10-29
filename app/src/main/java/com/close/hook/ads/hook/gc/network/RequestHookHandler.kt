@@ -78,7 +78,7 @@ internal object RequestHookHandler {
         setupOkHttpRequestHook() // HTTP/2 (via okhttp3)
         // setupProtocolDowngradeHook()
         setupWebViewRequestHook()
-        
+
         if (context.packageName == "com.ss.android.ugc.aweme") {
             setupCronetRequestHook()
         }
@@ -244,8 +244,10 @@ internal object RequestHookHandler {
     }
 
     fun setupOkHttpRequestHook() {
-        // okhttp3.internal.http.RealInterceptorChain.proceed
-        hookOkHttpMethod("setupOkHttp2RequestHook_proceed", "returned a response with no body", "proceed")
+        // okhttp3.Call.execute
+        hookOkHttpMethod("setupOkHttpRequestHook_execute", "Already Executed", "execute")
+        // okhttp3.internal.http.RetryAndFollowUpInterceptor.intercept
+        hookOkHttpMethod("setupOkHttp2RequestHook_intercept", "Canceled", "intercept")
     }
 
     private fun hookOkHttpMethod(cacheKeySuffix: String, methodDescription: String, methodName: String) {
@@ -256,8 +258,8 @@ internal object RequestHookHandler {
                 XposedBridge.log("$LOG_PREFIX setupOkHttpRequestHook $methodData")
                 HookUtil.hookMethod(method, "after") { param ->
                     try {
-                        val request = param.args[0] ?: return@hookMethod
                         val response = param.result ?: return@hookMethod
+                        val request = XposedHelpers.callMethod(response, "request")
                         val url = URL(XposedHelpers.callMethod(request, "url").toString())
                         val stackTrace = HookUtil.getFormattedStackTrace()
 
