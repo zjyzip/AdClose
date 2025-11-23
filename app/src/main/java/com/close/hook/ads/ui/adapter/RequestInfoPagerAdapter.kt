@@ -1,20 +1,16 @@
 package com.close.hook.ads.ui.adapter
 
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.os.Bundle
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.BackgroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.close.hook.ads.data.model.ResponseBodyContent
 import com.close.hook.ads.databinding.ItemRequestInfoBinding
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
-import com.close.hook.ads.ui.viewmodel.ResponseBodyContent
 
 class RequestInfoPagerAdapter(
     private val arguments: Bundle,
@@ -109,23 +105,7 @@ class RequestInfoPagerAdapter(
         }
 
         fun refreshHighlights() {
-            when (tabs.getOrNull(bindingAdapterPosition)) {
-                "DNS Info" -> updateStaticTextViews(
-                    binding.dnsHostText to arguments.getString("dnsHost"),
-                    binding.fullAddressText to arguments.getString("fullAddress")
-                )
-                "Request" -> updateStaticTextViews(
-                    binding.methodText to arguments.getString("method"),
-                    binding.urlStringText to arguments.getString("urlString"),
-                    binding.requestHeadersText to arguments.getString("requestHeaders")
-                )
-                "Response" -> updateStaticTextViews(
-                    binding.responseCodeText to arguments.getString("responseCode"),
-                    binding.responseMessageText to arguments.getString("responseMessage"),
-                    binding.responseHeadersText to arguments.getString("responseHeaders")
-                )
-                "Stack" -> updateStaticTextViews(binding.stackText to arguments.getString("stack"))
-            }
+            bind(tabs[bindingAdapterPosition])
         }
 
         fun updateTextHighlight(highlightedText: CharSequence) {
@@ -170,30 +150,12 @@ class RequestInfoPagerAdapter(
 
         private fun updateStaticTextViews(vararg pairs: Pair<TextView, String?>) {
             pairs.forEach { (textView, text) ->
-                highlightTextView(textView, text)
+                if (text != null) {
+                    textView.text = viewModel.createHighlightedText(text, viewModel.currentQuery.value, currentIndex = -1)
+                } else {
+                    textView.text = ""
+                }
             }
-        }
-
-        private fun highlightTextView(textView: TextView, fullText: String?) {
-            if (fullText.isNullOrEmpty()) {
-                textView.text = ""
-                return
-            }
-            val query = viewModel.currentQuery.value
-            if (query.isEmpty()) {
-                textView.text = fullText
-                return
-            }
-            val spannable = SpannableString(fullText)
-            var index = fullText.lowercase().indexOf(query.lowercase())
-            while (index >= 0) {
-                spannable.setSpan(
-                    BackgroundColorSpan(Color.YELLOW), index, index + query.length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                index = fullText.lowercase().indexOf(query.lowercase(), index + 1)
-            }
-            textView.text = spannable
         }
         
         private fun setupCollectResponseBodySwitch() {

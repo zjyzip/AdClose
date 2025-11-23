@@ -5,12 +5,14 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -237,9 +239,13 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
             return
         }
 
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_selectable_text, null)
+        val textView = dialogView.findViewById<TextView>(R.id.textViewDetails)
+        textView.text = stackTrace
+        
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Stack Trace")
-            .setMessage(stackTrace)
+            .setView(dialogView)
             .setPositiveButton(android.R.string.ok, null)
             .setNeutralButton("Copy Stack") { _, _ -> copyToClipboard("stack_trace", stackTrace) }
             .setNegativeButton("Copy Log") { _, _ -> copyToClipboard("log_entry", formatLogEntry(logEntry)) }

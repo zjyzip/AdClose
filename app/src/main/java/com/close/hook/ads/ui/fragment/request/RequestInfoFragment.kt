@@ -22,11 +22,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
+import com.close.hook.ads.data.model.ResponseBodyContent
 import com.close.hook.ads.databinding.FragmentRequestInfoBinding
 import com.close.hook.ads.ui.adapter.RequestInfoPagerAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
-import com.close.hook.ads.ui.viewmodel.ResponseBodyContent
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.google.android.material.tabs.TabLayoutMediator

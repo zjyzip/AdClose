@@ -11,6 +11,7 @@ import android.text.style.BackgroundColorSpan
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.close.hook.ads.data.model.ResponseBodyContent
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
@@ -31,13 +32,6 @@ import java.nio.charset.StandardCharsets
 import java.util.Locale
 import java.util.zip.GZIPInputStream
 import java.util.zip.InflaterInputStream
-
-sealed class ResponseBodyContent {
-    data class Text(val content: String, val mimeType: String?) : ResponseBodyContent()
-    data class Image(val bytes: ByteArray, val mimeType: String?) : ResponseBodyContent()
-    data class Error(val message: String) : ResponseBodyContent()
-    object Loading : ResponseBodyContent()
-}
 
 class RequestInfoViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -89,7 +83,7 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
                     _matches.value = matches
                     _currentMatchIndex.value = index
                     _highlightedContent.value = content?.let {
-                        highlightText(it, matches, index)
+                        createHighlightedText(it, query = currentQuery.value, matches = matches, currentIndex = index)
                     }
                 }
         }
@@ -126,8 +120,34 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private fun updateHighlight() {
         val content = currentContentProvider?.invoke()
         if (content != null) {
-            _highlightedContent.value = highlightText(content, _matches.value, _currentMatchIndex.value)
+            _highlightedContent.value = createHighlightedText(content, currentQuery.value, _matches.value, _currentMatchIndex.value)
         }
+    }
+
+    fun createHighlightedText(
+        text: String,
+        query: String,
+        matches: List<Pair<Int, Int>>? = null,
+        currentIndex: Int = -1
+    ): CharSequence {
+        if (query.isEmpty() || text.isEmpty()) {
+            return text
+        }
+        val foundMatches = matches ?: findMatches(text, query)
+        if (foundMatches.isEmpty()) {
+            return text
+        }
+
+        val spannable = SpannableString(text)
+        foundMatches.forEachIndexed { index, (start, end) ->
+            val color = if (currentIndex != -1 && index == currentIndex) {
+                ACTIVE_HIGHLIGHT_COLOR
+            } else {
+                HIGHLIGHT_COLOR
+            }
+            spannable.setSpan(BackgroundColorSpan(color), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return spannable
     }
 
     private fun findMatches(text: String, query: String): List<Pair<Int, Int>> {
@@ -140,15 +160,6 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
             index = normalizedText.indexOf(normalizedQuery, index + 1)
         }
         return positions
-    }
-
-    private fun highlightText(text: String, matches: List<Pair<Int, Int>>, currentIndex: Int): SpannableString {
-        val spannable = SpannableString(text)
-        matches.forEachIndexed { index, (start, end) ->
-            val color = if (index == currentIndex) ACTIVE_HIGHLIGHT_COLOR else HIGHLIGHT_COLOR
-            spannable.setSpan(BackgroundColorSpan(color), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        }
-        return spannable
     }
 
     private fun loadRequestBody(uriString: String) {
