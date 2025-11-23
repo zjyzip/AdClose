@@ -2,32 +2,35 @@ package com.close.hook.ads.debug.fragment
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Debug
-import android.os.Handler
-import android.os.Looper
 import android.os.Process
 import android.view.Choreographer
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.close.hook.ads.R
-import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.model.AppFilterState
+import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.databinding.FragmentAppRepoPerformanceBinding
-import com.github.mikephil.charting.components.Legend
+import com.close.hook.ads.util.resolveColorAttr
+import com.github.mikephil.charting.components.MarkerView
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
-import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
+import com.github.mikephil.charting.highlight.Highlight
+import com.github.mikephil.charting.utils.MPPointF
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -70,11 +73,12 @@ class AppRepoPerformanceFragment : Fragment() {
 
     enum class ChartMetric(val label: String, val color: Int) {
         JAVA_HEAP("Java 堆 (MB)", Color.parseColor("#1E88E5")),
-        NATIVE_HEAP("Native 堆 (MB)", Color.parseColor("#6D4C41")),
-        PSS_USAGE("PSS (物理内存) (MB)", Color.parseColor("#00897B")),
-        THREAD_COUNT("线程数量", Color.parseColor("#43A047")),
-        GC_COUNT("GC 次数", Color.parseColor("#FB8C00")),
-        FPS("平均 UI 帧率 (FPS)", Color.parseColor("#9C27B0"))
+        NATIVE_HEAP("Native 堆 (MB)", Color.parseColor("#43A047")),
+        PSS_USAGE("PSS (物理内存) (MB)", Color.parseColor("#FB8C00")),
+        
+        THREAD_COUNT("线程数量", 0),
+        GC_COUNT("GC 次数", 0),
+        FPS("平均 UI 帧率", 0)
     }
 
     override fun onCreateView(
@@ -96,7 +100,14 @@ class AppRepoPerformanceFragment : Fragment() {
         }
 
         setupPerformanceChart()
+        setupCustomLegend()
         setupListeners()
+    }
+
+    private fun setupCustomLegend() {
+        binding.legendJavaColor.backgroundTintList = ColorStateList.valueOf(ChartMetric.JAVA_HEAP.color)
+        binding.legendNativeColor.backgroundTintList = ColorStateList.valueOf(ChartMetric.NATIVE_HEAP.color)
+        binding.legendPssColor.backgroundTintList = ColorStateList.valueOf(ChartMetric.PSS_USAGE.color)
     }
 
     override fun onDestroyView() {
@@ -120,40 +131,41 @@ class AppRepoPerformanceFragment : Fragment() {
 
     private fun setupPerformanceChart() {
         with(binding.memoryChart) {
-            setTouchEnabled(true)
-            setScaleEnabled(true)
-            isDragEnabled = true
-            setPinchZoom(true)
             description.isEnabled = false
-            setExtraOffsets(5f, 10f, 10f, 25f)
+            setDrawGridBackground(false)
+            setDrawBorders(false)
+            
+            setTouchEnabled(true)
+            isDragEnabled = true
+            setScaleEnabled(true)
+            setPinchZoom(false)
 
-            legend.apply {
-                isWordWrapEnabled = true
-                form = Legend.LegendForm.LINE
-                textSize = 10f
-                textColor = Color.BLACK
-                orientation = Legend.LegendOrientation.HORIZONTAL
-                horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
-                verticalAlignment = Legend.LegendVerticalAlignment.BOTTOM
-                setDrawInside(false)
-            }
+            legend.isEnabled = false
 
             xAxis.apply {
                 position = XAxis.XAxisPosition.BOTTOM
+                setDrawGridLines(false)
+                setDrawAxisLine(false)
                 granularity = 1f
                 valueFormatter = IndexAxisValueFormatter(chartLabels)
-                setDrawGridLines(false)
+                textColor = requireContext().resolveColorAttr(android.R.attr.textColorSecondary)
                 textSize = 12f
-                textColor = Color.BLACK
+                yOffset = 10f
             }
 
             axisLeft.apply {
+                setDrawGridLines(true)
+                gridColor = Color.parseColor("#1A000000")
+                enableGridDashedLine(10f, 10f, 0f)
+                setDrawAxisLine(false)
+                textColor = requireContext().resolveColorAttr(android.R.attr.textColorSecondary)
+                textSize = 10f
                 axisMinimum = 0f
-                textSize = 12f
-                textColor = Color.BLACK
             }
 
             axisRight.isEnabled = false
+            
+            marker = CustomMarkerView(context, R.layout.layout_marker_view)
         }
     }
 
@@ -164,7 +176,9 @@ class AppRepoPerformanceFragment : Fragment() {
         var totalFilterConfiguredAppsTimeMs = 0L
 
         log("🚀 开始应用数据获取与过滤性能测试...\n")
-        binding.timeSummary.text = ""
+        withContext(Dispatchers.Main) {
+            binding.timeSummary.text = ""
+        }
 
         repeat(TEST_REPEAT_TIMES) { index ->
             val testRunId = index + 1
@@ -206,13 +220,11 @@ class AppRepoPerformanceFragment : Fragment() {
             val memoryMetrics = withContext(Dispatchers.Default) { getMemoryMetrics() }
             val gcCollectionCount = withContext(Dispatchers.Default) { getGcCollectionCount() }
 
-            chartLabels.add("运行 $testRunId")
-            chartDataEntries[ChartMetric.JAVA_HEAP]?.add(Entry(index.toFloat(), normalizeValue(memoryMetrics.javaHeapMb.toFloat())))
-            chartDataEntries[ChartMetric.NATIVE_HEAP]?.add(Entry(index.toFloat(), normalizeValue(memoryMetrics.nativeHeapMb.toFloat())))
-            chartDataEntries[ChartMetric.PSS_USAGE]?.add(Entry(index.toFloat(), normalizeValue(memoryMetrics.pssMb.toFloat())))
-            chartDataEntries[ChartMetric.THREAD_COUNT]?.add(Entry(index.toFloat(), normalizeValue(currentThreadCount.toFloat())))
-            chartDataEntries[ChartMetric.GC_COUNT]?.add(Entry(index.toFloat(), normalizeValue(gcCollectionCount.toFloat())))
-            chartDataEntries[ChartMetric.FPS]?.add(Entry(index.toFloat(), normalizeValue(averageFps)))
+            chartLabels.add("Run $testRunId")
+            
+            chartDataEntries[ChartMetric.JAVA_HEAP]?.add(Entry(index.toFloat(), memoryMetrics.javaHeapMb.toFloat()))
+            chartDataEntries[ChartMetric.NATIVE_HEAP]?.add(Entry(index.toFloat(), memoryMetrics.nativeHeapMb.toFloat()))
+            chartDataEntries[ChartMetric.PSS_USAGE]?.add(Entry(index.toFloat(), memoryMetrics.pssMb.toFloat()))
 
             log("""
                 --- ✅ 第 $testRunId 次测试结果 ---
@@ -228,23 +240,19 @@ class AppRepoPerformanceFragment : Fragment() {
             log("--- 第 $testRunId 次测试结束 ---\n")
         }
 
-        updatePerformanceChart()
+        withContext(Dispatchers.Main) {
+            updatePerformanceChart()
+        }
 
         val summary = """
-            --- 🎯 性能测试总结 ---
             平均获取所有应用耗时: ${totalGetAllAppsTimeMs / TEST_REPEAT_TIMES}ms
             平均过滤已配置应用耗时: ${totalFilterConfiguredAppsTimeMs / TEST_REPEAT_TIMES}ms
-            -----------------------
         """.trimIndent()
-        binding.timeSummary.text = summary
+        withContext(Dispatchers.Main) {
+            binding.timeSummary.text = summary
+        }
         log(summary)
         log("\n🚀 应用数据获取与过滤性能测试完成。")
-    }
-
-    private fun normalizeValue(value: Float): Float {
-        val min = 0f
-        val max = 1f
-        return (value - min) / (max - min)
     }
 
     private fun clearAllPerformanceData() {
@@ -257,27 +265,58 @@ class AppRepoPerformanceFragment : Fragment() {
     }
 
     private fun updatePerformanceChart() {
-        val dataSets = mutableListOf<ILineDataSet>()
-        ChartMetric.values().forEach { metric ->
+        val dataSets = mutableListOf<LineDataSet>()
+
+        val metricsToDraw = listOf(ChartMetric.PSS_USAGE, ChartMetric.NATIVE_HEAP, ChartMetric.JAVA_HEAP)
+
+        metricsToDraw.forEach { metric ->
             val entries = chartDataEntries[metric]
             if (!entries.isNullOrEmpty()) {
+                val color = metric.color
+
                 val dataSet = LineDataSet(entries, metric.label).apply {
-                    setDrawCircles(true)
-                    setDrawValues(true)
-                    circleRadius = 5f
-                    valueTextSize = 11f
-                    color = metric.color
-                    lineWidth = 2.5f
-                    setDrawCircleHole(false)
                     mode = LineDataSet.Mode.CUBIC_BEZIER
+                    cubicIntensity = 0.2f
+                    
+                    setDrawIcons(false)
+                    setDrawCircles(false)
+                    setDrawValues(false)
+                    
+                    lineWidth = 2f
+                    this.color = color
+                    
+                    setDrawFilled(true)
+                    fillDrawable = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(adjustAlpha(color, 0.6f), adjustAlpha(color, 0.1f))
+                    )
+                    
+                    setDrawCircleHole(false)
+                    enableDashedHighlightLine(10f, 5f, 0f)
+                    highLightColor = requireContext().resolveColorAttr(android.R.attr.textColorPrimary)
                 }
                 dataSets.add(dataSet)
             }
         }
-        binding.memoryChart.data = LineData(dataSets)
-        binding.memoryChart.xAxis.valueFormatter = IndexAxisValueFormatter(chartLabels)
-        binding.memoryChart.notifyDataSetChanged()
-        binding.memoryChart.invalidate()
+
+        if (dataSets.isNotEmpty()) {
+            val data = LineData(dataSets.toList())
+            binding.memoryChart.data = data
+            binding.memoryChart.xAxis.valueFormatter = IndexAxisValueFormatter(chartLabels)
+            binding.memoryChart.xAxis.axisMinimum = -0.2f
+            binding.memoryChart.xAxis.axisMaximum = (chartLabels.size - 1) + 0.2f
+            
+            binding.memoryChart.animateY(1000)
+            binding.memoryChart.invalidate()
+        }
+    }
+
+    private fun adjustAlpha(color: Int, factor: Float): Int {
+        val alpha = (Color.alpha(color) * factor).roundToInt()
+        val red = Color.red(color)
+        val green = Color.green(color)
+        val blue = Color.blue(color)
+        return Color.argb(alpha, red, green, blue)
     }
 
     data class MemoryMetrics(val javaHeapMb: Int, val nativeHeapMb: Int, val pssMb: Int)
@@ -335,9 +374,10 @@ class AppRepoPerformanceFragment : Fragment() {
         }
 
         val validFrameTimes = if (fpsFrameTimes.size > 1) fpsFrameTimes.drop(1) else fpsFrameTimes
+        if (validFrameTimes.isEmpty()) return 0f
 
         val totalDurationNanos = validFrameTimes.sum()
-        return if (validFrameTimes.size >= 1 && totalDurationNanos > 0) {
+        return if (totalDurationNanos > 0) {
             val totalDurationSeconds = totalDurationNanos / 1_000_000_000f
             validFrameTimes.size / totalDurationSeconds
         } else {
@@ -351,6 +391,21 @@ class AppRepoPerformanceFragment : Fragment() {
             binding.scrollView.post {
                 binding.scrollView.fullScroll(View.FOCUS_DOWN)
             }
+        }
+    }
+    
+    inner class CustomMarkerView(context: Context, layoutResource: Int) : MarkerView(context, layoutResource) {
+        private val tvContent: TextView = findViewById(R.id.tvContent)
+
+        override fun refreshContent(e: Entry?, highlight: Highlight?) {
+            if (e != null) {
+                tvContent.text = "${e.y.toInt()} MB"
+            }
+            super.refreshContent(e, highlight)
+        }
+
+        override fun getOffset(): MPPointF {
+            return MPPointF(-(width / 2).toFloat(), -height.toFloat())
         }
     }
 }

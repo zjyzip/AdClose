@@ -1,30 +1,40 @@
 package com.close.hook.ads.debug.fragment
 
+import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
+import com.close.hook.ads.R
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentRoomPerformanceBinding
+import com.close.hook.ads.databinding.ItemLegendBinding
 import com.close.hook.ads.debug.datasource.TestDataSource
-import com.github.mikephil.charting.components.Legend
+import com.close.hook.ads.util.resolveColorAttr
+import com.github.mikephil.charting.components.MarkerView
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
-import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
+import com.github.mikephil.charting.highlight.Highlight
+import com.github.mikephil.charting.utils.MPPointF
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 import kotlin.system.measureTimeMillis
 
 @RequiresApi(Build.VERSION_CODES.N)
@@ -38,17 +48,19 @@ class RoomPerformanceFragment : Fragment() {
     private val chartDataEntries = mutableMapOf<ChartMetric, MutableList<Entry>>()
     private val chartLabels = mutableListOf<String>()
     private val TEST_REPEAT_TIMES = 3
-    private val TEST_DATA_SIZE = 1000
+    private val TEST_DATA_SIZE = 10000
 
-    enum class ChartMetric(val label: String, val color: Int) {
-        INSERT("插入 (ms)", Color.parseColor("#1E88E5")),
-        QUERY_ALL("查询全部 (ms)", Color.parseColor("#6D4C41")),
-        EXISTS_URL_MATCH("精准URL前缀 (ms)", Color.parseColor("#00897B")),
-        EXISTS_KEYWORD_MATCH("任意包含 (ms)", Color.parseColor("#43A047")),
-        NOT_FOUND_URL_PREFIX("URL前缀查找-未找到 (ms)", Color.parseColor("#D81B60")),
-        EXISTS_DOMAIN("Domain包含查找 (ms)", Color.parseColor("#8E24AA")),
-        NOT_FOUND_KEYWORD("Keyword查找-未找到 (ms)", Color.parseColor("#3949AB")),
-        DELETE("删除 (ms)", Color.parseColor("#FB8C00"))
+    enum class ChartMetric(val label: String, val colorResId: Int) {
+        INSERT("插入", R.color.md_theme_light_primary),
+        QUERY_ALL("查询全部", R.color.md_theme_light_tertiary),
+        DELETE("删除", R.color.md_theme_light_error),
+        
+        EXISTS_URL_MATCH("URL匹配", R.color.md_theme_light_secondary),
+        EXISTS_KEYWORD_MATCH("关键词匹配", R.color.md_theme_light_primaryContainer),
+        EXISTS_DOMAIN("域名匹配", R.color.md_theme_light_secondaryContainer),
+        
+        NOT_FOUND_URL_PREFIX("未找到URL", R.color.md_theme_light_tertiaryContainer),
+        NOT_FOUND_KEYWORD("未找到关键词", R.color.md_theme_light_surfaceVariant)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -67,8 +79,33 @@ class RoomPerformanceFragment : Fragment() {
         testDataSource = TestDataSource(testDatabase.urlDao)
 
         ChartMetric.values().forEach { metric -> chartDataEntries[metric] = mutableListOf() }
+        
         setupPerformanceChart()
+        setupCustomLegend()
         setupListeners()
+    }
+
+    private fun setupCustomLegend() {
+        bindLegendItem(binding.legendInsert, ChartMetric.INSERT)
+        bindLegendItem(binding.legendQuery, ChartMetric.QUERY_ALL)
+        bindLegendItem(binding.legendDelete, ChartMetric.DELETE)
+        
+        bindLegendItem(binding.legendMatchUrl, ChartMetric.EXISTS_URL_MATCH)
+        bindLegendItem(binding.legendMatchKeyword, ChartMetric.EXISTS_KEYWORD_MATCH)
+        bindLegendItem(binding.legendMatchDomain, ChartMetric.EXISTS_DOMAIN)
+    }
+
+    private fun bindLegendItem(itemBinding: ItemLegendBinding, metric: ChartMetric) {
+        itemBinding.legendColor.backgroundTintList = ColorStateList.valueOf(getColor(metric.colorResId))
+        itemBinding.legendText.text = metric.label
+    }
+
+    private fun getColor(resId: Int): Int {
+        return try {
+            ContextCompat.getColor(requireContext(), resId)
+        } catch (e: Exception) {
+            Color.GRAY
+        }
     }
 
     override fun onDestroyView() {
@@ -88,44 +125,49 @@ class RoomPerformanceFragment : Fragment() {
 
     private fun setupPerformanceChart() {
         with(binding.memoryChart) {
-            setTouchEnabled(true)
-            setScaleEnabled(true)
-            isDragEnabled = true
-            setPinchZoom(true)
             description.isEnabled = false
-            setExtraOffsets(5f, 10f, 10f, 25f)
-            legend.apply {
-                isWordWrapEnabled = true
-                form = Legend.LegendForm.LINE
-                textSize = 10f
-                textColor = Color.BLACK
-                orientation = Legend.LegendOrientation.HORIZONTAL
-                horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
-                verticalAlignment = Legend.LegendVerticalAlignment.BOTTOM
-                setDrawInside(false)
-            }
+            setDrawGridBackground(false)
+            setDrawBorders(false)
+            setTouchEnabled(true)
+            isDragEnabled = true
+            setScaleEnabled(true)
+            setPinchZoom(false)
+
+            legend.isEnabled = false
+
             xAxis.apply {
                 position = XAxis.XAxisPosition.BOTTOM
+                setDrawGridLines(false)
+                setDrawAxisLine(false)
                 granularity = 1f
                 valueFormatter = IndexAxisValueFormatter(chartLabels)
-                setDrawGridLines(false)
+                textColor = requireContext().resolveColorAttr(android.R.attr.textColorSecondary)
                 textSize = 12f
-                textColor = Color.BLACK
+                yOffset = 10f
             }
+
             axisLeft.apply {
+                setDrawGridLines(true)
+                gridColor = Color.parseColor("#1A000000")
+                enableGridDashedLine(10f, 10f, 0f)
+                setDrawAxisLine(false)
+                textColor = requireContext().resolveColorAttr(android.R.attr.textColorSecondary)
+                textSize = 10f
                 axisMinimum = 0f
-                textSize = 12f
-                textColor = Color.BLACK
             }
+
             axisRight.isEnabled = false
+            marker = CustomMarkerView(context, R.layout.layout_marker_view)
         }
     }
 
     private suspend fun runAllPerformanceTests() = withContext(Dispatchers.IO) {
-        clearAllPerformanceData()
-        val totalTimes = ChartMetric.values().associateWith { 0L }.toMutableMap()
+        withContext(Dispatchers.Main) {
+            clearAllPerformanceData()
+            binding.timeSummary.text = ""
+        }
 
-        postText { binding.timeSummary.text = "" }
+        val totalTimes = ChartMetric.values().associateWith { 0L }.toMutableMap()
 
         repeat(TEST_REPEAT_TIMES) { index ->
             val testRunId = index + 1
@@ -181,7 +223,7 @@ class RoomPerformanceFragment : Fragment() {
             postLog("❌ 删除全部: ${deleteTime}ms")
             totalTimes[ChartMetric.DELETE] = totalTimes[ChartMetric.DELETE]!! + deleteTime
 
-            chartLabels.add("运行 $testRunId")
+            chartLabels.add("Run $testRunId")
             val currentRunResults = mapOf(
                 ChartMetric.INSERT to insertTime,
                 ChartMetric.QUERY_ALL to queryAllTime,
@@ -220,7 +262,9 @@ class RoomPerformanceFragment : Fragment() {
             }
             append("-----------------------\n")
         }.toString()
+        
         postText { binding.timeSummary.text = summary }
+        
         postLog(summary)
     }
 
@@ -234,27 +278,64 @@ class RoomPerformanceFragment : Fragment() {
     }
 
     private fun updatePerformanceChart() {
-        val dataSets = mutableListOf<ILineDataSet>()
-        ChartMetric.values().forEach { metric ->
+        val dataSets = mutableListOf<LineDataSet>()
+        
+        val metricsToDraw = listOf(
+            ChartMetric.INSERT, 
+            ChartMetric.QUERY_ALL, 
+            ChartMetric.DELETE,
+            ChartMetric.EXISTS_URL_MATCH,
+            ChartMetric.EXISTS_KEYWORD_MATCH,
+            ChartMetric.EXISTS_DOMAIN
+        )
+
+        metricsToDraw.forEach { metric ->
             val entries = chartDataEntries[metric]
             if (!entries.isNullOrEmpty()) {
+                val color = getColor(metric.colorResId)
                 val dataSet = LineDataSet(entries, metric.label).apply {
-                    setDrawCircles(true)
-                    setDrawValues(true)
-                    circleRadius = 5f
-                    valueTextSize = 11f
-                    color = metric.color
-                    lineWidth = 2.5f
-                    setDrawCircleHole(false)
                     mode = LineDataSet.Mode.CUBIC_BEZIER
+                    cubicIntensity = 0.2f
+                    
+                    setDrawIcons(false)
+                    setDrawCircles(false)
+                    setDrawValues(false)
+                    
+                    lineWidth = 2f
+                    this.color = color
+                    
+                    setDrawFilled(true)
+                    fillDrawable = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(adjustAlpha(color, 0.6f), adjustAlpha(color, 0.1f))
+                    )
+                    
+                    setDrawCircleHole(false)
+                    enableDashedHighlightLine(10f, 5f, 0f)
+                    highLightColor = requireContext().resolveColorAttr(android.R.attr.textColorPrimary)
                 }
                 dataSets.add(dataSet)
             }
         }
-        binding.memoryChart.data = LineData(dataSets)
-        binding.memoryChart.xAxis.valueFormatter = IndexAxisValueFormatter(chartLabels)
-        binding.memoryChart.notifyDataSetChanged()
-        binding.memoryChart.invalidate()
+        
+        if (dataSets.isNotEmpty()) {
+            val data = LineData(dataSets.toList())
+            binding.memoryChart.data = data
+            binding.memoryChart.xAxis.valueFormatter = IndexAxisValueFormatter(chartLabels)
+            binding.memoryChart.xAxis.axisMinimum = -0.2f
+            binding.memoryChart.xAxis.axisMaximum = (chartLabels.size - 1) + 0.2f
+            
+            binding.memoryChart.animateY(1000)
+            binding.memoryChart.invalidate()
+        }
+    }
+
+    private fun adjustAlpha(color: Int, factor: Float): Int {
+        val alpha = (Color.alpha(color) * factor).roundToInt()
+        val red = Color.red(color)
+        val green = Color.green(color)
+        val blue = Color.blue(color)
+        return Color.argb(alpha, red, green, blue)
     }
 
     private fun postLog(message: String) {
@@ -266,5 +347,20 @@ class RoomPerformanceFragment : Fragment() {
 
     private fun postText(action: () -> Unit) {
         lifecycleScope.launch(Dispatchers.Main) { action() }
+    }
+    
+    inner class CustomMarkerView(context: Context, layoutResource: Int) : MarkerView(context, layoutResource) {
+        private val tvContent: TextView = findViewById(R.id.tvContent)
+
+        override fun refreshContent(e: Entry?, highlight: Highlight?) {
+            if (e != null) {
+                tvContent.text = "${e.y.toInt()} ms"
+            }
+            super.refreshContent(e, highlight)
+        }
+
+        override fun getOffset(): MPPointF {
+            return MPPointF(-(width / 2).toFloat(), -height.toFloat())
+        }
     }
 }
