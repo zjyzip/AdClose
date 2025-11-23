@@ -78,10 +78,7 @@ internal object RequestHookHandler {
         setupOkHttpRequestHook() // HTTP/2 (via okhttp3)
         // setupProtocolDowngradeHook()
         setupWebViewRequestHook()
-
-        if (context.packageName == "com.ss.android.ugc.aweme") {
-            setupCronetRequestHook()
-        }
+        setupCronetRequestHook() // ByteDance
     }
 
     private fun setupDNSRequestHook() {

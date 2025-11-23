@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.view.View
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
@@ -38,6 +39,7 @@ import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
+import com.close.hook.ads.util.KeyboardUtils
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
@@ -149,6 +151,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appConfigDialog = BottomSheetDialog(requireContext()).apply {
             setContentView(configBinding.root)
 
+            window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+
             setOnShowListener {
                 val bottomSheet = findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
                 if (bottomSheet != null) {
@@ -162,9 +166,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         }
         initAppConfig()
 
-        appInfoDialog = BottomSheetDialog(requireContext())
-        infoBinding = BottomDialogAppInfoBinding.inflate(layoutInflater, null, false)
-        appInfoDialog?.setContentView(infoBinding.root)
+        appInfoDialog = BottomSheetDialog(requireContext()).apply {
+            infoBinding = BottomDialogAppInfoBinding.inflate(layoutInflater, null, false)
+            setContentView(infoBinding.root)
+            
+            window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        }
         initAppInfo()
     }
 
@@ -370,6 +377,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     @SuppressLint("SetTextI1n")
     override fun onItemClick(appInfo: AppInfo, icon: Drawable?) {
+        KeyboardUtils.hideKeyboard(requireView())
+
         if (!ServiceManager.isModuleActivated) {
             Toast.makeText(requireContext(), getString(R.string.module_not_activated), Toast.LENGTH_SHORT).show()
             return
@@ -461,6 +470,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     @SuppressLint("SetText18n")
     override fun onItemLongClick(appInfo: AppInfo, icon: Drawable?) {
+        KeyboardUtils.hideKeyboard(requireView())
+        
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
