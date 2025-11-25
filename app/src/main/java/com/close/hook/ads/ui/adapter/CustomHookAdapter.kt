@@ -158,18 +158,17 @@ class CustomHookAdapter(
             if (query.isBlank()) return SpannableString(fullText)
             
             val spannableString = SpannableString(fullText)
-            val lowerCaseFullText = fullText.lowercase()
-            val lowerCaseQuery = query.lowercase()
+            val queryLength = query.length
 
-            var lastIndex = lowerCaseFullText.indexOf(lowerCaseQuery)
+            var lastIndex = fullText.indexOf(query, 0, ignoreCase = true)
             while (lastIndex != -1) {
                 spannableString.setSpan(
                     BackgroundColorSpan(highlightColor),
                     lastIndex,
-                    lastIndex + query.length,
+                    lastIndex + queryLength,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
-                lastIndex = lowerCaseFullText.indexOf(lowerCaseQuery, lastIndex + query.length)
+                lastIndex = fullText.indexOf(query, lastIndex + queryLength, ignoreCase = true)
             }
             return spannableString
         }

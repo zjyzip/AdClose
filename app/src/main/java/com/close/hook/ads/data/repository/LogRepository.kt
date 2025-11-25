@@ -4,7 +4,8 @@ import com.close.hook.ads.data.model.LogEntry
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import java.util.concurrent.CopyOnWriteArrayList
+import java.util.Collections
+import java.util.LinkedList
 
 object LogRepository {
 
@@ -15,23 +16,33 @@ object LogRepository {
     )
     val logFlow = _logFlow.asSharedFlow()
 
-    private val logCache = CopyOnWriteArrayList<LogEntry>()
+    private val logCache = Collections.synchronizedList(LinkedList<LogEntry>())
     private const val MAX_CACHE_SIZE = 1000
 
     suspend fun addLogs(logEntries: List<LogEntry>) {
-        val logsToAdd = logEntries.reversed()
-        logCache.addAll(0, logsToAdd)
-        
-        if (logCache.size > MAX_CACHE_SIZE) {
-            logCache.subList(MAX_CACHE_SIZE, logCache.size).clear()
+        if (logEntries.isEmpty()) return
+
+        val logsToInsert = logEntries.reversed()
+
+        synchronized(logCache) {
+            logCache.addAll(0, logsToInsert)
+
+            while (logCache.size > MAX_CACHE_SIZE) {
+                logCache.removeAt(logCache.size - 1)
+            }
         }
         
-        _logFlow.emit(logsToAdd)
+        _logFlow.emit(logsToInsert)
     }
 
     fun getLogsForPackage(packageName: String?): List<LogEntry> {
-        return if (packageName == null) logCache.toList()
-        else logCache.filter { it.packageName == packageName }
+        synchronized(logCache) {
+            return if (packageName == null) {
+                ArrayList(logCache)
+            } else {
+                logCache.filter { it.packageName == packageName }
+            }
+        }
     }
     
     fun clearLogs() {

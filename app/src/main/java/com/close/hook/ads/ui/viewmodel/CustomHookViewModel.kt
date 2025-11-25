@@ -45,19 +45,16 @@ class CustomHookViewModel(
             if (currentQuery.isBlank()) {
                 configs
             } else {
-                val lowerCaseQuery = currentQuery.lowercase()
                 configs.filter { config ->
-                    listOfNotNull(
-                        config.className,
-                        config.returnValue,
-                        config.fieldName,
-                        config.fieldValue,
-                        config.hookPoint,
-                        config.hookMethodType.displayName,
-                        config.methodNames?.joinToString(","),
-                        config.parameterTypes?.joinToString(","),
-                        config.searchStrings?.joinToString(",")
-                    ).any { it.lowercase().contains(lowerCaseQuery) }
+                    config.className.contains(currentQuery, ignoreCase = true) ||
+                    config.methodNames?.any { it.contains(currentQuery, ignoreCase = true) } == true ||
+                    config.hookMethodType.displayName.contains(currentQuery, ignoreCase = true) ||
+                    config.returnValue?.contains(currentQuery, ignoreCase = true) == true ||
+                    config.fieldName?.contains(currentQuery, ignoreCase = true) == true ||
+                    config.fieldValue?.contains(currentQuery, ignoreCase = true) == true ||
+                    config.hookPoint?.contains(currentQuery, ignoreCase = true) == true ||
+                    config.parameterTypes?.any { it.contains(currentQuery, ignoreCase = true) } == true ||
+                    config.searchStrings?.any { it.contains(currentQuery, ignoreCase = true) } == true
                 }
             }
         }.stateIn(
