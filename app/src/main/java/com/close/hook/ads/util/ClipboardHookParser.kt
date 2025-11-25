@@ -2,17 +2,33 @@ package com.close.hook.ads.util
 
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import java.util.regex.Pattern
 
 object ClipboardHookParser {
 
     private val METHOD_NO_PARAM_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*)\\(\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
-
     private val METHOD_WITH_PARAMS_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$<>][a-zA-Z0-9_\\$]*)\\((.*)\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
-
     private val FIELD_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*):([ZBCSIFJD]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
 
-    fun parseClipboardContent(content: String, targetPackageName: String? = null): CustomHookInfo? {
+    private val json = Json { ignoreUnknownKeys = true }
+
+    fun parseClipboardContent(content: String, targetPackageName: String? = null): List<CustomHookInfo>? {
+        val trimmedContent = content.trim()
+
+        if (trimmedContent.startsWith("[") && trimmedContent.endsWith("]")) {
+            try {
+                val hooks = json.decodeFromString<List<CustomHookInfo>>(trimmedContent)
+                return if (targetPackageName != null) {
+                    hooks.map { it.copy(packageName = targetPackageName) }
+                } else {
+                    hooks
+                }
+            } catch (e: Exception) {
+            }
+        }
+
         val cleanedContent = content.replace("\\s".toRegex(), "")
 
         val methodNoParamMatcher = METHOD_NO_PARAM_PATTERN.matcher(cleanedContent)
@@ -20,7 +36,7 @@ object ClipboardHookParser {
             val className = methodNoParamMatcher.group(1)?.replace('/', '.') ?: ""
             val methodName = methodNoParamMatcher.group(2) ?: ""
 
-            return CustomHookInfo(
+            return listOf(CustomHookInfo(
                 hookMethodType = HookMethodType.HOOK_ALL_METHODS,
                 hookPoint = "before",
                 className = className,
@@ -28,7 +44,7 @@ object ClipboardHookParser {
                 returnValue = null,
                 packageName = targetPackageName,
                 isEnabled = true
-            )
+            ))
         }
 
         val methodWithParamsMatcher = METHOD_WITH_PARAMS_PATTERN.matcher(cleanedContent)
@@ -39,7 +55,7 @@ object ClipboardHookParser {
 
             val parameterTypes = parseMethodParameters(paramsDalvik)
 
-            return CustomHookInfo(
+            return listOf(CustomHookInfo(
                 hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
                 hookPoint = "before",
                 className = className,
@@ -48,7 +64,7 @@ object ClipboardHookParser {
                 parameterTypes = parameterTypes,
                 packageName = targetPackageName,
                 isEnabled = true
-            )
+            ))
         }
 
         val fieldMatcher = FIELD_PATTERN.matcher(cleanedContent)
@@ -58,14 +74,14 @@ object ClipboardHookParser {
             val fieldTypeDalvik = fieldMatcher.group(3) ?: ""
             val fieldValue = dalvikTypeToJavaType(fieldTypeDalvik)
 
-            return CustomHookInfo(
+            return listOf(CustomHookInfo(
                 className = className,
                 fieldName = fieldName,
                 fieldValue = null,
                 hookMethodType = HookMethodType.SET_STATIC_OBJECT_FIELD,
                 packageName = targetPackageName,
                 isEnabled = true
-            )
+            ))
         }
 
         return null

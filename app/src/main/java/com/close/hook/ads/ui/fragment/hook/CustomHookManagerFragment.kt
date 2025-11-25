@@ -627,8 +627,8 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             return
         }
 
-        ClipboardHookParser.parseClipboardContent(clipText, viewModel.getTargetPackageName())?.let {
-            showAutoDetectedHookDialog(it)
+        ClipboardHookParser.parseClipboardContent(clipText, viewModel.getTargetPackageName())?.let { hooks ->
+            showAutoDetectHooksDialog(hooks, titleResId = null)
         } ?: showToast(getString(R.string.clipboard_content_unrecognized))
     }
 
@@ -636,7 +636,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         showClearAllConfirmDialog()
     }
 
-    private fun showAutoDetectHooksDialog(detectedHooks: List<CustomHookInfo>) {
+    private fun showAutoDetectHooksDialog(detectedHooks: List<CustomHookInfo>, titleResId: Int? = R.string.dialog_auto_detect_ads_title) {
         if (detectedHooks.isEmpty()) {
             showSnackbar(getString(R.string.no_new_hooks_to_import))
             return
@@ -659,9 +659,15 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         }.toTypedArray()
         val checkedItems = BooleanArray(items.size) { true }
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.dialog_auto_detect_ads_title)
-            .setMultiChoiceItems(items, checkedItems) { _, which, isChecked ->
+        val builder = MaterialAlertDialogBuilder(requireContext())
+        
+        if (titleResId != null) {
+            builder.setTitle(titleResId)
+        } else {
+            builder.setTitle("Import from Clipboard") 
+        }
+
+        builder.setMultiChoiceItems(items, checkedItems) { _, which, isChecked ->
                 checkedItems[which] = isChecked
             }
             .setPositiveButton(R.string.restore) { dialog, _ ->
