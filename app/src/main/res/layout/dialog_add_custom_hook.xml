@@ -46,14 +46,6 @@
             app:singleSelection="true">
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_hook_after"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/hook_point_after" />
-
-            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_hook_before"
                 style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="0dp"
@@ -61,6 +53,13 @@
                 android:layout_weight="1"
                 android:text="@string/hook_point_before" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_hook_after"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hook_point_after" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <com.google.android.material.textfield.TextInputLayout

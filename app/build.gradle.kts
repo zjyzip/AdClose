@@ -56,6 +56,7 @@ materialThemeBuilder {
 android {
     namespace = "com.close.hook.ads"
     compileSdk = 35
+    ndkVersion = "28.2.13676358"
 
     signingConfigs {
         create("keyStore") {
@@ -73,7 +74,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = calculateVersionCode()
-        versionName = "4.1.1"
+        versionName = "4.1.3"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -82,6 +83,12 @@ android {
         ndk {
             abiFilters.add("armeabi-v7a")
             abiFilters.add("arm64-v8a")
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
         }
     }
 
@@ -114,6 +121,13 @@ android {
         aidl = true
         viewBinding = true
         buildConfig = true
+        prefab = false
+    }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/cpp/libs")
+        }
     }
 }
 
@@ -135,6 +149,8 @@ dependencies {
     compileOnly(files("libs/api-100.aar"))
     implementation(files("libs/service-100.aar"))
     implementation(files("libs/interface-100.aar"))
+
+    implementation("com.bytedance.android:shadowhook:2.0.0")
 
     implementation(libs.appcompat)
     implementation(libs.preferenceKtx)

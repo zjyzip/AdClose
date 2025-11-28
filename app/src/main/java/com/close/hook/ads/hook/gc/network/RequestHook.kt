@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
 import androidx.core.content.contentValuesOf
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.RequestInfo
@@ -20,7 +18,6 @@ import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
-import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -39,8 +36,7 @@ object RequestHook {
 
     internal lateinit var applicationContext: Context
 
-    private val dnsHostCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
-    private val urlStringCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val sentRequestsCache: ConcurrentHashMap<String, Boolean> = ConcurrentHashMap()
 
     internal val requestBuffers = ConcurrentHashMap<Int, ByteArrayOutputStream>()
     internal val responseBuffers = ConcurrentHashMap<Int, ByteArrayOutputStream>()
@@ -67,6 +63,7 @@ object RequestHook {
                     RequestHookHandler.init(context)
                 }
             }
+            NativeRequestHook.init()
         } catch (e: Exception) {
             XposedBridge.log("$LOG_PREFIX Init error: ${e.message}")
         }
@@ -77,16 +74,17 @@ object RequestHook {
             when (urlObject) {
                 is URL -> {
                     val decodedPath = URLDecoder.decode(urlObject.path, UTF8.name())
-                    URL(urlObject.protocol, urlObject.host, urlObject.port, decodedPath).toExternalForm()
+                    val portStr = if (urlObject.port != -1 && urlObject.port != urlObject.defaultPort) ":${urlObject.port}" else ""
+                    "${urlObject.protocol}://${urlObject.host}$portStr$decodedPath"
                 }
                 is Uri -> {
                     val decodedPath = URLDecoder.decode(urlObject.path ?: "", UTF8.name())
-                    Uri.Builder()
-                        .scheme(urlObject.scheme)
-                        .authority(urlObject.authority)
-                        .path(decodedPath)
-                        .build()
-                        .toString()
+                    val port = urlObject.port
+                    val host = urlObject.host ?: ""
+                    val scheme = urlObject.scheme ?: "http"
+                    
+                    val portStr = if (port != -1) ":$port" else ""
+                    "$scheme://$host$portStr$decodedPath"
                 }
                 else -> urlObject?.toString() ?: ""
             }
@@ -217,16 +215,17 @@ object RequestHook {
         }
     }
 
-    internal fun processResponseBuffer(key: Int, param: XC_MethodHook.MethodHookParam) {
-        val bufferStream = responseBuffers[key] ?: return
+    internal fun processResponseBuffer(key: Int, param: XC_MethodHook.MethodHookParam?): Boolean {
+        val bufferStream = responseBuffers[key] ?: return false
         val buffer = bufferStream.toByteArray()
         var currentIndex = 0
+        var isBlocked = false
 
         while (currentIndex < buffer.size) {
             val requestInfo = pendingRequests[key]
             if (requestInfo == null) {
                 responseBuffers.remove(key)
-                return
+                return false
             }
 
             val startIndex = currentIndex
@@ -259,7 +258,9 @@ object RequestHook {
                 }
             }
             
-            completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)
+            if (completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)) {
+                isBlocked = true
+            }
             
             currentIndex = totalResponseSize
         }
@@ -273,6 +274,8 @@ object RequestHook {
                 responseBuffers.remove(key)
             }
         }
+        
+        return isBlocked
     }
 
     private fun buildHttpRequest(key: Int, headers: String, body: ByteArray?, isHttps: Boolean) {
@@ -290,7 +293,7 @@ object RequestHook {
         val cleanedHeaders = if (firstNewline != -1) headers.substring(firstNewline + 2) else headers
 
         val info = BlockedRequest(
-            requestType = if (isHttps) " HTTPS" else " HTTP",
+            requestType = if (isHttps) " HTTPS" else " HTTP", 
             requestValue = formatUrlWithoutQuery(Uri.parse(url)),
             method = method,
             urlString = url,
@@ -308,9 +311,15 @@ object RequestHook {
         pendingRequests[key] = info
     }
 
-    private fun completeAndDispatchRequest(key: Int, requestInfo: BlockedRequest, headers: String, body: ByteArray?, param: XC_MethodHook.MethodHookParam) {
+    private fun completeAndDispatchRequest(
+        key: Int, 
+        requestInfo: BlockedRequest, 
+        headers: String, 
+        body: ByteArray?, 
+        param: XC_MethodHook.MethodHookParam?
+    ): Boolean {
         val lines = headers.lines()
-        val statusLine = lines.firstOrNull()?.split(" ", limit = 3) ?: return
+        val statusLine = lines.firstOrNull()?.split(" ", limit = 3) ?: return false
         val responseCode = statusLine.getOrNull(1)?.toIntOrNull() ?: -1
         val responseMessage = statusLine.getOrNull(2) ?: ""
         val contentType = lines.find { it.startsWith("Content-Type:", ignoreCase = true) }?.substring(13)?.trim()
@@ -333,10 +342,12 @@ object RequestHook {
             responseBodyContentType = mimeTypeForProvider
         )
 
-        if (checkShouldBlockRequest(finalInfo)) {
-            param.throwable = IOException("Request blocked by AdClose")
+        val shouldBlock = checkShouldBlockRequest(finalInfo)
+        if (shouldBlock) {
+            param?.throwable = IOException("Request blocked by AdClose")
         }
         pendingRequests.remove(key)
+        return shouldBlock
     }
 
     private fun findBytes(data: ByteArray, pattern: ByteArray, startIndex: Int = 0): Int {
@@ -385,9 +396,23 @@ object RequestHook {
     }
 
     private fun sendBlockedRequestBroadcast(type: String, info: BlockedRequest, isBlocked: Boolean, ruleUrl: String?, blockRuleType: String?) {
-        val added = info.dnsHost?.takeIf { it.isNotBlank() }?.let(dnsHostCache::add)
-            ?: info.urlString?.takeIf { it.isNotBlank() }?.let(urlStringCache::add)
-        if (added == false) return
+        val key = info.dnsHost ?: info.urlString
+        if (key.isNullOrEmpty()) return
+
+        val hasResponse = info.responseCode != -1
+        val alreadySentComplete = sentRequestsCache[key] == true
+
+        if (alreadySentComplete) return
+
+        if (hasResponse) {
+            sentRequestsCache[key] = true
+        } 
+        else {
+            if (sentRequestsCache.containsKey(key)) {
+                return
+            }
+            sentRequestsCache[key] = false
+        }
 
         try {
             var requestBodyUriString: String? = null
