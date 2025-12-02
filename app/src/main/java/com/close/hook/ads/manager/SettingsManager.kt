@@ -32,4 +32,7 @@ class SettingsManager(
 
     val isHookTipEnabled: Boolean
         get() = prefsHelper.getBoolean(key("eight"), false)
+
+    val isNativeRequestHookEnabled: Boolean
+        get() = prefsHelper.getBoolean(key("nine"), false)
 }

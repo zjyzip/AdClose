@@ -56,6 +56,8 @@
     <string name="description_six">Only for general Root and virtual machine detection</string>
     <string name="handle_platform_ad">Stop platform ad initialization</string>
     <string name="check_request">App request checking</string>
+    <string name="native_request_hook">Apply Native request check</string>
+    <string name="description_nine">Capture some network requests of the Native layer, which is relatively unstable.</string>
 
     <string name="remove_flag_secure">Remove Flag Secure</string>
     <string name="remove_vpn_state">Remove VPN and system proxy detection</string>

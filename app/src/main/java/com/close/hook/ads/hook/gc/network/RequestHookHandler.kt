@@ -73,9 +73,9 @@ internal object RequestHookHandler {
     fun init(context: Context) {
         applicationContext = context
         setupDNSRequestHook()
-        // setupSocketHook() // HTTP/1.1
-        // setupConscryptEngineHook() // HTTPS over HTTP/1.1
-        // setupOkHttpRequestHook()
+        setupSocketHook() // HTTP/1.1
+        setupConscryptEngineHook() // HTTPS over HTTP/1.1
+        setupOkHttpRequestHook()
         // setupProtocolDowngradeHook()
         setupWebViewRequestHook()
         setupCronetRequestHook() // ByteDance

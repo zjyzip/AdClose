@@ -93,6 +93,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         listOf(
             configBinding.switchOne,
             configBinding.switchTwo,
+            configBinding.switchNine,
             configBinding.switchThree,
             configBinding.switchFour,
             configBinding.switchFive,
@@ -104,6 +105,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val prefKeys = listOf(
         "switch_one_",
         "switch_two_",
+        "switch_nine_",
         "switch_three_",
         "switch_four_",
         "switch_five_",

@@ -49,9 +49,11 @@
     <string name="update_checkbox_status">Anahtar Durumunu Kaydet</string>
     <string name="description_two">Etkinleştirildiğinde İstek sayfasında ağ reklamlarını yönetebilirsiniz.</string>
     <string name="description_six">Yalnızca genel Root ve sanal makine algılaması için geçerlidir.</string>
+    <string name="description_nine">Nispeten kararsız olan Yerel katmanın bazı ağ isteklerini yakalayın.</string>
 
     <string name="handle_platform_ad">SDK reklam başlangıcını durdur</string>
     <string name="check_request">Uygulama isteği kontrolü</string>
+    <string name="native_request_hook">Yerel istek kontrolünü uygula</string>
     <string name="remove_flag_secure">Ekran görüntüsü kısıtlamasını kaldır</string>
     <string name="remove_vpn_state">VPN ve sistem proxy algılamayı kaldır</string>
     <string name="remove_sensor_monitor">İvmeölçer sensörü kaydını kaldır</string>

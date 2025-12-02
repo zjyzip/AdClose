@@ -53,6 +53,7 @@
 
     <string name="handle_platform_ad">阻擋 SDK 廣告初始化</string>
     <string name="check_request">應用程式請求檢查</string>
+    <string name="native_request_hook">應用 Native 請求檢查</string>
     <string name="remove_flag_secure">移除螢幕截圖錄影限制</string>
     <string name="remove_vpn_state">移除 VPN 與系統代理偵測</string>
     <string name="remove_sensor_monitor">移除加速度感應器註冊</string>

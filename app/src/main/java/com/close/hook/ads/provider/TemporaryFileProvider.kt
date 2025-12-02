@@ -42,6 +42,8 @@ class TemporaryFileProvider : ContentProvider() {
             .maximumSize(8192)
             .build()
     }
+    
+    private val insertLock = Any()
 
     override fun onCreate(): Boolean {
         return true
@@ -113,7 +115,10 @@ class TemporaryFileProvider : ContentProvider() {
         requireNotNull(mimeType) { "'$KEY_MIME_TYPE' must not be null." }
 
         val id = UUID.randomUUID().toString()
-        contentStore.put(id, bodyContent to mimeType)
+
+        synchronized(insertLock) {
+            contentStore.put(id, bodyContent to mimeType)
+        }
 
         val newUri = Uri.withAppendedPath(CONTENT_URI, id)
         Log.d(TAG, "Inserted new temporary file with URI: $newUri")

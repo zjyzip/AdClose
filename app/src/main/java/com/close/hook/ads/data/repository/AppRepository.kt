@@ -21,6 +21,7 @@ class AppRepository(private val packageManager: PackageManager) {
     private val enableKeys = arrayOf(
         "switch_one_", "switch_two_", "switch_three_", "switch_four_",
         "switch_five_", "switch_six_", "switch_seven_", "switch_eight_",
+        "switch_nine_",
         "overall_hook_enabled_"
     )
 

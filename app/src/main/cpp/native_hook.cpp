@@ -257,8 +257,8 @@ Java_com_close_hook_ads_hook_gc_network_NativeRequestHook_initNativeHook(JNIEnv 
 
     // Hook SSL
     const char* ssl_libs[] = {
-        "libssl.so", "libconscrypt_jni.so", "libwebviewchromium.so",
-        "libmonochrome.so", "libttboringssl.so", "libflutter.so", nullptr
+        "libssl.so", "libconscrypt_jni.so",
+        "libttboringssl.so", "libflutter.so", nullptr
     };
 
     for (int i = 0; ssl_libs[i] != nullptr; i++) {

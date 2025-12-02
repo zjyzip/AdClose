@@ -63,7 +63,6 @@ object RequestHook {
                     RequestHookHandler.init(context)
                 }
             }
-            NativeRequestHook.init()
         } catch (e: Exception) {
             XposedBridge.log("$LOG_PREFIX Init error: ${e.message}")
         }

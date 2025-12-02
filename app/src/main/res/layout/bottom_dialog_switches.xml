@@ -156,11 +156,43 @@
             app:layout_constraintTop_toBottomOf="@id/title_two" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/switch_nine"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/description_two" />
+
+        <TextView
+            android:id="@+id/title_nine"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="@string/native_request_hook"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurface"
+            app:layout_constraintBottom_toBottomOf="@id/switch_nine"
+            app:layout_constraintEnd_toStartOf="@id/switch_nine"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/switch_nine" />
+
+        <TextView
+            android:id="@+id/description_nine"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="@string/description_nine"
+            android:textAppearance="?attr/textAppearanceLabelSmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:layout_constraintEnd_toStartOf="@id/switch_nine"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/title_nine" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/switch_three"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/description_two"/>
+            app:layout_constraintTop_toBottomOf="@id/description_nine"/>
 
         <TextView
             android:id="@+id/title_three"

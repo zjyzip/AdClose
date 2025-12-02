@@ -7,6 +7,7 @@ import com.close.hook.ads.hook.gc.DisableFlagSecure
 import com.close.hook.ads.hook.gc.DisableShakeAd
 import com.close.hook.ads.hook.gc.HideEnvi
 import com.close.hook.ads.hook.gc.network.HideVPNStatus
+import com.close.hook.ads.hook.gc.network.NativeRequestHook
 import com.close.hook.ads.hook.gc.network.RequestHook
 import com.close.hook.ads.hook.ha.AppAds
 import com.close.hook.ads.hook.ha.AutoHookAds
@@ -107,6 +108,7 @@ object HookLogic {
             if (isDisableShakeAdEnabled) DisableShakeAd.handle()
             if (isHideEnivEnabled) HideEnvi.handle()
             if (isDisableClipboard) DisableClipboard.handle()
+            if (isNativeRequestHookEnabled) NativeRequestHook.init()
         }
     }
 }
