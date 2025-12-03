@@ -8,7 +8,6 @@ import androidx.core.content.contentValuesOf
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
-import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.provider.TemporaryFileProvider
@@ -55,17 +54,8 @@ object RequestHook {
         .softValues()
         .build()
 
-    fun init() {
-        try {
-            ContextUtil.addOnApplicationContextInitializedCallback {
-                ContextUtil.applicationContext?.let { context ->
-                    applicationContext = context
-                    RequestHookHandler.init(context)
-                }
-            }
-        } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX Init error: ${e.message}")
-        }
+    fun init(context: Context) {
+        applicationContext = context
     }
 
     internal fun formatUrlWithoutQuery(urlObject: Any?): String {

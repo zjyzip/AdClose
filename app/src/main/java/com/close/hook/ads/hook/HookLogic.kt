@@ -9,6 +9,7 @@ import com.close.hook.ads.hook.gc.HideEnvi
 import com.close.hook.ads.hook.gc.network.HideVPNStatus
 import com.close.hook.ads.hook.gc.network.NativeRequestHook
 import com.close.hook.ads.hook.gc.network.RequestHook
+import com.close.hook.ads.hook.gc.network.RequestHookHandler
 import com.close.hook.ads.hook.ha.AppAds
 import com.close.hook.ads.hook.ha.AutoHookAds
 import com.close.hook.ads.hook.ha.CustomHookAds
@@ -44,7 +45,7 @@ object HookLogic {
                 try {
                     val manager = SettingsManager(param.packageName, HookPrefs)
                     setupAppHooks(context, manager)
-                    applySettings(manager)
+                    applySettings(context, manager)
                 } catch (e: Throwable) {
                     XposedBridge.log("$TAG | Error in package ${param.packageName}: ${Log.getStackTraceString(e)}")
                 }
@@ -100,15 +101,19 @@ object HookLogic {
         }
     }
 
-    private fun applySettings(manager: SettingsManager) {
+    private fun applySettings(context: Context, manager: SettingsManager) {
         manager.run {
-            if (isRequestHookEnabled) RequestHook.init()
+            if (isRequestHookEnabled || isNativeRequestHookEnabled) {
+                RequestHook.init(context)
+            }
+
+            if (isRequestHookEnabled) RequestHookHandler.init(context)
+            if (isNativeRequestHookEnabled) NativeRequestHook.init()
             if (isHideVPNStatusEnabled) HideVPNStatus.proxy()
             if (isDisableFlagSecureEnabled) DisableFlagSecure.process()
             if (isDisableShakeAdEnabled) DisableShakeAd.handle()
             if (isHideEnivEnabled) HideEnvi.handle()
             if (isDisableClipboard) DisableClipboard.handle()
-            if (isNativeRequestHookEnabled) NativeRequestHook.init()
         }
     }
 }

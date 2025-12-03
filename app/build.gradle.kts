@@ -48,8 +48,6 @@ materialThemeBuilder {
             }
         }
     }
-    // Add Material Design 3 color tokens (such as palettePrimary100) in generated theme
-    // rikka.material >= 2.0.0 provides such attributes
     generatePalette = true
 }
 
@@ -74,7 +72,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = calculateVersionCode()
-        versionName = "4.1.4"
+        versionName = "4.1.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -83,6 +81,12 @@ android {
         ndk {
             abiFilters.add("armeabi-v7a")
             abiFilters.add("arm64-v8a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments.add("-DANDROID_STL=c++_shared")
+            }
         }
     }
 
@@ -110,10 +114,22 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("keyStore")
+            
+            externalNativeBuild {
+                cmake {
+                    cppFlags.add("-DDEBUG=0")
+                }
+            }
         }
         getByName("debug") {
             isDebuggable = true
             signingConfig = signingConfigs.getByName("keyStore")
+            
+            externalNativeBuild {
+                cmake {
+                    cppFlags.add("-DDEBUG=1")
+                }
+            }
         }
     }
 

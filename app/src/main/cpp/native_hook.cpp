@@ -12,9 +12,14 @@
 #include <sstream>
 #include "shadowhook.h"
 
-#define LOG_TAG "AdClose-Native"
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#if DEBUG
+    #define LOG_TAG "AdClose-Native"
+    #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+    #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#else
+    #define LOGI(...)
+    #define LOGE(...)
+#endif
 
 #define MAX_BUFFER_SIZE (32 * 1024)
 #define MAX_STACK_DEPTH 12
