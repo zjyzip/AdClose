@@ -72,7 +72,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = calculateVersionCode()
-        versionName = "4.1.5"
+        versionName = "4.1.6"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -81,12 +81,6 @@ android {
         ndk {
             abiFilters.add("armeabi-v7a")
             abiFilters.add("arm64-v8a")
-        }
-
-        externalNativeBuild {
-            cmake {
-                arguments.add("-DANDROID_STL=c++_shared")
-            }
         }
     }
 
