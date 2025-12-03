@@ -17,9 +17,11 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.lang.reflect.Field
+import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
 import java.nio.ByteBuffer
+import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLEngineResult
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLParameters
@@ -375,11 +377,20 @@ internal object RequestHookHandler {
         HookUtil.hookAllMethods(
             clientClassName,
             "shouldInterceptRequest",
-            "before",
+            "after",
             { param ->
+                if (param.result != null) return@hookAllMethods
+                
                 if (param.args.size != 2) return@hookAllMethods
-                if (processWebRequest(param.args[1])) {
+                val request = param.args[1] as? WebResourceRequest ?: return@hookAllMethods
+                
+                if (processWebRequest(request, false)) {
                     param.result = emptyWebResponse
+                    return@hookAllMethods
+                }
+
+                if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
+                    param.result = executeAndProxyRequest(request)
                 }
             },
             classLoader
@@ -391,7 +402,7 @@ internal object RequestHookHandler {
             "before",
             { param ->
                 if (param.args.size != 2) return@hookAllMethods
-                if (processWebRequest(param.args[1])) {
+                if (processWebRequest(param.args[1], false)) {
                     param.result = true
                 }
             },
@@ -399,27 +410,78 @@ internal object RequestHookHandler {
         )
     }
 
-    private fun processWebRequest(request: Any?): Boolean {
+    private fun executeAndProxyRequest(request: WebResourceRequest): WebResourceResponse? {
+        try {
+            val urlConnection = URL(request.url.toString()).openConnection() as HttpURLConnection
+            urlConnection.requestMethod = request.method
+            request.requestHeaders.forEach { (key, value) ->
+                urlConnection.setRequestProperty(key, value)
+            }
+            urlConnection.connect()
+
+            val responseCode = urlConnection.responseCode
+            val responseMessage = urlConnection.responseMessage
+            val responseHeaders = urlConnection.headerFields.mapValues { it.value.joinToString(", ") }
+            
+            val inputStream = try { urlConnection.inputStream } catch (e: IOException) { urlConnection.errorStream } ?: return null
+            
+            val responseBodyBytes = RequestHook.readStream(inputStream)
+            
+            val info = BlockedRequest(
+                requestType = " Web",
+                requestValue = RequestHook.formatUrlWithoutQuery(request.url),
+                method = request.method,
+                urlString = request.url.toString(),
+                requestHeaders = request.requestHeaders.toString(),
+                requestBody = null,
+                responseCode = responseCode,
+                responseMessage = responseMessage,
+                responseHeaders = responseHeaders.toString(),
+                responseBody = responseBodyBytes,
+                responseBodyContentType = urlConnection.contentType,
+                stack = HookUtil.getFormattedStackTrace(),
+                dnsHost = null,
+                fullAddress = null
+            )
+            RequestHook.checkShouldBlockRequest(info)
+
+            val mimeType = responseHeaders["content-type"]?.split(";")?.firstOrNull()?.trim()
+            val encoding = responseHeaders["content-encoding"]?.trim()
+
+            return WebResourceResponse(
+                mimeType,
+                encoding,
+                responseCode,
+                responseMessage,
+                responseHeaders,
+                ByteArrayInputStream(responseBodyBytes)
+            )
+
+        } catch (e: Throwable) {
+            XposedBridge.log("$LOG_PREFIX Error proxying WebView request: ${e.message}")
+            return null
+        }
+    }
+
+    private fun processWebRequest(request: Any?, proxy: Boolean): Boolean {
         try {
             val webResourceRequest = request as? WebResourceRequest ?: return false
-            val urlString = webResourceRequest.url?.toString()
-            val formattedUrl = urlString?.let { RequestHook.formatUrlWithoutQuery(Uri.parse(it)) } ?: return false
-            val method = webResourceRequest.method
-            val requestHeaders = webResourceRequest.requestHeaders?.toString()
+            val urlString = webResourceRequest.url?.toString() ?: return false
+            val formattedUrl = RequestHook.formatUrlWithoutQuery(Uri.parse(urlString))
             
             val info = BlockedRequest(
                 requestType = " Web",
                 requestValue = formattedUrl,
-                method = method,
+                method = webResourceRequest.method,
                 urlString = urlString,
-                requestHeaders = requestHeaders,
+                requestHeaders = webResourceRequest.requestHeaders?.toString(),
                 requestBody = null,
                 responseCode = -1,
                 responseMessage = null,
                 responseHeaders = null,
                 responseBody = null,
                 responseBodyContentType = null,
-                stack = HookUtil.getFormattedStackTrace(),
+                stack = if (proxy) null else HookUtil.getFormattedStackTrace(),
                 dnsHost = null,
                 fullAddress = null
             )
