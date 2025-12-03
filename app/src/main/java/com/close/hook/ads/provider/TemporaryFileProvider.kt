@@ -40,10 +40,9 @@ class TemporaryFileProvider : ContentProvider() {
         CacheBuilder.newBuilder()
             .expireAfterWrite(expirationTime, TimeUnit.MINUTES)
             .maximumSize(8192)
+            .concurrencyLevel(1)
             .build()
     }
-    
-    private val insertLock = Any()
 
     override fun onCreate(): Boolean {
         return true
@@ -115,10 +114,7 @@ class TemporaryFileProvider : ContentProvider() {
         requireNotNull(mimeType) { "'$KEY_MIME_TYPE' must not be null." }
 
         val id = UUID.randomUUID().toString()
-
-        synchronized(insertLock) {
-            contentStore.put(id, bodyContent to mimeType)
-        }
+        contentStore.put(id, bodyContent to mimeType)
 
         val newUri = Uri.withAppendedPath(CONTENT_URI, id)
         Log.d(TAG, "Inserted new temporary file with URI: $newUri")

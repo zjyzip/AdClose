@@ -25,6 +25,10 @@ object AutoHookAds {
 
     private var cachedHooks: List<CustomHookInfo>? = null
 
+    private val excludedClasses = setOf(
+        "com.baidu.mobads.sdk.api.BDAdConfig\$Builder"
+    )
+
     val adSdkPackages = listOf(
         "com.sjm.sjmsdk",
         "com.ap.android",
@@ -184,6 +188,10 @@ object AutoHookAds {
     }
 
     private fun isValidSdkMethod(methodData: MethodData): Boolean {
+        if (methodData.className in excludedClasses) {
+            return false
+        }
+
         val isAbstractClass = methodData.declaredClass?.let {
             Modifier.isAbstract(it.modifiers)
         } ?: false
