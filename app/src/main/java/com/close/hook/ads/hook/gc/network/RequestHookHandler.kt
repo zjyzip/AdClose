@@ -412,7 +412,7 @@ internal object RequestHookHandler {
 
     private fun executeAndProxyRequest(request: WebResourceRequest): WebResourceResponse? {
         val url = request.url
-        if (url == null || (url.scheme != "http" && url.scheme != "https-")) {
+        if (url == null || (url.scheme != "http" && url.scheme != "https")) {
             return null
         }
 
