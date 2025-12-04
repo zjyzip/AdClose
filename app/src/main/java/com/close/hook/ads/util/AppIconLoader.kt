@@ -8,83 +8,101 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.util.LruCache
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
 
 object AppIconLoader {
 
-    private val iconCache = object : LruCache<String, Drawable>((20 * 1024 * 1024)) {
+    private val iconCache = object : LruCache<String, Drawable>(20 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Drawable): Int {
-            if (value is BitmapDrawable) {
-                return value.bitmap?.byteCount ?: 0
+            return if (value is BitmapDrawable) {
+                value.bitmap.byteCount
+            } else {
+                4096 
             }
-            return 0
         }
     }
 
-    suspend fun loadAndCompressIcon(context: Context, packageName: String, targetSizePx: Int): Drawable? =
-        withContext(Dispatchers.IO) {
-            iconCache[packageName]?.let {
-                return@withContext it
-            }
+    private val loadingMutexs = ConcurrentHashMap<String, Mutex>()
 
-            val iconsDir = File(context.cacheDir, "icons")
-            if (!iconsDir.exists()) {
-                iconsDir.mkdirs()
-            }
-            val file = File(iconsDir, "$packageName.png")
+    suspend fun loadAndCompressIcon(context: Context, packageName: String, targetSizePx: Int): Drawable? {
+        iconCache[packageName]?.let { return it }
 
-            file.takeIf { it.exists() }?.let {
-                BitmapFactory.decodeFile(it.absolutePath)?.let { bmp ->
-                    val drawable = BitmapDrawable(context.resources, bmp)
-                    iconCache.put(packageName, drawable)
-                    return@withContext drawable
-                }
-            }
+        val mutex = loadingMutexs.getOrPut(packageName) { Mutex() }
 
-            return@withContext try {
-                context.packageManager.getApplicationIcon(packageName)?.let { original ->
-                    val bitmapToProcess = original.toBitmap()
+        return mutex.withLock {
+            iconCache[packageName]?.let { return@withLock it }
 
-                    val drawableToCache = if (bitmapToProcess != null) {
-                        val resized = Bitmap.createScaledBitmap(bitmapToProcess, targetSizePx, targetSizePx, true)
-                        saveBitmapToFileCache(resized, file)
-                        BitmapDrawable(context.resources, resized)
-                    } else {
-                        original
+            withContext(Dispatchers.IO) {
+                val iconsDir = File(context.cacheDir, "icons")
+                val file = File(iconsDir, "$packageName.png")
+
+                if (file.exists()) {
+                    try {
+                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                        if (bmp != null) {
+                            val drawable = BitmapDrawable(context.resources, bmp)
+                            iconCache.put(packageName, drawable)
+                            return@withContext drawable
+                        }
+                    } catch (e: Exception) {
+                        file.delete()
                     }
-                    iconCache.put(packageName, drawableToCache)
-                    drawableToCache
                 }
-            } catch (e: Exception) {
-                null
+
+                try {
+                    if (!iconsDir.exists()) iconsDir.mkdirs()
+
+                    val pm = context.packageManager
+                    val originalDrawable = pm.getApplicationIcon(packageName)
+                    
+                    val resizedBitmap = originalDrawable.toBitmap(targetSizePx)
+                    
+                    saveBitmapToFileCache(resizedBitmap, file)
+                    
+                    val drawable = BitmapDrawable(context.resources, resizedBitmap)
+                    iconCache.put(packageName, drawable)
+                    drawable
+                } catch (e: Exception) {
+                    null
+                }
             }
+        }.also {
+            loadingMutexs.remove(packageName)
         }
+    }
 
-    private fun Drawable.toBitmap(): Bitmap? {
+    private fun Drawable.toBitmap(size: Int): Bitmap {
         if (this is BitmapDrawable) {
-            return this.bitmap
+            if (bitmap.width <= size && bitmap.height <= size) {
+                return bitmap
+            }
+            return Bitmap.createScaledBitmap(bitmap, size, size, true)
         }
 
-        val constantState = this.constantState ?: return null
-        val tempDrawable = constantState.newDrawable()
-        val bitmap = Bitmap.createBitmap(
-            tempDrawable.intrinsicWidth.coerceAtLeast(1),
-            tempDrawable.intrinsicHeight.coerceAtLeast(1),
+        val config = if (opacity != android.graphics.PixelFormat.OPAQUE) {
             Bitmap.Config.ARGB_8888
-        )
+        } else {
+            Bitmap.Config.RGB_565
+        }
+
+        val bitmap = Bitmap.createBitmap(size, size, config)
         val canvas = Canvas(bitmap)
-        tempDrawable.setBounds(0, 0, canvas.width, canvas.height)
-        tempDrawable.draw(canvas)
+        setBounds(0, 0, size, size)
+        draw(canvas)
         return bitmap
     }
 
     private fun saveBitmapToFileCache(bitmap: Bitmap, file: File) {
         try {
-            FileOutputStream(file).use {
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            FileOutputStream(file).use { stream ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                stream.flush()
             }
         } catch (e: Exception) {
         }

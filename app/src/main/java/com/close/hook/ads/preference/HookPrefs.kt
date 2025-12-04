@@ -5,17 +5,23 @@ import android.util.Log
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.hook.HookLogic
 import com.close.hook.ads.manager.ServiceManager
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.longOrNull
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.InputStreamReader
@@ -36,9 +42,13 @@ object HookPrefs {
     const val KEY_ENABLE_DEX_DUMP = "enable_dex_dump"
     const val KEY_REQUEST_CACHE_EXPIRATION = "request_cache_expiration"
 
-    private val GSON by lazy { Gson() }
-    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val settingsWriteLock = Mutex()
+    private val jsonFormat = Json { 
+        ignoreUnknownKeys = true 
+        prettyPrint = true 
+        isLenient = true
+    }
+
+    private val ioScope = CoroutineScope(Dispatchers.IO.limitedParallelism(1) + SupervisorJob())
 
     private interface IFileAccessor {
         fun openRemoteFile(fileName: String, mode: String = "rw"): ParcelFileDescriptor?
@@ -46,111 +56,150 @@ object HookPrefs {
         fun deleteRemoteFile(fileName: String): Boolean
     }
 
-    private val fileAccessor: IFileAccessor? by lazy {
-        ServiceManager.service?.let { service ->
-            object : IFileAccessor {
-                override fun openRemoteFile(fileName: String, mode: String) =
-                    service.openRemoteFile(fileName)
-
-                override fun listRemoteFiles(): Array<String>? = service.listRemoteFiles()
-                override fun deleteRemoteFile(fileName: String) = service.deleteRemoteFile(fileName)
+    private val fileAccessor: IFileAccessor?
+        get() {
+            ServiceManager.service?.let { service ->
+                return object : IFileAccessor {
+                    override fun openRemoteFile(fileName: String, mode: String) =
+                        service.openRemoteFile(fileName)
+                    override fun listRemoteFiles(): Array<String>? = service.listRemoteFiles()
+                    override fun deleteRemoteFile(fileName: String) = service.deleteRemoteFile(fileName)
+                }
             }
-        } ?: HookLogic.xposedInterface?.let { xposedInterface ->
-            object : IFileAccessor {
-                override fun openRemoteFile(fileName: String, mode: String) =
-                    xposedInterface.openRemoteFile(fileName)
-
-                override fun listRemoteFiles(): Array<String>? = xposedInterface.listRemoteFiles()
-                override fun deleteRemoteFile(fileName: String): Boolean = false
+            HookLogic.xposedInterface?.let { xposedInterface ->
+                return object : IFileAccessor {
+                    override fun openRemoteFile(fileName: String, mode: String) =
+                        xposedInterface.openRemoteFile(fileName)
+                    override fun listRemoteFiles(): Array<String>? = xposedInterface.listRemoteFiles()
+                    override fun deleteRemoteFile(fileName: String): Boolean = false
+                }
             }
+            return null
         }
-    }
 
-    private val generalSettingsCache = MutableStateFlow<Map<String, Any>?>(null)
+    private val generalSettingsCache = MutableStateFlow<JsonObject?>(null)
     val generalSettingsFlow = generalSettingsCache.asStateFlow()
+    
+    private val cacheLock = Any()
 
-    private fun getSettingsMap(): Map<String, Any> {
-        return generalSettingsCache.value ?: synchronized(this) {
-            generalSettingsCache.value ?: run {
-                val map = readSettingsMapFromFile()
-                generalSettingsCache.value = map
-                map
-            }
+    private fun getSettingsJson(): JsonObject {
+        val cached = generalSettingsCache.value
+        if (cached != null) return cached
+
+        synchronized(cacheLock) {
+            val cachedAgain = generalSettingsCache.value
+            if (cachedAgain != null) return cachedAgain
+
+            val jsonObject = readSettingsFromFile()
+            generalSettingsCache.value = jsonObject
+            return jsonObject
         }
     }
 
-    private suspend fun updateAndPersistSettings(transform: (MutableMap<String, Any>) -> Unit) {
-        settingsWriteLock.withLock {
-            val currentSettings = readSettingsMapFromFile().toMutableMap()
-            transform(currentSettings)
+    private fun updateSetting(transform: (MutableMap<String, JsonElement>) -> Unit) {
+        val current = getSettingsJson()
 
-            val newSettings = currentSettings.toMap()
-            val json = GSON.toJson(newSettings)
-            val writeSuccess = writeTextToFile(FILE_GENERAL_SETTINGS, json)
+        val newJson: JsonObject
+        synchronized(cacheLock) {
+            val mutableMap = current.toMutableMap()
+            transform(mutableMap)
+            newJson = JsonObject(mutableMap)
+            generalSettingsCache.value = newJson
+        }
 
-            if (writeSuccess) {
-                generalSettingsCache.value = newSettings
+        ioScope.launch {
+            try {
+                val jsonString = jsonFormat.encodeToString(newJson)
+                writeTextToFile(FILE_GENERAL_SETTINGS, jsonString)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to persist settings", e)
             }
         }
     }
 
     fun getBoolean(key: String, defaultValue: Boolean): Boolean {
-        return getSettingsMap()[key] as? Boolean ?: defaultValue
+        val element = getSettingsJson()[key]
+        return if (element is JsonPrimitive) {
+            element.booleanOrNull ?: defaultValue
+        } else {
+            defaultValue
+        }
     }
 
     fun setBoolean(key: String, value: Boolean) {
-        ioScope.launch {
-            updateAndPersistSettings { it[key] = value }
-        }
+        updateSetting { it[key] = JsonPrimitive(value) }
     }
     
     fun getLong(key: String, defaultValue: Long): Long {
-        return (getSettingsMap()[key] as? Double)?.toLong() ?: defaultValue
-    }
-
-    fun setLong(key: String, value: Long) {
-        ioScope.launch {
-            updateAndPersistSettings { it[key] = value }
+        val element = getSettingsJson()[key]
+        return if (element is JsonPrimitive) {
+            element.longOrNull ?: element.contentOrNull?.toLongOrNull() ?: defaultValue
+        } else {
+            defaultValue
         }
     }
 
+    fun setLong(key: String, value: Long) {
+        updateSetting { it[key] = JsonPrimitive(value) }
+    }
+
     fun getString(key: String, defaultValue: String?): String? {
-        return getSettingsMap()[key] as? String ?: defaultValue
+        val element = getSettingsJson()[key]
+        return if (element is JsonPrimitive) {
+            element.contentOrNull ?: defaultValue
+        } else {
+            defaultValue
+        }
     }
 
     fun setString(key: String, value: String?) {
-        ioScope.launch {
-            updateAndPersistSettings {
-                if (value == null) it.remove(key) else it[key] = value
-            }
+        updateSetting {
+            if (value == null) it.remove(key) else it[key] = JsonPrimitive(value)
         }
     }
 
     fun setMultiple(updates: Map<String, Any>) {
         if (updates.isEmpty()) return
-        ioScope.launch {
-            updateAndPersistSettings { it.putAll(updates) }
+        updateSetting { map ->
+            updates.forEach { (k, v) ->
+                val jsonElement = when (v) {
+                    is Boolean -> JsonPrimitive(v)
+                    is Number -> JsonPrimitive(v)
+                    is String -> JsonPrimitive(v)
+                    else -> JsonPrimitive(v.toString())
+                }
+                map[k] = jsonElement
+            }
         }
     }
 
     fun remove(key: String) {
-        ioScope.launch {
-            updateAndPersistSettings { it.remove(key) }
-        }
+        updateSetting { it.remove(key) }
     }
 
     fun clear() {
-        ioScope.launch {
-            updateAndPersistSettings { it.clear() }
-        }
+        updateSetting { it.clear() }
     }
 
     fun contains(key: String): Boolean {
-        return getSettingsMap().containsKey(key)
+        return getSettingsJson().containsKey(key)
     }
 
-    fun getAll(): Map<String, *> {
-        return getSettingsMap()
+    fun getAll(): Map<String, Any?> {
+        val json = getSettingsJson()
+        return json.mapValues { entry ->
+            val primitive = entry.value as? JsonPrimitive
+            when {
+                primitive?.isString == true -> primitive.content
+                primitive != null -> {
+                    primitive.booleanOrNull 
+                        ?: primitive.longOrNull 
+                        ?: primitive.doubleOrNull 
+                        ?: primitive.content
+                }
+                else -> entry.value.toString()
+            }
+        }
     }
 
     private val customHookCache = ConcurrentHashMap<String, List<CustomHookInfo>>()
@@ -164,8 +213,7 @@ object HookPrefs {
                 emptyList()
             } else {
                 try {
-                    val type = object : TypeToken<List<CustomHookInfo>>() {}.type
-                    GSON.fromJson(content, type) ?: emptyList()
+                    jsonFormat.decodeFromString<List<CustomHookInfo>>(content)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error parsing JSON from file: $fileName", e)
                     emptyList()
@@ -176,6 +224,7 @@ object HookPrefs {
 
     fun setCustomHookConfigs(packageName: String?, configs: List<CustomHookInfo>) {
         val effectiveKey = packageName ?: GLOBAL_KEY
+        
         if (configs.isEmpty()) {
             customHookCache.remove(effectiveKey)
         } else {
@@ -187,67 +236,59 @@ object HookPrefs {
             if (configs.isEmpty()) {
                 deleteConfigFile(fileName)
             } else {
-                val json = GSON.toJson(configs)
-                if (!writeTextToFile(fileName, json)) {
-                    Log.e(TAG, "Failed to save hooks to file: $fileName")
+                try {
+                    val jsonString = jsonFormat.encodeToString(configs)
+                    if (!writeTextToFile(fileName, jsonString)) {
+                        Log.e(TAG, "Failed to save hooks to file: $fileName")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Serialization error for hooks", e)
                 }
             }
         }
     }
 
     fun invalidateCaches() {
-        synchronized(this) {
+        synchronized(cacheLock) {
             generalSettingsCache.value = null
         }
         customHookCache.clear()
         Log.d(TAG, "All caches invalidated.")
     }
 
-    private fun readSettingsMapFromFile(): Map<String, Any> {
+    private fun readSettingsFromFile(): JsonObject {
         val content = readAllTextFromFile(FILE_GENERAL_SETTINGS)
         return if (content.isNotEmpty()) {
             try {
-                val type = object : TypeToken<Map<String, Any>>() {}.type
-                GSON.fromJson(content, type) ?: emptyMap()
-            } catch (e: JsonSyntaxException) {
-                Log.e(TAG, "Failed to parse $FILE_GENERAL_SETTINGS due to malformed JSON. Returning empty map.", e)
-                emptyMap()
+                jsonFormat.parseToJsonElement(content) as? JsonObject ?: JsonObject(emptyMap())
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to parse $FILE_GENERAL_SETTINGS", e)
-                emptyMap()
+                Log.e(TAG, "Failed to parse settings JSON", e)
+                JsonObject(emptyMap())
             }
         } else {
-            emptyMap()
+            JsonObject(emptyMap())
         }
     }
 
     private fun readAllTextFromFile(fileName: String): String {
-        if (fileAccessor == null || !remoteFileExists(fileName)) {
-            return ""
-        }
+        val accessor = fileAccessor ?: return ""
         return try {
-            fileAccessor?.openRemoteFile(fileName, "r")?.use { pfd ->
+            accessor.openRemoteFile(fileName, "r")?.use { pfd ->
                 InputStreamReader(ParcelFileDescriptor.AutoCloseInputStream(pfd), StandardCharsets.UTF_8).use {
                     it.readText()
                 }
             } ?: ""
         } catch (e: Exception) {
-            if (e !is FileNotFoundException) {
-                Log.e(TAG, "Error reading text from file: $fileName", e)
-            }
             ""
         }
     }
 
     private fun writeTextToFile(fileName: String, content: String): Boolean {
-        if (fileAccessor == null) {
-            return false
-        }
+        val accessor = fileAccessor ?: return false
         return try {
-            fileAccessor?.openRemoteFile(fileName, "rw")?.use { pfd ->
+            accessor.openRemoteFile(fileName, "rw")?.use { pfd ->
                 FileOutputStream(pfd.fileDescriptor).use { fos ->
                     fos.channel.truncate(0)
-
                     fos.writer(StandardCharsets.UTF_8).use { writer ->
                         writer.write(content)
                     }
@@ -265,15 +306,6 @@ object HookPrefs {
             fileAccessor?.deleteRemoteFile(fileName) ?: false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete config file: $fileName", e)
-            false
-        }
-    }
-
-    private fun remoteFileExists(fileName: String): Boolean {
-        return try {
-            fileAccessor?.listRemoteFiles()?.contains(fileName) == true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to list remote files to check existence", e)
             false
         }
     }

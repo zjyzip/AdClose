@@ -41,7 +41,7 @@ object RequestHook {
     internal val responseBuffers = ConcurrentHashMap<Int, ByteArrayOutputStream>()
     internal val pendingRequests = ConcurrentHashMap<Int, BlockedRequest>()
     private val headerEndMarker = "\r\n\r\n".toByteArray()
-    
+
     private val URL_CONTENT_URI: Uri = Uri.Builder()
         .scheme("content")
         .authority(UrlContentProvider.AUTHORITY)
@@ -71,7 +71,7 @@ object RequestHook {
                     val port = urlObject.port
                     val host = urlObject.host ?: ""
                     val scheme = urlObject.scheme ?: "http"
-                    
+
                     val portStr = if (port != -1) ":$port" else ""
                     "$scheme://$host$portStr$decodedPath"
                 }
@@ -233,7 +233,7 @@ object RequestHook {
             if (isChunked) {
                 val chunkedBodyResult = parseChunkedBody(buffer, bodyStartIndex)
                 if (chunkedBodyResult == null) break
-                
+
                 totalResponseSize = chunkedBodyResult.second
                 if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
                     bodyBytes = chunkedBodyResult.first
@@ -241,16 +241,16 @@ object RequestHook {
             } else {
                 totalResponseSize = bodyStartIndex + contentLength
                 if (buffer.size < totalResponseSize) break
-                
+
                 if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && contentLength > 0) {
                     bodyBytes = buffer.copyOfRange(bodyStartIndex, totalResponseSize)
                 }
             }
-            
+
             if (completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)) {
                 isBlocked = true
             }
-            
+
             currentIndex = totalResponseSize
         }
 
@@ -263,7 +263,7 @@ object RequestHook {
                 responseBuffers.remove(key)
             }
         }
-        
+
         return isBlocked
     }
 
@@ -362,7 +362,7 @@ object RequestHook {
 
             val chunkSizeHex = String(buffer, currentIndex, crlfIndex - currentIndex, Charsets.US_ASCII)
             val chunkSize = chunkSizeHex.toIntOrNull(16) ?: 0
-            
+
             if (chunkSize == 0) {
                 currentIndex = crlfIndex + 2
                 val finalCrlfIndex = findBytes(buffer, "\r\n".toByteArray(), currentIndex)

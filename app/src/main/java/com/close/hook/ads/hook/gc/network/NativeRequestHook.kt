@@ -79,7 +79,6 @@ object NativeRequestHook {
 
                     shouldBlock = RequestHook.checkShouldBlockRequest(enrichedInfo)
                     if (shouldBlock) {
-                        XposedBridge.log("$LOG_PREFIX Blocking Native Request: ${enrichedInfo.urlString}")
                         RequestHook.pendingRequests.remove(key)
                     }
                 }

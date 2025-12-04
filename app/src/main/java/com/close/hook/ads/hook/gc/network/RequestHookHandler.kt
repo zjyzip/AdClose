@@ -120,7 +120,7 @@ internal object RequestHookHandler {
                 val offset = param.args[2] as Int
                 val len = param.args[3] as Int
                 if (len <= 0) return@hookAllMethods
-                
+
                 val key = System.identityHashCode(socket)
                 val buffer = RequestHook.requestBuffers.getOrPut(key) { ByteArrayOutputStream() }
                 buffer.write(bytes, offset, len)
@@ -138,7 +138,7 @@ internal object RequestHookHandler {
                 val bytes = param.args[1] as ByteArray
                 val len = param.result as? Int ?: -1
                 if (len <= 0) return@hookAllMethods
-                
+
                 val key = System.identityHashCode(socket)
                 val buffer = RequestHook.responseBuffers.getOrPut(key) { ByteArrayOutputStream() }
                 buffer.write(bytes, 0, len)
@@ -158,7 +158,7 @@ internal object RequestHookHandler {
                 "before"
             ) { param ->
                 val originalProtocols = param.args[0] as? Array<String> ?: return@findAndHookMethod
-                
+
                 val filteredProtocols = originalProtocols.filter {
                     it.equals("http/1.1", ignoreCase = true)
                 }
@@ -194,12 +194,12 @@ internal object RequestHookHandler {
                     if (srcBuffer.hasRemaining()) {
                         val key = System.identityHashCode(param.thisObject)
                         val buffer = RequestHook.requestBuffers.getOrPut(key) { ByteArrayOutputStream() }
-                        
+
                         val position = srcBuffer.position()
                         val bytes = ByteArray(srcBuffer.remaining())
                         srcBuffer.get(bytes)
                         srcBuffer.position(position)
-                        
+
                         buffer.write(bytes)
                         RequestHook.processRequestBuffer(key, true)  // isHttps = true
                     }
@@ -218,11 +218,11 @@ internal object RequestHookHandler {
                     val result = param.result as? SSLEngineResult ?: return@findAndHookMethod
                     val dstBuffer = param.args[1] as ByteBuffer
                     val bytesProduced = result.bytesProduced()
-                    
+
                     if (bytesProduced > 0) {
                         val key = System.identityHashCode(param.thisObject)
                         val buffer = RequestHook.responseBuffers.getOrPut(key) { ByteArrayOutputStream() }
-                        
+
                         val position = dstBuffer.position()
                         val start = position - bytesProduced
                         val bytes = ByteArray(bytesProduced)
@@ -284,7 +284,7 @@ internal object RequestHookHandler {
                                     val mediaType = XposedHelpers.callMethod(originalBody, "contentType")
                                     val responseContentType = mediaType?.toString()
                                     responseBodyBytes = XposedHelpers.callMethod(originalBody, "bytes") as? ByteArray
-                                    
+
                                     val contentEncoding = XposedHelpers.callMethod(response, "header", "Content-Encoding") as? String
 
                                     mimeTypeWithEncoding = if (!contentEncoding.isNullOrEmpty()) {
@@ -380,10 +380,10 @@ internal object RequestHookHandler {
             "after",
             { param ->
                 if (param.result != null) return@hookAllMethods
-                
+
                 if (param.args.size != 2) return@hookAllMethods
                 val request = param.args[1] as? WebResourceRequest ?: return@hookAllMethods
-                
+
                 if (processWebRequest(request, false)) {
                     param.result = emptyWebResponse
                     return@hookAllMethods
@@ -427,11 +427,11 @@ internal object RequestHookHandler {
             val responseCode = urlConnection.responseCode
             val responseMessage = urlConnection.responseMessage
             val responseHeaders = urlConnection.headerFields.mapValues { it.value.joinToString(", ") }
-            
+
             val inputStream = try { urlConnection.inputStream } catch (e: IOException) { urlConnection.errorStream } ?: return null
-            
+
             val responseBodyBytes = RequestHook.readStream(inputStream)
-            
+
             val info = BlockedRequest(
                 requestType = " Web",
                 requestValue = RequestHook.formatUrlWithoutQuery(request.url),
@@ -473,7 +473,7 @@ internal object RequestHookHandler {
             val webResourceRequest = request as? WebResourceRequest ?: return false
             val urlString = webResourceRequest.url?.toString() ?: return false
             val formattedUrl = RequestHook.formatUrlWithoutQuery(Uri.parse(urlString))
-            
+
             val info = BlockedRequest(
                 requestType = " Web",
                 requestValue = formattedUrl,
@@ -541,7 +541,7 @@ internal object RequestHookHandler {
                     var initialUrl: String? = null // mInitialUrl
                     var method: String? = null // mInitialMethod
                     var requestHeaders: String? = null // mRequestHeaders
-                    
+
                     requestObject.javaClass.declaredFields.forEach { field ->
                         field.isAccessible = true
                         when (val value = field.get(requestObject)) {
