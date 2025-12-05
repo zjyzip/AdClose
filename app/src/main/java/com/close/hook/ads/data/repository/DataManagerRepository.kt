@@ -71,13 +71,27 @@ class DataManagerRepository(private val context: Context) {
     }
 
     suspend fun getDatabases(): List<ManagedItem> = withContext(Dispatchers.IO) {
-        getLocalDirectoryItems("databases", null, ItemType.DATABASE)
+        val dbFilter = { name: String ->
+            !name.endsWith("-journal") && 
+            !name.endsWith("-shm") && 
+            !name.endsWith("-wal")
+        }
+        getLocalDirectoryItems("databases", null, ItemType.DATABASE, dbFilter)
     }
 
-    private fun getLocalDirectoryItems(dirName: String, extension: String?, itemType: ItemType): List<ManagedItem> {
+    private fun getLocalDirectoryItems(
+        dirName: String, 
+        extension: String?, 
+        itemType: ItemType,
+        additionalFilter: ((String) -> Boolean)? = null
+    ): List<ManagedItem> {
         return try {
             val dir = File("${context.applicationInfo.dataDir}/$dirName")
-            dir.listFiles { _, name -> extension == null || name.endsWith(extension) }
+            dir.listFiles { _, name -> 
+                val extMatch = extension == null || name.endsWith(extension)
+                val customMatch = additionalFilter?.invoke(name) ?: true
+                extMatch && customMatch
+            }
                 ?.mapNotNull { file ->
                     try {
                         ManagedItem(
@@ -123,7 +137,16 @@ class DataManagerRepository(private val context: Context) {
     private fun getLocalFileContent(dirName: String, fileName: String): ByteArray? {
         return try {
             val file = File("${context.applicationInfo.dataDir}/$dirName", fileName)
-            if (file.exists()) file.readBytes() else null
+            if (file.exists()) {
+                if (file.length() > 10 * 1024 * 1024) {
+                    Log.w("DataManagerRepository", "File too large to read into memory: $fileName")
+                    null
+                } else {
+                    file.readBytes()
+                }
+            } else {
+                null
+            }
         } catch (e: Exception) {
             Log.e("DataManagerRepository", "Failed to get content for $dirName/$fileName", e)
             null
@@ -143,7 +166,13 @@ class DataManagerRepository(private val context: Context) {
 
     suspend fun deletePreferenceGroup(groupName: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
-            context.deleteSharedPreferences(groupName)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context.deleteSharedPreferences(groupName)
+            } else {
+                val file = File("${context.applicationInfo.dataDir}/shared_prefs", "$groupName.xml")
+                if (file.exists()) file.delete() else false
+            }
+            true
         } catch (e: Exception) {
             Log.e("DataManagerRepository", "Failed to delete local preference group: $groupName", e)
             false

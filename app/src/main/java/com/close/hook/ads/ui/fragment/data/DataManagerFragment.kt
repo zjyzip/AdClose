@@ -2,7 +2,9 @@ package com.close.hook.ads.ui.fragment.data
 
 import android.net.Uri
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
@@ -19,6 +21,7 @@ import com.close.hook.ads.ui.adapter.DataManagerAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.DataManagerViewModel
 import com.close.hook.ads.ui.viewmodel.ExportEvent
+import com.close.hook.ads.ui.viewmodel.ViewFileEvent
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,8 +31,6 @@ import java.io.IOException
 class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
 
     private val viewModel by viewModels<DataManagerViewModel>()
-
-    private var contentToExport: ByteArray? = null
 
     private val createDocumentLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
@@ -42,7 +43,8 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
 
     private fun createAdapter() = DataManagerAdapter(
         onExportClick = { item -> viewModel.prepareExport(item) },
-        onDeleteClick = { item -> showDeleteConfirmationDialog(item) }
+        onDeleteClick = { item -> showDeleteConfirmationDialog(item) },
+        onItemClick = { item -> viewModel.loadFileForView(item) }
     )
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -96,8 +98,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                 launch {
                     viewModel.exportEvent.collect { event ->
                         when(event) {
-                            is ExportEvent.Success -> {
-                                contentToExport = event.content
+                            is ExportEvent.Ready -> {
                                 createDocumentLauncher.launch(event.fileName)
                             }
                             is ExportEvent.Failed -> {
@@ -106,12 +107,34 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                         }
                     }
                 }
+                
+                launch {
+                    viewModel.viewFileEvent.collect { event ->
+                        when (event) {
+                            is ViewFileEvent.Success -> showFileContentDialog(event.title, event.content)
+                            is ViewFileEvent.Failed -> Toast.makeText(requireContext(), event.error, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             }
         }
     }
+
+    private fun showFileContentDialog(title: String, content: String) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_selectable_text, null)
+        val textView = dialogView.findViewById<TextView>(R.id.textViewDetails)
+        textView.text = content
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(title)
+            .setView(dialogView)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
     
     private fun onFileSelectedForExport(uri: Uri) {
-        val content = contentToExport ?: return
+        val content = viewModel.pendingExportContent ?: return
+        
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
@@ -126,7 +149,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                     Toast.makeText(requireContext(), "Export failed", Toast.LENGTH_SHORT).show()
                 }
             } finally {
-                contentToExport = null
+                viewModel.clearPendingExport()
             }
         }
     }

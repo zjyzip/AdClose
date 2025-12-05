@@ -272,6 +272,11 @@ object HookPrefs {
 
     private fun readAllTextFromFile(fileName: String): String {
         val accessor = fileAccessor ?: return ""
+        
+        if (!remoteFileExists(fileName, accessor)) {
+            return ""
+        }
+
         return try {
             accessor.openRemoteFile(fileName, "r")?.use { pfd ->
                 InputStreamReader(ParcelFileDescriptor.AutoCloseInputStream(pfd), StandardCharsets.UTF_8).use {
@@ -280,6 +285,15 @@ object HookPrefs {
             } ?: ""
         } catch (e: Exception) {
             ""
+        }
+    }
+
+    private fun remoteFileExists(fileName: String, accessor: IFileAccessor): Boolean {
+        return try {
+            val files = accessor.listRemoteFiles()
+            files != null && files.contains(fileName)
+        } catch (e: Exception) {
+            false
         }
     }
 

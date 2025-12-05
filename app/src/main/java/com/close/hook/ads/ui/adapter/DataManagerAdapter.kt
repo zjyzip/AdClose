@@ -14,7 +14,8 @@ import java.util.Locale
 
 class DataManagerAdapter(
     private val onExportClick: (ManagedItem) -> Unit,
-    private val onDeleteClick: (ManagedItem) -> Unit
+    private val onDeleteClick: (ManagedItem) -> Unit,
+    private val onItemClick: (ManagedItem) -> Unit
 ) : ListAdapter<ManagedItem, DataManagerAdapter.ViewHolder>(DiffCallback) {
 
     private val dateFormat by lazy {
@@ -41,6 +42,8 @@ class DataManagerAdapter(
             binding.itemDate.text = dateFormat.format(Date(item.lastModified))
             binding.exportButton.setOnClickListener { onExportClick(item) }
             binding.deleteButton.setOnClickListener { onDeleteClick(item) }
+            
+            binding.root.setOnClickListener { onItemClick(item) }
         }
     }
 
