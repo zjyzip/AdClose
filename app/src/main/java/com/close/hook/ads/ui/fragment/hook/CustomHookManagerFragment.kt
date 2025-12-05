@@ -54,6 +54,7 @@ import com.close.hook.ads.ui.viewmodel.ImportAction
 import com.close.hook.ads.util.AppIconLoader
 import com.close.hook.ads.util.AppUtils
 import com.close.hook.ads.util.ClipboardHookParser
+import com.close.hook.ads.util.ParseResult
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.FooterSpaceItemDecoration
@@ -627,9 +628,19 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             return
         }
 
-        ClipboardHookParser.parseClipboardContent(clipText, viewModel.getTargetPackageName())?.let { hooks ->
-            showAutoDetectHooksDialog(hooks, titleResId = null)
-        } ?: showToast(getString(R.string.clipboard_content_unrecognized))
+        when (val result = ClipboardHookParser.parseClipboardContent(clipText, viewModel.getTargetPackageName())) {
+            is ParseResult.JsonImport -> {
+                showAutoDetectHooksDialog(result.hooks, titleResId = null)
+            }
+            is ParseResult.SmaliImport -> {
+                editingConfig = null
+                CustomHookDialogFragment.newInstance(result.hook)
+                    .show(childFragmentManager, CustomHookDialogFragment.TAG)
+            }
+            null -> {
+                showToast(getString(R.string.clipboard_content_unrecognized))
+            }
+        }
     }
 
     private fun onClearAllHooksClicked() {

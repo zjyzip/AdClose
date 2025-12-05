@@ -6,6 +6,11 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.util.regex.Pattern
 
+sealed class ParseResult {
+    data class JsonImport(val hooks: List<CustomHookInfo>) : ParseResult()
+    data class SmaliImport(val hook: CustomHookInfo) : ParseResult()
+}
+
 object ClipboardHookParser {
 
     private val METHOD_NO_PARAM_PATTERN = Pattern.compile("L([\\w/$]+);->([a-zA-Z_\\$][a-zA-Z0-9_\\$]*)\\(\\)([ZBCSIFJDV]|L[\\w/$]+;|\\[+(?:[ZBCSIFJD]|L[\\w/$]+;))")
@@ -14,17 +19,18 @@ object ClipboardHookParser {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parseClipboardContent(content: String, targetPackageName: String? = null): List<CustomHookInfo>? {
+    fun parseClipboardContent(content: String, targetPackageName: String? = null): ParseResult? {
         val trimmedContent = content.trim()
 
         if (trimmedContent.startsWith("[") && trimmedContent.endsWith("]")) {
             try {
                 val hooks = json.decodeFromString<List<CustomHookInfo>>(trimmedContent)
-                return if (targetPackageName != null) {
+                val finalHooks = if (targetPackageName != null) {
                     hooks.map { it.copy(packageName = targetPackageName) }
                 } else {
                     hooks
                 }
+                return ParseResult.JsonImport(finalHooks)
             } catch (e: Exception) {
             }
         }
@@ -36,7 +42,7 @@ object ClipboardHookParser {
             val className = methodNoParamMatcher.group(1)?.replace('/', '.') ?: ""
             val methodName = methodNoParamMatcher.group(2) ?: ""
 
-            return listOf(CustomHookInfo(
+            val hook = CustomHookInfo(
                 hookMethodType = HookMethodType.HOOK_ALL_METHODS,
                 hookPoint = "before",
                 className = className,
@@ -44,7 +50,8 @@ object ClipboardHookParser {
                 returnValue = null,
                 packageName = targetPackageName,
                 isEnabled = true
-            ))
+            )
+            return ParseResult.SmaliImport(hook)
         }
 
         val methodWithParamsMatcher = METHOD_WITH_PARAMS_PATTERN.matcher(cleanedContent)
@@ -55,7 +62,7 @@ object ClipboardHookParser {
 
             val parameterTypes = parseMethodParameters(paramsDalvik)
 
-            return listOf(CustomHookInfo(
+            val hook = CustomHookInfo(
                 hookMethodType = HookMethodType.FIND_AND_HOOK_METHOD,
                 hookPoint = "before",
                 className = className,
@@ -64,7 +71,8 @@ object ClipboardHookParser {
                 parameterTypes = parameterTypes,
                 packageName = targetPackageName,
                 isEnabled = true
-            ))
+            )
+            return ParseResult.SmaliImport(hook)
         }
 
         val fieldMatcher = FIELD_PATTERN.matcher(cleanedContent)
@@ -74,14 +82,15 @@ object ClipboardHookParser {
             val fieldTypeDalvik = fieldMatcher.group(3) ?: ""
             val fieldValue = dalvikTypeToJavaType(fieldTypeDalvik)
 
-            return listOf(CustomHookInfo(
+            val hook = CustomHookInfo(
                 className = className,
                 fieldName = fieldName,
                 fieldValue = null,
                 hookMethodType = HookMethodType.SET_STATIC_OBJECT_FIELD,
                 packageName = targetPackageName,
                 isEnabled = true
-            ))
+            )
+            return ParseResult.SmaliImport(hook)
         }
 
         return null
@@ -89,7 +98,6 @@ object ClipboardHookParser {
 
     private fun parseMethodParameters(paramsDalvik: String): List<String>? {
         if (paramsDalvik.isBlank()) return null
-
         val params = mutableListOf<String>()
         var i = 0
         while (i < paramsDalvik.length) {
@@ -104,7 +112,6 @@ object ClipboardHookParser {
     private fun parseSingleDalvikType(dalvikString: String, startIndex: Int): Pair<String?, Int> {
         var i = startIndex
         if (i >= dalvikString.length) return null to i
-
         val typeChar = dalvikString[i]
         when (typeChar) {
             'Z' -> return "boolean" to i + 1

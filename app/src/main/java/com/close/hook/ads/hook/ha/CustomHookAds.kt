@@ -9,6 +9,7 @@ import com.close.hook.ads.hook.util.StringFinderKit
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import java.lang.reflect.Method
+import java.util.Arrays
 
 object CustomHookAds {
 
@@ -40,6 +41,8 @@ object CustomHookAds {
             HookMethodType.HOOK_METHODS_BY_STRING_MATCH -> handleHookByStringMatch(config, parsedReturnValue)
             HookMethodType.FIND_METHODS_WITH_STRING -> handleFindMethodWithString(config, classLoader, parsedReturnValue)
             HookMethodType.REPLACE_CONTEXT_WITH_FAKE -> handleReplaceContext(config, classLoader)
+            HookMethodType.LOG_METHOD_PARAMS -> handleLogMethodParams(config, classLoader)
+            HookMethodType.LOG_METHOD_RETURN_VALUE -> handleLogMethodReturnValue(config, classLoader)
         }
     }
 
@@ -120,6 +123,28 @@ object CustomHookAds {
         
         HookUtil.findAndHookMethod(config.className, methodName, paramTypes, config.hookPoint, { param ->
             handleReplaceContextWithFake(param, config)
+        }, classLoader)
+    }
+    
+    private fun handleLogMethodParams(config: CustomHookInfo, classLoader: ClassLoader) {
+        val methodName = config.methodNames?.firstOrNull() ?: return
+        val paramTypes = resolveParameterTypes(config.parameterTypes, classLoader)
+        
+        val hookPoint = config.hookPoint ?: "before"
+
+        HookUtil.findAndHookMethod(config.className, methodName, paramTypes, hookPoint, { param ->
+            val argsStr = if (param.args != null) Arrays.toString(param.args) else "null"
+            LogProxy.log(TAG, "LOG_PARAMS: ${config.className}.$methodName Args: $argsStr", HookUtil.getFormattedStackTrace())
+        }, classLoader)
+    }
+
+    private fun handleLogMethodReturnValue(config: CustomHookInfo, classLoader: ClassLoader) {
+        val methodName = config.methodNames?.firstOrNull() ?: return
+        val paramTypes = resolveParameterTypes(config.parameterTypes, classLoader)
+
+        HookUtil.findAndHookMethod(config.className, methodName, paramTypes, "after", { param ->
+            val resultStr = param.result?.toString() ?: "null"
+            LogProxy.log(TAG, "LOG_RETURN: ${config.className}.$methodName Result: $resultStr", HookUtil.getFormattedStackTrace())
         }, classLoader)
     }
 

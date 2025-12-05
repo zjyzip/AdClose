@@ -37,8 +37,18 @@ enum class HookMethodType(
     ),
     REPLACE_CONTEXT_WITH_FAKE(
         displayName = "替换为伪造Context",
+        requiredFields = setOf(HookField.CLASS_NAME, HookField.METHOD_NAME),
+        optionalFields = setOf(HookField.HOOK_POINT, HookField.PARAMETER_TYPES)
+    ),
+    LOG_METHOD_PARAMS(
+        displayName = "记录方法参数",
         requiredFields = setOf(HookField.CLASS_NAME, HookField.METHOD_NAME, HookField.PARAMETER_TYPES),
         optionalFields = setOf(HookField.HOOK_POINT)
+    ),
+    LOG_METHOD_RETURN_VALUE(
+        displayName = "记录方法返回值",
+        requiredFields = setOf(HookField.CLASS_NAME, HookField.METHOD_NAME),
+        optionalFields = setOf(HookField.PARAMETER_TYPES)
     );
 
     val visibleFields: Set<HookField> = requiredFields + optionalFields

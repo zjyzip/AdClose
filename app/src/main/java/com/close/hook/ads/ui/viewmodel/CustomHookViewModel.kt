@@ -182,27 +182,36 @@ class CustomHookViewModel(
         importedConfigs: List<CustomHookInfo>,
         targetPackageName: String?
     ): Boolean {
-        val currentConfigsMap = currentConfigs.associateBy { it.id }.toMutableMap()
-        var hasBeenUpdated = false
+        val existingIds = currentConfigs.map { it.id }.toSet()
+        val newConfigs = mutableListOf<CustomHookInfo>()
+        var hasChanges = false
 
         importedConfigs.forEach { importedConfig ->
             val configWithDefaults = importedConfig.copy(
-                id = importedConfig.id ?: UUID.randomUUID().toString(),
+                id = importedConfig.id.ifEmpty { UUID.randomUUID().toString() },
                 packageName = targetPackageName
             )
-            val existingConfig = currentConfigsMap[configWithDefaults.id]
 
-            if (existingConfig == null || existingConfig != configWithDefaults) {
-                currentConfigsMap[configWithDefaults.id!!] = configWithDefaults
-                hasBeenUpdated = true
+            if (configWithDefaults.id in existingIds) {
+                val index = currentConfigs.indexOfFirst { it.id == configWithDefaults.id }
+                if (index != -1) {
+                    val currentConfig = currentConfigs[index]
+                    if (currentConfig != configWithDefaults) {
+                        currentConfigs[index] = configWithDefaults
+                        hasChanges = true
+                    }
+                }
+            } else {
+                newConfigs.add(configWithDefaults)
+                hasChanges = true
             }
         }
 
-        if (hasBeenUpdated) {
-            currentConfigs.clear()
-            currentConfigs.addAll(currentConfigsMap.values)
+        if (newConfigs.isNotEmpty()) {
+            currentConfigs.addAll(0, newConfigs)
         }
-        return hasBeenUpdated
+
+        return hasChanges
     }
 
     fun importHooks(importedConfigs: List<CustomHookInfo>) {
