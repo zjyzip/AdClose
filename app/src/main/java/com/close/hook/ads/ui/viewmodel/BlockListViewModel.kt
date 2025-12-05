@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class BlockListViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -59,5 +60,9 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun removeUrlString(type: String, url: String) = viewModelScope.launch(Dispatchers.IO) {
         dataSource.removeUrlString(type, url)
+    }
+
+    suspend fun getAllUrls(): List<Url> = withContext(Dispatchers.IO) {
+        dataSource.getAllUrls()
     }
 }

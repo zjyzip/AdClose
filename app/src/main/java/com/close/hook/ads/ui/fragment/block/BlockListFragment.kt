@@ -416,13 +416,33 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             .show()
     }
 
-    private fun prepareDataForExport(): List<String> {
-        return viewModel.blackList.value
-            .map { "${it.type}, ${it.url}" }
-            .distinct()
-            .filter { it.contains(",") }
-            .sorted()
-    }
+    private val backupSAFLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
+            uri?.let {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching {
+                        val allRules = viewModel.getAllUrls()
+                        
+                        requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
+                            allRules.map { "${it.type}, ${it.url}" }
+                                .distinct()
+                                .filter { it.contains(",") }
+                                .sorted()
+                                .forEach { line ->
+                                    writer?.write("$line\n")
+                                }
+                        }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                        }
+                    }.onFailure {
+                        withContext(Dispatchers.Main) {
+                            showErrorDialog(getString(R.string.export_failed), it)
+                        }
+                    }
+                }
+            }
+        }
 
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -441,7 +461,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                             throw IllegalArgumentException(getString(R.string.invalid_file_format))
                         }
 
-                        val currentRules = viewModel.blackList.value.map { "${it.type.lowercase()},${it.url}" }.toSet()
+                        val currentRules = viewModel.getAllUrls()
+                            .map { "${it.type.lowercase()},${it.url}" }
+                            .toSet()
 
                         val newUrls = contentResolver.openInputStream(validUri)?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
@@ -469,56 +491,27 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                         }
                     }.onFailure {
                         withContext(Dispatchers.Main) {
-                            MaterialAlertDialogBuilder(requireContext())
-                                .setTitle(getString(R.string.import_failed))
-                                .setMessage(it.message)
-                                .setPositiveButton(android.R.string.ok, null)
-                                .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
-                                    MaterialAlertDialogBuilder(requireContext())
-                                        .setTitle(getString(R.string.crash_log))
-                                        .setMessage(it.stackTraceToString())
-                                        .setPositiveButton(android.R.string.ok, null)
-                                        .show()
-                                }
-                                .show()
+                            showErrorDialog(getString(R.string.import_failed), it)
                         }
                     }
                 }
             }
         }
 
-    private val backupSAFLauncher =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
-            uri?.let {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    runCatching {
-                        requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
-                            prepareDataForExport().forEach { line ->
-                                writer?.write("$line\n")
-                            }
-                        }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
-                        }
-                    }.onFailure {
-                        withContext(Dispatchers.Main) {
-                            MaterialAlertDialogBuilder(requireContext())
-                                .setTitle(getString(R.string.export_failed))
-                                .setMessage(it.message)
-                                .setPositiveButton(android.R.string.ok, null)
-                                .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
-                                    MaterialAlertDialogBuilder(requireContext())
-                                        .setTitle(getString(R.string.crash_log))
-                                        .setMessage(it.stackTraceToString())
-                                        .setPositiveButton(android.R.string.ok, null)
-                                        .show()
-                                }
-                                .show()
-                        }
-                    }
-                }
+    private fun showErrorDialog(title: String, e: Throwable) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(title)
+            .setMessage(e.message)
+            .setPositiveButton(android.R.string.ok, null)
+            .setNegativeButton(getString(R.string.crash_log)) { _, _ ->
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(getString(R.string.crash_log))
+                    .setMessage(e.stackTraceToString())
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
             }
-        }
+            .show()
+    }
 
     class CategoryItemDetailsLookup(private val recyclerView: RecyclerView) :
         ItemDetailsLookup<Url>() {

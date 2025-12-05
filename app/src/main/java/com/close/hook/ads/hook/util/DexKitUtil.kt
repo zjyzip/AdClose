@@ -24,14 +24,11 @@ object DexKitUtil {
     @Volatile
     private var bridge: DexKitBridge? = null
     private val usageCount = AtomicInteger(0)
-    private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var releaseJob: Job? = null
     private val lock = Any()
 
-    private const val BASE_DELAY_MS = 2000L
-    private const val MAX_DELAY_MS = 30000L
-    private var releaseDelay = BASE_DELAY_MS
-    private var lastScheduleTime = 0L
+    private const val RELEASE_DELAY_MS = 3000L
 
     private val methodCache = CacheBuilder.newBuilder()
         .maximumSize(300)
@@ -46,19 +43,19 @@ object DexKitUtil {
 
     private val nativeLoaded: Boolean by lazy {
         if (!AppUtils.isMainProcess(context)) {
-            log("Skipped: non-main process PID=${Process.myPid()}")
             return@lazy false
         }
         
         runCatching {
             val start = System.nanoTime()
             System.loadLibrary("dexkit")
-            log("Native loaded in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+            if (ENABLE_DEBUG_LOG) {
+                log("Native loaded in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+            }
             true
-        }.getOrElse {
-            log("Native load failed: ${it.message}")
-            false
-        }
+        }.onFailure {
+            XposedBridge.log("DexKitUtil: Native load failed: ${it.message}")
+        }.getOrDefault(false)
     }
 
     fun <T> withBridge(block: (DexKitBridge) -> T): T? {
@@ -72,97 +69,106 @@ object DexKitUtil {
     }
 
     fun getCachedOrFindMethods(key: String, findLogic: () -> List<MethodData>?): List<MethodData> {
-        val start = System.nanoTime()
-        return methodCache.get(key) {
-            findLogic().orEmpty().also {
-                log("Cache miss for key '%s'. Found %d methods, took %.2fms", key, it.size, (System.nanoTime() - start) / 1_000_000.0)
+        return try {
+            val start = if (ENABLE_DEBUG_LOG) System.nanoTime() else 0L
+            
+            methodCache.get(key) {
+                findLogic().orEmpty().also {
+                    if (ENABLE_DEBUG_LOG) {
+                        log("Cache miss for '$key'. Found ${it.size}, took %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+                    }
+                }
             }
+        } catch (e: Exception) {
+            XposedBridge.log("DexKitUtil: Error in cache get for $key: ${e.message}")
+            emptyList()
         }
     }
     
     private fun acquireBridge(): DexKitBridge? {
-        bridge?.let { return it.also { postAcquire() } }
+        bridge?.let {
+            postAcquire()
+            return it
+        }
 
-        return synchronized(lock) {
-            bridge ?: createBridgeInternal(context)?.also {
-                val start = System.nanoTime()
-                bridge = it
+        synchronized(lock) {
+            bridge?.let {
+                postAcquire()
+                return it
+            }
+
+            val start = if (ENABLE_DEBUG_LOG) System.nanoTime() else 0L
+            val newBridge = createBridgeInternal(context) ?: return null
+            
+            if (ENABLE_DEBUG_LOG) {
                 log("Bridge created in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
             }
-        }?.also { postAcquire() }
+            
+            bridge = newBridge
+            postAcquire()
+            return newBridge
+        }
     }
     
     private fun postAcquire() {
-        cancelPendingRelease()
         usageCount.incrementAndGet()
-        log("Bridge acquired on TID:${Thread.currentThread().id}. Usage count: ${usageCount.get()}")
+        synchronized(lock) {
+            releaseJob?.cancel()
+            releaseJob = null
+        }
     }
     
     private fun releaseUsage() {
         if (usageCount.decrementAndGet() == 0) {
-            log("Last usage released on TID:${Thread.currentThread().id}. Scheduling bridge release.")
             scheduleRelease()
         }
     }
 
     private fun createBridgeInternal(context: Context): DexKitBridge? {
-        log("Attempting to create bridge with ClassLoader: ${context.classLoader}")
         return runCatching {
             DexKitBridge.create(context.classLoader, true)
-        }.getOrElse {
-            log("Bridge creation failed: ${it.message}")
-            null
-        }
+        }.onFailure {
+            XposedBridge.log("DexKitUtil: Bridge creation failed: ${it.message}")
+        }.getOrNull()
     }
 
     private fun scheduleRelease() {
-        if (releaseJob?.isActive == true) return
-
-        val now = System.currentTimeMillis()
-        releaseDelay = if (now - lastScheduleTime > MAX_DELAY_MS) BASE_DELAY_MS 
-                       else (releaseDelay * 1.5).toLong().coerceAtMost(MAX_DELAY_MS)
-        lastScheduleTime = now
-
-        releaseJob = releaseScope.launch {
-            log("Scheduled release in ${releaseDelay / 1000}s")
-            delay(releaseDelay)
-            if (usageCount.get() == 0) {
+        synchronized(lock) {
+            if (releaseJob?.isActive == true) return
+            
+            releaseJob = releaseScope.launch {
+                delay(RELEASE_DELAY_MS)
                 releaseBridge()
-            } else {
-                log("Release skipped: bridge is in use again. Usage count: ${usageCount.get()}")
             }
         }
-    }
-
-    private fun cancelPendingRelease() {
-        releaseJob?.cancel()
-        releaseJob = null
     }
 
     private fun releaseBridge() {
         synchronized(lock) {
-            if (bridge == null || usageCount.get() != 0) {
-                log("Release skipped: Bridge already null or in use.")
-                return
+            if (usageCount.get() > 0) return
+            
+            bridge?.let {
+                try {
+                    if (ENABLE_DEBUG_LOG) {
+                        val before = Debug.getNativeHeapAllocatedSize() shr 20
+                        it.close()
+                        val after = Debug.getNativeHeapAllocatedSize() shr 20
+                        log("Bridge released. Freed: ${before - after}MB")
+                    } else {
+                        it.close()
+                    }
+                } catch (e: Exception) {
+                    XposedBridge.log("DexKitUtil: Error closing bridge: ${e.message}")
+                }
+                bridge = null
             }
-
-            val before = Debug.getNativeHeapAllocatedSize() shr 20
-            log("Memory before close: ${before}MB")
-
-            bridge?.close()
-            bridge = null
-            log("Bridge released")
-
-            val after = Debug.getNativeHeapAllocatedSize() shr 20
-            log("Memory after close: ${after}MB, Freed: ${before - after}MB")
+            releaseJob = null
         }
-        releaseDelay = BASE_DELAY_MS
-        lastScheduleTime = 0L
     }
 
-    private fun log(msg: String, vararg args: Any?) {
+    private inline fun log(format: String, vararg args: Any?) {
         if (ENABLE_DEBUG_LOG) {
-            XposedBridge.log("[$LOG_TAG] M:${Debug.getNativeHeapAllocatedSize() shr 20}MB | ${String.format(msg, *args)}")
+            XposedBridge.log("[$LOG_TAG] ${String.format(format, *args)}")
         }
     }
 }
