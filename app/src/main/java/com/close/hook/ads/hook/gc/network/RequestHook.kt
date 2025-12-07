@@ -19,7 +19,6 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.net.InetAddress
 import java.net.URL
 import java.net.URLDecoder
@@ -80,15 +79,6 @@ object RequestHook {
         } catch (e: Exception) {
             XposedBridge.log("$LOG_PREFIX URL format error: ${e.message}")
             urlObject?.toString() ?: ""
-        }
-    }
-
-    internal fun readStream(inputStream: InputStream): ByteArray {
-        return try {
-            inputStream.readBytes()
-        } catch (e: IOException) {
-            XposedBridge.log("$LOG_PREFIX Error reading stream: ${e.message}")
-            ByteArray(0)
         }
     }
 

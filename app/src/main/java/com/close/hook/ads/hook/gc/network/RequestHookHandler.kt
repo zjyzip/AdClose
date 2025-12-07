@@ -9,6 +9,7 @@ import android.webkit.WebViewClient
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.hook.util.StringFinderKit
+import com.close.hook.ads.hook.util.TeeInputStream
 import com.close.hook.ads.preference.HookPrefs
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
@@ -124,7 +125,7 @@ internal object RequestHookHandler {
                 val key = System.identityHashCode(socket)
                 val buffer = RequestHook.requestBuffers.getOrPut(key) { ByteArrayOutputStream() }
                 buffer.write(bytes, offset, len)
-                RequestHook.processRequestBuffer(key, false)  // isHttps = false
+                RequestHook.processRequestBuffer(key, isHttps = false)
             }
 
             HookUtil.hookAllMethods(
@@ -201,7 +202,7 @@ internal object RequestHookHandler {
                         srcBuffer.position(position)
 
                         buffer.write(bytes)
-                        RequestHook.processRequestBuffer(key, true)  // isHttps = true
+                        RequestHook.processRequestBuffer(key, isHttps = true)
                     }
                 } catch (e: Throwable) {
                     XposedBridge.log("$LOG_PREFIX ConscryptEngine.wrap hook error: ${e.message}")
@@ -377,20 +378,18 @@ internal object RequestHookHandler {
         HookUtil.hookAllMethods(
             clientClassName,
             "shouldInterceptRequest",
-            "after",
+            "before",
             { param ->
-                if (param.result != null) return@hookAllMethods
-
                 if (param.args.size != 2) return@hookAllMethods
                 val request = param.args[1] as? WebResourceRequest ?: return@hookAllMethods
-
-                if (processWebRequest(request, false)) {
+                
+                if (processWebRequest(request)) {
                     param.result = emptyWebResponse
                     return@hookAllMethods
                 }
 
                 if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
-                    param.result = executeAndProxyRequest(request)
+                    sendParallelRequestForLogging(request)
                 }
             },
             classLoader
@@ -402,7 +401,7 @@ internal object RequestHookHandler {
             "before",
             { param ->
                 if (param.args.size != 2) return@hookAllMethods
-                if (processWebRequest(param.args[1], false)) {
+                if (processWebRequest(param.args[1])) {
                     param.result = true
                 }
             },
@@ -410,83 +409,61 @@ internal object RequestHookHandler {
         )
     }
 
-    private fun executeAndProxyRequest(request: WebResourceRequest): WebResourceResponse? {
+    private fun sendParallelRequestForLogging(request: WebResourceRequest) {
         val url = request.url
         if (url == null || (url.scheme != "http" && url.scheme != "https")) {
-            return null
+            return
         }
 
-        try {
-            val urlConnection = URL(request.url.toString()).openConnection() as HttpURLConnection
-            urlConnection.requestMethod = request.method
-            request.requestHeaders.forEach { (key, value) ->
-                urlConnection.setRequestProperty(key, value)
+        Thread {
+            try {
+                val urlConnection = URL(request.url.toString()).openConnection() as HttpURLConnection
+                urlConnection.requestMethod = request.method
+                
+                request.requestHeaders.forEach { (key, value) ->
+                    urlConnection.setRequestProperty(key, value)
+                }
+                
+                urlConnection.setRequestProperty("X-AdClose-Proxy", "true")
+
+                urlConnection.connect()
+                
+                val inputStream = try { urlConnection.inputStream } catch (e: IOException) { urlConnection.errorStream }
+                
+                inputStream?.use { input ->
+                    val buffer = ByteArrayOutputStream()
+                    TeeInputStream(input, buffer).use { it.readBytes() }
+                }
+            } catch (e: Throwable) {
+                XposedBridge.log("$LOG_PREFIX Error in parallel WebView request: ${e.message}")
             }
-            urlConnection.connect()
-
-            val responseCode = urlConnection.responseCode
-            val responseMessage = urlConnection.responseMessage
-            val responseHeaders = urlConnection.headerFields.mapValues { it.value.joinToString(", ") }
-
-            val inputStream = try { urlConnection.inputStream } catch (e: IOException) { urlConnection.errorStream } ?: return null
-
-            val responseBodyBytes = RequestHook.readStream(inputStream)
-
-            val info = BlockedRequest(
-                requestType = " Web",
-                requestValue = RequestHook.formatUrlWithoutQuery(request.url),
-                method = request.method,
-                urlString = request.url.toString(),
-                requestHeaders = request.requestHeaders.toString(),
-                requestBody = null,
-                responseCode = responseCode,
-                responseMessage = responseMessage,
-                responseHeaders = responseHeaders.toString(),
-                responseBody = responseBodyBytes,
-                responseBodyContentType = urlConnection.contentType,
-                stack = HookUtil.getFormattedStackTrace(),
-                dnsHost = null,
-                fullAddress = null
-            )
-            RequestHook.checkShouldBlockRequest(info)
-
-            val mimeType = responseHeaders["content-type"]?.split(";")?.firstOrNull()?.trim()
-            val encoding = responseHeaders["content-encoding"]?.trim()
-
-            return WebResourceResponse(
-                mimeType,
-                encoding,
-                responseCode,
-                responseMessage,
-                responseHeaders,
-                ByteArrayInputStream(responseBodyBytes)
-            )
-
-        } catch (e: Throwable) {
-            XposedBridge.log("$LOG_PREFIX Error proxying WebView request: ${e.message}")
-            return null
-        }
+        }.start()
     }
 
-    private fun processWebRequest(request: Any?, proxy: Boolean): Boolean {
+    private fun processWebRequest(request: Any?): Boolean {
         try {
             val webResourceRequest = request as? WebResourceRequest ?: return false
+            
+            if (webResourceRequest.requestHeaders["X-AdClose-Proxy"] == "true") {
+                return false
+            }
+
             val urlString = webResourceRequest.url?.toString() ?: return false
             val formattedUrl = RequestHook.formatUrlWithoutQuery(Uri.parse(urlString))
-
+            
             val info = BlockedRequest(
                 requestType = " Web",
                 requestValue = formattedUrl,
                 method = webResourceRequest.method,
                 urlString = urlString,
-                requestHeaders = webResourceRequest.requestHeaders?.toString(),
+                requestHeaders = webResourceRequest.requestHeaders.toString(),
                 requestBody = null,
                 responseCode = -1,
                 responseMessage = null,
                 responseHeaders = null,
                 responseBody = null,
                 responseBodyContentType = null,
-                stack = if (proxy) null else HookUtil.getFormattedStackTrace(),
+                stack = HookUtil.getFormattedStackTrace(),
                 dnsHost = null,
                 fullAddress = null
             )
@@ -499,13 +476,8 @@ internal object RequestHookHandler {
 
     private fun createEmptyWebResourceResponse(): WebResourceResponse? {
         return try {
-            WebResourceResponse(
-                "text/plain",
-                "UTF-8",
-                204,
-                "No Content",
-                emptyMap(),
-                ByteArrayInputStream(ByteArray(0))
+            WebResourceResponse("text/plain", "UTF-8", 204, "No Content",
+                emptyMap(), ByteArrayInputStream(ByteArray(0))
             )
         } catch (e: Exception) {
             XposedBridge.log("$LOG_PREFIX Empty response error: ${e.message}")
@@ -578,7 +550,10 @@ internal object RequestHookHandler {
 
                             if (responseBody == null) {
                                 (streamObj as? InputStream)?.use { inputStream ->
-                                    responseBody = RequestHook.readStream(inputStream)
+                                    val buffer = ByteArrayOutputStream()
+                                    TeeInputStream(inputStream, buffer).use { it.readBytes() }
+                                    responseBody = buffer.toByteArray()
+                                    
                                     if (bufferField != null && responseBody != null) {
                                         bufferField?.set(streamObj, ByteBuffer.wrap(responseBody))
                                     }

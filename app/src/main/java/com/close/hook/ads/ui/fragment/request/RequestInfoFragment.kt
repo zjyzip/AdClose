@@ -257,12 +257,15 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
 
     private fun getAvailableTabs(): List<String> = arguments?.run {
         mutableListOf<String>().apply {
+            val isHttpRequest = !getString("method").isNullOrEmpty() || !getString("urlString").isNullOrEmpty()
+
             if (!getString("dnsHost").isNullOrEmpty()) add("DNS Info")
-            if (!getString("method").isNullOrEmpty() || !getString("urlString").isNullOrEmpty() || !getString("requestHeaders").isNullOrEmpty()) add("Request")
-            if (!getString("requestBodyUriString").isNullOrEmpty()) add("RequestBody")
             
-            if (!getString("responseMessage").isNullOrEmpty() || !getString("responseHeaders").isNullOrEmpty()) {
-                add("Response")
+            if (isHttpRequest) {
+                add("Request")
+                if (!getString("requestBodyUriString").isNullOrEmpty()) add("RequestBody")
+                
+                if (!getString("responseHeaders").isNullOrEmpty()) add("Response")
                 add("ResponseBody")
             }
             
