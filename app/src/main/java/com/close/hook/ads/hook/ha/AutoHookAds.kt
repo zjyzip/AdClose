@@ -10,6 +10,8 @@ import com.close.hook.ads.hook.util.DexKitUtil
 import de.robv.android.xposed.XposedBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.base.StringMatcher
@@ -24,6 +26,7 @@ object AutoHookAds {
     private const val RESULT_KEY = "detected_hooks_result"
 
     private var cachedHooks: List<CustomHookInfo>? = null
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val excludedClasses = setOf(
         "com.baidu.mobads.sdk.api.BDAdConfig\$Builder"
@@ -86,10 +89,13 @@ object AutoHookAds {
                             XposedBridge.log("$TAG | Received auto-detect request for package: $targetPackage. Sending cached results.")
 
                             val hooksToSend = cachedHooks ?: emptyList()
+                            
+                            val hooksJson = json.encodeToString(hooksToSend)
                             val resultIntent = Intent(ACTION_AUTO_DETECT_ADS_RESULT).apply {
-                                putParcelableArrayListExtra(RESULT_KEY, ArrayList(hooksToSend))
+                                putExtra(RESULT_KEY, hooksJson)
                                 setPackage("com.close.hook.ads")
                             }
+                            
                             ctx.sendBroadcast(resultIntent)
 
                             XposedBridge.log("$TAG | Finished sending cached results to UI for: $targetPackage. Total found: ${hooksToSend.size}")

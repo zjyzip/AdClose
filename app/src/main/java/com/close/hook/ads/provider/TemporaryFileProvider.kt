@@ -8,13 +8,36 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.close.hook.ads.preference.HookPrefs
-import com.google.common.cache.Cache
-import com.google.common.cache.CacheBuilder
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+
+class SimpleMemoryCache {
+    private data class CacheEntry(val data: Pair<ByteArray, String>, val timestamp: Long)
+
+    private val cache = ConcurrentHashMap<String, CacheEntry>()
+    private val expirationTimeMillis = HookPrefs.getRequestCacheExpiration() * 60 * 1000
+    private val maximumSize = 8192
+
+    fun get(key: String): Pair<ByteArray, String>? {
+        val entry = cache[key] ?: return null
+        if (System.currentTimeMillis() - entry.timestamp > expirationTimeMillis) {
+            cache.remove(key)
+            return null
+        }
+        return entry.data
+    }
+
+    fun put(key: String, value: Pair<ByteArray, String>) {
+        if (cache.size >= maximumSize) {
+            cache.keys.firstOrNull()?.let { cache.remove(it) }
+        }
+        cache[key] = CacheEntry(value, System.currentTimeMillis())
+    }
+}
 
 class TemporaryFileProvider : ContentProvider() {
 
@@ -35,30 +58,16 @@ class TemporaryFileProvider : ContentProvider() {
         }
     }
 
-    private val contentStore: Cache<String, Pair<ByteArray, String>> by lazy {
-        val expirationTime = HookPrefs.getRequestCacheExpiration()
-        CacheBuilder.newBuilder()
-            .expireAfterWrite(expirationTime, TimeUnit.MINUTES)
-            .maximumSize(8192)
-            .concurrencyLevel(1)
-            .build()
-    }
+    private val contentStore by lazy { SimpleMemoryCache() }
 
-    override fun onCreate(): Boolean {
-        return true
-    }
+    override fun onCreate(): Boolean = true
 
-    override fun query(
-        uri: Uri, projection: Array<String>?, selection: String?,
-        selectionArgs: Array<String>?, sortOrder: String?
-    ): Cursor? {
-        return null
-    }
+    override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor? = null
 
     override fun getType(uri: Uri): String? {
         return if (uriMatcher.match(uri) == TEMPORARY_FILE_ID) {
             uri.lastPathSegment?.let { id ->
-                contentStore.getIfPresent(id)?.second
+                contentStore.get(id)?.second
             }
         } else {
             null
@@ -66,52 +75,35 @@ class TemporaryFileProvider : ContentProvider() {
     }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
-        if (mode != "r") {
-            throw IllegalArgumentException("Unsupported mode: $mode. Only 'r' (read) is supported.")
-        }
+        if (mode != "r") throw IllegalArgumentException("Only 'r' mode is supported.")
 
-        val id = uri.lastPathSegment.takeIf { uriMatcher.match(uri) == TEMPORARY_FILE_ID }
-            ?: throw FileNotFoundException("Invalid or malformed URI for openFile: $uri")
-
-        val (bodyBytes, _) = contentStore.getIfPresent(id)
-            ?: throw FileNotFoundException("Data not found or expired for URI: $uri")
+        val id = uri.lastPathSegment ?: throw FileNotFoundException("Invalid URI")
+        val (bodyBytes, _) = contentStore.get(id) ?: throw FileNotFoundException("Data expired or not found")
 
         return try {
             val pipe = ParcelFileDescriptor.createReliablePipe()
-            val readSide = pipe[0]
-            val writeSide = pipe[1]
-
-            thread(isDaemon = true, name = "TemporaryFileProvider-PipeWriter") {
+            thread(isDaemon = true) {
                 try {
-                    ParcelFileDescriptor.AutoCloseOutputStream(writeSide).use { outputStream ->
-                        outputStream.write(bodyBytes)
-                    }
+                    ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { it.write(bodyBytes) }
                 } catch (e: IOException) {
-                    Log.e(TAG, "Error writing to pipe for URI: $uri", e)
                     try {
-                        writeSide.closeWithError("IO error during write: ${e.message}")
-                    } catch (closeError: IOException) {
-                        Log.e(TAG, "Error closing pipe with error message", closeError)
-                    }
+                        pipe[1].closeWithError("IO error: ${e.message}")
+                    } catch (ignored: IOException) {}
                 }
             }
-            
-            readSide
+            pipe[0]
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to create pipe for URI: $uri", e)
-            throw FileNotFoundException("Could not open file for URI: $uri due to pipe creation failure.")
+            throw FileNotFoundException("Pipe creation failed: ${e.message}")
         }
     }
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        if (uriMatcher.match(uri) != TEMPORARY_FILES) {
-            throw IllegalArgumentException("Cannot insert into URI: $uri. Use CONTENT_URI.")
-        }
+        if (uriMatcher.match(uri) != TEMPORARY_FILES) throw IllegalArgumentException("Invalid URI for insert")
         
         val bodyContent = values?.getAsByteArray(KEY_BODY_CONTENT)
         val mimeType = values?.getAsString(KEY_MIME_TYPE)
-        requireNotNull(bodyContent) { "'$KEY_BODY_CONTENT' must not be null." }
-        requireNotNull(mimeType) { "'$KEY_MIME_TYPE' must not be null." }
+        requireNotNull(bodyContent)
+        requireNotNull(mimeType)
 
         val id = UUID.randomUUID().toString()
         contentStore.put(id, bodyContent to mimeType)
@@ -121,13 +113,7 @@ class TemporaryFileProvider : ContentProvider() {
         return newUri
     }
 
-    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {
-        return 0
-    }
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int = 0
 
-    override fun update(
-        uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?
-    ): Int {
-        return 0
-    }
+    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int = 0
 }

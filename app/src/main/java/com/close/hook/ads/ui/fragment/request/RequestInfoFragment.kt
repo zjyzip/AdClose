@@ -258,14 +258,14 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     private fun getAvailableTabs(): List<String> = arguments?.run {
         mutableListOf<String>().apply {
             if (!getString("dnsHost").isNullOrEmpty()) add("DNS Info")
-            if (!getString("method").isNullOrEmpty() || !getString("urlString").isNullOrEmpty() || !getString("requestHeaders").isNullOrEmpty()) add(
-                "Request"
-            )
+            if (!getString("method").isNullOrEmpty() || !getString("urlString").isNullOrEmpty() || !getString("requestHeaders").isNullOrEmpty()) add("Request")
             if (!getString("requestBodyUriString").isNullOrEmpty()) add("RequestBody")
+            
             if (!getString("responseMessage").isNullOrEmpty() || !getString("responseHeaders").isNullOrEmpty()) {
                 add("Response")
-                if (!getString("responseBodyUriString").isNullOrEmpty()) add("ResponseBody")
+                add("ResponseBody")
             }
+            
             if (!getString("stack").isNullOrEmpty()) add("Stack")
         }
     } ?: emptyList()

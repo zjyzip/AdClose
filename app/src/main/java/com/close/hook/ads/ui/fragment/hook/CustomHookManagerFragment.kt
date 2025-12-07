@@ -78,6 +78,8 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         )
     }
 
+    private val json = Json { ignoreUnknownKeys = true }
+
     private lateinit var hookAdapter: CustomHookAdapter
     private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private var tracker: SelectionTracker<CustomHookInfo>? = null
@@ -116,9 +118,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private val autoDetectResultReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_AUTO_DETECT_ADS_RESULT) {
-                intent.extras?.let { extras ->
-                    BundleCompat.getParcelableArrayList(extras, "detected_hooks_result", CustomHookInfo::class.java)?.let {
-                        viewModel.handleAutoDetectResult(it.toList())
+                intent.getStringExtra("detected_hooks_result")?.let { jsonString ->
+                    try {
+                        val hooks = json.decodeFromString<List<CustomHookInfo>>(jsonString)
+                        viewModel.handleAutoDetectResult(hooks)
+                    } catch (e: Exception) {
+                        Log.e("AutoDetectReceiver", "Failed to decode hooks from JSON", e)
                     }
                 }
             }
