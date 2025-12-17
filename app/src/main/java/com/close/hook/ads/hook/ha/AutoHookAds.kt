@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookMethodType
 import com.close.hook.ads.hook.util.DexKitUtil
@@ -13,7 +14,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.luckypray.dexkit.query.enums.StringMatchType
-import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.base.StringMatcher
 import org.luckypray.dexkit.result.MethodData
 import java.lang.reflect.Modifier
@@ -35,6 +35,7 @@ object AutoHookAds {
     val adSdkPackages = listOf(
         "com.sjm.sjmsdk",
         "com.ap.android",
+        "com.youxiao.ssp",
         "com.bytedance.pangle",
         "com.bytedance.sdk.openadsdk",
         "com.bytedance.android.openliveplugin",
@@ -105,7 +106,12 @@ object AutoHookAds {
             }
         }
         val filter = IntentFilter(ACTION_AUTO_DETECT_ADS)
-        context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            context.registerReceiver(receiver, filter)
+        }
     }
 
     suspend fun findAndCacheSdkMethods(packageName: String) = withContext(Dispatchers.IO) {

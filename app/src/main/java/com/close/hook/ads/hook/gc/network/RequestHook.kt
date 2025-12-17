@@ -8,7 +8,6 @@ import androidx.core.content.contentValuesOf
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
-import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.provider.TemporaryFileProvider
