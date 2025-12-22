@@ -1,8 +1,8 @@
 [versions]
-kotlin = "2.2.21"
+kotlin = "2.3.0"
 androidApplicationPlugin = "8.13.2"
 materialThemeBuilder = "1.5.1"
-ksp = "2.3.3"
+ksp = "2.3.4"
 autoresconfig = "1.2.2"
 gson = "2.13.2"
 guava = "33.5.0-jre"
@@ -24,7 +24,7 @@ rikkaMaterial = "2.7.2"
 rikkaMaterialPreference = "2.0.0"
 mpandroidchart = "v3.1.0"
 kotlinxSerialization = "1.9.0"
-kotlinSerializationPlugin = "2.2.21"
+kotlinSerializationPlugin = "2.3.0"
 brotli = "0.1.2"
 
 [libraries]
