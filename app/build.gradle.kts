@@ -1,4 +1,5 @@
 import java.util.Calendar
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -72,7 +73,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = calculateVersionCode()
-        versionName = "4.2.1"
+        versionName = "4.2.2"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -95,8 +96,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
 
     buildTypes {
