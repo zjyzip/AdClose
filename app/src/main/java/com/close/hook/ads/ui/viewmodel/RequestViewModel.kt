@@ -20,6 +20,10 @@ import kotlinx.coroutines.launch
 
 class RequestViewModel(application: Application) : AndroidViewModel(application) {
 
+    companion object {
+        private const val MAX_REQUEST_LIST_SIZE = 1000
+    }
+
     val dataSource: DataSource = DataSource.getDataSource(application)
 
     private val _requestList = MutableStateFlow<List<RequestInfo>>(emptyList())
@@ -57,8 +61,14 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateRequestList(item: RequestInfo) {
-        _requestList.update { list ->
-            listOf(item) + list
+        _requestList.update { currentList ->
+            val newList = ArrayList<RequestInfo>(currentList.size + 1)
+            newList.add(item)
+            newList.addAll(currentList)
+            if (newList.size > MAX_REQUEST_LIST_SIZE) {
+                newList.subList(MAX_REQUEST_LIST_SIZE, newList.size).clear()
+            }
+            newList
         }
     }
 

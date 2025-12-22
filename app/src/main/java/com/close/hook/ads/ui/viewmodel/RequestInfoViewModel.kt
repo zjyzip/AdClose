@@ -152,12 +152,10 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
 
     private fun findMatches(text: String, query: String): List<Pair<Int, Int>> {
         val positions = mutableListOf<Pair<Int, Int>>()
-        val normalizedText = text.lowercase(Locale.ROOT)
-        val normalizedQuery = query.lowercase(Locale.ROOT)
-        var index = normalizedText.indexOf(normalizedQuery)
+        var index = text.indexOf(query, ignoreCase = true)
         while (index >= 0) {
             positions.add(Pair(index, index + query.length))
-            index = normalizedText.indexOf(normalizedQuery, index + 1)
+            index = text.indexOf(query, index + 1, ignoreCase = true)
         }
         return positions
     }
