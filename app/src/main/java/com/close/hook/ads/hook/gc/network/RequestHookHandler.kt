@@ -494,74 +494,49 @@ internal object RequestHookHandler {
             ) { param ->
                 try {
                     val thisObject = param.thisObject
-                    var requestObject: Any? = null // mRequest
-                    var responseInfoObject: Any? = null // mResponseInfo
-                    var inputStreamObject: Any? = null // mInputStream
 
-                    thisObject.javaClass.declaredFields.forEach { field ->
-                        field.isAccessible = true
-                        val value = field.get(thisObject)
-                        when {
-                            urlRequestCls?.isInstance(value) == true -> requestObject = value
-                            urlResponseInfoCls?.isInstance(value) == true -> responseInfoObject = value
-                            cronetInputStreamCls?.isInstance(value) == true -> inputStreamObject = value
-                        }
-                    }
+                    val requestObject = XposedHelpers.getObjectField(thisObject, "mRequest")
+                    val responseInfoObject = XposedHelpers.getObjectField(thisObject, "mResponseInfo")
+                    val inputStreamObject = XposedHelpers.getObjectField(thisObject, "mInputStream")
 
                     if (requestObject == null || responseInfoObject == null) return@hookAllMethods
 
-                    var initialUrl: String? = null // mInitialUrl
-                    var method: String? = null // mInitialMethod
-                    var requestHeaders: String? = null // mRequestHeaders
-
-                    requestObject.javaClass.declaredFields.forEach { field ->
-                        field.isAccessible = true
-                        when (val value = field.get(requestObject)) {
-                            is String -> {
-                                if (value.startsWith("http") && initialUrl == null) initialUrl = value
-                                else if ((value.equals("GET", true) || value.equals("POST", true)) && method == null) method = value
-                            }
-                            is List<*> -> if (requestHeaders == null) requestHeaders = value.toString()
-                        }
-                    }
+                    val initialUrl = XposedHelpers.getObjectField(requestObject, "mInitialUrl") as? String
+                    val method = XposedHelpers.getObjectField(requestObject, "mInitialMethod") as? String
+                    val requestHeaders = XposedHelpers.getObjectField(requestObject, "mRequestHeaders")?.toString()
 
                     val finalUrl = XposedHelpers.callMethod(responseInfoObject, "getUrl") as? String
                     val httpStatusCode = XposedHelpers.callMethod(responseInfoObject, "getHttpStatusCode") as? Int ?: -1
                     val httpStatusText = XposedHelpers.callMethod(responseInfoObject, "getHttpStatusText") as? String
-                    val responseHeadersMap = XposedHelpers.callMethod(responseInfoObject, "getAllHeaders") as? Map<*, *>
+                    val responseHeadersMap = XposedHelpers.callMethod(responseInfoObject, "getAllHeaders") as? Map<String, List<String>>
                     val responseHeaders = responseHeadersMap?.toString() ?: ""
                     val negotiatedProtocol = XposedHelpers.callMethod(responseInfoObject, "getNegotiatedProtocol") as? String
+                    
                     var responseBody: ByteArray? = null
                     var responseContentType: String? = null
 
                     if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && httpStatusCode in 200..399) {
                         inputStreamObject?.let { streamObj ->
-                            var bufferField: Field? = null
                             try {
-                                streamObj.javaClass.declaredFields.find { it.type == ByteBuffer::class.java }?.let {
-                                    bufferField = it.apply { isAccessible = true }
-                                }
-                                bufferField?.get(streamObj)?.let { buffer ->
-                                    (buffer as? ByteBuffer)?.takeIf { it.hasArray() }?.let { responseBody = it.array() }
+                                val buffer = XposedHelpers.getObjectField(streamObj, "mBuffer") as? ByteBuffer
+                                if (buffer != null && buffer.hasArray()) {
+                                    responseBody = buffer.array()
                                 }
                             } catch (e: Throwable) {
-                                XposedBridge.log("$LOG_PREFIX Cronet buffer field access error: ${e.message}")
                             }
 
                             if (responseBody == null) {
                                 (streamObj as? InputStream)?.use { inputStream ->
-                                    val buffer = ByteArrayOutputStream()
-                                    TeeInputStream(inputStream, buffer).use { it.readBytes() }
-                                    responseBody = buffer.toByteArray()
+                                    val out = ByteArrayOutputStream()
+                                    TeeInputStream(inputStream, out).use { it.readBytes() }
+                                    responseBody = out.toByteArray()
                                     
-                                    if (bufferField != null && responseBody != null) {
-                                        bufferField?.set(streamObj, ByteBuffer.wrap(responseBody))
-                                    }
+                                    try {
+                                        XposedHelpers.setObjectField(streamObj, "mBuffer", ByteBuffer.wrap(responseBody))
+                                    } catch (ignored: Throwable) {}
                                 }
                             }
-                            (responseHeadersMap as? Map<String, List<String>>)?.get("Content-Type")?.firstOrNull()?.let {
-                                responseContentType = it
-                            }
+                            responseContentType = responseHeadersMap?.get("Content-Type")?.firstOrNull()
                         }
                     }
 
@@ -586,7 +561,7 @@ internal object RequestHookHandler {
                     )
 
                     if (RequestHook.checkShouldBlockRequest(info)) {
-                        param.throwable = IOException("Request blocked by AdClose")
+                        param.throwable = IOException("Request blocked by AdClose (Cronet)")
                     }
                 } catch (e: Throwable) {
                     XposedBridge.log("$LOG_PREFIX Error in Cronet hook: ${e.message}")

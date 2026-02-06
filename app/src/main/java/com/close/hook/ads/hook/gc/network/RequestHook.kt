@@ -57,13 +57,21 @@ object RequestHook {
         .build()
 
     private val queryCache: Cache<String, Triple<Boolean, String?, String?>> = CacheBuilder.newBuilder()
-        .maximumSize(8192)
+        .maximumSize(1000)
         .expireAfterAccess(4, TimeUnit.HOURS)
         .softValues()
         .build()
 
     fun init(context: Context) {
         applicationContext = context
+    }
+
+    internal fun releaseConnection(key: Int) {
+        requestBuffers.remove(key)
+        responseBuffers.remove(key)
+        requestParsingStates.remove(key)
+        responseParsingStates.remove(key)
+        pendingRequests.remove(key)
     }
 
     internal fun formatUrlWithoutQuery(urlObject: Any?): String {
@@ -174,7 +182,7 @@ object RequestHook {
         if (headerEndIndex != -1) {
             state.isHeaderParsed = true
             state.headerSize = headerEndIndex + headerEndMarker.size
-            val headerString = String(buffer, 0, headerEndIndex, Charsets.UTF_8)
+            val headerString = String(buffer, 0, headerEndIndex, StandardCharsets.ISO_8859_1)
             
             if (headerString.startsWith("CONNECT ", ignoreCase = true)) {
                 cleanBuffer(bufferStream, buffer, state.headerSize)
@@ -199,23 +207,19 @@ object RequestHook {
         val state = responseParsingStates.getOrPut(key) { ParsingState() }
         val requestInfo = pendingRequests[key] ?: return false
 
-        if (state.isHeaderParsed && !state.isChunked) {
-            if (bufferStream.size() < state.headerSize + state.contentLength) {
-                return false
-            }
-        }
-        
         val buffer = bufferStream.toByteArray()
         val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
         
-        if (headerEndIndex != -1) {
-            if (!state.isHeaderParsed) {
-                val headerString = String(buffer, 0, headerEndIndex, Charsets.ISO_8859_1)
+        if (headerEndIndex != -1 || state.isHeaderParsed) {
+            if (!state.isHeaderParsed && headerEndIndex != -1) {
+                val headerString = String(buffer, 0, headerEndIndex, StandardCharsets.ISO_8859_1)
                 state.isHeaderParsed = true
                 state.headerSize = headerEndIndex + headerEndMarker.size
                 state.contentLength = parseContentLength(headerString)
                 state.isChunked = headerString.contains("Transfer-Encoding: chunked", ignoreCase = true)
             }
+
+            if (!state.isHeaderParsed) return false
 
             val bodyStartIndex = state.headerSize
             var totalResponseSize = 0
@@ -239,14 +243,9 @@ object RequestHook {
             }
 
             if (complete) {
-                val headerString = String(buffer, 0, state.headerSize - headerEndMarker.size, Charsets.ISO_8859_1)
-                if (completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)) {
-                    isBlocked = true
-                }
-                cleanBuffer(bufferStream, buffer, totalResponseSize)
-                responseParsingStates.remove(key)
-                requestParsingStates.remove(key)
-                pendingRequests.remove(key)
+                val headerString = String(buffer, 0, state.headerSize, StandardCharsets.ISO_8859_1)
+                isBlocked = completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)
+                releaseConnection(key)
             }
             return isBlocked
         }
@@ -267,7 +266,7 @@ object RequestHook {
 
         val method = requestLine[0]
         val path = requestLine[1]
-        val host = lines.find { it.startsWith("Host:", ignoreCase = true) }?.substring(6)?.trim() ?: return
+        val host = lines.find { it.startsWith("Host:", ignoreCase = true) }?.substring(5)?.trim() ?: return
         val scheme = if (isHttps) "https" else "http"
         val url = "$scheme://$host$path"
 
@@ -304,8 +303,8 @@ object RequestHook {
         val statusLine = lines.firstOrNull()?.split(" ", limit = 3) ?: return false
         val responseCode = statusLine.getOrNull(1)?.toIntOrNull() ?: -1
         val responseMessage = statusLine.getOrNull(2) ?: ""
-        val contentType = lines.find { it.startsWith("Content-Type:", ignoreCase = true) }?.substring(13)?.trim()
-        val contentEncoding = lines.find { it.startsWith("Content-Encoding:", ignoreCase = true) }?.substring(17)?.trim()
+        val contentType = lines.find { it.startsWith("Content-Type:", ignoreCase = true) }?.substringAfter(':')?.trim()
+        val contentEncoding = lines.find { it.startsWith("Content-Encoding:", ignoreCase = true) }?.substringAfter(':')?.trim()
 
         val mimeTypeForProvider = if (!contentEncoding.isNullOrEmpty()) {
             "$contentType; encoding=$contentEncoding"
@@ -328,47 +327,60 @@ object RequestHook {
         if (shouldBlock) {
             param?.throwable = IOException("Request blocked by AdClose")
         }
-        pendingRequests.remove(key)
         return shouldBlock
     }
 
     private fun findBytes(data: ByteArray, pattern: ByteArray, startIndex: Int = 0): Int {
-        for (i in startIndex..(data.size - pattern.size)) {
-            if (data.sliceArray(i until i + pattern.size).contentEquals(pattern)) {
-                return i
+        if (pattern.isEmpty() || data.size < pattern.size + startIndex) return -1
+        val skip = IntArray(256) { pattern.size }
+        for (i in 0 until pattern.size - 1) {
+            skip[pattern[i].toInt() and 0xFF] = pattern.size - 1 - i
+        }
+        var k = startIndex + pattern.size - 1
+        while (k < data.size) {
+            var j = pattern.size - 1
+            var i = k
+            while (j >= 0 && data[i] == pattern[j]) {
+                j--
+                i--
             }
+            if (j == -1) return i + 1
+            k += skip[data[k].toInt() and 0xFF]
         }
         return -1
     }
 
     private fun parseContentLength(headers: String): Int {
         return headers.lines().find { it.startsWith("Content-Length:", ignoreCase = true) }
-            ?.substring(15)?.trim()?.toIntOrNull() ?: 0
+            ?.substringAfter(':')?.trim()?.toIntOrNull() ?: 0
     }
 
     private fun parseChunkedBody(buffer: ByteArray, bodyStartIndex: Int): Pair<ByteArray, Int>? {
         val bodyStream = ByteArrayOutputStream()
         var currentIndex = bodyStartIndex
-        while (true) {
-            val crlfIndex = findBytes(buffer, "\r\n".toByteArray(), currentIndex)
-            if (crlfIndex == -1) return null
+        try {
+            while (true) {
+                val crlfIndex = findBytes(buffer, "\r\n".toByteArray(), currentIndex)
+                if (crlfIndex == -1) return null
 
-            val chunkSizeHex = String(buffer, currentIndex, crlfIndex - currentIndex, Charsets.US_ASCII)
-            val chunkSize = chunkSizeHex.toIntOrNull(16) ?: 0
+                val chunkSizeHex = String(buffer, currentIndex, crlfIndex - currentIndex, Charsets.US_ASCII).trim()
+                val chunkSize = chunkSizeHex.toIntOrNull(16) ?: 0
 
-            if (chunkSize == 0) {
-                currentIndex = crlfIndex + 2
-                val finalCrlfIndex = findBytes(buffer, "\r\n".toByteArray(), currentIndex)
-                if(finalCrlfIndex == -1) return null
-                return bodyStream.toByteArray() to finalCrlfIndex + 2
+                if (chunkSize == 0) {
+                    val finalCrlfIndex = findBytes(buffer, "\r\n".toByteArray(), crlfIndex + 2)
+                    if (finalCrlfIndex == -1) return null
+                    return bodyStream.toByteArray() to finalCrlfIndex + 2
+                }
+
+                val chunkDataStart = crlfIndex + 2
+                val chunkDataEnd = chunkDataStart + chunkSize
+                if (buffer.size < chunkDataEnd + 2) return null
+
+                bodyStream.write(buffer, chunkDataStart, chunkSize)
+                currentIndex = chunkDataEnd + 2
             }
-
-            val chunkDataStart = crlfIndex + 2
-            val chunkDataEnd = chunkDataStart + chunkSize
-            if (buffer.size < chunkDataEnd + 2) return null
-
-            bodyStream.write(buffer, chunkDataStart, chunkSize)
-            currentIndex = chunkDataEnd + 2
+        } catch (e: Exception) {
+            return null
         }
     }
 
@@ -401,7 +413,7 @@ object RequestHook {
             var responseBodyUriString: String? = null
 
             fun storeBody(body: ByteArray?, contentType: String?): String? {
-                body ?: return null
+                if (body == null || body.isEmpty()) return null
                 return try {
                     val values = contentValuesOf("body_content" to body, "mime_type" to contentType)
                     applicationContext.contentResolver.insert(TemporaryFileProvider.CONTENT_URI, values)?.toString()

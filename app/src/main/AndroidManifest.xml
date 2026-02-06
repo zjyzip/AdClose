@@ -15,6 +15,9 @@
         android:name="com.close.hook.ads.WRITE_DATABASE"
         android:protectionLevel="normal" />
 
+    <permission android:name="com.close.hook.ads.permission.READ_TEMP_FILES"
+        android:protectionLevel="signature" />
+
     <application
         android:name=".CloseApplication"
         android:description="@string/app_description"
@@ -85,6 +88,7 @@
             android:name=".provider.TemporaryFileProvider"
             android:authorities="com.close.hook.ads.provider.temporaryfile"
             android:exported="true"
+            android:readPermission="com.close.hook.ads.permission.READ_TEMP_FILES"
             android:grantUriPermissions="true" />
 
         <service

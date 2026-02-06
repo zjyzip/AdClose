@@ -15,7 +15,10 @@ class TeeInputStream(
     override fun read(): Int {
         val ch = input.read()
         if (ch != -1) {
-            tee.write(ch)
+            try {
+                tee.write(ch)
+            } catch (e: IOException) {
+            }
         }
         return ch
     }
@@ -23,8 +26,11 @@ class TeeInputStream(
     @Throws(IOException::class)
     override fun read(bts: ByteArray, off: Int, len: Int): Int {
         val n = input.read(bts, off, len)
-        if (n != -1) {
-            tee.write(bts, off, n)
+        if (n > 0) {
+            try {
+                tee.write(bts, off, n)
+            } catch (e: IOException) {
+            }
         }
         return n
     }
@@ -35,15 +41,22 @@ class TeeInputStream(
     }
 
     @Throws(IOException::class)
+    override fun available(): Int {
+        return input.available()
+    }
+
+    @Throws(IOException::class)
     override fun close() {
         try {
-            super.close()
             input.close()
         } finally {
-            if (closeTee) {
-                tee.close()
+            try {
+                if (closeTee) {
+                    tee.close()
+                }
+            } finally {
+                onClose?.invoke()
             }
-            onClose?.invoke()
         }
     }
 }
