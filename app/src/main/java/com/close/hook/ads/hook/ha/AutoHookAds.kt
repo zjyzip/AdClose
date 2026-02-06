@@ -36,6 +36,8 @@ object AutoHookAds {
         "com.sjm.sjmsdk",
         "com.ap.android",
         "com.youxiao.ssp",
+        "com.cat.sdk",
+        "com.superad.ad",
         "com.bytedance.pangle",
         "com.bytedance.sdk.openadsdk",
         "com.bytedance.android.openliveplugin",
