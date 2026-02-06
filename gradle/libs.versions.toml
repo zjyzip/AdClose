@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.3.10"
-androidApplicationPlugin = "9.0.0"
+androidApplicationPlugin = "8.13.2"
 materialThemeBuilder = "1.5.1"
 ksp = "2.3.5"
 autoresconfig = "1.2.2"
