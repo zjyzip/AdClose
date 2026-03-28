@@ -16,13 +16,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
-import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
@@ -91,17 +88,26 @@ object HookPrefs {
             if (cachedAgain != null) return cachedAgain
 
             val jsonObject = readSettingsFromFile()
-            generalSettingsCache.value = jsonObject
-            return jsonObject
+            if (jsonObject != null) {
+                generalSettingsCache.value = jsonObject
+                return jsonObject
+            } else {
+                return JsonObject(emptyMap())
+            }
         }
     }
 
     private fun updateSetting(transform: (MutableMap<String, JsonElement>) -> Unit) {
-        val current = getSettingsJson()
-
         val newJson: JsonObject
+        
         synchronized(cacheLock) {
-            val mutableMap = current.toMutableMap()
+            val baseline = generalSettingsCache.value ?: readSettingsFromFile()
+            if (baseline == null) {
+                Log.e(TAG, "Write aborted: Framework service is disconnected, cannot merge configuration securely.")
+                return
+            }
+            
+            val mutableMap = baseline.toMutableMap()
             transform(mutableMap)
             newJson = JsonObject(mutableMap)
             generalSettingsCache.value = newJson
@@ -206,20 +212,29 @@ object HookPrefs {
 
     fun getCustomHookConfigs(packageName: String?): List<CustomHookInfo> {
         val effectiveKey = packageName ?: GLOBAL_KEY
-        return customHookCache.getOrPut(effectiveKey) {
-            val fileName = buildFileName(FILE_PREFIX_CUSTOM_HOOK, effectiveKey)
-            val content = readAllTextFromFile(fileName)
-            if (content.isEmpty()) {
+        
+        customHookCache[effectiveKey]?.let { return it }
+
+        val content = readAllTextFromFile(buildFileName(FILE_PREFIX_CUSTOM_HOOK, effectiveKey))
+        
+        if (content == null) {
+            Log.w(TAG, "Service unavailable. Returning empty custom hooks without caching.")
+            return emptyList()
+        }
+
+        val result = if (content.isBlank()) {
+            emptyList()
+        } else {
+            try {
+                jsonFormat.decodeFromString<List<CustomHookInfo>>(content)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing JSON from file", e)
                 emptyList()
-            } else {
-                try {
-                    jsonFormat.decodeFromString<List<CustomHookInfo>>(content)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing JSON from file: $fileName", e)
-                    emptyList()
-                }
             }
         }
+        
+        customHookCache[effectiveKey] = result
+        return result
     }
 
     fun setCustomHookConfigs(packageName: String?, configs: List<CustomHookInfo>) {
@@ -256,25 +271,34 @@ object HookPrefs {
         Log.d(TAG, "All caches invalidated.")
     }
 
-    private fun readSettingsFromFile(): JsonObject {
-        val content = readAllTextFromFile(FILE_GENERAL_SETTINGS)
-        return if (content.isNotEmpty()) {
-            try {
-                jsonFormat.parseToJsonElement(content) as? JsonObject ?: JsonObject(emptyMap())
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to parse settings JSON", e)
-                JsonObject(emptyMap())
-            }
-        } else {
+    private fun readSettingsFromFile(): JsonObject? {
+        val content = readAllTextFromFile(FILE_GENERAL_SETTINGS) ?: return null
+        
+        if (content.isBlank()) return JsonObject(emptyMap())
+        
+        return try {
+            jsonFormat.parseToJsonElement(content) as? JsonObject ?: JsonObject(emptyMap())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse settings JSON", e)
             JsonObject(emptyMap())
         }
     }
 
-    private fun readAllTextFromFile(fileName: String): String {
-        val accessor = fileAccessor ?: return ""
+    private fun readAllTextFromFile(fileName: String): String? {
+        val accessor = fileAccessor
+        if (accessor == null) {
+            Log.w(TAG, "fileAccessor is null. Framework IPC disconnected.")
+            return null
+        }
         
-        if (!remoteFileExists(fileName, accessor)) {
-            return ""
+        try {
+            val files = accessor.listRemoteFiles()
+            if (files == null || !files.contains(fileName)) {
+                return ""
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking remote files (IPC failure)", e)
+            return null
         }
 
         return try {
@@ -284,16 +308,8 @@ object HookPrefs {
                 }
             } ?: ""
         } catch (e: Exception) {
-            ""
-        }
-    }
-
-    private fun remoteFileExists(fileName: String, accessor: IFileAccessor): Boolean {
-        return try {
-            val files = accessor.listRemoteFiles()
-            files != null && files.contains(fileName)
-        } catch (e: Exception) {
-            false
+            Log.e(TAG, "Error reading remote file", e)
+            null
         }
     }
 
