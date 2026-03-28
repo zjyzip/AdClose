@@ -4,7 +4,6 @@ import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.hook.util.HookUtil
 import de.robv.android.xposed.XposedBridge
 import java.io.ByteArrayOutputStream
-import java.nio.charset.Charset
 
 object NativeRequestHook {
 
@@ -35,7 +34,7 @@ object NativeRequestHook {
 
     @JvmStatic
     fun onNativeData(
-        id: Int,
+        id: Long,
         isWrite: Boolean,
         data: ByteArray?,
         address: String?,
@@ -44,7 +43,7 @@ object NativeRequestHook {
     ): Boolean {
         if (data == null || data.isEmpty()) return false
 
-        val key = if (isSSL) id else -id
+        val key = if (isSSL) id.hashCode() else -id.toInt()
         
         var shouldBlock = false
 
@@ -63,10 +62,10 @@ object NativeRequestHook {
                         JAVA_NET_KEYWORDS.any { keyword -> nativeStack.contains(keyword) }
                     } ?: false
 
-                    val finalStack = if (isFromJavaNetworking) {
+                    val finalStack = if (isFromJavaNetworking || stack == null) {
                         javaStack
                     } else {
-                        stack ?: javaStack
+                        "$stack\n$javaStack"
                     }
                     
                     val enrichedInfo = requestInfo.copy(

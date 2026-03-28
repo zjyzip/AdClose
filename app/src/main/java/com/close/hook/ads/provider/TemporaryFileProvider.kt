@@ -11,7 +11,8 @@ import com.close.hook.ads.util.SimpleMemoryCache
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.UUID
-import kotlin.concurrent.thread
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class TemporaryFileProvider : ContentProvider() {
 
@@ -33,6 +34,12 @@ class TemporaryFileProvider : ContentProvider() {
     }
 
     private val contentStore by lazy { SimpleMemoryCache() }
+
+    private val ioExecutor: ExecutorService by lazy {
+        Executors.newCachedThreadPool { r ->
+            Thread(r, "AdClose-ProviderIO").apply { isDaemon = true }
+        }
+    }
 
     override fun onCreate(): Boolean = true
 
@@ -56,7 +63,7 @@ class TemporaryFileProvider : ContentProvider() {
 
         return try {
             val pipe = ParcelFileDescriptor.createReliablePipe()
-            thread(isDaemon = true) {
+            ioExecutor.execute {
                 try {
                     ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { it.write(bodyBytes) }
                 } catch (e: IOException) {
