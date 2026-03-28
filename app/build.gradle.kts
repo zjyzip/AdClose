@@ -54,7 +54,7 @@ materialThemeBuilder {
 
 android {
     namespace = "com.close.hook.ads"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "28.2.13676358"
 
     signingConfigs {
@@ -71,7 +71,7 @@ android {
     defaultConfig {
         applicationId = "com.close.hook.ads"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = calculateVersionCode()
         versionName = "4.2.4"
 
@@ -158,10 +158,10 @@ configurations.configureEach {
 
 dependencies {
     compileOnly(libs.xposedApi)
+    compileOnly(libs.libxposed.api)
+    implementation(libs.libxposed.service)
+    implementation(libs.libxposed.`interface`)
     implementation(libs.dexkit)
-    compileOnly(files("libs/api-100.aar"))
-    implementation(files("libs/service-100.aar"))
-    implementation(files("libs/interface-100.aar"))
 
     implementation("com.bytedance.android:shadowhook:2.0.0")
 

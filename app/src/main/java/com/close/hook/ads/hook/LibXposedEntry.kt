@@ -1,31 +1,27 @@
 package com.close.hook.ads.hook
 
+import android.util.Log
 import com.close.hook.ads.hook.util.ContextUtil
-import de.robv.android.xposed.XposedBridge
 import io.github.libxposed.api.XposedModule
-import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
 
-class LibXposedEntry(
-    base: XposedInterface,
-    param: XposedModuleInterface.ModuleLoadedParam
-) : XposedModule(base, param) {
+class LibXposedEntry : XposedModule() {
 
-    private val processName = param.processName
+    override fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
+        super.onModuleLoaded(param)
 
-    init {
-        // 将框架提供的 base 接口实例传递给逻辑核心，连接 Hook 进程与框架功能。
-        HookLogic.xposedInterface = base
-
+        HookLogic.xposedInterface = this
+        
         ContextUtil.setupContextHooks()
-
-        XposedBridge.log("LibXposedEntry: Initialized for process $processName")
+        
+        this.log(Log.INFO, "LibXposedEntry", "Initialized for process: ${param.processName}")
     }
 
-    /**
-     * 当模块作用域内的应用进程启动时，框架会回调此方法。
-     */
-    override fun onPackageLoaded(param: XposedModuleInterface.PackageLoadedParam) {
+    override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
         HookLogic.loadPackage(param)
+    }
+
+    override fun onPackageLoaded(param: XposedModuleInterface.PackageLoadedParam) {
+        super.onPackageLoaded(param)
     }
 }

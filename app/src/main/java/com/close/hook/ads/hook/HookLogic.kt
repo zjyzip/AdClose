@@ -47,9 +47,13 @@ object HookLogic {
                     setupAppHooks(context, manager)
                     applySettings(context, manager)
                 } catch (e: Throwable) {
-                    XposedBridge.log("$TAG | Error in package ${param.packageName}: ${Log.getStackTraceString(e)}")
+                    xposedInterface?.log(
+                        Log.ERROR, 
+                        TAG, 
+                        "Error in package ${param.packageName}: ${Log.getStackTraceString(e)}"
+                    )
                 }
-            } ?: XposedBridge.log("$TAG | FATAL: Context was null inside callback for ${param.packageName}. Hooks skipped.")
+            } ?: xposedInterface?.log(Log.WARN, TAG, "FATAL: Context was null for ${param.packageName}")
         }
     }
 
@@ -66,7 +70,7 @@ object HookLogic {
                 AppUtils.showHookTip(context, packageName)
             }
             val appName = AppUtils.getAppName(context, packageName)
-            XposedBridge.log("$TAG | App: $appName Package: $packageName")
+            xposedInterface?.log(Log.INFO, TAG, "Hooking App: $appName ($packageName)")
         }
 
         SDKAdsKit.hookAds()

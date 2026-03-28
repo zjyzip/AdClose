@@ -9,6 +9,7 @@ guava = "33.5.0-jre"
 appcenterAnalytics = "5.0.6"
 appcenterCrashes = "5.0.6"
 xposedApi = "82"
+libxposedApi = "101.0.0"
 dexkit = "2.0.7"
 appcompat = "1.7.1"
 preferenceKtx = "1.2.1"
@@ -30,6 +31,9 @@ brotli = "0.1.2"
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
 xposedApi = { module = "de.robv.android.xposed:api", version.ref = "xposedApi" }
+libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }
+libxposed-service = { group = "io.github.libxposed", name = "service", version.ref = "libxposedApi" }
+libxposed-interface = { group = "io.github.libxposed", name = "interface", version.ref = "libxposedApi" }
 dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 preferenceKtx = { module = "androidx.preference:preference-ktx", version.ref = "preferenceKtx" }

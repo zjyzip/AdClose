@@ -28,6 +28,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.LogEntry
 import com.close.hook.ads.databinding.FragmentCustomHookLogBinding
+import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.adapter.LogAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
@@ -189,6 +190,13 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
             layoutManager = LinearLayoutManager(context)
             adapter = logAdapter
             FastScrollerBuilder(this).useMd2Style().build()
+
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                val bottomNavHeight = (activity as? CustomHookActivity)?.bottomNavigationView?.height ?: 0
+                setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
+                clipToPadding = false
+            }
+
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
                 private val scrollThreshold = 20.dp

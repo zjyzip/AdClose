@@ -1,6 +1,7 @@
 package com.close.hook.ads.manager
 
 import android.util.Log
+import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -40,20 +41,22 @@ object ScopeManager {
                 return@withContext
             }
             
-            val serviceCallback = object : io.github.libxposed.service.XposedService.OnScopeEventListener {
-                override fun onScopeRequestApproved(pkg: String) {
-                    callback.onScopeOperationSuccess("$pkg enabled successfully.")
+            val serviceCallback = object : XposedService.OnScopeEventListener {
+                override fun onScopeRequestApproved(approved: List<String>) {
+                    if (approved.contains(packageName)) {
+                        callback.onScopeOperationSuccess("$packageName enabled successfully.")
+                    } else {
+                        callback.onScopeOperationSuccess("Scope updated, but $packageName status is unknown.")
+                    }
                 }
-                override fun onScopeRequestDenied(pkg: String) {
-                    callback.onScopeOperationFail("Request for $pkg was denied.")
-                }
-                override fun onScopeRequestFailed(pkg: String, message: String) {
-                    callback.onScopeOperationFail("Failed to enable $pkg: $message")
+
+                override fun onScopeRequestFailed(message: String) {
+                    callback.onScopeOperationFail("Failed to enable $packageName: $message")
                 }
             }
             
             try {
-                service.requestScope(packageName, serviceCallback)
+                service.requestScope(listOf(packageName), serviceCallback)
             } catch (e: Exception) {
                 Log.e(TAG, "addScope failed", e)
                 callback.onScopeOperationFail(e.message ?: "Unknown error")
@@ -72,11 +75,13 @@ object ScopeManager {
             Log.e(TAG, "removeScope: LSPosed service not available.")
             return@withContext "LSPosed service not available."
         }
+        
         return@withContext try {
-            service.removeScope(packageName)
+            service.removeScope(listOf(packageName))
+            null
         } catch (e: Exception) {
             Log.e(TAG, "removeScope failed", e)
-            e.message
+            e.message ?: "Unknown error during removal"
         }
     }
 }
