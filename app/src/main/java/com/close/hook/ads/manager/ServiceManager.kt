@@ -1,10 +1,12 @@
 package com.close.hook.ads.manager
 
 import android.util.Log
+import com.close.hook.ads.preference.HookPrefs
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.concurrent.atomic.AtomicBoolean
 
 object ServiceManager {
@@ -31,19 +33,31 @@ object ServiceManager {
 
         val listener = object : XposedServiceHelper.OnServiceListener {
             override fun onServiceBind(boundService: XposedService) {
-                if (isModuleActivated) {
-                    Log.w(TAG, "Another Xposed service tried to connect: ${boundService.frameworkName}. Ignoring.")
-                    return
+                var isFirstConnection = false
+                _connectionState.update { currentState ->
+                    if (currentState is ConnectionState.Connected) {
+                        Log.w(TAG, "Already connected to ${currentState.service.frameworkName}. Ignoring ${boundService.frameworkName}.")
+                        currentState
+                    } else {
+                        isFirstConnection = true
+                        ConnectionState.Connected(boundService)
+                    }
                 }
 
-                Log.i(TAG, "LSPosed service connected: ${boundService.frameworkName} v${boundService.frameworkVersion}")
-                _connectionState.value = ConnectionState.Connected(boundService)
+                if (isFirstConnection) {
+                    HookPrefs.invalidateCaches()
+                    Log.i(TAG, "LSPosed service connected: ${boundService.frameworkName} v${boundService.frameworkVersion}")
+                }
             }
 
             override fun onServiceDied(deadService: XposedService) {
-                if (service == deadService) {
-                    Log.w(TAG, "LSPosed service died.")
-                    _connectionState.value = ConnectionState.Disconnected
+                _connectionState.update { currentState ->
+                    if (currentState is ConnectionState.Connected && currentState.service === deadService) {
+                        Log.w(TAG, "LSPosed service (${deadService.frameworkName}) died.")
+                        ConnectionState.Disconnected
+                    } else {
+                        currentState
+                    }
                 }
             }
         }
