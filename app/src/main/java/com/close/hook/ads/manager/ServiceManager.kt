@@ -34,9 +34,12 @@ object ServiceManager {
         val listener = object : XposedServiceHelper.OnServiceListener {
             override fun onServiceBind(boundService: XposedService) {
                 var isFirstConnection = false
+                var alreadyConnectedFramework: String? = null
+
                 _connectionState.update { currentState ->
                     if (currentState is ConnectionState.Connected) {
-                        Log.w(TAG, "Already connected to ${currentState.service.frameworkName}. Ignoring ${boundService.frameworkName}.")
+                        isFirstConnection = false
+                        alreadyConnectedFramework = currentState.service.frameworkName
                         currentState
                     } else {
                         isFirstConnection = true
@@ -47,21 +50,30 @@ object ServiceManager {
                 if (isFirstConnection) {
                     HookPrefs.invalidateCaches()
                     Log.i(TAG, "LSPosed service connected: ${boundService.frameworkName} v${boundService.frameworkVersion}")
+                } else {
+                    Log.w(TAG, "Already connected to $alreadyConnectedFramework. Ignoring ${boundService.frameworkName}.")
                 }
             }
 
             override fun onServiceDied(deadService: XposedService) {
+                var isDisconnected = false
+                
                 _connectionState.update { currentState ->
                     if (currentState is ConnectionState.Connected && currentState.service === deadService) {
-                        Log.w(TAG, "LSPosed service (${deadService.frameworkName}) died.")
+                        isDisconnected = true
                         ConnectionState.Disconnected
                     } else {
+                        isDisconnected = false
                         currentState
                     }
                 }
+
+                if (isDisconnected) {
+                    Log.w(TAG, "LSPosed service (${deadService.frameworkName}) died.")
+                }
             }
         }
-        
+
         XposedServiceHelper.registerListener(listener)
         Log.i(TAG, "ServiceManager initialized and listener registered.")
     }

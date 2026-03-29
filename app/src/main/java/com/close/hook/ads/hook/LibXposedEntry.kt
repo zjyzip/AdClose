@@ -8,8 +8,6 @@ import io.github.libxposed.api.XposedModuleInterface
 class LibXposedEntry : XposedModule() {
 
     override fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
-        super.onModuleLoaded(param)
-
         HookLogic.xposedInterface = this
         
         ContextUtil.setupContextHooks()
@@ -18,10 +16,9 @@ class LibXposedEntry : XposedModule() {
     }
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
-        HookLogic.loadPackage(param)
     }
 
     override fun onPackageLoaded(param: XposedModuleInterface.PackageLoadedParam) {
-        super.onPackageLoaded(param)
+        HookLogic.loadPackage(param)
     }
 }

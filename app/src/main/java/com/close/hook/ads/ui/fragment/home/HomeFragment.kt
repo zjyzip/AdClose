@@ -13,28 +13,37 @@ import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
+import androidx.lifecycle.lifecycleScope
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHomeBinding
 import com.close.hook.ads.debug.PerformanceActivity
+import com.close.hook.ads.manager.ConnectionState
 import com.close.hook.ads.manager.ServiceManager
 import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.util.resolveColorAttr
+import kotlinx.coroutines.launch
 
 class HomeFragment : BaseFragment<FragmentHomeBinding>() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         initToolBar()
-        initInfo()
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            ServiceManager.connectionState.collect { state ->
+                updateStatus(state is ConnectionState.Connected)
+            }
+        }
+
+        setSystemInfo(requireContext())
+        setHyperLinks()
     }
 
-    @SuppressLint("SetTextI1n", "HardwareIds")
-    private fun initInfo() {
+    @SuppressLint("SetTextI1n")
+    private fun updateStatus(isActivated: Boolean) {
         val context = requireContext()
-        val isActivated = ServiceManager.isModuleActivated
-
         val colorAttr = if (isActivated) {
             android.R.attr.colorPrimary
         } else {
@@ -52,12 +61,10 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
             )
             statusTitle.text = getString(if (isActivated) R.string.activated else R.string.not_activated)
             statusSummary.text = getString(R.string.version_format, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
-
-            setSystemInfo(context)
-            setHyperLinks()
         }
     }
 
+    @SuppressLint("HardwareIds")
     private fun setSystemInfo(context: Context) {
         val contentResolver = context.contentResolver
 
