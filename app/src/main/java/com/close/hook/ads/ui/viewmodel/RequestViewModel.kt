@@ -32,11 +32,14 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
     private val _requestSearchQuery = MutableStateFlow("")
     val requestSearchQuery: StateFlow<String> = _requestSearchQuery.asStateFlow()
 
-    fun getFilteredRequestList(filterType: String): StateFlow<List<RequestInfo>> {
-        return combine(
-            _requestList,
-            _requestSearchQuery.debounce(300L)
-        ) { requests, query ->
+    private val debouncedQuery = _requestSearchQuery.debounce(300L)
+
+    val filteredAll: StateFlow<List<RequestInfo>> = buildFilteredFlow("all")
+    val filteredBlock: StateFlow<List<RequestInfo>> = buildFilteredFlow("block")
+    val filteredPass: StateFlow<List<RequestInfo>> = buildFilteredFlow("pass")
+
+    private fun buildFilteredFlow(filterType: String): StateFlow<List<RequestInfo>> =
+        combine(_requestList, debouncedQuery) { requests, query ->
             requests.filter { request ->
                 val matchesType = when (filterType) {
                     "all" -> true
@@ -48,12 +51,16 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
                         request.request.contains(query, ignoreCase = true) ||
                         request.packageName.contains(query, ignoreCase = true) ||
                         request.appName.contains(query, ignoreCase = true)
-
                 matchesType && matchesQuery
             }
         }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun getFilteredFlow(type: String): StateFlow<List<RequestInfo>> = when (type) {
+        "block" -> filteredBlock
+        "pass" -> filteredPass
+        else -> filteredAll
     }
 
     fun setRequestSearchQuery(query: String) {
@@ -62,13 +69,10 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateRequestList(item: RequestInfo) {
         _requestList.update { currentList ->
-            val newList = ArrayList<RequestInfo>(currentList.size + 1)
-            newList.add(item)
-            newList.addAll(currentList)
-            if (newList.size > MAX_REQUEST_LIST_SIZE) {
-                newList.subList(MAX_REQUEST_LIST_SIZE, newList.size).clear()
-            }
-            newList
+            buildList {
+                add(item)
+                addAll(currentList)
+            }.take(MAX_REQUEST_LIST_SIZE)
         }
     }
 
@@ -81,7 +85,6 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
         }
         val urlToToggle = request.url ?: request.request
-
         val newIsBlocked = if (request.isBlocked == true) {
             dataSource.removeUrlString(requestType, urlToToggle)
             false
@@ -89,7 +92,6 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             dataSource.addUrl(Url(requestType, urlToToggle))
             true
         }
-
         _requestList.update { currentList ->
             currentList.map {
                 if (it.timestamp == request.timestamp) it.copy(isBlocked = newIsBlocked) else it

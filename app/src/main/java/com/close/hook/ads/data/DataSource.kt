@@ -4,7 +4,6 @@ import android.content.Context
 import android.database.Cursor
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
-import com.close.hook.ads.util.AppUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first

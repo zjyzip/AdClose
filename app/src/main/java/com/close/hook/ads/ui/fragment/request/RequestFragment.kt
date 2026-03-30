@@ -11,7 +11,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
@@ -56,6 +55,16 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val filter = IntentFilter("com.rikkati.REQUEST")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requireContext().registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            requireContext().registerReceiver(receiver, filter)
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -69,44 +78,23 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         super.onViewCreated(view, savedInstanceState)
         setupFab()
         initBar()
-        setupBroadcastReceiver()
-    }
-
-    private fun setupBroadcastReceiver() {
-        val filter = IntentFilter("com.rikkati.REQUEST")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(
-                receiver,
-                filter,
-                Context.RECEIVER_EXPORTED
-            )
-        } else {
-            requireContext().registerReceiver(receiver, filter)
-        }
-    }
-    
-    override fun onDestroyView() {
-        super.onDestroyView()
-        requireContext().unregisterReceiver(receiver)
     }
 
     private fun setupFab() {
-        if (!::fab.isInitialized) {
-            fab = FloatingActionButton(requireContext()).apply {
-                layoutParams = CoordinatorLayout.LayoutParams(
-                    CoordinatorLayout.LayoutParams.WRAP_CONTENT,
-                    CoordinatorLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    gravity = Gravity.BOTTOM or Gravity.END
-                    behavior = fabViewBehavior
-                }
-                setImageResource(R.drawable.ic_export)
-                tooltipText = getString(R.string.export)
-                setOnClickListener { fabController?.onExport() }
+        fab = FloatingActionButton(requireContext()).apply {
+            layoutParams = CoordinatorLayout.LayoutParams(
+                CoordinatorLayout.LayoutParams.WRAP_CONTENT,
+                CoordinatorLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.END
+                behavior = fabViewBehavior
             }
-            binding.root.addView(fab)
-            updateFabMargin()
+            setImageResource(R.drawable.ic_export)
+            tooltipText = getString(R.string.export)
+            setOnClickListener { fabController?.onExport() }
         }
+        binding.root.addView(fab)
+        updateFabMargin()
     }
 
     private fun updateFabMargin() {
@@ -161,5 +149,10 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
             return true
         }
         return super.onBackPressed()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        requireContext().unregisterReceiver(receiver)
     }
 }

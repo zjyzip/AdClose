@@ -34,7 +34,15 @@ class CustomHookAdapter(
         setHasStableIds(true)
     }
 
-    override fun getItemId(position: Int): Long = getItem(position).id.hashCode().toLong()
+    override fun getItemId(position: Int): Long {
+        val id = getItem(position).id
+        return try {
+            val uuid = java.util.UUID.fromString(id)
+            uuid.mostSignificantBits xor uuid.leastSignificantBits
+        } catch (e: IllegalArgumentException) {
+            id.hashCode().toLong()
+        }
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemCustomHookConfigBinding.inflate(
@@ -52,6 +60,11 @@ class CustomHookAdapter(
             searchQuery = currentSearchQuery,
             isInMultiSelectMode = tracker?.hasSelection() ?: false
         )
+    }
+
+    override fun onViewRecycled(holder: ViewHolder) {
+        super.onViewRecycled(holder)
+        holder.itemView.tag = null
     }
 
     fun setSearchQuery(query: String) {
@@ -97,14 +110,11 @@ class CustomHookAdapter(
             binding.root.setOnClickListener {
                 onClickItem(getItem(bindingAdapterPosition))
             }
-            binding.switchEnabled.setOnCheckedChangeListener { _, isChecked ->
-                if (bindingAdapterPosition != RecyclerView.NO_POSITION) onToggleEnabled(getItem(bindingAdapterPosition), isChecked)
-            }
         }
-        
+
         fun bind(config: CustomHookInfo, isSelected: Boolean, searchQuery: String, isInMultiSelectMode: Boolean) {
             updateContent(config, searchQuery)
-            updateSelectionState(config.isEnabled, isSelected, isInMultiSelectMode)
+            updateSelectionState(config, isSelected, isInMultiSelectMode)
         }
 
         private fun updateContent(config: CustomHookInfo, searchQuery: String) {
@@ -112,7 +122,7 @@ class CustomHookAdapter(
                 context.getString(R.string.hook_method_type_format, config.hookMethodType.displayName),
                 searchQuery
             )
-            
+
             val visibleFields = config.hookMethodType.visibleFields
 
             fieldViewMap.forEach { (field, viewPair) ->
@@ -145,18 +155,24 @@ class CustomHookAdapter(
                     config.parameterReplacements?.entries?.joinToString(", ") { "arg[${it.key}]=${it.value}" } ?: noneString
             }
         }
-        
-        private fun updateSelectionState(isEnabled: Boolean, isSelected: Boolean, isInMultiSelectMode: Boolean) {
+
+        private fun updateSelectionState(config: CustomHookInfo, isSelected: Boolean, isInMultiSelectMode: Boolean) {
             binding.root.isChecked = isSelected
             binding.switchEnabled.visibility = if (isInMultiSelectMode) View.GONE else View.VISIBLE
             if (!isInMultiSelectMode) {
-                binding.switchEnabled.isChecked = isEnabled
+                binding.switchEnabled.setOnCheckedChangeListener(null)
+                binding.switchEnabled.isChecked = config.isEnabled
+                binding.switchEnabled.setOnCheckedChangeListener { _, isChecked ->
+                    if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                        onToggleEnabled(getItem(bindingAdapterPosition), isChecked)
+                    }
+                }
             }
         }
 
         private fun highlightText(fullText: String, query: String): SpannableString {
             if (query.isBlank()) return SpannableString(fullText)
-            
+
             val spannableString = SpannableString(fullText)
             val queryLength = query.length
 

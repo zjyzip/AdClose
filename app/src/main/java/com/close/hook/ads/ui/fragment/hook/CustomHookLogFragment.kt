@@ -62,12 +62,12 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         setupToolbar()
         setupRecyclerView()
         setupSearch()
         observeLogs()
-        
+
         updateUIForLogState(HookPrefs.getEnableLogging(packageName))
     }
 
@@ -99,7 +99,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
             override fun onPrepareMenu(menu: Menu) {
                 val isLogEnabled = HookPrefs.getEnableLogging(packageName)
                 menu.findItem(R.id.action_clear_logs).isVisible = isLogEnabled
-                
+
                 val enableLogItem = menu.findItem(R.id.action_enable_log)
                 enableLogItem?.isChecked = isLogEnabled
                 enableLogItem?.title = "Enable Log"
@@ -126,15 +126,15 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         HookPrefs.setEnableLogging(packageName, isChecked)
         updateUIForLogState(isChecked)
         if (isChecked) viewModel.loadLogs()
-        
+
         requireActivity().invalidateOptionsMenu()
     }
-    
+
     private fun updateUIForLogState(isEnabled: Boolean) {
         binding.cardViewSearch.isVisible = isEnabled
         binding.recyclerViewLogs.isVisible = isEnabled
         binding.emptyView.isVisible = !isEnabled
-        
+
         if (isEnabled) {
             binding.emptyView.text = "No Log Record"
         } else {
@@ -228,7 +228,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
             }
         }
     }
-    
+
     private fun updateEmptyView(isEmpty: Boolean) {
         binding.emptyView.isVisible = isEmpty
         if (isEmpty) {
@@ -250,7 +250,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_selectable_text, null)
         val textView = dialogView.findViewById<TextView>(R.id.textViewDetails)
         textView.text = stackTrace
-        
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Stack Trace")
             .setView(dialogView)
@@ -271,7 +271,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         clipboard.setPrimaryClip(clip)
         Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
     }
-    
+
     private fun EditText.showKeyboard() {
         requestFocus()
         inputMethodManager.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)

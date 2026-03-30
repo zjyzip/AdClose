@@ -13,7 +13,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
@@ -44,8 +43,8 @@ class AppRepository(private val packageManager: PackageManager) {
     private val collator = Collator.getInstance(Locale.getDefault())
 
     fun getAllAppsFlow(): Flow<List<AppInfo>> = flow {
-        val connState = ServiceManager.connectionState.first { it !is ConnectionState.Connecting }
-        val modActive = connState is ConnectionState.Connected
+        val currentState = ServiceManager.connectionState.value
+        val modActive = currentState is ConnectionState.Connected
 
         val pkgs = runCatching {
             packageManager.getInstalledPackages(0)

@@ -22,7 +22,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     val dataSource: DataSource = DataSource.getDataSource(application)
 
     private val _blackListSearchQuery = MutableStateFlow("")
-    val blackListSearchQuery: StateFlow<String> = _blackListSearchQuery.asStateFlow()
+    private val blackListSearchQuery: StateFlow<String> = _blackListSearchQuery.asStateFlow()
 
     val blackList: StateFlow<List<Url>> = blackListSearchQuery
         .debounce(300L)
@@ -65,4 +65,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     suspend fun getAllUrls(): List<Url> = withContext(Dispatchers.IO) {
         dataSource.getAllUrls()
     }
+
+    suspend fun isExist(type: String, url: String): Boolean =
+        dataSource.isExist(type, url)
 }

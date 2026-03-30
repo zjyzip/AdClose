@@ -33,7 +33,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
-import androidx.recyclerview.selection.Selection
 import androidx.recyclerview.selection.SelectionPredicates
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.selection.StorageStrategy
@@ -57,9 +56,9 @@ import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.collectLatest
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
 class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
@@ -68,7 +67,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private lateinit var mAdapter: BlockListAdapter
     private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private var tracker: SelectionTracker<Url>? = null
-    private var selectedItems: Selection<Url>? = null
     private var mActionMode: ActionMode? = null
     private val imm: InputMethodManager by lazy {
         requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -87,7 +85,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun initView() {
-        mAdapter = BlockListAdapter(requireContext(), viewModel::removeUrl, this::onEditUrl)
+        mAdapter = BlockListAdapter(viewModel::removeUrl, this::onEditUrl)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {
@@ -189,14 +187,13 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         tracker?.addObserver(object : SelectionTracker.SelectionObserver<Url>() {
             override fun onSelectionChanged() {
                 super.onSelectionChanged()
-                selectedItems = tracker?.selection
                 handleActionMode()
             }
         })
     }
 
     private fun handleActionMode() {
-        val size = selectedItems?.size() ?: 0
+        val size = tracker?.selection?.size() ?: 0
         if (size > 0) {
             if (mActionMode == null) {
                 mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
@@ -218,14 +215,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             return when (item?.itemId) {
-                R.id.clear -> {
-                    onRemove()
-                    true
-                }
-                R.id.action_copy -> {
-                    onCopy()
-                    true
-                }
+                R.id.clear -> { onRemove(); true }
+                R.id.action_copy -> { onCopy(); true }
                 else -> false
             }
         }
@@ -237,34 +228,30 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     }
 
     private fun onRemove() {
-        selectedItems?.let {
-            if (it.size() != 0) {
-                viewModel.removeList(it.toList())
-                Toast.makeText(requireContext(), getString(R.string.batch_remove_success), Toast.LENGTH_SHORT).show()
-                tracker?.clearSelection()
-                (activity as? MainActivity)?.showNavigation()
-            }
-        }
+        val selectedList = tracker?.selection?.toList()
+        if (selectedList.isNullOrEmpty()) return
+        viewModel.removeList(selectedList)
+        Toast.makeText(requireContext(), getString(R.string.batch_remove_success), Toast.LENGTH_SHORT).show()
+        tracker?.clearSelection()
+        (activity as? MainActivity)?.showNavigation()
     }
 
     private fun onCopy() {
-        selectedItems?.let { selection ->
-            val uniqueTypeUrls = selection
-                .map { "${it.type}, ${it.url}" }
-                .distinct()
-                .joinToString(separator = "\n")
+        val selectedList = tracker?.selection?.toList()
+        if (selectedList.isNullOrEmpty()) return
 
-            if (uniqueTypeUrls.isNotEmpty()) {
-                val clipboard =
-                    requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("copied_type_urls", uniqueTypeUrls)
-                clipboard.setPrimaryClip(clip)
+        val uniqueTypeUrls = selectedList
+            .map { "${it.type}, ${it.url}" }
+            .distinct()
+            .joinToString(separator = "\n")
 
-                Toast.makeText(requireContext(), getString(R.string.batch_copy_to_clipboard), Toast.LENGTH_SHORT).show()
-            }
-
-            tracker?.clearSelection()
+        if (uniqueTypeUrls.isNotEmpty()) {
+            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("copied_type_urls", uniqueTypeUrls))
+            Toast.makeText(requireContext(), getString(R.string.batch_copy_to_clipboard), Toast.LENGTH_SHORT).show()
         }
+
+        tracker?.clearSelection()
     }
 
     private fun setUpTracker() {
@@ -282,11 +269,9 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     private val textWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
-
         override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
             viewModel.setBlackListSearchQuery(s.toString())
         }
-
         override fun afterTextChanged(s: Editable) {
             binding.clear.isVisible = s.isNotBlank()
         }
@@ -325,15 +310,12 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     setIconAndFocus(R.drawable.ic_magnifier_to_back, true)
                 }
             }
-
             export.setOnClickListener {
                 backupSAFLauncher.launch("block_list.rule")
             }
-
             restore.setOnClickListener {
                 restoreSAFLauncher.launch(arrayOf("application/octet-stream", "text/plain"))
             }
-
             clear.setOnClickListener {
                 editText.text = null
             }
@@ -385,7 +367,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                 val newItem = Url(type = selectedType, url = newUrl).also { it.id = url?.id ?: 0L }
 
                 lifecycleScope.launch {
-                    val isExist = viewModel.dataSource.isExist(selectedType, newUrl)
+                    val isExist = viewModel.isExist(selectedType, newUrl)
                     if (url == null) {
                         if (!isExist) {
                             viewModel.addUrl(newItem)
@@ -408,11 +390,10 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
     private fun onEditUrl(url: Url) = showRuleDialog(url)
 
     private fun clearBlockList() {
-        MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.clear_block_list_confirm))
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.clear_block_list_confirm))
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                viewModel.removeAll()
-            }
+            .setPositiveButton(android.R.string.ok) { _, _ -> viewModel.removeAll() }
             .show()
     }
 
@@ -421,16 +402,15 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             uri?.let {
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        val allRules = viewModel.getAllUrls()
-                        
+                        val currentList = viewModel.blackList.value
+
                         requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
-                            allRules.map { "${it.type}, ${it.url}" }
+                            currentList
+                                .map { "${it.type}, ${it.url}" }
                                 .distinct()
                                 .filter { it.contains(",") }
                                 .sorted()
-                                .forEach { line ->
-                                    writer?.write("$line\n")
-                                }
+                                .forEach { line -> writer?.write("$line\n") }
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
@@ -461,6 +441,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                             throw IllegalArgumentException(getString(R.string.invalid_file_format))
                         }
 
+                        val validTypes = setOf("domain", "url", "keyword")
+
                         val currentRules = viewModel.getAllUrls()
                             .map { "${it.type.lowercase()},${it.url}" }
                             .toSet()
@@ -468,18 +450,20 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                         val newUrls = contentResolver.openInputStream(validUri)?.bufferedReader()?.useLines { lines ->
                             lines.mapNotNull { line ->
                                 val parts = line.split(",\\s*".toRegex(), 2).map(String::trim)
-                                if (parts.size == 2 && parts[0].equals("Domain", true) || parts[0].equals("URL", true) || parts[0].equals("KeyWord", true)) {
+                                if (parts.size == 2 && parts[0].lowercase() in validTypes) {
                                     Url(parts[0], parts[1])
                                 } else null
                             }.toList()
                         }?.distinct() ?: emptyList()
 
-                        val urlsToAdd = newUrls.filter { "${it.type.lowercase()},${it.url}" !in currentRules }
+                        val urlsToAdd = newUrls.filter {
+                            "${it.type.lowercase()},${it.url}" !in currentRules
+                        }
 
                         if (urlsToAdd.isNotEmpty()) {
                             viewModel.addListUrl(urlsToAdd)
                         }
-                        
+
                         val message = if (urlsToAdd.isNotEmpty()) {
                             getString(R.string.import_success_count, urlsToAdd.size)
                         } else {
@@ -526,9 +510,8 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
     class CategoryItemKeyProvider(private val adapter: BlockListAdapter) :
         ItemKeyProvider<Url>(SCOPE_CACHED) {
-        override fun getKey(position: Int): Url? {
-            return adapter.currentList.getOrNull(position)
-        }
+        override fun getKey(position: Int): Url? =
+            adapter.currentList.getOrNull(position)
 
         override fun getPosition(key: Url): Int {
             val index = adapter.currentList.indexOfFirst { it == key }
@@ -541,7 +524,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             tracker?.clearSelection()
             return true
         }
-
         if (binding.editText.isFocused) {
             binding.editText.setText("")
             setIconAndFocus(R.drawable.ic_back_to_magnifier, false)

@@ -22,14 +22,15 @@ import com.close.hook.ads.databinding.ItemRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
 import com.close.hook.ads.util.AppIconLoader
 import com.close.hook.ads.util.resolveColorAttr
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 class RequestListAdapter(
-    private val onToggleBlock: (RequestInfo) -> Unit
+    private val onToggleBlock: (RequestInfo) -> Unit,
+    private val lifecycleOwner: LifecycleOwner
 ) : ListAdapter<RequestInfo, RequestListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<RequestInfo>? = null
@@ -42,12 +43,16 @@ class RequestListAdapter(
         holder.bind(item, tracker?.isSelected(item) ?: false)
     }
 
+    override fun onViewRecycled(holder: ViewHolder) {
+        super.onViewRecycled(holder)
+        holder.itemView.tag = null
+    }
+
     inner class ViewHolder(
         private val binding: ItemRequestBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val targetIconSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
-        
         private val defaultTextColor: Int
 
         init {
@@ -68,7 +73,9 @@ class RequestListAdapter(
 
             appName.text = request.appName + if (request.stack.isNullOrEmpty()) "" else " LOG"
             this.request.text = request.request
-            timestamp.text = DATE_FORMAT.format(Date(request.timestamp))
+            timestamp.text = DATE_FORMATTER.format(
+                Instant.ofEpochMilli(request.timestamp).atZone(ZoneId.systemDefault())
+            )
 
             blockType.text = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
                 if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
@@ -97,12 +104,12 @@ class RequestListAdapter(
         }
 
         private fun loadAppIcon(packageName: String) {
-            (binding.root.context as? LifecycleOwner)?.lifecycleScope?.launch {
-                val iconDrawable = AppIconLoader.loadAndCompressIcon(binding.root.context, packageName, targetIconSizePx)
+            lifecycleOwner.lifecycleScope.launch {
+                val iconDrawable = AppIconLoader.loadAndCompressIcon(
+                    binding.root.context, packageName, targetIconSizePx
+                )
                 if ((binding.root.tag as? RequestInfo)?.packageName == packageName) {
-                    withContext(Dispatchers.Main) {
-                        binding.icon.setImageDrawable(iconDrawable)
-                    }
+                    binding.icon.setImageDrawable(iconDrawable)
                 }
             }
         }
@@ -125,8 +132,13 @@ class RequestListAdapter(
 
         private fun copyToClipboard(text: String) {
             val context = itemView.context
-            (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(ClipData.newPlainText("request", text))
-            Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, text), Toast.LENGTH_SHORT).show()
+            (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
+                ?.setPrimaryClip(ClipData.newPlainText("request", text))
+            Toast.makeText(
+                context,
+                context.getString(R.string.copied_to_clipboard_single, text),
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         private fun updateBlockStatusUI(request: RequestInfo) {
@@ -149,8 +161,8 @@ class RequestListAdapter(
     }
 
     companion object {
-        @SuppressLint("SimpleDateFormat")
-        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        private val DATE_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<RequestInfo>() {
             override fun areItemsTheSame(oldItem: RequestInfo, newItem: RequestInfo): Boolean =

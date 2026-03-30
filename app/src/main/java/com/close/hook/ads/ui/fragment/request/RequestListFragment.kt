@@ -15,10 +15,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.ItemKeyProvider
-import androidx.recyclerview.selection.Selection
 import androidx.recyclerview.selection.SelectionPredicates
 import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.selection.StorageStrategy
@@ -31,7 +32,6 @@ import com.close.hook.ads.databinding.FragmentRequestListBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.RequestListAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
-import com.close.hook.ads.ui.viewmodel.AppsViewModel
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.ui.viewmodel.RequestViewModel
 import com.close.hook.ads.util.INavContainer
@@ -47,11 +47,9 @@ import com.close.hook.ads.util.FooterSpaceItemDecoration
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
-import java.io.File
 import java.io.IOException
 
 class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearClickListener,
@@ -60,12 +58,10 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     private val requestViewModel: RequestViewModel by viewModels({ requireActivity() })
     private val blockListViewModel: BlockListViewModel by viewModels({ requireActivity() })
 
-    private val appsViewModel by viewModels<AppsViewModel>({ requireActivity() })
     private lateinit var mAdapter: RequestListAdapter
     private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private lateinit var type: String
     private var tracker: SelectionTracker<RequestInfo>? = null
-    private var selectedItems: Selection<RequestInfo>? = null
     private var mActionMode: ActionMode? = null
 
     private val snackbarLayoutParams: CoordinatorLayout.LayoutParams by lazy {
@@ -104,12 +100,14 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
 
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
-            requestViewModel.getFilteredRequestList(type).collectLatest { filteredList ->
-                mAdapter.submitList(filteredList) {
-                    binding?.vfContainer?.let {
-                        val targetChild = if (filteredList.isEmpty()) 0 else 1
-                        if (it.displayedChild != targetChild) {
-                            it.displayedChild = targetChild
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                requestViewModel.getFilteredFlow(type).collect { filteredList ->
+                    mAdapter.submitList(filteredList) {
+                        binding?.vfContainer?.let {
+                            val targetChild = if (filteredList.isEmpty()) 0 else 1
+                            if (it.displayedChild != targetChild) {
+                                it.displayedChild = targetChild
+                            }
                         }
                     }
                 }
@@ -118,7 +116,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     }
 
     private fun initView() {
-        mAdapter = RequestListAdapter(requestViewModel::toggleBlockStatus)
+        mAdapter = RequestListAdapter(requestViewModel::toggleBlockStatus, viewLifecycleOwner)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {
@@ -127,7 +125,8 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
             addItemDecoration(footerSpaceDecoration)
 
             (activity as? MainActivity)?.getBottomNavigationView()?.post {
-                val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
+                val bottomNavHeight =
+                    (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
                 setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
                 FastScrollerBuilder(this).useMd2Style().build()
             }
@@ -164,13 +163,11 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
         tracker?.addObserver(object : SelectionTracker.SelectionObserver<RequestInfo>() {
             override fun onSelectionChanged() {
                 super.onSelectionChanged()
-                selectedItems = tracker?.selection
                 val size = tracker?.selection?.size() ?: 0
-
                 if (size > 0) {
                     if (mActionMode == null) {
-                        mActionMode =
-                            (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
+                        mActionMode = (activity as? MainActivity)
+                            ?.startSupportActionMode(mActionModeCallback)
                     }
                     mActionMode?.title = "Selected $size"
                 } else {
@@ -250,79 +247,72 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
         (parentFragment as? IOnFabClickContainer)?.fabController = this
     }
 
-    private fun saveFile(content: String): Boolean {
-        return try {
-            val dir = File(requireContext().cacheDir, "temp_exports")
-            if (!dir.exists()) dir.mkdirs()
-            val file = File(dir, "request_list.json")
-            file.writeText(content)
-            true
-        } catch (e: IOException) {
-            false
-        }
-    }
-
     override fun onExport() {
-        if (requestViewModel.requestList.value.isEmpty()) {
-            Toast.makeText(requireContext(), getString(R.string.export_empty_request_list), Toast.LENGTH_SHORT).show()
+        val currentList = requestViewModel.getFilteredFlow(type).value
+        if (currentList.isEmpty()) {
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.export_empty_request_list),
+                Toast.LENGTH_SHORT
+            ).show()
             return
         }
-
         try {
-            val content = GsonBuilder().setPrettyPrinting().create().toJson(requestViewModel.requestList.value)
-            if (saveFile(content)) {
-                backupSAFLauncher.launch("${type}_request_list.json")
-            } else {
-                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-            }
+            val content = GsonBuilder().setPrettyPrinting().create().toJson(currentList)
+            pendingExportContent = content
+            backupSAFLauncher.launch("${type}_request_list.json")
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(requireContext(), getString(R.string.export_no_app_found), Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.export_no_app_found),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
-    override fun onBlock() {
-        selectedItems?.let { selection ->
-            if (selection.size() != 0) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val urlsToAdd = selection.map { request ->
-                        val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
-                            if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
-                        }
-                        val url = request.url ?: request.request
-                        Url(requestType, url)
-                    }.distinct().filterNot {
-                        blockListViewModel.dataSource.isExist(it.type, it.url)
-                    }
+    private var pendingExportContent: String? = null
 
-                    if (urlsToAdd.isNotEmpty()) {
-                        blockListViewModel.addListUrl(urlsToAdd)
-                    }
-                    
-                    withContext(Dispatchers.Main) {
-                        tracker?.clearSelection()
-                        showSnackbar(getString(R.string.add_to_blocklist_success))
-                    }
+    override fun onBlock() {
+        val selectedList = tracker?.selection?.toList()
+        if (selectedList.isNullOrEmpty()) return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val urlsToAdd = selectedList.map { request ->
+                val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
+                    if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
                 }
+                val url = request.url ?: request.request
+                Url(requestType, url)
+            }.distinct().filterNot {
+                blockListViewModel.isExist(it.type, it.url)
+            }
+
+            if (urlsToAdd.isNotEmpty()) {
+                blockListViewModel.addListUrl(urlsToAdd)
+            }
+
+            withContext(Dispatchers.Main) {
+                tracker?.clearSelection()
+                showSnackbar(getString(R.string.add_to_blocklist_success))
             }
         }
     }
 
     private fun onUnBlock() {
-        selectedItems?.let { selection ->
-            if (selection.iterator().hasNext()) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    selection.forEach { request ->
-                        val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
-                            if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
-                        }
-                        val urlToRemove = request.url ?: request.request
-                        blockListViewModel.removeUrlString(requestType, urlToRemove)
-                    }
-                    withContext(Dispatchers.Main) {
-                        tracker?.clearSelection()
-                        showSnackbar(getString(R.string.batch_remove_success))
-                    }
+        val selectedList = tracker?.selection?.toList()
+        if (selectedList.isNullOrEmpty()) return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            selectedList.forEach { request ->
+                val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
+                    if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
                 }
+                val urlToRemove = request.url ?: request.request
+                blockListViewModel.removeUrlString(requestType, urlToRemove)
+            }
+            withContext(Dispatchers.Main) {
+                tracker?.clearSelection()
+                showSnackbar(getString(R.string.batch_remove_success))
             }
         }
     }
@@ -338,41 +328,41 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     }
 
     private fun onCopy() {
-        selectedItems?.let { selection ->
-            val selectedRequests = selection.map { item ->
-                val type =
-                    if (item.request.startsWith("http://") || item.request.startsWith("https://")) "URL" else item.blockType
-                "$type, ${item.request}"
-            }
-            val combinedText = selectedRequests.joinToString(separator = "\n")
-            val clipboard =
-                requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("copied_requests", combinedText)
-            clipboard.setPrimaryClip(clip)
-            tracker?.clearSelection()
-            showSnackbar(getString(R.string.copied_to_clipboard_batch))
-        }
+        val selectedList = tracker?.selection?.toList()
+        if (selectedList.isNullOrEmpty()) return
+
+        val combinedText = selectedList.map { item ->
+            val itemType = if (item.request.startsWith("http://") || item.request.startsWith("https://"))
+                "URL" else item.blockType
+            "$itemType, ${item.request}"
+        }.joinToString(separator = "\n")
+
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("copied_requests", combinedText))
+        tracker?.clearSelection()
+        showSnackbar(getString(R.string.copied_to_clipboard_batch))
     }
 
     private val backupSAFLauncher =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) backup@{ uri ->
-            if (uri == null) return@backup
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            val content = pendingExportContent ?: return@registerForActivityResult
+            pendingExportContent = null
             try {
-                val cachedFile = File(requireContext().cacheDir, "temp_exports/request_list.json")
-                if (!cachedFile.exists()) {
-                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
-                    return@backup
-                }
-
                 requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    cachedFile.inputStream().copyTo(outputStream)
-                    Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
-                } ?: run {
-                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                    outputStream.writer().use { it.write(content) }
                 }
-
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.export_success),
+                    Toast.LENGTH_SHORT
+                ).show()
             } catch (e: IOException) {
-                Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.export_failed),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
@@ -381,7 +371,8 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
         override fun getItemDetails(e: MotionEvent): ItemDetails<RequestInfo>? {
             val view = recyclerView.findChildViewUnder(e.x, e.y)
             if (view != null) {
-                return (recyclerView.getChildViewHolder(view) as? RequestListAdapter.ViewHolder)?.getItemDetails()
+                return (recyclerView.getChildViewHolder(view) as? RequestListAdapter.ViewHolder)
+                    ?.getItemDetails()
             }
             return null
         }
@@ -389,9 +380,8 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
 
     class CategoryItemKeyProvider(private val adapter: RequestListAdapter) :
         ItemKeyProvider<RequestInfo>(SCOPE_CACHED) {
-        override fun getKey(position: Int): RequestInfo? {
-            return adapter.currentList.getOrNull(position)
-        }
+        override fun getKey(position: Int): RequestInfo? =
+            adapter.currentList.getOrNull(position)
 
         override fun getPosition(key: RequestInfo): Int {
             val index = adapter.currentList.indexOfFirst { it == key }

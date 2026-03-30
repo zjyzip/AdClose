@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -66,7 +67,6 @@ class CustomHookViewModel(
     private val prettyJson = Json { prettyPrint = true }
 
     private var saveJob: Job? = null
-    private val debouncePeriod = 300L
 
     init {
         loadHookConfigs()
@@ -88,9 +88,14 @@ class CustomHookViewModel(
     }
 
     fun setGlobalHookStatus(isEnabled: Boolean) {
+        val previous = _isGlobalEnabled.value
+        _isGlobalEnabled.value = isEnabled
         viewModelScope.launch {
-            repository.setHookEnabledStatus(currentPackageName, isEnabled)
-            _isGlobalEnabled.value = isEnabled
+            runCatching {
+                repository.setHookEnabledStatus(currentPackageName, isEnabled)
+            }.onFailure {
+                _isGlobalEnabled.value = previous
+            }
         }
     }
 
@@ -158,16 +163,12 @@ class CustomHookViewModel(
         val idsToDelete = configsToDelete.map { it.id }.toSet()
         var deletedCount = 0
 
-        _hookConfigs.update { currentList ->
-            val originalSize = currentList.size
-            val updatedList = currentList.filterNot { idsToDelete.contains(it.id) }
-            deletedCount = originalSize - updatedList.size
-            updatedList
+        updateAndSaveConfigs { currentList ->
+            val updated = currentList.filterNot { it.id in idsToDelete }
+            deletedCount = currentList.size - updated.size
+            updated
         }
-        
-        saveJob?.cancel()
-        repository.saveHookConfigs(currentPackageName, _hookConfigs.value)
-        
+
         return deletedCount
     }
 
@@ -228,9 +229,10 @@ class CustomHookViewModel(
         val updated = updateConfigsList(existingGlobalConfigs, globalOnlyConfigsProcessed, null)
 
         if (updated) {
-            repository.saveHookConfigs(null, existingGlobalConfigs)
             if (currentPackageName == null) {
-                _hookConfigs.value = existingGlobalConfigs
+                updateAndSaveConfigs { existingGlobalConfigs }
+            } else {
+                repository.saveHookConfigs(null, existingGlobalConfigs)
             }
         }
         return updated
@@ -243,8 +245,19 @@ class CustomHookViewModel(
 
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
-            delay(debouncePeriod)
+            delay(300L)
             repository.saveHookConfigs(currentPackageName, _hookConfigs.value)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        saveJob?.let { job ->
+            if (job.isActive) {
+                runBlocking {
+                    repository.saveHookConfigs(currentPackageName, _hookConfigs.value)
+                }
+            }
         }
     }
 

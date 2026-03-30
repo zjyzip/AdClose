@@ -8,8 +8,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.core.os.BundleCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.doOnTextChanged
@@ -32,8 +30,6 @@ class CustomHookDialogFragment : DialogFragment() {
     private val binding get() = _binding!!
 
     private var initialConfig: CustomHookInfo? = null
-    
-    private val textInputEditTexts = mutableListOf<TextInputLayout>()
 
     private val fieldViews by lazy {
         mapOf(
@@ -118,12 +114,11 @@ class CustomHookDialogFragment : DialogFragment() {
                 else -> R.id.btn_hook_after
             }
             binding.toggleGroupHookPoint.check(hookPointButtonId)
-            
-            updateParameterReplacementFields(config.parameterTypes ?: emptyList())
 
+            updateParameterReplacementFields(config.parameterTypes ?: emptyList(), config.parameterReplacements)
         } else {
             binding.toggleGroupHookPoint.check(R.id.btn_hook_before)
-            updateParameterReplacementFields(emptyList())
+            updateParameterReplacementFields(emptyList(), null)
         }
     }
 
@@ -140,10 +135,10 @@ class CustomHookDialogFragment : DialogFragment() {
         binding.llParameterReplacements.isVisible = showReplacements
         if (showReplacements) {
             val paramTypes = binding.etParameterTypes.text.toString().split(',').filter { it.isNotBlank() }
-            updateParameterReplacementFields(paramTypes)
+            updateParameterReplacementFields(paramTypes, null)
         }
     }
-    
+
     private fun setupInputValidationListeners() {
         fieldViews.forEach { (field, views) ->
             val (layout, editText) = views
@@ -152,40 +147,43 @@ class CustomHookDialogFragment : DialogFragment() {
             }
         }
     }
-    
+
     private fun setupParameterTypesWatcher() {
         binding.etParameterTypes.doOnTextChanged { text, _, _, _ ->
             if (binding.llParameterReplacements.isVisible) {
                 val paramTypes = text?.toString()?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
-                updateParameterReplacementFields(paramTypes)
+                updateParameterReplacementFields(paramTypes, null)
             }
         }
     }
-    
-    private fun updateParameterReplacementFields(paramTypes: List<String>) {
+
+    private fun updateParameterReplacementFields(
+        paramTypes: List<String>,
+        existingReplacements: Map<Int, String>?
+    ) {
         binding.llParameterReplacements.removeAllViews()
-        textInputEditTexts.clear()
 
         paramTypes.forEachIndexed { i, type ->
-            val paramBinding = ItemHookParameterBinding.inflate(LayoutInflater.from(context), binding.llParameterReplacements, false)
-            
+            val paramBinding = ItemHookParameterBinding.inflate(
+                LayoutInflater.from(context), binding.llParameterReplacements, false
+            )
+
             paramBinding.parameterTitle.text = "参数 ${i + 1}"
             paramBinding.parameterSignature.text = type
-            
-            val initialValue = initialConfig?.parameterReplacements?.get(i)
+
+            val initialValue = existingReplacements?.get(i)
             val isSwitchChecked = !initialValue.isNullOrEmpty()
-            
+
             paramBinding.parameterSwitch.isChecked = isSwitchChecked
             paramBinding.tilParameterReplacement.isVisible = isSwitchChecked
             if (isSwitchChecked) {
                 paramBinding.etParameterReplacement.setText(initialValue)
             }
-            
+
             paramBinding.parameterSwitch.setOnCheckedChangeListener { _, isChecked ->
                 paramBinding.tilParameterReplacement.isVisible = isChecked
             }
-            
-            textInputEditTexts.add(paramBinding.tilParameterReplacement)
+
             binding.llParameterReplacements.addView(paramBinding.root)
         }
     }
@@ -235,7 +233,7 @@ class CustomHookDialogFragment : DialogFragment() {
                 }
             }
         }
-        
+
         val finalReturnValue = if (parameterReplacements.isNotEmpty()) {
             null
         } else {
