@@ -4,19 +4,28 @@ import android.util.Log
 import com.close.hook.ads.preference.HookPrefs
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 object ServiceManager {
 
     private const val TAG = "ServiceManager"
 
+    private const val CONNECT_TIMEOUT_MS = 1500L
+
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Connecting)
     val connectionState = _connectionState.asStateFlow()
 
     private val isInitialized = AtomicBoolean(false)
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @JvmStatic
     val service: XposedService?
@@ -35,7 +44,6 @@ object ServiceManager {
             override fun onServiceBind(boundService: XposedService) {
                 var isFirstConnection = false
                 var alreadyConnectedFramework: String? = null
-
                 _connectionState.update { currentState ->
                     if (currentState is ConnectionState.Connected) {
                         isFirstConnection = false
@@ -46,7 +54,6 @@ object ServiceManager {
                         ConnectionState.Connected(boundService)
                     }
                 }
-
                 if (isFirstConnection) {
                     HookPrefs.invalidateCaches()
                     Log.i(TAG, "LSPosed service connected: ${boundService.frameworkName} v${boundService.frameworkVersion}")
@@ -57,7 +64,6 @@ object ServiceManager {
 
             override fun onServiceDied(deadService: XposedService) {
                 var isDisconnected = false
-                
                 _connectionState.update { currentState ->
                     if (currentState is ConnectionState.Connected && currentState.service === deadService) {
                         isDisconnected = true
@@ -67,7 +73,6 @@ object ServiceManager {
                         currentState
                     }
                 }
-
                 if (isDisconnected) {
                     Log.w(TAG, "LSPosed service (${deadService.frameworkName}) died.")
                 }
@@ -75,6 +80,19 @@ object ServiceManager {
         }
 
         XposedServiceHelper.registerListener(listener)
+
+        scope.launch {
+            delay(CONNECT_TIMEOUT_MS)
+            _connectionState.update { currentState ->
+                if (currentState is ConnectionState.Connecting) {
+                    Log.i(TAG, "Service binding timed out, module is likely not activated.")
+                    ConnectionState.Disconnected
+                } else {
+                    currentState
+                }
+            }
+        }
+
         Log.i(TAG, "ServiceManager initialized and listener registered.")
     }
 }
