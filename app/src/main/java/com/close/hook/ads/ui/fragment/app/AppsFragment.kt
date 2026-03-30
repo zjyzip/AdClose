@@ -50,7 +50,6 @@ import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -119,7 +118,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     companion object {
         private const val PREFS_FILE_NAME = "com.close.hook.ads_preferences.json"
         private const val CUSTOM_HOOKS_PREFIX = "custom_hooks_"
-        
+
         @JvmStatic
         fun newInstance(type: String) =
             AppsFragment().apply {
@@ -152,15 +151,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
         appConfigDialog = BottomSheetDialog(requireContext()).apply {
             setContentView(configBinding.root)
-
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-
             setOnShowListener {
-                val bottomSheet = findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                val bottomSheet =
+                    findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
                 if (bottomSheet != null) {
                     val behavior = BottomSheetBehavior.from(bottomSheet)
                     val screenHeight = resources.displayMetrics.heightPixels
-
                     behavior.peekHeight = screenHeight / 2
                     behavior.state = BottomSheetBehavior.STATE_EXPANDED
                 }
@@ -171,7 +168,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appInfoDialog = BottomSheetDialog(requireContext()).apply {
             infoBinding = BottomDialogAppInfoBinding.inflate(layoutInflater, null, false)
             setContentView(infoBinding.root)
-            
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         }
         initAppInfo()
@@ -219,7 +215,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         isUpdatingFromParent = false
                     }
                 }
-            
+
             fun updateParentState() {
                 val checkedCount = childrenCheckBoxes.count { it.isChecked }
                 val allChecked = checkedCount == childrenCheckBoxes.size
@@ -255,7 +251,11 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         try {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(requireContext(), getString(R.string.open_app_details_failed), Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.open_app_details_failed),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -265,10 +265,18 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             try {
                 startActivity(intent)
             } catch (e: ActivityNotFoundException) {
-                Toast.makeText(requireContext(), getString(R.string.launch_app_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.launch_app_failed),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } else {
-            Toast.makeText(requireContext(), getString(R.string.launch_app_failed), Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.launch_app_failed),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -283,7 +291,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     }
 
     private fun initView() {
-        mAdapter = AppsAdapter(this)
+        mAdapter = AppsAdapter(this, viewLifecycleOwner)
 
         binding.recyclerView.apply {
             setHasFixedSize(true)
@@ -292,7 +300,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             layoutManager = LinearLayoutManager(requireContext())
 
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                val bottomNavHeight = (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
+                val bottomNavHeight =
+                    (activity as? MainActivity)?.getBottomNavigationView()?.height ?: 0
                 setPadding(paddingLeft, paddingTop, paddingRight, bottomNavHeight)
                 clipToPadding = false
             }
@@ -340,7 +349,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         }
                         state.copy(apps = filteredApps)
                     }
-                    .distinctUntilChanged()
                     .collectLatest { state ->
                         val apps = state.apps
                         val isLoading = state.isLoading
@@ -365,7 +373,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         }
 
                         mAdapter.submitList(apps)
-
                         updateSearchHint(apps.size)
                     }
             }
@@ -377,12 +384,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             (parentFragment as? AppsPagerFragment)?.setHint(size)
     }
 
-    @SuppressLint("SetTextI1n")
+    @SuppressLint("SetTextI18n")
     override fun onItemClick(appInfo: AppInfo, icon: Drawable?) {
         KeyboardUtils.hideKeyboard(requireView())
 
         if (!ServiceManager.isModuleActivated) {
-            Toast.makeText(requireContext(), getString(R.string.module_not_activated), Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.module_not_activated),
+                Toast.LENGTH_SHORT
+            ).show()
             return
         }
 
@@ -406,11 +417,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     val key = prefKeys[index] + pkgName
                     updates[key] = checkBox.isChecked
                 }
-
                 HookPrefs.setMultiple(updates)
 
+                val areAllOff = childrenCheckBoxes.all { !it.isChecked }
+                val ctx = requireContext()
                 lifecycleScope.launch {
-                    handleScopeLogic(pkgName)
+                    handleScopeLogic(pkgName, areAllOff, ctx)
                 }
                 appConfigDialog?.dismiss()
             }
@@ -418,27 +430,30 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appConfigDialog?.show()
     }
 
-    private suspend fun handleScopeLogic(pkgName: String) {
+    private suspend fun handleScopeLogic(
+        pkgName: String,
+        areAllSwitchesOff: Boolean,
+        ctx: android.content.Context
+    ) {
         val currentScope = ScopeManager.getScope() ?: run {
             withContext(Dispatchers.Main) {
-                Toast.makeText(requireContext(), "Could not get scope list. Service might not be available.", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "Could not get scope list. Service might not be available.", Toast.LENGTH_LONG).show()
             }
             return
         }
 
         val isPackageInScope = pkgName in currentScope
-        val areAllSwitchesOff = childrenCheckBoxes.all { !it.isChecked }
 
         val showSuccessToast: () -> Unit = {
             lifecycleScope.launch(Dispatchers.Main) {
-                Toast.makeText(requireContext(), R.string.save_success, Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, R.string.save_success, Toast.LENGTH_SHORT).show()
             }
         }
 
         when {
             isPackageInScope && areAllSwitchesOff -> {
                 withContext(Dispatchers.Main) {
-                    showRemoveScopeConfirmationDialog(pkgName, onDismissed = showSuccessToast)
+                    showRemoveScopeConfirmationDialog(pkgName, ctx, onDismissed = showSuccessToast)
                 }
             }
             !isPackageInScope && !areAllSwitchesOff -> {
@@ -451,8 +466,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         }
     }
 
-    private fun showRemoveScopeConfirmationDialog(pkgName: String, onDismissed: () -> Unit) {
-        MaterialAlertDialogBuilder(requireContext())
+    private fun showRemoveScopeConfirmationDialog(
+        pkgName: String,
+        ctx: android.content.Context,
+        onDismissed: () -> Unit
+    ) {
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.remove_scope_dialog_title)
             .setMessage(getString(R.string.remove_scope_dialog_message, pkgName))
             .setNegativeButton(android.R.string.cancel, null)
@@ -470,15 +489,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             .show()
     }
 
-    @SuppressLint("SetText18n")
+    @SuppressLint("SetTextI18n")
     override fun onItemLongClick(appInfo: AppInfo, icon: Drawable?) {
         KeyboardUtils.hideKeyboard(requireView())
-        
+
         infoBinding.apply {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
             this.icon.setImageDrawable(icon)
-
             appName.text = appInfo.appName
             packageName.apply {
                 title.text = getString(R.string.apk_package_name)
@@ -565,7 +583,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             uri?.let {
                 lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        val service = ServiceManager.service ?: throw IOException("Service not available.")
+                        val service =
+                            ServiceManager.service ?: throw IOException("Service not available.")
                         val remoteFiles = service.listRemoteFiles() ?: emptyArray()
 
                         val filesToZip = remoteFiles.filter {
@@ -576,21 +595,26 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                             throw IOException("No configuration files found to export.")
                         }
 
-                        requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
-                            ZipOutputStream(outputStream).use { zos ->
-                                filesToZip.forEach { fileName ->
-                                    service.openRemoteFile(fileName)?.use { pfd ->
-                                        FileInputStream(pfd.fileDescriptor).use { fis ->
-                                            zos.putNextEntry(ZipEntry(fileName))
-                                            fis.copyTo(zos)
-                                            zos.closeEntry()
+                        requireContext().contentResolver.openOutputStream(uri)
+                            ?.use { outputStream ->
+                                ZipOutputStream(outputStream).use { zos ->
+                                    filesToZip.forEach { fileName ->
+                                        service.openRemoteFile(fileName)?.use { pfd ->
+                                            FileInputStream(pfd.fileDescriptor).use { fis ->
+                                                zos.putNextEntry(ZipEntry(fileName))
+                                                fis.copyTo(zos)
+                                                zos.closeEntry()
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                requireContext(),
+                                getString(R.string.export_success),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }.onFailure { e ->
                         withContext(Dispatchers.Main) {
@@ -612,19 +636,25 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     runCatching {
                         val contentResolver = requireContext().contentResolver
                         val (fileName, mimeType) = getFileInfo(it)
-                        
+
                         contentResolver.openInputStream(it)?.use { inputStream ->
                             when {
-                                mimeType == "application/zip" || fileName.endsWith(".zip") -> handleZipRestore(inputStream)
-                                fileName.endsWith(".json") -> handleSingleJsonRestore(inputStream, fileName)
+                                mimeType == "application/zip" || fileName.endsWith(".zip") ->
+                                    handleZipRestore(inputStream)
+                                fileName.endsWith(".json") ->
+                                    handleSingleJsonRestore(inputStream, fileName)
                                 else -> throw IOException("Unsupported file type: $mimeType. Please select a .zip or .json file.")
                             }
                         } ?: throw IOException("Failed to open input stream.")
-                        
+
                         HookPrefs.invalidateCaches()
 
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), getString(R.string.import_success), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                requireContext(),
+                                getString(R.string.import_success),
+                                Toast.LENGTH_SHORT
+                            ).show()
                             if (fragmentType == "configured") {
                                 viewModel.refreshApps()
                             }
@@ -642,14 +672,15 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         val contentResolver = requireContext().contentResolver
         val mimeType = contentResolver.getType(uri)
         var fileName = "unknown"
-        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex != -1) {
-                    fileName = cursor.getString(nameIndex)
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex != -1) {
+                        fileName = cursor.getString(nameIndex)
+                    }
                 }
             }
-        }
         return Pair(fileName, mimeType)
     }
 
@@ -657,11 +688,10 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         if (fileName != PREFS_FILE_NAME && !fileName.startsWith(CUSTOM_HOOKS_PREFIX)) {
             throw IOException("Invalid JSON file name. Only '$PREFS_FILE_NAME' or files starting with '$CUSTOM_HOOKS_PREFIX' can be imported individually.")
         }
-
         val service = ServiceManager.service ?: throw IOException("Service not available.")
         val content = inputStream.reader().use { it.readText() }
         if (content.isBlank()) throw IOException("Backup file is empty.")
-        
+
         service.openRemoteFile(fileName)?.use { pfd ->
             FileOutputStream(pfd.fileDescriptor).use { fos ->
                 fos.channel.truncate(0)

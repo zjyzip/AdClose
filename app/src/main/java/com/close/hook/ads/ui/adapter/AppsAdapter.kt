@@ -11,17 +11,16 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.databinding.InstallsItemAppBinding
 import com.close.hook.ads.util.AppIconLoader
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class AppsAdapter(
-    private val onItemClickListener: OnItemClickListener
+    private val onItemClickListener: OnItemClickListener,
+    private val lifecycleOwner: LifecycleOwner
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF_CALLBACK) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
         val binding = InstallsItemAppBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return AppViewHolder(binding, onItemClickListener)
+        return AppViewHolder(binding, onItemClickListener, lifecycleOwner)
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
@@ -30,11 +29,13 @@ class AppsAdapter(
 
     override fun onViewRecycled(holder: AppViewHolder) {
         super.onViewRecycled(holder)
+        holder.onRecycled()
     }
 
     class AppViewHolder(
         private val binding: InstallsItemAppBinding,
-        private val onItemClickListener: OnItemClickListener
+        private val onItemClickListener: OnItemClickListener,
+        private val lifecycleOwner: LifecycleOwner
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val targetSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
@@ -62,15 +63,16 @@ class AppsAdapter(
             val context = binding.root.context
             val packageName = appInfo.packageName
 
-            (context as? LifecycleOwner)?.lifecycleScope?.launch {
+            lifecycleOwner.lifecycleScope.launch {
                 val icon = AppIconLoader.loadAndCompressIcon(context, packageName, targetSizePx)
-
                 if (binding.root.tag == appInfo) {
-                    withContext(Dispatchers.Main) {
-                        binding.appIcon.setImageDrawable(icon)
-                    }
+                    binding.appIcon.setImageDrawable(icon)
                 }
             }
+        }
+
+        fun onRecycled() {
+            binding.root.tag = null
         }
     }
 

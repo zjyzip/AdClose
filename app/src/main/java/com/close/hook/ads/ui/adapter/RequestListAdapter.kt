@@ -61,7 +61,7 @@ class RequestListAdapter(
                 override fun getSelectionKey(): RequestInfo? = getItem(bindingAdapterPosition)
             }
 
-        @SuppressLint("SetTextI1n")
+        @SuppressLint("SetTextI18n")
         fun bind(request: RequestInfo, isSelected: Boolean) = with(binding) {
             root.tag = request
             cardView.isChecked = isSelected

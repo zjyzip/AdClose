@@ -7,13 +7,12 @@ import com.close.hook.ads.data.model.AppFilterState
 import com.close.hook.ads.data.model.AppInfo
 import com.close.hook.ads.data.repository.AppRepository
 import com.close.hook.ads.preference.PrefManager
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -25,10 +24,12 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     private val repo = AppRepository(application.packageManager)
+
     private val _filterState = MutableStateFlow(createDefaultFilterState())
     private val _uiState = MutableStateFlow(UiState())
-
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    private var refreshJob: Job? = null
 
     init {
         refreshApps()
@@ -44,20 +45,17 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         showDisabled = PrefManager.disabled
     )
 
-    private fun combineFlows(): Flow<UiState> {
-        return repo.getAllAppsFlow()
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .combine(_filterState) { rawApps, filter ->
-                UiState(
-                    apps = repo.filterAndSortApps(rawApps, filter),
-                    isLoading = false
-                )
-            }
-    }
-
     fun refreshApps() {
-        viewModelScope.launch {
-            combineFlows()
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            repo.getAllAppsFlow()
+                .combine(_filterState) { rawApps, filter ->
+                    UiState(
+                        apps = repo.filterAndSortApps(rawApps, filter),
+                        isLoading = false
+                    )
+                }
                 .collectLatest { _uiState.value = it }
         }
     }

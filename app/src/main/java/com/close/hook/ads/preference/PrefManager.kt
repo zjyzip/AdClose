@@ -94,4 +94,14 @@ object PrefManager {
             apply()
         }
     }
+
+    fun resetFilterPreferences() {
+        updatePreferences { editor ->
+            editor.putInt(PREF_ORDER_ID, 0)
+            editor.putBoolean(PREF_CONFIGURED, false)
+            editor.putBoolean(PREF_UPDATED, false)
+            editor.putBoolean(PREF_DISABLED, false)
+            editor.putBoolean(PREF_IS_REVERSE, false)
+        }
+    }
 }

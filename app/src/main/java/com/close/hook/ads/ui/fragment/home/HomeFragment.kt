@@ -41,7 +41,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
         setHyperLinks()
     }
 
-    @SuppressLint("SetTextI1n")
+    @SuppressLint("SetTextI18n")
     private fun updateStatus(isActivated: Boolean) {
         val context = requireContext()
         val colorAttr = if (isActivated) {

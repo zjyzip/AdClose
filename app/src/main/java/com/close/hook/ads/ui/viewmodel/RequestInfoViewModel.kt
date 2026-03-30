@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.brotli.dec.BrotliInputStream
 import java.io.IOException
@@ -38,6 +37,9 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     companion object {
         private val HIGHLIGHT_COLOR = Color.YELLOW
         private val ACTIVE_HIGHLIGHT_COLOR = Color.parseColor("#FF9800")
+
+        const val TAB_REQUEST_BODY = "RequestBody"
+        const val TAB_RESPONSE_BODY = "ResponseBody"
     }
 
     private val _requestBody = MutableStateFlow<String?>(null)
@@ -46,7 +48,8 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private val _responseBody = MutableStateFlow<ResponseBodyContent>(ResponseBodyContent.Loading)
     val responseBody: StateFlow<ResponseBodyContent> = _responseBody.asStateFlow()
 
-    val currentQuery = MutableStateFlow("")
+    private val _currentQuery = MutableStateFlow("")
+    val currentQuery: StateFlow<String> = _currentQuery.asStateFlow()
 
     private val _highlightedContent = MutableStateFlow<CharSequence?>(null)
     val highlightedContent: StateFlow<CharSequence?> = _highlightedContent.asStateFlow()
@@ -57,21 +60,21 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private val _currentMatchIndex = MutableStateFlow(-1)
     val currentMatchIndex: StateFlow<Int> = _currentMatchIndex.asStateFlow()
 
-    private var currentContentProvider: (() -> String?)? = null
+    private var currentTabType: String? = null
 
     fun init(arguments: Bundle) {
         arguments.getString("requestBodyUriString")?.let { loadRequestBody(it) }
         arguments.getString("responseBodyUriString")?.let { loadResponseBody(it) }
 
         viewModelScope.launch {
-            currentQuery
+            _currentQuery
                 .debounce(300)
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
                     flow {
-                        val content = currentContentProvider?.invoke()
+                        val content = getCurrentContent()
                         if (query.isEmpty() || content.isNullOrEmpty()) {
-                            emit(Triple(content, emptyList(), -1))
+                            emit(Triple(content, emptyList<Pair<Int, Int>>(), -1))
                         } else {
                             val matches = findMatches(content, query)
                             val newIndex = if (matches.isNotEmpty()) 0 else -1
@@ -82,20 +85,31 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
                 .collect { (content, matches, index) ->
                     _matches.value = matches
                     _currentMatchIndex.value = index
+                    val query = _currentQuery.value
                     _highlightedContent.value = content?.let {
-                        createHighlightedText(it, query = currentQuery.value, matches = matches, currentIndex = index)
+                        createHighlightedText(it, query = query, matches = matches, currentIndex = index)
                     }
                 }
         }
     }
 
-    fun setCurrentContentProvider(provider: (() -> String?)) {
-        currentContentProvider = provider
-        currentQuery.value = currentQuery.value
+    fun setCurrentTab(tabType: String) {
+        currentTabType = tabType
+        _currentQuery.value = _currentQuery.value
+    }
+
+    fun updateQuery(query: String) {
+        _currentQuery.value = query
+    }
+
+    private fun getCurrentContent(): String? = when (currentTabType) {
+        TAB_REQUEST_BODY -> _requestBody.value
+        TAB_RESPONSE_BODY -> (_responseBody.value as? ResponseBodyContent.Text)?.content
+        else -> null
     }
 
     fun resetSearchState() {
-        val currentContent = currentContentProvider?.invoke()
+        val currentContent = getCurrentContent()
         _matches.value = emptyList()
         _currentMatchIndex.value = -1
         _highlightedContent.value = currentContent
@@ -103,24 +117,22 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
 
     fun navigateToNextMatch() {
         if (_matches.value.isEmpty()) return
-        _currentMatchIndex.update {
-            (it + 1) % _matches.value.size
-        }
+        _currentMatchIndex.value = (_currentMatchIndex.value + 1) % _matches.value.size
         updateHighlight()
     }
 
     fun navigateToPreviousMatch() {
         if (_matches.value.isEmpty()) return
-        _currentMatchIndex.update {
-            (it - 1 + _matches.value.size) % _matches.value.size
-        }
+        _currentMatchIndex.value = (_currentMatchIndex.value - 1 + _matches.value.size) % _matches.value.size
         updateHighlight()
     }
 
     private fun updateHighlight() {
-        val content = currentContentProvider?.invoke()
+        val content = getCurrentContent()
         if (content != null) {
-            _highlightedContent.value = createHighlightedText(content, currentQuery.value, _matches.value, _currentMatchIndex.value)
+            _highlightedContent.value = createHighlightedText(
+                content, _currentQuery.value, _matches.value, _currentMatchIndex.value
+            )
         }
     }
 
@@ -130,13 +142,9 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
         matches: List<Pair<Int, Int>>? = null,
         currentIndex: Int = -1
     ): CharSequence {
-        if (query.isEmpty() || text.isEmpty()) {
-            return text
-        }
+        if (query.isEmpty() || text.isEmpty()) return text
         val foundMatches = matches ?: findMatches(text, query)
-        if (foundMatches.isEmpty()) {
-            return text
-        }
+        if (foundMatches.isEmpty()) return text
 
         val spannable = SpannableString(text)
         foundMatches.forEachIndexed { index, (start, end) ->
@@ -145,7 +153,10 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
             } else {
                 HIGHLIGHT_COLOR
             }
-            spannable.setSpan(BackgroundColorSpan(color), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            spannable.setSpan(
+                BackgroundColorSpan(color), start, end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
         }
         return spannable
     }
@@ -180,13 +191,15 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
                     ?: throw IOException("Failed to open response body stream.")
                 stream.use { inputStream ->
                     val encoding =
-                        mime?.split(";")?.find { it.trim().startsWith("encoding=") }?.substringAfter("=")
+                        mime?.split(";")?.find { it.trim().startsWith("encoding=") }
+                            ?.substringAfter("=")
                     decompressStream(encoding, inputStream).use { decompressedStream ->
                         val bytes = decompressedStream.readBytes()
                         if (mime?.startsWith("image/") == true && isBitmap(bytes)) {
                             _responseBody.value = ResponseBodyContent.Image(bytes, mime)
                         } else {
-                            _responseBody.value = ResponseBodyContent.Text(formatText(bytes), mime)
+                            _responseBody.value =
+                                ResponseBodyContent.Text(formatText(bytes), mime)
                         }
                     }
                 }
@@ -208,8 +221,8 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun getBytesFromUri(uriString: String): ByteArray? = try {
-        getApplication<Application>().contentResolver.openInputStream(Uri.parse(uriString))
-            ?.use { it.readBytes() }
+        getApplication<Application>().contentResolver
+            .openInputStream(Uri.parse(uriString))?.use { it.readBytes() }
     } catch (e: Exception) {
         Log.e("RequestInfoViewModel", "Failed to get bytes from URI", e)
         null

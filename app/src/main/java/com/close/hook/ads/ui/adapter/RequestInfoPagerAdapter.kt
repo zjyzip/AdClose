@@ -1,21 +1,28 @@
 package com.close.hook.ads.ui.adapter
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.ResponseBodyContent
 import com.close.hook.ads.databinding.ItemRequestInfoBinding
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class RequestInfoPagerAdapter(
     private val arguments: Bundle,
     private val tabs: List<String>,
-    private val viewModel: RequestInfoViewModel
+    private val viewModel: RequestInfoViewModel,
+    private val lifecycleOwner: LifecycleOwner
 ) : RecyclerView.Adapter<RequestInfoPagerAdapter.RequestInfoViewHolder>() {
 
     object Payload {
@@ -56,7 +63,7 @@ class RequestInfoPagerAdapter(
 
     inner class RequestInfoViewHolder(val binding: ItemRequestInfoBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        
+
         fun bind(tabTitle: String) {
             val sections = listOf(
                 binding.dnsSection, binding.requestSection, binding.requestBodySection,
@@ -80,7 +87,7 @@ class RequestInfoPagerAdapter(
                         binding.requestHeadersText to arguments.getString("requestHeaders")
                     )
                 }
-                "RequestBody" -> {
+                RequestInfoViewModel.TAB_REQUEST_BODY -> {
                     binding.requestBodySection.visibility = View.VISIBLE
                     viewModel.requestBody.value?.let { updateRequestBodyContent(it) }
                 }
@@ -92,7 +99,7 @@ class RequestInfoPagerAdapter(
                         binding.responseHeadersText to arguments.getString("responseHeaders")
                     )
                 }
-                "ResponseBody" -> {
+                RequestInfoViewModel.TAB_RESPONSE_BODY -> {
                     binding.responseBodySection.visibility = View.VISIBLE
                     setupCollectResponseBodySwitch()
                     updateResponseBodyContent(viewModel.responseBody.value)
@@ -110,13 +117,13 @@ class RequestInfoPagerAdapter(
 
         fun updateTextHighlight(highlightedText: CharSequence) {
             val textView = when (tabs.getOrNull(bindingAdapterPosition)) {
-                "RequestBody" -> binding.requestBodyText
-                "ResponseBody" -> binding.responseBodyText
+                RequestInfoViewModel.TAB_REQUEST_BODY -> binding.requestBodyText
+                RequestInfoViewModel.TAB_RESPONSE_BODY -> binding.responseBodyText
                 else -> null
             }
             textView?.text = highlightedText
         }
-        
+
         fun updateRequestBodyContent(content: String) {
             binding.requestBodyText.visibility = View.VISIBLE
             binding.responseBodyImage.visibility = View.GONE
@@ -126,16 +133,15 @@ class RequestInfoPagerAdapter(
         fun updateResponseBodyContent(result: ResponseBodyContent) {
             binding.responseBodyText.visibility = View.GONE
             binding.responseBodyImage.visibility = View.GONE
-            
-            when(result) {
+
+            when (result) {
                 is ResponseBodyContent.Text -> {
                     binding.responseBodyText.visibility = View.VISIBLE
                     binding.responseBodyText.text = result.content
                 }
                 is ResponseBodyContent.Image -> {
                     binding.responseBodyImage.visibility = View.VISIBLE
-                    val bytes = result.bytes
-                    binding.responseBodyImage.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                    decodeAndSetImage(result.bytes)
                 }
                 is ResponseBodyContent.Error -> {
                     binding.responseBodyText.visibility = View.VISIBLE
@@ -148,18 +154,40 @@ class RequestInfoPagerAdapter(
             }
         }
 
-        private fun updateStaticTextViews(vararg pairs: Pair<TextView, String?>) {
-            pairs.forEach { (textView, text) ->
-                if (text != null) {
-                    textView.text = viewModel.createHighlightedText(text, viewModel.currentQuery.value, currentIndex = -1)
+        private fun decodeAndSetImage(bytes: ByteArray) {
+            lifecycleOwner.lifecycleScope.launch {
+                val bitmap: Bitmap? = withContext(Dispatchers.IO) {
+                    try {
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                if (bitmap != null) {
+                    binding.responseBodyImage.setImageBitmap(bitmap)
                 } else {
-                    textView.text = ""
+                    binding.responseBodyImage.visibility = View.GONE
+                    binding.responseBodyText.visibility = View.VISIBLE
+                    binding.responseBodyText.text = "Error: Failed to decode image."
                 }
             }
         }
-        
+
+        private fun updateStaticTextViews(vararg pairs: Pair<TextView, String?>) {
+            pairs.forEach { (textView, text) ->
+                textView.text = if (text != null) {
+                    viewModel.createHighlightedText(
+                        text, viewModel.currentQuery.value, currentIndex = -1
+                    )
+                } else {
+                    ""
+                }
+            }
+        }
+
         private fun setupCollectResponseBodySwitch() {
             binding.collectResponseBodySwitch.apply {
+                setOnCheckedChangeListener(null)
                 isChecked = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
                 setOnCheckedChangeListener { _, isChecked ->
                     HookPrefs.setBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, isChecked)
