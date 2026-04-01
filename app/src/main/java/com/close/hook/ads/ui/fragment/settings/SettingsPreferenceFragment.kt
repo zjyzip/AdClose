@@ -65,7 +65,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         recyclerView = null
     }
 
-    class SettingsPreferenceDataStore : PreferenceDataStore() {
+    private inner class SettingsPreferenceDataStore : PreferenceDataStore() {
 
         override fun getString(key: String?, defValue: String?): String? {
             return when (key) {
@@ -74,7 +74,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "language" -> PrefManager.language
                 "defaultPage" -> PrefManager.defaultPage.toString()
                 HookPrefs.KEY_REQUEST_CACHE_EXPIRATION -> HookPrefs.getString(key, defValue)
-                else -> throw IllegalArgumentException("Invalid key: $key")
+                else -> null
             }
         }
 
@@ -85,7 +85,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "language" -> PrefManager.language = value!!
                 "defaultPage" -> PrefManager.defaultPage = value!!.toInt()
                 HookPrefs.KEY_REQUEST_CACHE_EXPIRATION -> HookPrefs.setString(key, value)
-                else -> throw IllegalArgumentException("Invalid key: $key")
             }
         }
 
@@ -94,7 +93,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "blackDarkTheme" -> PrefManager.blackDarkTheme
                 "followSystemAccent" -> PrefManager.followSystemAccent
                 "hideIcon" -> PrefManager.hideIcon
-                HookPrefs.KEY_ENABLE_DEX_DUMP -> HookPrefs.getBoolean(key, defValue)
+                HookPrefs.KEY_ENABLE_DEX_DUMP,
                 HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS -> HookPrefs.getBoolean(key, defValue)
                 else -> defValue
             }
@@ -106,8 +105,10 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "followSystemAccent" -> PrefManager.followSystemAccent = value
                 "hideIcon" -> PrefManager.hideIcon = value
                 HookPrefs.KEY_ENABLE_DEX_DUMP -> HookPrefs.setBoolean(key, value)
-                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS -> HookPrefs.setBoolean(key, value)
-                else -> throw IllegalArgumentException("Invalid key: $key")
+                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS -> {
+                    HookPrefs.setBoolean(key, value)
+                    Toast.makeText(requireContext(), R.string.reboot_required, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -119,7 +120,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         setupCustomHookPreference()
         setupDataManagerPreference()
-        setupPackageVisibilityPreference()
         setupLanguagePreference()
         setupThemePreferences()
         setupCacheClearing()
@@ -136,13 +136,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     private fun setupDataManagerPreference() {
         findPreference<Preference>("data_manager")?.setOnPreferenceClickListener {
             startActivity(Intent(requireContext(), DataManagerActivity::class.java))
-            true
-        }
-    }
-
-    private fun setupPackageVisibilityPreference() {
-        findPreference<MaterialSwitchPreference>(HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS)?.setOnPreferenceChangeListener { _, _ ->
-            Toast.makeText(requireContext(), R.string.reboot_required, Toast.LENGTH_SHORT).show()
             true
         }
     }
