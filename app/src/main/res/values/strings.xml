@@ -14,8 +14,7 @@
     <string name="dex_dump_title">DEX Dump</string>
     <string name="dex_dump_summary">Perform DEX Dump for all hooked apps \nStorage directory: Download/DexKitDump</string>
     <string name="package_visibility_bypass_title">Package visibility bypass</string>
-    <string name="package_visibility_bypass_summary">Allow hooked apps to see all installed packages on Android 11+</string>
-    <string name="reboot_required">Reboot required to take effect</string>
+    <string name="package_visibility_bypass_summary">Reboot required to take effect \nAllow hooked apps to see all installed packages on Android 11+</string>
     <string name="request_cache_expiration_title">Request Cache Expiration</string>
     <string name="request_cache_expiration_summary">Set the expiration time for temporary request/response body data \nCurrent: %s</string>
 

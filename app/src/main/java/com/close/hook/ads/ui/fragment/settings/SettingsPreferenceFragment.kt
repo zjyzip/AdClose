@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.text.HtmlCompat
 import androidx.preference.Preference
@@ -104,11 +103,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "blackDarkTheme" -> PrefManager.blackDarkTheme = value
                 "followSystemAccent" -> PrefManager.followSystemAccent = value
                 "hideIcon" -> PrefManager.hideIcon = value
-                HookPrefs.KEY_ENABLE_DEX_DUMP -> HookPrefs.setBoolean(key, value)
-                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS -> {
-                    HookPrefs.setBoolean(key, value)
-                    Toast.makeText(requireContext(), R.string.reboot_required, Toast.LENGTH_SHORT).show()
-                }
+                HookPrefs.KEY_ENABLE_DEX_DUMP,
+                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS -> HookPrefs.setBoolean(key, value)
             }
         }
     }

@@ -14,8 +14,7 @@
     <string name="dex_dump_title">DEX Dökümü</string>
     <string name="dex_dump_summary">Hook etkinleştirilmiş tüm uygulamalar için DEX dökümü yapın \nDepolama dizini: Download/DexKitDump</string>
     <string name="package_visibility_bypass_title">Paket Görünürlüğü Kısıtlamasını Atla</string>
-    <string name="package_visibility_bypass_summary">Kancalanmış uygulamaların Android 11+ sürümlerinde yüklü tüm paketleri görmesine izin verir</string>
-    <string name="reboot_required">Bu ayarın etkili olması için cihazın yeniden başlatılması gerekir</string>
+    <string name="package_visibility_bypass_summary">Bu ayarın etkili olması için cihazın yeniden başlatılması gerekir \nKancalanmış uygulamaların Android 11+ sürümlerinde yüklü tüm paketleri görmesine izin verir</string>
     <string name="request_cache_expiration_title">İstek Önbelleği Geçerlilik Süresi</string>
     <string name="request_cache_expiration_summary">Geçici istek/yanıt gövdesi verilerinin geçerlilik süresini ayarlayın \nMevcut: %s</string>
 

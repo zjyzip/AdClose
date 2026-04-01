@@ -41,9 +41,18 @@ object HookPrefs {
     const val KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS = "enable_package_visibility_bypass"
     const val KEY_REQUEST_CACHE_EXPIRATION = "request_cache_expiration"
 
-    private val jsonFormat = Json { 
-        ignoreUnknownKeys = true 
-        prettyPrint = true 
+    private val VISIBILITY_RELEVANT_KEY_PREFIXES = arrayOf(
+        "switch_one_", "switch_two_", "switch_three_", "switch_four_",
+        "switch_five_", "switch_six_", "switch_seven_", "switch_eight_",
+        "switch_nine_", "overall_hook_enabled_"
+    )
+    private val VISIBILITY_RELEVANT_EXACT_KEYS = setOf(
+        KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS
+    )
+
+    private val jsonFormat = Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
         isLenient = true
     }
 
@@ -78,7 +87,7 @@ object HookPrefs {
 
     private val generalSettingsCache = MutableStateFlow<JsonObject?>(null)
     val generalSettingsFlow = generalSettingsCache.asStateFlow()
-    
+
     private val cacheLock = Any()
 
     private fun getSettingsJson(): JsonObject {
@@ -90,31 +99,35 @@ object HookPrefs {
             if (cachedAgain != null) return cachedAgain
 
             val jsonObject = readSettingsFromFile()
-            if (jsonObject != null) {
-                generalSettingsCache.value = jsonObject
-                return jsonObject
-            } else {
-                return JsonObject(emptyMap())
-            }
+            generalSettingsCache.value = jsonObject ?: JsonObject(emptyMap())
+            return generalSettingsCache.value!!
         }
     }
 
-    private fun updateSetting(transform: (MutableMap<String, JsonElement>) -> Unit) {
+    private fun updateSetting(
+        affectedKeys: Set<String> = emptySet(),
+        transform: (MutableMap<String, JsonElement>) -> Unit
+    ) {
         synchronized(cacheLock) {
-            val baseline = generalSettingsCache.value ?: readSettingsFromFile() ?: JsonObject(emptyMap())
-            
+            val baseline = generalSettingsCache.value
+                ?: readSettingsFromFile()
+                ?: JsonObject(emptyMap())
             val mutableMap = baseline.toMutableMap()
             transform(mutableMap)
-            val newJson = JsonObject(mutableMap)
-            generalSettingsCache.value = newJson
+            generalSettingsCache.value = JsonObject(mutableMap)
+        }
+
+        val shouldNotify = affectedKeys.any { key ->
+            key == KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS || 
+                    VISIBILITY_RELEVANT_KEY_PREFIXES.any { key.startsWith(it) }
         }
 
         ioScope.launch {
             try {
-                val currentLatestJson = generalSettingsCache.value ?: return@launch
-                val jsonString = jsonFormat.encodeToString(currentLatestJson)
+                val latestJson = generalSettingsCache.value ?: return@launch
+                val jsonString = jsonFormat.encodeToString(latestJson)
                 
-                if (writeTextToFile(FILE_GENERAL_SETTINGS, jsonString)) {
+                if (writeTextToFile(FILE_GENERAL_SETTINGS, jsonString) && shouldNotify) {
                     closeApp.sendBroadcast(
                         Intent("com.close.hook.ads.ACTION_UPDATE_PKG_VISIBILITY").apply {
                             setPackage("android")
@@ -129,48 +142,40 @@ object HookPrefs {
 
     fun getBoolean(key: String, defaultValue: Boolean): Boolean {
         val element = getSettingsJson()[key]
-        return if (element is JsonPrimitive) {
-            element.booleanOrNull ?: defaultValue
-        } else {
-            defaultValue
-        }
+        return if (element is JsonPrimitive) element.booleanOrNull ?: defaultValue
+        else defaultValue
     }
 
     fun setBoolean(key: String, value: Boolean) {
-        updateSetting { it[key] = JsonPrimitive(value) }
+        updateSetting(affectedKeys = setOf(key)) { it[key] = JsonPrimitive(value) }
     }
-    
+
     fun getLong(key: String, defaultValue: Long): Long {
         val element = getSettingsJson()[key]
         return if (element is JsonPrimitive) {
             element.longOrNull ?: element.contentOrNull?.toLongOrNull() ?: defaultValue
-        } else {
-            defaultValue
-        }
+        } else defaultValue
     }
 
     fun setLong(key: String, value: Long) {
-        updateSetting { it[key] = JsonPrimitive(value) }
+        updateSetting(affectedKeys = setOf(key)) { it[key] = JsonPrimitive(value) }
     }
 
     fun getString(key: String, defaultValue: String?): String? {
         val element = getSettingsJson()[key]
-        return if (element is JsonPrimitive) {
-            element.contentOrNull ?: defaultValue
-        } else {
-            defaultValue
-        }
+        return if (element is JsonPrimitive) element.contentOrNull ?: defaultValue
+        else defaultValue
     }
 
     fun setString(key: String, value: String?) {
-        updateSetting {
+        updateSetting(affectedKeys = setOf(key)) {
             if (value == null) it.remove(key) else it[key] = JsonPrimitive(value)
         }
     }
 
     fun setMultiple(updates: Map<String, Any>) {
         if (updates.isEmpty()) return
-        updateSetting { map ->
+        updateSetting(affectedKeys = updates.keys) { map ->
             updates.forEach { (k, v) ->
                 val jsonElement = when (v) {
                     is Boolean -> JsonPrimitive(v)
@@ -184,16 +189,14 @@ object HookPrefs {
     }
 
     fun remove(key: String) {
-        updateSetting { it.remove(key) }
+        updateSetting(affectedKeys = setOf(key)) { it.remove(key) }
     }
 
     fun clear() {
         updateSetting { it.clear() }
     }
 
-    fun contains(key: String): Boolean {
-        return getSettingsJson().containsKey(key)
-    }
+    fun contains(key: String): Boolean = getSettingsJson().containsKey(key)
 
     fun getAll(): Map<String, Any?> {
         val json = getSettingsJson()
@@ -201,12 +204,10 @@ object HookPrefs {
             val primitive = entry.value as? JsonPrimitive
             when {
                 primitive?.isString == true -> primitive.content
-                primitive != null -> {
-                    primitive.booleanOrNull 
-                        ?: primitive.longOrNull 
-                        ?: primitive.doubleOrNull 
-                        ?: primitive.content
-                }
+                primitive != null -> primitive.booleanOrNull
+                    ?: primitive.longOrNull
+                    ?: primitive.doubleOrNull
+                    ?: primitive.content
                 else -> entry.value.toString()
             }
         }
@@ -216,11 +217,11 @@ object HookPrefs {
 
     fun getCustomHookConfigs(packageName: String?): List<CustomHookInfo> {
         val effectiveKey = packageName ?: GLOBAL_KEY
-        
+
         customHookCache[effectiveKey]?.let { return it }
 
         val content = readAllTextFromFile(buildFileName(FILE_PREFIX_CUSTOM_HOOK, effectiveKey))
-        
+
         if (content == null) {
             Log.w(TAG, "Service unavailable. Returning empty custom hooks without caching.")
             return emptyList()
@@ -236,14 +237,14 @@ object HookPrefs {
                 emptyList()
             }
         }
-        
+
         customHookCache[effectiveKey] = result
         return result
     }
 
     fun setCustomHookConfigs(packageName: String?, configs: List<CustomHookInfo>) {
         val effectiveKey = packageName ?: GLOBAL_KEY
-        
+
         if (configs.isEmpty()) {
             customHookCache.remove(effectiveKey)
         } else {
@@ -277,9 +278,7 @@ object HookPrefs {
 
     private fun readSettingsFromFile(): JsonObject? {
         val content = readAllTextFromFile(FILE_GENERAL_SETTINGS) ?: return null
-        
         if (content.isBlank()) return JsonObject(emptyMap())
-        
         return try {
             jsonFormat.parseToJsonElement(content) as? JsonObject ?: JsonObject(emptyMap())
         } catch (e: Exception) {
@@ -294,12 +293,10 @@ object HookPrefs {
             Log.w(TAG, "fileAccessor is null. Framework IPC disconnected.")
             return null
         }
-        
+
         try {
             val files = accessor.listRemoteFiles()
-            if (files == null || !files.contains(fileName)) {
-                return ""
-            }
+            if (files == null || !files.contains(fileName)) return ""
         } catch (e: Exception) {
             Log.e(TAG, "Error checking remote files (IPC failure)", e)
             return null
@@ -307,9 +304,10 @@ object HookPrefs {
 
         return try {
             accessor.openRemoteFile(fileName, "r")?.use { pfd ->
-                InputStreamReader(ParcelFileDescriptor.AutoCloseInputStream(pfd), StandardCharsets.UTF_8).use {
-                    it.readText()
-                }
+                InputStreamReader(
+                    ParcelFileDescriptor.AutoCloseInputStream(pfd),
+                    StandardCharsets.UTF_8
+                ).use { it.readText() }
             } ?: ""
         } catch (e: Exception) {
             Log.e(TAG, "Error reading remote file", e)
@@ -323,9 +321,9 @@ object HookPrefs {
             accessor.openRemoteFile(fileName, "rw")?.use { pfd ->
                 ParcelFileDescriptor.AutoCloseOutputStream(pfd).use { fos ->
                     fos.channel.truncate(0)
-                    fos.bufferedWriter(StandardCharsets.UTF_8).use { writer ->
-                        writer.write(content)
-                    }
+                    val writer = fos.bufferedWriter(StandardCharsets.UTF_8)
+                    writer.write(content)
+                    writer.flush()
                 }
             }
             true
@@ -344,31 +342,24 @@ object HookPrefs {
         }
     }
 
-    internal fun buildKey(prefix: String, packageName: String?): String {
-        return prefix + (packageName ?: GLOBAL_KEY)
-    }
+    internal fun buildKey(prefix: String, packageName: String?): String =
+        prefix + (packageName ?: GLOBAL_KEY)
 
-    private fun buildFileName(prefix: String, key: String): String {
-        return "$prefix$key.json"
-    }
+    private fun buildFileName(prefix: String, key: String): String = "$prefix$key.json"
 
-    fun getOverallHookEnabled(packageName: String?): Boolean {
-        return getBoolean(buildKey(KEY_PREFIX_OVERALL_HOOK, packageName), false)
-    }
+    fun getOverallHookEnabled(packageName: String?): Boolean =
+        getBoolean(buildKey(KEY_PREFIX_OVERALL_HOOK, packageName), false)
 
     fun setOverallHookEnabled(packageName: String?, isEnabled: Boolean) {
         setBoolean(buildKey(KEY_PREFIX_OVERALL_HOOK, packageName), isEnabled)
     }
 
-    fun getEnableLogging(packageName: String?): Boolean {
-        return getBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), false)
-    }
+    fun getEnableLogging(packageName: String?): Boolean =
+        getBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), false)
 
     fun setEnableLogging(packageName: String?, isEnabled: Boolean) {
         setBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), isEnabled)
     }
 
-    fun getRequestCacheExpiration(): Long {
-        return getString(KEY_REQUEST_CACHE_EXPIRATION, "5")?.toLongOrNull() ?: 5L
-    }
+    fun getRequestCacheExpiration(): Long = getLong(KEY_REQUEST_CACHE_EXPIRATION, 5L)
 }

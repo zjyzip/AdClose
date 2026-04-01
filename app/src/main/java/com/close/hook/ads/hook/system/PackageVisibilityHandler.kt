@@ -28,6 +28,9 @@ object PackageVisibilityHandler {
 
     private val threadWakeLock = Object()
 
+    @Volatile
+    private var cachedSystemContext: Context? = null
+
     fun init(xposed: XposedInterface) {
         xposed.log(Log.INFO, TAG, "Initializing Package Visibility Handler...")
 
@@ -60,22 +63,27 @@ object PackageVisibilityHandler {
                             try {
                                 val filter = IntentFilter(ACTION_UPDATE)
                                 if (Build.VERSION.SDK_INT >= 33) {
-                                    sysContext.javaClass.getMethod("registerReceiver", 
-                                        BroadcastReceiver::class.java, IntentFilter::class.java, Int::class.javaPrimitiveType)
-                                        .invoke(sysContext, updateReceiver, filter, 2)
+                                    sysContext.javaClass.getMethod(
+                                        "registerReceiver",
+                                        BroadcastReceiver::class.java,
+                                        IntentFilter::class.java,
+                                        Int::class.javaPrimitiveType
+                                    ).invoke(sysContext, updateReceiver, filter, 2)
                                 } else {
                                     sysContext.registerReceiver(updateReceiver, filter)
                                 }
                                 isReceiverRegistered = true
                                 xposed.log(Log.INFO, TAG, "BroadcastReceiver registered successfully. System is ready.")
-                            } catch (ignored: Throwable) {}
+                            } catch (e: Throwable) {
+                                xposed.log(Log.WARN, TAG, "Failed to register BroadcastReceiver: ${e.message}")
+                            }
                         }
                     }
 
                     if (appsFilterInstance == null) {
                         val binder = getService("package")
                         val pms = if (binder != null) extractPMS(binder) else null
-                        
+
                         if (pms != null) {
                             val appsFilter = getFieldValue(pms, "mAppsFilter")
                             if (appsFilter != null) {
@@ -90,7 +98,7 @@ object PackageVisibilityHandler {
                                     appsFilterInstance = appsFilter
                                     cacheEnabledField = findField(appsFilter.javaClass, "mCacheEnabled")
                                     disabledPackagesInstance = getFieldValue(featureConfig, "mDisabledPackages")
-                                    
+
                                     if (disabledPackagesInstance != null) {
                                         val arraySetClass = Class.forName("android.util.ArraySet")
                                         addMethod = arraySetClass.getMethod("add", Object::class.java)
@@ -148,12 +156,16 @@ object PackageVisibilityHandler {
 
                     if (isReceiverRegistered) {
                         synchronized(threadWakeLock) {
-                            threadWakeLock.wait(60000L) 
+                            threadWakeLock.wait(60000L)
                         }
                     } else {
                         Thread.sleep(5000)
                     }
 
+                } catch (e: InterruptedException) {
+                    xposed.log(Log.INFO, TAG, "Daemon thread interrupted, exiting.")
+                    Thread.currentThread().interrupt()
+                    break
                 } catch (e: Throwable) {
                     xposed.log(Log.ERROR, TAG, "Daemon error: ${Log.getStackTraceString(e)}")
                     if (e is ReflectiveOperationException) appsFilterInstance = null
@@ -193,11 +205,16 @@ object PackageVisibilityHandler {
     }
 
     private fun getSystemContext(): Context? {
+        cachedSystemContext?.let { return it }
         return try {
             val atClass = Class.forName("android.app.ActivityThread")
             val at = atClass.getMethod("currentActivityThread").invoke(null)
-            atClass.getMethod("getSystemContext").invoke(at) as Context
-        } catch (e: Exception) { null }
+            val ctx = atClass.getMethod("getSystemContext").invoke(at) as? Context
+            cachedSystemContext = ctx
+            ctx
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun getService(name: String): IBinder? {
