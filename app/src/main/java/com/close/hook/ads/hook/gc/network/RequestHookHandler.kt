@@ -22,6 +22,7 @@ import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
 import java.nio.ByteBuffer
+import java.util.Collections
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLEngineResult
 import javax.net.ssl.SSLSocket
@@ -73,13 +74,15 @@ internal object RequestHookHandler {
         } catch (e: Throwable) { null }
     }
 
+    private val hookedWebViewClientClasses: MutableSet<String> =
+        Collections.synchronizedSet(mutableSetOf())
+
     fun init(context: Context) {
         applicationContext = context
         setupDNSRequestHook()
         setupSocketHook() // HTTP/1.1
         setupConscryptEngineHook() // HTTPS over HTTP/1.1
         setupOkHttpRequestHook()
-        // setupProtocolDowngradeHook()
         setupWebViewRequestHook()
         setupCronetRequestHook() // ByteDance
     }
@@ -150,36 +153,6 @@ internal object RequestHookHandler {
         }
     }
 
-    private fun setupProtocolDowngradeHook() {
-        try {
-            HookUtil.findAndHookMethod(
-                SSLParameters::class.java,
-                "setApplicationProtocols",
-                arrayOf(Array<String>::class.java),
-                "before"
-            ) { param ->
-                val originalProtocols = param.args[0] as? Array<String> ?: return@findAndHookMethod
-
-                val filteredProtocols = originalProtocols.filter {
-                    it.equals("http/1.1", ignoreCase = true)
-                }
-
-                val newProtocols = if (filteredProtocols.isEmpty() && originalProtocols.isNotEmpty()) {
-                    arrayOf("http/1.1")
-                } else {
-                    filteredProtocols.toTypedArray()
-                }
-
-                if (!originalProtocols.contentEquals(newProtocols)) {
-                    XposedBridge.log("$LOG_PREFIX Downgrading ALPN protocols from ${originalProtocols.joinToString()} to ${newProtocols.joinToString()}")
-                    param.args[0] = newProtocols
-                }
-            }
-        } catch(e: Throwable) {
-            XposedBridge.log("$LOG_PREFIX Error setting up protocol downgrade hook: ${e.message}")
-        }
-    }
-
     private fun setupConscryptEngineHook() {
         try {
             val conscryptEngineClass = Class.forName("com.android.org.conscrypt.ConscryptEngine")
@@ -228,7 +201,7 @@ internal object RequestHookHandler {
                         val start = position - bytesProduced
                         val bytes = ByteArray(bytesProduced)
                         for (i in 0 until bytesProduced) {
-                           bytes[i] = dstBuffer.get(start + i)
+                            bytes[i] = dstBuffer.get(start + i)
                         }
 
                         buffer.write(bytes)
@@ -373,6 +346,8 @@ internal object RequestHookHandler {
     }
 
     private fun hookClientMethods(clientClassName: String, classLoader: ClassLoader) {
+        if (!hookedWebViewClientClasses.add(clientClassName)) return
+
         XposedBridge.log("$LOG_PREFIX WebViewClient set: $clientClassName")
 
         HookUtil.hookAllMethods(
@@ -476,7 +451,8 @@ internal object RequestHookHandler {
 
     private fun createEmptyWebResourceResponse(): WebResourceResponse? {
         return try {
-            WebResourceResponse("text/plain", "UTF-8", 204, "No Content",
+            WebResourceResponse(
+                "text/plain", "UTF-8", 204, "No Content",
                 emptyMap(), ByteArrayInputStream(ByteArray(0))
             )
         } catch (e: Exception) {
@@ -511,7 +487,7 @@ internal object RequestHookHandler {
                     val responseHeadersMap = XposedHelpers.callMethod(responseInfoObject, "getAllHeaders") as? Map<String, List<String>>
                     val responseHeaders = responseHeadersMap?.toString() ?: ""
                     val negotiatedProtocol = XposedHelpers.callMethod(responseInfoObject, "getNegotiatedProtocol") as? String
-                    
+
                     var responseBody: ByteArray? = null
                     var responseContentType: String? = null
 
@@ -530,7 +506,7 @@ internal object RequestHookHandler {
                                     val out = ByteArrayOutputStream()
                                     TeeInputStream(inputStream, out).use { it.readBytes() }
                                     responseBody = out.toByteArray()
-                                    
+
                                     try {
                                         XposedHelpers.setObjectField(streamObj, "mBuffer", ByteBuffer.wrap(responseBody))
                                     } catch (ignored: Throwable) {}

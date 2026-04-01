@@ -29,6 +29,13 @@
             android:summary="@string/dex_dump_summary"
             android:defaultValue="false"
             android:icon="@drawable/ic_outline_file_save_24" />
+
+        <rikka.material.preference.MaterialSwitchPreference
+            android:key="enable_package_visibility_bypass"
+            android:title="@string/package_visibility_bypass_title"
+            android:summary="@string/package_visibility_bypass_summary"
+            android:defaultValue="false"
+            android:icon="@drawable/ic_outline_visibility_24" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/settings_language">

@@ -14,6 +14,9 @@
     <string name="advanced_settings">進階設定</string>
     <string name="dex_dump_title">DEX Dump</string>
     <string name="dex_dump_summary">為所有已啟用 Hook 的應用程式進行 DEX Dump \n儲存目錄：Download/DexKitDump</string>
+    <string name="package_visibility_bypass_title">包可見性繞過</string>
+    <string name="package_visibility_bypass_summary">允許被 Hook 的應用在 Android 11+ 上查看所有已安裝的包</string>
+    <string name="reboot_required">此設置需要重啟手機後生效</string>
     <string name="request_cache_expiration_title">請求快取有效期</string>
     <string name="request_cache_expiration_summary">設定暫存的請求/回應主體資料的有效期 \n目前：%s</string>
 

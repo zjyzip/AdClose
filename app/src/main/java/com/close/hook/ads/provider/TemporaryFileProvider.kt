@@ -20,13 +20,10 @@ class TemporaryFileProvider : ContentProvider() {
         private const val TAG = "TemporaryFileProvider"
         const val AUTHORITY = "com.close.hook.ads.provider.temporaryfile"
         val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/temporary_files")
-
         const val KEY_BODY_CONTENT = "body_content"
         const val KEY_MIME_TYPE = "mime_type"
-
         private const val TEMPORARY_FILES = 1
         private const val TEMPORARY_FILE_ID = 2
-
         private val uriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
             addURI(AUTHORITY, "temporary_files", TEMPORARY_FILES)
             addURI(AUTHORITY, "temporary_files/*", TEMPORARY_FILE_ID)
@@ -34,7 +31,6 @@ class TemporaryFileProvider : ContentProvider() {
     }
 
     private val contentStore by lazy { SimpleMemoryCache() }
-
     private val ioExecutor: ExecutorService by lazy {
         Executors.newCachedThreadPool { r ->
             Thread(r, "AdClose-ProviderIO").apply { isDaemon = true }
@@ -43,24 +39,24 @@ class TemporaryFileProvider : ContentProvider() {
 
     override fun onCreate(): Boolean = true
 
-    override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor? = null
+    override fun query(
+        uri: Uri,
+        projection: Array<String>?,
+        selection: String?,
+        selectionArgs: Array<String>?,
+        sortOrder: String?
+    ): Cursor? = null
 
     override fun getType(uri: Uri): String? {
         return if (uriMatcher.match(uri) == TEMPORARY_FILE_ID) {
-            uri.lastPathSegment?.let { id ->
-                contentStore.get(id)?.second
-            }
-        } else {
-            null
-        }
+            uri.lastPathSegment?.let { id -> contentStore.get(id)?.second }
+        } else null
     }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
         if (mode != "r") throw IllegalArgumentException("Only 'r' mode is supported.")
-
         val id = uri.lastPathSegment ?: throw FileNotFoundException("Invalid URI")
         val (bodyBytes, _) = contentStore.get(id) ?: throw FileNotFoundException("Data expired or not found")
-
         return try {
             val pipe = ParcelFileDescriptor.createReliablePipe()
             ioExecutor.execute {
@@ -79,16 +75,20 @@ class TemporaryFileProvider : ContentProvider() {
     }
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        if (uriMatcher.match(uri) != TEMPORARY_FILES) throw IllegalArgumentException("Invalid URI for insert")
-        
-        val bodyContent = values?.getAsByteArray(KEY_BODY_CONTENT)
-        val mimeType = values?.getAsString(KEY_MIME_TYPE)
-        requireNotNull(bodyContent)
-        requireNotNull(mimeType)
-
+        if (uriMatcher.match(uri) != TEMPORARY_FILES) {
+            Log.w(TAG, "insert: invalid URI $uri")
+            return null
+        }
+        val bodyContent = values?.getAsByteArray(KEY_BODY_CONTENT) ?: run {
+            Log.w(TAG, "insert: missing body_content")
+            return null
+        }
+        val mimeType = values.getAsString(KEY_MIME_TYPE) ?: run {
+            Log.w(TAG, "insert: missing mime_type")
+            return null
+        }
         val id = UUID.randomUUID().toString()
         contentStore.put(id, bodyContent to mimeType)
-
         val newUri = Uri.withAppendedPath(CONTENT_URI, id)
         Log.d(TAG, "Inserted new temporary file with URI: $newUri")
         return newUri
@@ -96,5 +96,10 @@ class TemporaryFileProvider : ContentProvider() {
 
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int = 0
 
-    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int = 0
+    override fun update(
+        uri: Uri,
+        values: ContentValues?,
+        selection: String?,
+        selectionArgs: Array<String>?
+    ): Int = 0
 }

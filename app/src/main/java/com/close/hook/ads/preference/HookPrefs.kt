@@ -1,7 +1,9 @@
 package com.close.hook.ads.preference
 
+import android.content.Intent
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import com.close.hook.ads.closeApp
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.hook.HookLogic
 import com.close.hook.ads.manager.ServiceManager
@@ -20,7 +22,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
-import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
@@ -37,6 +38,7 @@ object HookPrefs {
     private const val KEY_PREFIX_ENABLE_LOGGING = "enable_logging_"
     const val KEY_COLLECT_RESPONSE_BODY = "collect_response_body_enabled"
     const val KEY_ENABLE_DEX_DUMP = "enable_dex_dump"
+    const val KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS = "enable_package_visibility_bypass"
     const val KEY_REQUEST_CACHE_EXPIRATION = "request_cache_expiration"
 
     private val jsonFormat = Json { 
@@ -98,25 +100,27 @@ object HookPrefs {
     }
 
     private fun updateSetting(transform: (MutableMap<String, JsonElement>) -> Unit) {
-        val newJson: JsonObject
-        
         synchronized(cacheLock) {
-            val baseline = generalSettingsCache.value ?: readSettingsFromFile()
-            if (baseline == null) {
-                Log.e(TAG, "Write aborted: Framework service is disconnected, cannot merge configuration securely.")
-                return
-            }
+            val baseline = generalSettingsCache.value ?: readSettingsFromFile() ?: JsonObject(emptyMap())
             
             val mutableMap = baseline.toMutableMap()
             transform(mutableMap)
-            newJson = JsonObject(mutableMap)
+            val newJson = JsonObject(mutableMap)
             generalSettingsCache.value = newJson
         }
 
         ioScope.launch {
             try {
-                val jsonString = jsonFormat.encodeToString(newJson)
-                writeTextToFile(FILE_GENERAL_SETTINGS, jsonString)
+                val currentLatestJson = generalSettingsCache.value ?: return@launch
+                val jsonString = jsonFormat.encodeToString(currentLatestJson)
+                
+                if (writeTextToFile(FILE_GENERAL_SETTINGS, jsonString)) {
+                    closeApp.sendBroadcast(
+                        Intent("com.close.hook.ads.ACTION_UPDATE_PKG_VISIBILITY").apply {
+                            setPackage("android")
+                        }
+                    )
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to persist settings", e)
             }
@@ -317,9 +321,9 @@ object HookPrefs {
         val accessor = fileAccessor ?: return false
         return try {
             accessor.openRemoteFile(fileName, "rw")?.use { pfd ->
-                FileOutputStream(pfd.fileDescriptor).use { fos ->
+                ParcelFileDescriptor.AutoCloseOutputStream(pfd).use { fos ->
                     fos.channel.truncate(0)
-                    fos.writer(StandardCharsets.UTF_8).use { writer ->
+                    fos.bufferedWriter(StandardCharsets.UTF_8).use { writer ->
                         writer.write(content)
                     }
                 }

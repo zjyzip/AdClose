@@ -25,7 +25,8 @@ import java.net.URLDecoder
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 object RequestHook {
@@ -35,9 +36,13 @@ object RequestHook {
 
     internal lateinit var applicationContext: Context
 
-    private val asyncBroadcastExecutor: ExecutorService = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "AdClose-AsyncBroadcast").apply { isDaemon = true }
-    }
+    private val asyncBroadcastExecutor: ExecutorService = ThreadPoolExecutor(
+        1, 1,
+        0L, TimeUnit.MILLISECONDS,
+        LinkedBlockingQueue(200),
+        { r -> Thread(r, "AdClose-AsyncBroadcast").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardOldestPolicy()
+    )
 
     private val sentRequestsCache = CacheBuilder.newBuilder()
         .maximumSize(5000)
@@ -47,7 +52,7 @@ object RequestHook {
     internal val requestBuffers = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ByteArrayOutputStream>().asMap()
     internal val responseBuffers = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ByteArrayOutputStream>().asMap()
     internal val pendingRequests = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, BlockedRequest>().asMap()
-    
+
     private val requestParsingStates = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ParsingState>().asMap()
     private val responseParsingStates = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ParsingState>().asMap()
 
@@ -89,7 +94,6 @@ object RequestHook {
                     val port = urlObject.port
                     val host = urlObject.host ?: ""
                     val scheme = urlObject.scheme ?: "http"
-
                     val portStr = if (port != -1) ":$port" else ""
                     "$scheme://$host$portStr$decodedPath"
                 }
@@ -181,24 +185,24 @@ object RequestHook {
 
             val buffer = bufferStream.toByteArray()
             val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
-            
+
             if (headerEndIndex != -1) {
                 state.isHeaderParsed = true
                 state.headerSize = headerEndIndex + headerEndMarker.size
                 val headerString = String(buffer, 0, headerEndIndex, Charsets.UTF_8)
-                
+
                 if (headerString.startsWith("CONNECT ", ignoreCase = true)) {
                     cleanBuffer(bufferStream, buffer, state.headerSize)
                     state.isHeaderParsed = false
                     return
                 }
-                
+
                 state.contentLength = parseContentLength(headerString)
-                
+
                 if (buffer.size >= state.headerSize + state.contentLength) {
                     val bodyBytes = if (state.contentLength > 0) buffer.copyOfRange(state.headerSize, state.headerSize + state.contentLength) else null
                     buildHttpRequest(key, headerString, bodyBytes, isHttps)
-                    
+
                     cleanBuffer(bufferStream, buffer, state.headerSize + state.contentLength)
                     state.isHeaderParsed = false
                 }
@@ -221,10 +225,10 @@ object RequestHook {
                     return false
                 }
             }
-            
+
             val buffer = bufferStream.toByteArray()
             val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
-            
+
             if (headerEndIndex != -1) {
                 if (!state.isHeaderParsed) {
                     val headerString = String(buffer, 0, headerEndIndex, Charsets.ISO_8859_1)
@@ -298,7 +302,7 @@ object RequestHook {
         val cleanedHeaders = if (firstNewline != -1) headers.substring(firstNewline + 2) else headers
 
         val info = BlockedRequest(
-            requestType = if (isHttps) " HTTPS" else " HTTP", 
+            requestType = if (isHttps) " HTTPS" else " HTTP",
             requestValue = formatUrlWithoutQuery(Uri.parse(url)),
             method = method,
             urlString = url,
@@ -317,10 +321,10 @@ object RequestHook {
     }
 
     private fun completeAndDispatchRequest(
-        key: Int, 
-        requestInfo: BlockedRequest, 
-        headers: String, 
-        body: ByteArray?, 
+        key: Int,
+        requestInfo: BlockedRequest,
+        headers: String,
+        body: ByteArray?,
         param: XC_MethodHook.MethodHookParam?
     ): Boolean {
         val lines = headers.lines()
@@ -371,7 +375,7 @@ object RequestHook {
                 i--
             }
             if (i < 0) return offset
-            
+
             val badCharIndex = data[offset + pattern.size - 1].toInt() and 0xFF
             offset += badCharShift[badCharIndex]
         }
@@ -394,8 +398,8 @@ object RequestHook {
 
             val chunkSizeStr = String(buffer, currentIndex, crlfIndex - currentIndex, Charsets.US_ASCII).trim()
             val hexPart = chunkSizeStr.substringBefore(';').trim()
-            
-            val chunkSize = hexPart.toIntOrNull(16) ?: throw IllegalArgumentException("Invalid chunk size format: $chunkSizeStr")
+
+            val chunkSize = hexPart.toIntOrNull(16) ?: return null
 
             if (chunkSize == 0) {
                 currentIndex = crlfIndex + 2
@@ -423,17 +427,14 @@ object RequestHook {
         if (key.isNullOrEmpty()) return
 
         val hasResponse = info.responseCode != -1
-        val alreadySentComplete = sentRequestsCache[key] == true
-
-        if (alreadySentComplete) return
 
         if (hasResponse) {
-            sentRequestsCache[key] = true
+            val previous = sentRequestsCache.putIfAbsent(key, true)
+            if (previous == true) return
+            if (previous == false) sentRequestsCache[key] = true
         } else {
-            if (sentRequestsCache.containsKey(key)) {
-                return
-            }
-            sentRequestsCache[key] = false
+            val previous = sentRequestsCache.putIfAbsent(key, false)
+            if (previous != null) return
         }
 
         asyncBroadcastExecutor.execute {
