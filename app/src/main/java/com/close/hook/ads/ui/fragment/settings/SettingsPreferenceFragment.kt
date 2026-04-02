@@ -5,9 +5,13 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.TextUtils
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.text.HtmlCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
@@ -24,6 +28,8 @@ import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
 import com.close.hook.ads.preference.PrefManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import rikka.core.util.ResourceUtils
 import rikka.material.app.LocaleDelegate
 import rikka.material.preference.MaterialSwitchPreference
@@ -73,7 +79,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "language" -> PrefManager.language
                 "defaultPage" -> PrefManager.defaultPage.toString()
                 HookPrefs.KEY_REQUEST_CACHE_EXPIRATION -> HookPrefs.getString(key, defValue)
-                else -> null
+                else -> defValue
             }
         }
 
@@ -109,7 +115,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
     }
 
-    @SuppressLint("SetTextI19n")
+    @SuppressLint("SetTextI18n")
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.preferenceDataStore = SettingsPreferenceDataStore()
         setPreferencesFromResource(R.xml.settings, rootKey)
@@ -120,6 +126,43 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         setupThemePreferences()
         setupCacheClearing()
         setupAboutPreference()
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                HookPrefs.generalSettingsFlow.collectLatest { json ->
+                    if (json != null) {
+                        syncHookPreferences()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun syncHookPreferences() {
+        val keys = listOf(
+            HookPrefs.KEY_REQUEST_CACHE_EXPIRATION,
+            HookPrefs.KEY_ENABLE_DEX_DUMP,
+            HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS
+        )
+
+        keys.forEach { key ->
+            findPreference<Preference>(key)?.let { pref ->
+                when (pref) {
+                    is MaterialSwitchPreference -> {
+                        val value = HookPrefs.getBoolean(key, false)
+                        if (pref.isChecked != value) pref.isChecked = value
+                    }
+                    is SimpleMenuPreference -> {
+                        val value = HookPrefs.getString(key, "5")
+                        if (pref.value != value) pref.value = value
+                    }
+                }
+            }
+        }
     }
 
     private fun setupCustomHookPreference() {
