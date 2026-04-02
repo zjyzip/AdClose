@@ -22,6 +22,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
@@ -41,14 +42,6 @@ object HookPrefs {
     const val KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS = "enable_package_visibility_bypass"
     const val KEY_REQUEST_CACHE_EXPIRATION = "request_cache_expiration"
 
-    private val VISIBILITY_RELEVANT_KEY_PREFIXES = arrayOf(
-        "switch_one_", "switch_two_", "switch_three_", "switch_four_",
-        "switch_five_", "switch_six_", "switch_seven_", "switch_eight_",
-        "switch_nine_", "overall_hook_enabled_"
-    )
-    private val VISIBILITY_RELEVANT_EXACT_KEYS = setOf(
-        KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS
-    )
 
     private val jsonFormat = Json {
         ignoreUnknownKeys = true
@@ -104,30 +97,22 @@ object HookPrefs {
         }
     }
 
-    private fun updateSetting(
-        affectedKeys: Set<String> = emptySet(),
-        transform: (MutableMap<String, JsonElement>) -> Unit
-    ) {
+    private fun updateSetting(transform: (MutableMap<String, JsonElement>) -> Unit) {
+        val newJson: JsonObject
         synchronized(cacheLock) {
             val baseline = generalSettingsCache.value
                 ?: readSettingsFromFile()
                 ?: JsonObject(emptyMap())
             val mutableMap = baseline.toMutableMap()
             transform(mutableMap)
-            generalSettingsCache.value = JsonObject(mutableMap)
-        }
-
-        val shouldNotify = affectedKeys.any { key ->
-            key == KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS || 
-                    VISIBILITY_RELEVANT_KEY_PREFIXES.any { key.startsWith(it) }
+            newJson = JsonObject(mutableMap)
+            generalSettingsCache.value = newJson
         }
 
         ioScope.launch {
             try {
-                val latestJson = generalSettingsCache.value ?: return@launch
-                val jsonString = jsonFormat.encodeToString(latestJson)
-                
-                if (writeTextToFile(FILE_GENERAL_SETTINGS, jsonString) && shouldNotify) {
+                val jsonString = jsonFormat.encodeToString(newJson)
+                if (writeTextToFile(FILE_GENERAL_SETTINGS, jsonString)) {
                     closeApp.sendBroadcast(
                         Intent("com.close.hook.ads.ACTION_UPDATE_PKG_VISIBILITY").apply {
                             setPackage("android")
@@ -147,7 +132,7 @@ object HookPrefs {
     }
 
     fun setBoolean(key: String, value: Boolean) {
-        updateSetting(affectedKeys = setOf(key)) { it[key] = JsonPrimitive(value) }
+        updateSetting { it[key] = JsonPrimitive(value) }
     }
 
     fun getLong(key: String, defaultValue: Long): Long {
@@ -158,7 +143,7 @@ object HookPrefs {
     }
 
     fun setLong(key: String, value: Long) {
-        updateSetting(affectedKeys = setOf(key)) { it[key] = JsonPrimitive(value) }
+        updateSetting { it[key] = JsonPrimitive(value) }
     }
 
     fun getString(key: String, defaultValue: String?): String? {
@@ -168,14 +153,14 @@ object HookPrefs {
     }
 
     fun setString(key: String, value: String?) {
-        updateSetting(affectedKeys = setOf(key)) {
+        updateSetting {
             if (value == null) it.remove(key) else it[key] = JsonPrimitive(value)
         }
     }
 
     fun setMultiple(updates: Map<String, Any>) {
         if (updates.isEmpty()) return
-        updateSetting(affectedKeys = updates.keys) { map ->
+        updateSetting { map ->
             updates.forEach { (k, v) ->
                 val jsonElement = when (v) {
                     is Boolean -> JsonPrimitive(v)
@@ -189,7 +174,7 @@ object HookPrefs {
     }
 
     fun remove(key: String) {
-        updateSetting(affectedKeys = setOf(key)) { it.remove(key) }
+        updateSetting { it.remove(key) }
     }
 
     fun clear() {
@@ -319,11 +304,12 @@ object HookPrefs {
         val accessor = fileAccessor ?: return false
         return try {
             accessor.openRemoteFile(fileName, "rw")?.use { pfd ->
-                ParcelFileDescriptor.AutoCloseOutputStream(pfd).use { fos ->
+                FileOutputStream(pfd.fileDescriptor).use { fos ->
                     fos.channel.truncate(0)
-                    val writer = fos.bufferedWriter(StandardCharsets.UTF_8)
-                    writer.write(content)
-                    writer.flush()
+                    fos.channel.position(0)
+                    fos.bufferedWriter(StandardCharsets.UTF_8).use { writer ->
+                        writer.write(content)
+                    }
                 }
             }
             true
