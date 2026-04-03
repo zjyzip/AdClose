@@ -22,7 +22,7 @@ import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
 import java.nio.ByteBuffer
-import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLEngineResult
 import javax.net.ssl.SSLSocket
@@ -74,8 +74,7 @@ internal object RequestHookHandler {
         } catch (e: Throwable) { null }
     }
 
-    private val hookedWebViewClientClasses: MutableSet<String> =
-        Collections.synchronizedSet(mutableSetOf())
+    private val hookedWebViewClientClasses: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     fun init(context: Context) {
         applicationContext = context
@@ -126,7 +125,7 @@ internal object RequestHookHandler {
                 if (len <= 0) return@hookAllMethods
 
                 val key = System.identityHashCode(socket)
-                val buffer = RequestHook.requestBuffers.getOrPut(key) { ByteArrayOutputStream() }
+                val buffer = RequestHook.requestBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
                 buffer.write(bytes, offset, len)
                 RequestHook.processRequestBuffer(key, isHttps = false)
             }
@@ -144,7 +143,7 @@ internal object RequestHookHandler {
                 if (len <= 0) return@hookAllMethods
 
                 val key = System.identityHashCode(socket)
-                val buffer = RequestHook.responseBuffers.getOrPut(key) { ByteArrayOutputStream() }
+                val buffer = RequestHook.responseBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
                 buffer.write(bytes, 0, len)
                 RequestHook.processResponseBuffer(key, param)
             }
@@ -167,7 +166,7 @@ internal object RequestHookHandler {
                     val srcBuffer = param.args[0] as ByteBuffer
                     if (srcBuffer.hasRemaining()) {
                         val key = System.identityHashCode(param.thisObject)
-                        val buffer = RequestHook.requestBuffers.getOrPut(key) { ByteArrayOutputStream() }
+                        val buffer = RequestHook.requestBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
 
                         val position = srcBuffer.position()
                         val bytes = ByteArray(srcBuffer.remaining())
@@ -195,7 +194,7 @@ internal object RequestHookHandler {
 
                     if (bytesProduced > 0) {
                         val key = System.identityHashCode(param.thisObject)
-                        val buffer = RequestHook.responseBuffers.getOrPut(key) { ByteArrayOutputStream() }
+                        val buffer = RequestHook.responseBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
 
                         val position = dstBuffer.position()
                         val start = position - bytesProduced
@@ -357,7 +356,7 @@ internal object RequestHookHandler {
             { param ->
                 if (param.args.size != 2) return@hookAllMethods
                 val request = param.args[1] as? WebResourceRequest ?: return@hookAllMethods
-                
+
                 if (processWebRequest(request)) {
                     param.result = emptyWebResponse
                     return@hookAllMethods
@@ -386,46 +385,84 @@ internal object RequestHookHandler {
 
     private fun sendParallelRequestForLogging(request: WebResourceRequest) {
         val url = request.url
-        if (url == null || (url.scheme != "http" && url.scheme != "https")) {
-            return
-        }
+        if (url == null || (url.scheme != "http" && url.scheme != "https")) return
 
-        Thread {
+        RequestHook.asyncBroadcastExecutor.execute {
             try {
                 val urlConnection = URL(request.url.toString()).openConnection() as HttpURLConnection
+                urlConnection.connectTimeout = 5000
+                urlConnection.readTimeout = 10000
                 urlConnection.requestMethod = request.method
-                
+
                 request.requestHeaders.forEach { (key, value) ->
                     urlConnection.setRequestProperty(key, value)
                 }
-                
                 urlConnection.setRequestProperty("X-AdClose-Proxy", "true")
 
                 urlConnection.connect()
-                
-                val inputStream = try { urlConnection.inputStream } catch (e: IOException) { urlConnection.errorStream }
-                
-                inputStream?.use { input ->
-                    val buffer = ByteArrayOutputStream()
-                    TeeInputStream(input, buffer).use { it.readBytes() }
+
+                val responseCode = urlConnection.responseCode
+                val responseMessage = urlConnection.responseMessage
+                val responseHeaders = urlConnection.headerFields
+                    .entries.filter { it.key != null }
+                    .joinToString("\n") { "${it.key}: ${it.value.joinToString(", ")}" }
+                val contentType = urlConnection.contentType
+                val contentEncoding = urlConnection.contentEncoding
+
+                val responseBodyBytes = if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) {
+                    val inputStream: InputStream? = try {
+                        urlConnection.inputStream
+                    } catch (e: IOException) {
+                        urlConnection.errorStream
+                    }
+                    inputStream?.use { input ->
+                        val buffer = ByteArrayOutputStream()
+                        TeeInputStream(input, buffer).use { it.readBytes() }
+                        buffer.toByteArray()
+                    }
+                } else null
+
+                val mimeTypeWithEncoding = if (!contentEncoding.isNullOrEmpty()) {
+                    "$contentType; encoding=$contentEncoding"
+                } else {
+                    contentType
                 }
+
+                val formattedUrl = RequestHook.formatUrlWithoutQuery(url)
+                val info = BlockedRequest(
+                    requestType = " Web",
+                    requestValue = formattedUrl,
+                    method = request.method,
+                    urlString = url.toString(),
+                    requestHeaders = request.requestHeaders.toString(),
+                    requestBody = null,
+                    responseCode = responseCode,
+                    responseMessage = responseMessage,
+                    responseHeaders = responseHeaders,
+                    responseBody = responseBodyBytes,
+                    responseBodyContentType = mimeTypeWithEncoding,
+                    stack = HookUtil.getFormattedStackTrace(),
+                    dnsHost = null,
+                    fullAddress = null
+                )
+                RequestHook.checkShouldBlockRequest(info)
             } catch (e: Throwable) {
                 XposedBridge.log("$LOG_PREFIX Error in parallel WebView request: ${e.message}")
             }
-        }.start()
+        }
     }
 
     private fun processWebRequest(request: Any?): Boolean {
         try {
             val webResourceRequest = request as? WebResourceRequest ?: return false
-            
+
             if (webResourceRequest.requestHeaders["X-AdClose-Proxy"] == "true") {
                 return false
             }
 
             val urlString = webResourceRequest.url?.toString() ?: return false
             val formattedUrl = RequestHook.formatUrlWithoutQuery(Uri.parse(urlString))
-            
+
             val info = BlockedRequest(
                 requestType = " Web",
                 requestValue = formattedUrl,
@@ -499,6 +536,7 @@ internal object RequestHookHandler {
                                     responseBody = buffer.array()
                                 }
                             } catch (e: Throwable) {
+                                XposedBridge.log("$LOG_PREFIX Cronet: failed to read mBuffer, falling back to InputStream: ${e.message}")
                             }
 
                             if (responseBody == null) {

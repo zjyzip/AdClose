@@ -36,12 +36,12 @@ object RequestHook {
 
     internal lateinit var applicationContext: Context
 
-    private val asyncBroadcastExecutor: ExecutorService = ThreadPoolExecutor(
+    internal val asyncBroadcastExecutor: ExecutorService = ThreadPoolExecutor(
         1, 1,
         0L, TimeUnit.MILLISECONDS,
         LinkedBlockingQueue(200),
         { r -> Thread(r, "AdClose-AsyncBroadcast").apply { isDaemon = true } },
-        ThreadPoolExecutor.DiscardOldestPolicy()
+        ThreadPoolExecutor.CallerRunsPolicy()
     )
 
     private val sentRequestsCache = CacheBuilder.newBuilder()
@@ -49,12 +49,22 @@ object RequestHook {
         .expireAfterWrite(10, TimeUnit.MINUTES)
         .build<String, Boolean>().asMap()
 
-    internal val requestBuffers = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ByteArrayOutputStream>().asMap()
-    internal val responseBuffers = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ByteArrayOutputStream>().asMap()
-    internal val pendingRequests = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, BlockedRequest>().asMap()
+    internal val requestBuffers = CacheBuilder.newBuilder()
+        .expireAfterAccess(3, TimeUnit.MINUTES)
+        .build<Int, ByteArrayOutputStream>().asMap()
+    internal val responseBuffers = CacheBuilder.newBuilder()
+        .expireAfterAccess(3, TimeUnit.MINUTES)
+        .build<Int, ByteArrayOutputStream>().asMap()
+    internal val pendingRequests = CacheBuilder.newBuilder()
+        .expireAfterAccess(3, TimeUnit.MINUTES)
+        .build<Int, BlockedRequest>().asMap()
 
-    private val requestParsingStates = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ParsingState>().asMap()
-    private val responseParsingStates = CacheBuilder.newBuilder().expireAfterAccess(3, TimeUnit.MINUTES).build<Int, ParsingState>().asMap()
+    private val requestParsingStates = CacheBuilder.newBuilder()
+        .expireAfterAccess(3, TimeUnit.MINUTES)
+        .build<Int, ParsingState>().asMap()
+    private val responseParsingStates = CacheBuilder.newBuilder()
+        .expireAfterAccess(3, TimeUnit.MINUTES)
+        .build<Int, ParsingState>().asMap()
 
     private data class ParsingState(
         var isHeaderParsed: Boolean = false,
@@ -178,8 +188,8 @@ object RequestHook {
 
     internal fun processRequestBuffer(key: Int, isHttps: Boolean) {
         try {
-            val bufferStream = requestBuffers[key] ?: return
-            val state = requestParsingStates.getOrPut(key) { ParsingState() }
+            val bufferStream = requestBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
+            val state = requestParsingStates.computeIfAbsent(key) { ParsingState() }
 
             if (state.isHeaderParsed) return
 
@@ -200,7 +210,9 @@ object RequestHook {
                 state.contentLength = parseContentLength(headerString)
 
                 if (buffer.size >= state.headerSize + state.contentLength) {
-                    val bodyBytes = if (state.contentLength > 0) buffer.copyOfRange(state.headerSize, state.headerSize + state.contentLength) else null
+                    val bodyBytes = if (state.contentLength > 0)
+                        buffer.copyOfRange(state.headerSize, state.headerSize + state.contentLength)
+                    else null
                     buildHttpRequest(key, headerString, bodyBytes, isHttps)
 
                     cleanBuffer(bufferStream, buffer, state.headerSize + state.contentLength)
@@ -216,8 +228,8 @@ object RequestHook {
 
     internal fun processResponseBuffer(key: Int, param: XC_MethodHook.MethodHookParam?): Boolean {
         try {
-            val bufferStream = responseBuffers[key] ?: return false
-            val state = responseParsingStates.getOrPut(key) { ParsingState() }
+            val bufferStream = responseBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
+            val state = responseParsingStates.computeIfAbsent(key) { ParsingState() }
             val requestInfo = pendingRequests[key] ?: return false
 
             if (state.isHeaderParsed && !state.isChunked) {
@@ -398,7 +410,6 @@ object RequestHook {
 
             val chunkSizeStr = String(buffer, currentIndex, crlfIndex - currentIndex, Charsets.US_ASCII).trim()
             val hexPart = chunkSizeStr.substringBefore(';').trim()
-
             val chunkSize = hexPart.toIntOrNull(16) ?: return null
 
             if (chunkSize == 0) {
@@ -422,16 +433,24 @@ object RequestHook {
         sendBlockedRequestBroadcast(if (shouldBlock) "block" else "pass", info, shouldBlock, ruleUrl, blockRuleType)
     }
 
-    private fun sendBlockedRequestBroadcast(type: String, info: BlockedRequest, isBlocked: Boolean, ruleUrl: String?, blockRuleType: String?) {
+    private fun sendBlockedRequestBroadcast(
+        type: String,
+        info: BlockedRequest,
+        isBlocked: Boolean,
+        ruleUrl: String?,
+        blockRuleType: String?
+    ) {
         val key = info.dnsHost ?: info.urlString
         if (key.isNullOrEmpty()) return
 
         val hasResponse = info.responseCode != -1
 
         if (hasResponse) {
-            val previous = sentRequestsCache.putIfAbsent(key, true)
-            if (previous == true) return
-            if (previous == false) sentRequestsCache[key] = true
+            val replaced = sentRequestsCache.replace(key, false, true)
+            if (!replaced) {
+                val existing = sentRequestsCache.putIfAbsent(key, true)
+                if (existing != null) return
+            }
         } else {
             val previous = sentRequestsCache.putIfAbsent(key, false)
             if (previous != null) return
@@ -439,9 +458,6 @@ object RequestHook {
 
         asyncBroadcastExecutor.execute {
             try {
-                var requestBodyUriString: String? = null
-                var responseBodyUriString: String? = null
-
                 fun storeBody(body: ByteArray?, contentType: String?): String? {
                     body ?: return null
                     return try {
@@ -453,8 +469,8 @@ object RequestHook {
                     }
                 }
 
-                requestBodyUriString = storeBody(info.requestBody, "text/plain")
-                responseBodyUriString = storeBody(info.responseBody, info.responseBodyContentType)
+                val requestBodyUriString = storeBody(info.requestBody, "text/plain")
+                val responseBodyUriString = storeBody(info.responseBody, info.responseBodyContentType)
 
                 val requestInfoForBroadcast = RequestInfo(
                     appName = "${applicationContext.applicationInfo.loadLabel(applicationContext.packageManager)}${info.requestType}",

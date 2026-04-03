@@ -61,9 +61,22 @@ static type_recvfrom orig_recvfrom;
 static type_write orig_write;
 static type_read orig_read;
 static type_close orig_close;
-static type_SSL_write orig_SSL_write;
-static type_SSL_read orig_SSL_read;
-static type_SSL_free orig_SSL_free;
+
+static type_SSL_write orig_SSL_write_libssl = nullptr;
+static type_SSL_read  orig_SSL_read_libssl  = nullptr;
+static type_SSL_free  orig_SSL_free_libssl  = nullptr;
+
+static type_SSL_write orig_SSL_write_conscrypt = nullptr;
+static type_SSL_read  orig_SSL_read_conscrypt  = nullptr;
+static type_SSL_free  orig_SSL_free_conscrypt  = nullptr;
+
+static type_SSL_write orig_SSL_write_ttboringssl = nullptr;
+static type_SSL_read  orig_SSL_read_ttboringssl  = nullptr;
+static type_SSL_free  orig_SSL_free_ttboringssl  = nullptr;
+
+static type_SSL_write orig_SSL_write_flutter = nullptr;
+static type_SSL_read  orig_SSL_read_flutter  = nullptr;
+static type_SSL_free  orig_SSL_free_flutter  = nullptr;
 
 struct ScopedHookGuard {
     ScopedHookGuard() { g_is_in_hook = true; }
@@ -104,8 +117,8 @@ std::string get_native_stack_internal() {
             uintptr_t offset = (uintptr_t)addr - (uintptr_t)info.dli_fbase;
             const char* lib_name = strrchr(info.dli_fname, '/');
             lib_name = (lib_name != nullptr) ? lib_name + 1 : info.dli_fname;
-            ss << "  #" << std::setw(2) << (ptr - buffer) << " pc " 
-               << std::setw(8) << std::setfill('0') << std::hex << offset 
+            ss << "  #" << std::setw(2) << (ptr - buffer) << " pc "
+               << std::setw(8) << std::setfill('0') << std::hex << offset
                << "  " << lib_name;
             if (info.dli_sname) ss << " (" << info.dli_sname << ")";
             ss << "\n";
@@ -153,7 +166,7 @@ std::string get_cached_socket_info(int fd) {
     } else {
         return "unknown";
     }
-    
+
     std::string info = std::string(ip_str) + ":" + std::to_string(port);
     std::lock_guard<std::mutex> lock(g_cache_mutex);
     g_socket_info_cache[fd] = info;
@@ -208,18 +221,18 @@ bool callback_kotlin(jlong id, bool is_write, const void *buf, size_t len, bool 
 
     jbyteArray jData = env->NewByteArray(len);
     if (jData == nullptr) return false;
-    
+
     env->SetByteArrayRegion(jData, 0, len, (const jbyte *)buf);
-    
+
     std::string info = (!is_ssl && id > 0) ? get_cached_socket_info((int)id) : "";
     jstring jInfo = info.empty() ? nullptr : env->NewStringUTF(info.c_str());
-    
+
     std::string stack = get_cached_stack(id);
     jstring jStack = stack.empty() ? nullptr : env->NewStringUTF(stack.c_str());
 
     bool shouldBlock = env->CallStaticBooleanMethod(
-        gNativeRequestHookClass, 
-        gOnNativeDataMethod, 
+        gNativeRequestHookClass,
+        gOnNativeDataMethod,
         id, is_write, jData, jInfo, jStack, is_ssl
     );
 
@@ -235,7 +248,7 @@ bool callback_kotlin(jlong id, bool is_write, const void *buf, size_t len, bool 
 ssize_t hook_send(int s, const void *buf, size_t len, int flags) {
     if (g_is_in_hook) return orig_send(s, buf, len, flags);
     ScopedHookGuard guard;
-    if (callback_kotlin((jlong)s, true, buf, len, false)) return -1;
+    if (callback_kotlin((jlong)s, true, buf, len, false)) { errno = ECONNRESET; return -1; }
     return orig_send(s, buf, len, flags);
 }
 
@@ -250,7 +263,7 @@ ssize_t hook_recv(int s, void *buf, size_t len, int flags) {
 ssize_t hook_sendto(int s, const void *buf, size_t len, int flags, const struct sockaddr *to, socklen_t tolen) {
     if (g_is_in_hook) return orig_sendto(s, buf, len, flags, to, tolen);
     ScopedHookGuard guard;
-    if (callback_kotlin((jlong)s, true, buf, len, false)) return -1;
+    if (callback_kotlin((jlong)s, true, buf, len, false)) { errno = ECONNRESET; return -1; }
     return orig_sendto(s, buf, len, flags, to, tolen);
 }
 
@@ -264,13 +277,21 @@ ssize_t hook_recvfrom(int s, void *buf, size_t len, int flags, struct sockaddr *
 
 ssize_t hook_write(int fd, const void *buf, size_t count) {
     if (g_is_in_hook || fd <= 2) return orig_write(fd, buf, count);
+    if (fd < 65536) {
+        uint8_t state = g_fd_cache[fd].load(std::memory_order_relaxed);
+        if (state == 1) return orig_write(fd, buf, count);
+    }
     ScopedHookGuard guard;
-    if (callback_kotlin((jlong)fd, true, buf, count, false)) return -1;
+    if (callback_kotlin((jlong)fd, true, buf, count, false)) { errno = ECONNRESET; return -1; }
     return orig_write(fd, buf, count);
 }
 
 ssize_t hook_read(int fd, void *buf, size_t count) {
     if (g_is_in_hook || fd <= 2) return orig_read(fd, buf, count);
+    if (fd < 65536) {
+        uint8_t state = g_fd_cache[fd].load(std::memory_order_relaxed);
+        if (state == 1) return orig_read(fd, buf, count);
+    }
     ScopedHookGuard guard;
     ssize_t ret = orig_read(fd, buf, count);
     if (ret > 0) callback_kotlin((jlong)fd, false, buf, ret, false);
@@ -280,7 +301,7 @@ ssize_t hook_read(int fd, void *buf, size_t count) {
 int hook_close(int fd) {
     if (g_is_in_hook) return orig_close(fd);
     ScopedHookGuard guard;
-    
+
     if (fd >= 0 && fd < 65536) {
         g_fd_cache[fd].store(0, std::memory_order_relaxed);
     }
@@ -292,34 +313,38 @@ int hook_close(int fd) {
     return orig_close(fd);
 }
 
-int hook_SSL_write(void *ssl, const void *buf, int num) {
-    if (g_is_in_hook) return orig_SSL_write(ssl, buf, num);
-    ScopedHookGuard guard;
-    if (buf != nullptr && num > 0) {
-        callback_kotlin(reinterpret_cast<jlong>(ssl), true, buf, num, true);
-    }
-    return orig_SSL_write(ssl, buf, num);
+#define DEFINE_SSL_HOOKS(suffix, orig_write_ptr, orig_read_ptr, orig_free_ptr)   \
+int hook_SSL_write_##suffix(void *ssl, const void *buf, int num) {               \
+    if (g_is_in_hook) return orig_write_ptr(ssl, buf, num);                      \
+    ScopedHookGuard guard;                                                        \
+    if (buf != nullptr && num > 0) {                                              \
+        callback_kotlin(reinterpret_cast<jlong>(ssl), true, buf, num, true);     \
+    }                                                                             \
+    return orig_write_ptr(ssl, buf, num);                                         \
+}                                                                                 \
+int hook_SSL_read_##suffix(void *ssl, void *buf, int num) {                      \
+    if (g_is_in_hook) return orig_read_ptr(ssl, buf, num);                       \
+    ScopedHookGuard guard;                                                        \
+    int ret = orig_read_ptr(ssl, buf, num);                                       \
+    if (ret > 0 && buf != nullptr) {                                              \
+        callback_kotlin(reinterpret_cast<jlong>(ssl), false, buf, ret, true);    \
+    }                                                                             \
+    return ret;                                                                   \
+}                                                                                 \
+void hook_SSL_free_##suffix(void *ssl) {                                         \
+    if (g_is_in_hook) { orig_free_ptr(ssl); return; }                            \
+    ScopedHookGuard guard;                                                        \
+    {                                                                             \
+        std::lock_guard<std::mutex> lock(g_cache_mutex);                         \
+        g_stack_cache.erase(reinterpret_cast<jlong>(ssl));                       \
+    }                                                                             \
+    orig_free_ptr(ssl);                                                           \
 }
 
-int hook_SSL_read(void *ssl, void *buf, int num) {
-    if (g_is_in_hook) return orig_SSL_read(ssl, buf, num);
-    ScopedHookGuard guard;
-    int ret = orig_SSL_read(ssl, buf, num);
-    if (ret > 0 && buf != nullptr) {
-        callback_kotlin(reinterpret_cast<jlong>(ssl), false, buf, ret, true);
-    }
-    return ret;
-}
-
-void hook_SSL_free(void *ssl) {
-    if (g_is_in_hook) return orig_SSL_free(ssl);
-    ScopedHookGuard guard;
-    {
-        std::lock_guard<std::mutex> lock(g_cache_mutex);
-        g_stack_cache.erase(reinterpret_cast<jlong>(ssl));
-    }
-    orig_SSL_free(ssl);
-}
+DEFINE_SSL_HOOKS(libssl,      orig_SSL_write_libssl,      orig_SSL_read_libssl,      orig_SSL_free_libssl)
+DEFINE_SSL_HOOKS(conscrypt,   orig_SSL_write_conscrypt,   orig_SSL_read_conscrypt,   orig_SSL_free_conscrypt)
+DEFINE_SSL_HOOKS(ttboringssl, orig_SSL_write_ttboringssl, orig_SSL_read_ttboringssl, orig_SSL_free_ttboringssl)
+DEFINE_SSL_HOOKS(flutter,     orig_SSL_write_flutter,     orig_SSL_read_flutter,     orig_SSL_free_flutter)
 
 // --- Init ---
 
@@ -337,14 +362,14 @@ void hook_func(const char *lib_name, const char *sym_name, void *hook_func, void
 extern "C" JNIEXPORT void JNICALL
 Java_com_close_hook_ads_hook_gc_network_NativeRequestHook_initNativeHook(JNIEnv *env, jobject thiz) {
     env->GetJavaVM(&gJvm);
-    
+
     // 初始化线程 Key
     pthread_key_create(&g_thread_key, detach_current_thread);
 
     jclass clazz = env->FindClass("com/close/hook/ads/hook/gc/network/NativeRequestHook");
     if (!clazz) return;
     gNativeRequestHookClass = (jclass) env->NewGlobalRef(clazz);
-    
+
     gOnNativeDataMethod = env->GetStaticMethodID(clazz, "onNativeData", "(JZ[BLjava/lang/String;Ljava/lang/String;Z)Z");
     if (!gOnNativeDataMethod) return;
 
@@ -355,27 +380,31 @@ Java_com_close_hook_ads_hook_gc_network_NativeRequestHook_initNativeHook(JNIEnv 
     shadowhook_init(SHADOWHOOK_MODE_UNIQUE, true);
 
     // Hook Libc
-    hook_func("libc.so", "send", (void*)hook_send, (void**)&orig_send);
-    hook_func("libc.so", "recv", (void*)hook_recv, (void**)&orig_recv);
-    hook_func("libc.so", "sendto", (void*)hook_sendto, (void**)&orig_sendto);
+    hook_func("libc.so", "send",     (void*)hook_send,     (void**)&orig_send);
+    hook_func("libc.so", "recv",     (void*)hook_recv,     (void**)&orig_recv);
+    hook_func("libc.so", "sendto",   (void*)hook_sendto,   (void**)&orig_sendto);
     hook_func("libc.so", "recvfrom", (void*)hook_recvfrom, (void**)&orig_recvfrom);
-    hook_func("libc.so", "write", (void*)hook_write, (void**)&orig_write);
-    hook_func("libc.so", "read", (void*)hook_read, (void**)&orig_read);
-    hook_func("libc.so", "close", (void*)hook_close, (void**)&orig_close);
+    hook_func("libc.so", "write",    (void*)hook_write,    (void**)&orig_write);
+    hook_func("libc.so", "read",     (void*)hook_read,     (void**)&orig_read);
+    hook_func("libc.so", "close",    (void*)hook_close,    (void**)&orig_close);
 
     // Hook SSL
-    const char* ssl_libs[] = {
-        "libssl.so", "libconscrypt_jni.so",
-        "libttboringssl.so", "libflutter.so", nullptr
-    };
+    hook_func("libssl.so",           "SSL_write",              (void*)hook_SSL_write_libssl,      (void**)&orig_SSL_write_libssl);
+    hook_func("libssl.so",           "SSL_read",               (void*)hook_SSL_read_libssl,       (void**)&orig_SSL_read_libssl);
+    hook_func("libssl.so",           "SSL_free",               (void*)hook_SSL_free_libssl,       (void**)&orig_SSL_free_libssl);
 
-    for (int i = 0; ssl_libs[i] != nullptr; i++) {
-        hook_func(ssl_libs[i], "SSL_write", (void*)hook_SSL_write, (void**)&orig_SSL_write);
-        hook_func(ssl_libs[i], "SSL_read", (void*)hook_SSL_read, (void**)&orig_SSL_read);
-        hook_func(ssl_libs[i], "NativeCrypto_SSL_write", (void*)hook_SSL_write, (void**)&orig_SSL_write);
-        hook_func(ssl_libs[i], "NativeCrypto_SSL_read", (void*)hook_SSL_read, (void**)&orig_SSL_read);
-        
-        hook_func(ssl_libs[i], "SSL_free", (void*)hook_SSL_free, (void**)&orig_SSL_free);
-        hook_func(ssl_libs[i], "NativeCrypto_SSL_free", (void*)hook_SSL_free, (void**)&orig_SSL_free);
-    }
+    hook_func("libconscrypt_jni.so", "SSL_write",              (void*)hook_SSL_write_conscrypt,   (void**)&orig_SSL_write_conscrypt);
+    hook_func("libconscrypt_jni.so", "SSL_read",               (void*)hook_SSL_read_conscrypt,    (void**)&orig_SSL_read_conscrypt);
+    hook_func("libconscrypt_jni.so", "SSL_free",               (void*)hook_SSL_free_conscrypt,    (void**)&orig_SSL_free_conscrypt);
+    hook_func("libconscrypt_jni.so", "NativeCrypto_SSL_write", (void*)hook_SSL_write_conscrypt,   (void**)&orig_SSL_write_conscrypt);
+    hook_func("libconscrypt_jni.so", "NativeCrypto_SSL_read",  (void*)hook_SSL_read_conscrypt,    (void**)&orig_SSL_read_conscrypt);
+    hook_func("libconscrypt_jni.so", "NativeCrypto_SSL_free",  (void*)hook_SSL_free_conscrypt,    (void**)&orig_SSL_free_conscrypt);
+
+    hook_func("libttboringssl.so",   "SSL_write",              (void*)hook_SSL_write_ttboringssl, (void**)&orig_SSL_write_ttboringssl);
+    hook_func("libttboringssl.so",   "SSL_read",               (void*)hook_SSL_read_ttboringssl,  (void**)&orig_SSL_read_ttboringssl);
+    hook_func("libttboringssl.so",   "SSL_free",               (void*)hook_SSL_free_ttboringssl,  (void**)&orig_SSL_free_ttboringssl);
+
+    hook_func("libflutter.so",       "SSL_write",              (void*)hook_SSL_write_flutter,     (void**)&orig_SSL_write_flutter);
+    hook_func("libflutter.so",       "SSL_read",               (void*)hook_SSL_read_flutter,      (void**)&orig_SSL_read_flutter);
+    hook_func("libflutter.so",       "SSL_free",               (void*)hook_SSL_free_flutter,      (void**)&orig_SSL_free_flutter);
 }

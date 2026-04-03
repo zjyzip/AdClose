@@ -9,9 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.text.HtmlCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
@@ -28,8 +25,6 @@ import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
 import com.close.hook.ads.preference.PrefManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import rikka.core.util.ResourceUtils
 import rikka.material.app.LocaleDelegate
 import rikka.material.preference.MaterialSwitchPreference
@@ -78,7 +73,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "themeColor" -> PrefManager.themeColor
                 "language" -> PrefManager.language
                 "defaultPage" -> PrefManager.defaultPage.toString()
-                HookPrefs.KEY_REQUEST_CACHE_EXPIRATION -> HookPrefs.getString(key, defValue)
+                HookPrefs.KEY_REQUEST_CACHE_EXPIRATION ->
+                    HookPrefs.getLong(key, 5L).toString()
                 else -> defValue
             }
         }
@@ -89,7 +85,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "themeColor" -> PrefManager.themeColor = value!!
                 "language" -> PrefManager.language = value!!
                 "defaultPage" -> PrefManager.defaultPage = value!!.toInt()
-                HookPrefs.KEY_REQUEST_CACHE_EXPIRATION -> HookPrefs.setString(key, value)
+                HookPrefs.KEY_REQUEST_CACHE_EXPIRATION ->
+                    HookPrefs.setLong(key, value?.toLongOrNull() ?: 5L)
             }
         }
 
@@ -99,7 +96,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "followSystemAccent" -> PrefManager.followSystemAccent
                 "hideIcon" -> PrefManager.hideIcon
                 HookPrefs.KEY_ENABLE_DEX_DUMP,
-                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS -> HookPrefs.getBoolean(key, defValue)
+                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS ->
+                    HookPrefs.getBoolean(key, defValue)
                 else -> defValue
             }
         }
@@ -110,7 +108,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "followSystemAccent" -> PrefManager.followSystemAccent = value
                 "hideIcon" -> PrefManager.hideIcon = value
                 HookPrefs.KEY_ENABLE_DEX_DUMP,
-                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS -> HookPrefs.setBoolean(key, value)
+                HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS ->
+                    HookPrefs.setBoolean(key, value)
             }
         }
     }
@@ -128,40 +127,25 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         setupAboutPreference()
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                HookPrefs.generalSettingsFlow.collectLatest { json ->
-                    if (json != null) {
-                        syncHookPreferences()
-                    }
-                }
-            }
-        }
+    override fun onResume() {
+        super.onResume()
+        syncHookPreferences()
     }
 
     private fun syncHookPreferences() {
-        val keys = listOf(
-            HookPrefs.KEY_REQUEST_CACHE_EXPIRATION,
+        listOf(
             HookPrefs.KEY_ENABLE_DEX_DUMP,
             HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS
-        )
-
-        keys.forEach { key ->
-            findPreference<Preference>(key)?.let { pref ->
-                when (pref) {
-                    is MaterialSwitchPreference -> {
-                        val value = HookPrefs.getBoolean(key, false)
-                        if (pref.isChecked != value) pref.isChecked = value
-                    }
-                    is SimpleMenuPreference -> {
-                        val value = HookPrefs.getString(key, "5")
-                        if (pref.value != value) pref.value = value
-                    }
-                }
+        ).forEach { key ->
+            findPreference<MaterialSwitchPreference>(key)?.let { pref ->
+                val value = HookPrefs.getBoolean(key, false)
+                if (pref.isChecked != value) pref.isChecked = value
             }
+        }
+
+        findPreference<SimpleMenuPreference>(HookPrefs.KEY_REQUEST_CACHE_EXPIRATION)?.let { pref ->
+            val value = HookPrefs.getLong(HookPrefs.KEY_REQUEST_CACHE_EXPIRATION, 5L).toString()
+            if (pref.value != value) pref.value = value
         }
     }
 
@@ -209,7 +193,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         } else {
             val locale = Locale.forLanguageTag(preference.value)
             preference.summary =
-                if (!TextUtils.isEmpty(locale.script)) locale.getDisplayScript(userLocale) else locale.getDisplayName(userLocale)
+                if (!TextUtils.isEmpty(locale.script)) locale.getDisplayScript(userLocale)
+                else locale.getDisplayName(userLocale)
         }
     }
 
@@ -267,11 +252,12 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     }
 
     private fun setupAboutPreference() {
-        findPreference<Preference>("about")?.summary =
-            "${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})"
-        findPreference<Preference>("about")?.setOnPreferenceClickListener {
-            startActivity(Intent(requireContext(), AboutActivity::class.java))
-            true
+        findPreference<Preference>("about")?.apply {
+            summary = "${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})"
+            setOnPreferenceClickListener {
+                startActivity(Intent(requireContext(), AboutActivity::class.java))
+                true
+            }
         }
     }
 }
