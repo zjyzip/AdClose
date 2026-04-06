@@ -2,7 +2,6 @@ package com.close.hook.ads.hook.util
 
 import android.content.Context
 import android.os.Debug
-import android.os.Process
 import com.close.hook.ads.util.AppUtils
 import com.google.common.cache.CacheBuilder
 import de.robv.android.xposed.XposedBridge
@@ -26,6 +25,7 @@ object DexKitUtil {
     private val usageCount = AtomicInteger(0)
     private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var releaseJob: Job? = null
+    
     private val lock = Any()
 
     private const val RELEASE_DELAY_MS = 3000L
@@ -45,7 +45,6 @@ object DexKitUtil {
         if (!AppUtils.isMainProcess(context)) {
             return@lazy false
         }
-        
         runCatching {
             val start = System.nanoTime()
             System.loadLibrary("dexkit")
@@ -86,35 +85,22 @@ object DexKitUtil {
     }
     
     private fun acquireBridge(): DexKitBridge? {
-        bridge?.let {
-            postAcquire()
-            return it
-        }
-
-        synchronized(lock) {
-            bridge?.let {
-                postAcquire()
-                return it
-            }
-
-            val start = if (ENABLE_DEBUG_LOG) System.nanoTime() else 0L
-            val newBridge = createBridgeInternal(context) ?: return null
-            
-            if (ENABLE_DEBUG_LOG) {
-                log("Bridge created in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
-            }
-            
-            bridge = newBridge
-            postAcquire()
-            return newBridge
-        }
-    }
-    
-    private fun postAcquire() {
-        usageCount.incrementAndGet()
         synchronized(lock) {
             releaseJob?.cancel()
             releaseJob = null
+
+            var b = bridge
+            if (b == null) {
+                val start = if (ENABLE_DEBUG_LOG) System.nanoTime() else 0L
+                b = createBridgeInternal(context) ?: return null
+                if (ENABLE_DEBUG_LOG) {
+                    log("Bridge created in %.2fms", (System.nanoTime() - start) / 1_000_000.0)
+                }
+                bridge = b
+            }
+            
+            usageCount.incrementAndGet()
+            return b
         }
     }
     
@@ -134,7 +120,7 @@ object DexKitUtil {
 
     private fun scheduleRelease() {
         synchronized(lock) {
-            if (releaseJob?.isActive == true) return
+            if (usageCount.get() > 0 || releaseJob?.isActive == true) return
             
             releaseJob = releaseScope.launch {
                 delay(RELEASE_DELAY_MS)

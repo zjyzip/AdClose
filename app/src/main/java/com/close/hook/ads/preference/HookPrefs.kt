@@ -42,6 +42,11 @@ object HookPrefs {
     const val KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS = "enable_package_visibility_bypass"
     const val KEY_REQUEST_CACHE_EXPIRATION = "request_cache_expiration"
 
+    private val VISIBILITY_RELEVANT_KEY_PREFIXES = arrayOf(
+        "switch_one_", "switch_two_", "switch_three_", "switch_four_",
+        "switch_five_", "switch_six_", "switch_seven_", "switch_eight_",
+        "switch_nine_", "overall_hook_enabled_"
+    )
 
     private val jsonFormat = Json {
         ignoreUnknownKeys = true
@@ -97,7 +102,10 @@ object HookPrefs {
         }
     }
 
-    private fun updateSetting(transform: (MutableMap<String, JsonElement>) -> Unit) {
+    private fun updateSetting(
+        affectedKeys: Set<String> = emptySet(),
+        transform: (MutableMap<String, JsonElement>) -> Unit
+    ) {
         val newJson: JsonObject
         synchronized(cacheLock) {
             val baseline = generalSettingsCache.value
@@ -107,6 +115,11 @@ object HookPrefs {
             transform(mutableMap)
             newJson = JsonObject(mutableMap)
             generalSettingsCache.value = newJson
+        }
+
+        val shouldNotify = affectedKeys.any { key ->
+            key == KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS || 
+                    VISIBILITY_RELEVANT_KEY_PREFIXES.any { key.startsWith(it) }
         }
 
         ioScope.launch {
@@ -132,7 +145,7 @@ object HookPrefs {
     }
 
     fun setBoolean(key: String, value: Boolean) {
-        updateSetting { it[key] = JsonPrimitive(value) }
+        updateSetting(affectedKeys = setOf(key)) { it[key] = JsonPrimitive(value) }
     }
 
     fun getLong(key: String, defaultValue: Long): Long {
@@ -143,7 +156,7 @@ object HookPrefs {
     }
 
     fun setLong(key: String, value: Long) {
-        updateSetting { it[key] = JsonPrimitive(value) }
+        updateSetting(affectedKeys = setOf(key)) { it[key] = JsonPrimitive(value) }
     }
 
     fun getString(key: String, defaultValue: String?): String? {
@@ -153,14 +166,14 @@ object HookPrefs {
     }
 
     fun setString(key: String, value: String?) {
-        updateSetting {
+        updateSetting(affectedKeys = setOf(key)) {
             if (value == null) it.remove(key) else it[key] = JsonPrimitive(value)
         }
     }
 
     fun setMultiple(updates: Map<String, Any>) {
         if (updates.isEmpty()) return
-        updateSetting { map ->
+        updateSetting(affectedKeys = updates.keys) { map ->
             updates.forEach { (k, v) ->
                 val jsonElement = when (v) {
                     is Boolean -> JsonPrimitive(v)
@@ -174,7 +187,7 @@ object HookPrefs {
     }
 
     fun remove(key: String) {
-        updateSetting { it.remove(key) }
+        updateSetting(affectedKeys = setOf(key)) { it.remove(key) }
     }
 
     fun clear() {

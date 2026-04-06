@@ -20,7 +20,6 @@ import com.close.hook.ads.hook.util.LogProxy
 import com.close.hook.ads.manager.SettingsManager
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.util.AppUtils
-import de.robv.android.xposed.XposedBridge
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
 import kotlinx.coroutines.CoroutineScope
@@ -30,15 +29,11 @@ import kotlinx.coroutines.launch
 object HookLogic {
 
     var xposedInterface: XposedInterface? = null
-
     private const val TAG = "com.close.hook.ads"
-
     private val hookScope = CoroutineScope(Dispatchers.IO)
 
     fun loadPackage(param: XposedModuleInterface.PackageLoadedParam) {
-        if (!param.isFirstPackage || param.packageName == TAG) {
-            return
-        }
+        if (!param.isFirstPackage || param.packageName == TAG) return
 
         ContextUtil.addOnApplicationContextInitializedCallback {
             ContextUtil.applicationContext?.let { context ->
@@ -47,11 +42,7 @@ object HookLogic {
                     setupAppHooks(context, manager)
                     applySettings(context, manager)
                 } catch (e: Throwable) {
-                    xposedInterface?.log(
-                        Log.ERROR, 
-                        TAG, 
-                        "Error in package ${param.packageName}: ${Log.getStackTraceString(e)}"
-                    )
+                    xposedInterface?.log(Log.ERROR, TAG, "Error in package ${param.packageName}: ${Log.getStackTraceString(e)}")
                 }
             } ?: xposedInterface?.log(Log.WARN, TAG, "FATAL: Context was null for ${param.packageName}")
         }
@@ -107,12 +98,16 @@ object HookLogic {
 
     private fun applySettings(context: Context, manager: SettingsManager) {
         manager.run {
-            if (isRequestHookEnabled || isNativeRequestHookEnabled) {
+            val needRequestHook = isRequestHookEnabled
+            val needNativeHook = isNativeRequestHookEnabled
+
+            if (needRequestHook || needNativeHook) {
                 RequestHook.init(context)
+                NativeRequestHook.init(needNativeHook) 
             }
 
-            if (isRequestHookEnabled) RequestHookHandler.init(context)
-            if (isNativeRequestHookEnabled) NativeRequestHook.init()
+            if (needRequestHook) RequestHookHandler.init(context)
+            
             if (isHideVPNStatusEnabled) HideVPNStatus.proxy()
             if (isDisableFlagSecureEnabled) DisableFlagSecure.process()
             if (isDisableShakeAdEnabled) DisableShakeAd.handle()

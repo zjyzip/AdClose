@@ -39,7 +39,7 @@ object RequestHook {
     internal val asyncBroadcastExecutor: ExecutorService = ThreadPoolExecutor(
         1, 1,
         0L, TimeUnit.MILLISECONDS,
-        LinkedBlockingQueue(200),
+        LinkedBlockingQueue(500),
         { r -> Thread(r, "AdClose-AsyncBroadcast").apply { isDaemon = true } },
         ThreadPoolExecutor.CallerRunsPolicy()
     )
@@ -70,7 +70,8 @@ object RequestHook {
         var isHeaderParsed: Boolean = false,
         var contentLength: Int = -1,
         var isChunked: Boolean = false,
-        var headerSize: Int = 0
+        var headerSize: Int = 0,
+        var isIgnored: Boolean = false
     )
 
     private val headerEndMarker = "\r\n\r\n".toByteArray()
@@ -188,39 +189,65 @@ object RequestHook {
 
     internal fun processRequestBuffer(key: Int, isHttps: Boolean) {
         try {
-            val bufferStream = requestBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
             val state = requestParsingStates.computeIfAbsent(key) { ParsingState() }
+            
+            if (state.isIgnored) {
+                requestBuffers[key]?.reset()
+                return
+            }
 
-            if (state.isHeaderParsed) return
-
+            val bufferStream = requestBuffers[key] ?: return
             val buffer = bufferStream.toByteArray()
-            val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
 
-            if (headerEndIndex != -1) {
-                state.isHeaderParsed = true
-                state.headerSize = headerEndIndex + headerEndMarker.size
-                val headerString = String(buffer, 0, headerEndIndex, Charsets.UTF_8)
+            if (!state.isHeaderParsed) {
+                val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
+                if (headerEndIndex != -1) {
+                    state.isHeaderParsed = true
+                    state.headerSize = headerEndIndex + headerEndMarker.size
+                    val headerString = String(buffer, 0, headerEndIndex, Charsets.UTF_8)
 
-                if (headerString.startsWith("CONNECT ", ignoreCase = true)) {
-                    cleanBuffer(bufferStream, buffer, state.headerSize)
-                    state.isHeaderParsed = false
-                    return
+                    if (headerString.startsWith("CONNECT ", ignoreCase = true)) {
+                        cleanBuffer(bufferStream, buffer, state.headerSize)
+                        state.isHeaderParsed = false
+                        return
+                    }
+
+                    state.contentLength = parseContentLength(headerString)
+                    
+                    val reqInfo = buildHttpRequestWithoutBody(headerString, isHttps)
+                    if (reqInfo != null) {
+                        pendingRequests[key] = reqInfo
+                        val shouldBlock = checkShouldBlockRequest(reqInfo)
+                        
+                        if (shouldBlock) {
+                            state.isIgnored = true
+                            requestBuffers.remove(key)
+                        } else {
+                            if (!HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && state.contentLength > 0) {
+                                state.isIgnored = true
+                                requestBuffers[key]?.reset()
+                                return
+                            }
+                        }
+                    }
                 }
+            }
 
-                state.contentLength = parseContentLength(headerString)
-
+            if (state.isHeaderParsed && !state.isIgnored) {
                 if (buffer.size >= state.headerSize + state.contentLength) {
                     val bodyBytes = if (state.contentLength > 0)
                         buffer.copyOfRange(state.headerSize, state.headerSize + state.contentLength)
                     else null
-                    buildHttpRequest(key, headerString, bodyBytes, isHttps)
+                    
+                    pendingRequests[key]?.let {
+                        pendingRequests[key] = it.copy(requestBody = bodyBytes)
+                    }
 
                     cleanBuffer(bufferStream, buffer, state.headerSize + state.contentLength)
                     state.isHeaderParsed = false
                 }
             }
         } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX Error parsing request buffer: ${e.message}")
             requestBuffers.remove(key)
             requestParsingStates.remove(key)
         }
@@ -228,63 +255,73 @@ object RequestHook {
 
     internal fun processResponseBuffer(key: Int, param: XC_MethodHook.MethodHookParam?): Boolean {
         try {
-            val bufferStream = responseBuffers.computeIfAbsent(key) { ByteArrayOutputStream() }
             val state = responseParsingStates.computeIfAbsent(key) { ParsingState() }
-            val requestInfo = pendingRequests[key] ?: return false
-
-            if (state.isHeaderParsed && !state.isChunked) {
-                if (bufferStream.size() < state.headerSize + state.contentLength) {
-                    return false
-                }
+            
+            if (state.isIgnored) {
+                responseBuffers[key]?.reset()
+                return false
             }
 
+            val requestInfo = pendingRequests[key] ?: return false
+            val bufferStream = responseBuffers[key] ?: return false
             val buffer = bufferStream.toByteArray()
-            val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
 
-            if (headerEndIndex != -1) {
-                if (!state.isHeaderParsed) {
+            if (!state.isHeaderParsed) {
+                val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
+                if (headerEndIndex != -1) {
                     val headerString = String(buffer, 0, headerEndIndex, Charsets.ISO_8859_1)
                     state.isHeaderParsed = true
                     state.headerSize = headerEndIndex + headerEndMarker.size
                     state.contentLength = parseContentLength(headerString)
                     state.isChunked = headerString.contains("Transfer-Encoding: chunked", ignoreCase = true)
+
+                    val collect = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
+                    if (!collect) {
+                        completeAndDispatchRequest(key, requestInfo, headerString, null, param)
+                        state.isIgnored = true
+                        responseBuffers[key]?.reset()
+                        return false
+                    }
+                }
+            }
+
+            if (state.isHeaderParsed && !state.isIgnored) {
+                if (!state.isChunked && bufferStream.size() < state.headerSize + state.contentLength) {
+                    return false
                 }
 
                 val bodyStartIndex = state.headerSize
                 var totalResponseSize = 0
                 var bodyBytes: ByteArray? = null
-                var isBlocked = false
+                var complete = false
 
-                val complete = if (state.isChunked) {
+                if (state.isChunked) {
                     parseChunkedBody(buffer, bodyStartIndex)?.let {
                         totalResponseSize = it.second
-                        bodyBytes = if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)) it.first else null
-                        true
-                    } ?: false
+                        bodyBytes = it.first
+                        complete = true
+                    }
                 } else {
                     totalResponseSize = bodyStartIndex + state.contentLength
                     if (buffer.size >= totalResponseSize) {
-                        bodyBytes = if (HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && state.contentLength > 0) {
-                            buffer.copyOfRange(bodyStartIndex, totalResponseSize)
-                        } else null
-                        true
-                    } else false
+                        bodyBytes = if (state.contentLength > 0) buffer.copyOfRange(bodyStartIndex, totalResponseSize) else null
+                        complete = true
+                    }
                 }
 
                 if (complete) {
                     val headerString = String(buffer, 0, state.headerSize - headerEndMarker.size, Charsets.ISO_8859_1)
-                    if (completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)) {
-                        isBlocked = true
-                    }
+                    val isBlocked = completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)
+                    
                     cleanBuffer(bufferStream, buffer, totalResponseSize)
                     responseParsingStates.remove(key)
                     requestParsingStates.remove(key)
                     pendingRequests.remove(key)
+                    
+                    return isBlocked
                 }
-                return isBlocked
             }
         } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX Error parsing response buffer: ${e.message}")
             responseBuffers.remove(key)
             responseParsingStates.remove(key)
             pendingRequests.remove(key)
@@ -299,37 +336,32 @@ object RequestHook {
         }
     }
 
-    private fun buildHttpRequest(key: Int, headers: String, body: ByteArray?, isHttps: Boolean) {
+    private fun buildHttpRequestWithoutBody(headers: String, isHttps: Boolean): BlockedRequest? {
         val lines = headers.lines()
-        val requestLine = lines.firstOrNull()?.split(" ") ?: return
-        if (requestLine.size < 2) return
+        val requestLine = lines.firstOrNull()?.split(" ") ?: return null
+        if (requestLine.size < 2) return null
 
         val method = requestLine[0]
         val path = requestLine[1]
-        val host = lines.find { it.startsWith("Host:", ignoreCase = true) }?.substring(6)?.trim() ?: return
+        val host = lines.find { it.startsWith("Host:", ignoreCase = true) }?.substring(6)?.trim() ?: return null
         val scheme = if (isHttps) "https" else "http"
         val url = "$scheme://$host$path"
 
         val firstNewline = headers.indexOf("\r\n")
         val cleanedHeaders = if (firstNewline != -1) headers.substring(firstNewline + 2) else headers
 
-        val info = BlockedRequest(
+        return BlockedRequest(
             requestType = if (isHttps) " HTTPS" else " HTTP",
             requestValue = formatUrlWithoutQuery(Uri.parse(url)),
             method = method,
             urlString = url,
             requestHeaders = cleanedHeaders,
-            requestBody = body,
-            responseCode = -1,
-            responseMessage = null,
-            responseHeaders = null,
-            responseBody = null,
-            responseBodyContentType = null,
+            requestBody = null,
+            responseCode = -1, responseMessage = null, responseHeaders = null,
+            responseBody = null, responseBodyContentType = null,
             stack = HookUtil.getFormattedStackTrace(),
-            dnsHost = null,
-            fullAddress = null
+            dnsHost = null, fullAddress = null
         )
-        pendingRequests[key] = info
     }
 
     private fun completeAndDispatchRequest(

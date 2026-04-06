@@ -1,0 +1,23 @@
+#ifndef NGHTTP2_CONFIG_H
+#define NGHTTP2_CONFIG_H
+
+#define HAVE_ARPA_INET_H 1
+#define HAVE_NETINET_IN_H 1
+#define HAVE_STDDEF_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRING_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_UNISTD_H 1
+#define HAVE_INTTYPES_H 1
+
+#define SIZEOF_INT_P 8
+#define SIZEOF_SIZE_T 8
+
+#define PACKAGE_VERSION "1.68.1"
+
+#undef HAVE_JEMALLOC
+#undef HAVE_LIBXML2
+#undef HAVE_LIBEVENT_OPENSSL
+
+#endif /* NGHTTP2_CONFIG_H */
