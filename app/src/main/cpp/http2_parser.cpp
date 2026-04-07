@@ -57,7 +57,17 @@ std::shared_ptr<Http2Connection> h2_get_or_create(uintptr_t conn_id) {
     auto it = g_h2_conns.find(conn_id);
     if (it != g_h2_conns.end()) return it->second;
 
-    if (g_h2_conns.size() >= 2048) g_h2_conns.erase(g_h2_conns.begin());
+    if (g_h2_conns.size() >= 2048) {
+        uintptr_t oldest_id = 0;
+        uint64_t  oldest_ts = UINT64_MAX;
+        for (const auto& kv : g_h2_conns) {
+            if (kv.second->last_evict_time_ms < oldest_ts) {
+                oldest_ts = kv.second->last_evict_time_ms;
+                oldest_id = kv.first;
+            }
+        }
+        if (oldest_id != 0) g_h2_conns.erase(oldest_id);
+    }
 
     auto conn = std::make_shared<Http2Connection>();
     conn->conn_id = conn_id;
@@ -318,9 +328,14 @@ H2FeedResult h2_feed(std::shared_ptr<Http2Connection> conn, const uint8_t* data,
 
     buf.insert(buf.end(), data, data + len);
 
-    if (offset > 128 * 1024 && offset > buf.size() / 2) {
-        buf.erase(buf.begin(), buf.begin() + offset);
-        offset = 0;
+    if (offset > 0) {
+        if ((offset > 32 * 1024 && offset > buf.size() / 2) || offset > 256 * 1024) {
+            buf.erase(buf.begin(), buf.begin() + offset);
+            offset = 0;
+            if (buf.capacity() > 512 * 1024) {
+                buf.shrink_to_fit();
+            }
+        }
     }
 
     if (!conn->h2_checked && is_local) {
@@ -355,6 +370,11 @@ H2FeedResult h2_feed(std::shared_ptr<Http2Connection> conn, const uint8_t* data,
 
         process_frame(conn.get(), frame_ptr, frame_len, frame_type, flags, stream_id, is_local, collect_resp_body);
         offset += total;
+    }
+
+    if (offset > 0) {
+        buf.erase(buf.begin(), buf.begin() + offset);
+        offset = 0;
     }
 
     H2FeedResult result;

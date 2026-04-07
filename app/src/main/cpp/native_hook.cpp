@@ -42,6 +42,7 @@ static jmethodID gOnConnClosedMethod    = nullptr;
 
 static pthread_key_t g_thread_key;
 thread_local bool g_is_in_hook = false;
+thread_local JNIEnv* tls_env = nullptr;
 static std::atomic<uint8_t> g_fd_cache[65536];
 static std::mutex g_cache_mutex;
 static std::unordered_map<jlong, std::string> g_stack_cache;
@@ -99,9 +100,10 @@ struct JniLocalRefGuard {
     }
 };
 
-static void detach_current_thread(void *env) { if (gJvm) gJvm->DetachCurrentThread(); }
-
-thread_local JNIEnv* tls_env = nullptr;
+static void detach_current_thread(void *env) {
+    tls_env = nullptr;
+    if (gJvm) gJvm->DetachCurrentThread();
+}
 
 JNIEnv* get_jni_env() {
     if (tls_env) return tls_env;
@@ -232,11 +234,15 @@ bool callback_kotlin(jlong id, bool is_write, const void *buf, size_t len, bool 
     }
     
     jstring jStack = nullptr;
-    if (is_write && (rand() % 10 == 0)) { 
-        std::string stack = get_cached_stack(id);
-        if (!stack.empty()) {
-            jStack = refGuard.add(env->NewStringUTF(stack.c_str()));
-            if (check_exception(env)) jStack = nullptr;
+    if (is_write) {
+        thread_local int sample_counter = 0;
+        if (++sample_counter >= 10) {
+            sample_counter = 0;
+            std::string stack = get_cached_stack(id);
+            if (!stack.empty()) {
+                jStack = refGuard.add(env->NewStringUTF(stack.c_str()));
+                if (check_exception(env)) jStack = nullptr;
+            }
         }
     }
 
@@ -369,12 +375,14 @@ ssize_t hook_recvfrom(int s, void *buf, size_t len, int flags, struct sockaddr *
 ssize_t hook_write(int fd, const void *buf, size_t count) {
     if (g_is_in_hook || fd <= 2) return orig_write(fd, buf, count);
     ScopedHookGuard guard;
+    if (fd < 65536 && g_fd_cache[fd].load(std::memory_order_relaxed) == 1) return orig_write(fd, buf, count);
     if (callback_kotlin((jlong)fd, true, buf, count, false)) { errno = ECONNRESET; return -1; }
     return orig_write(fd, buf, count);
 }
 ssize_t hook_read(int fd, void *buf, size_t count) {
     if (g_is_in_hook || fd <= 2) return orig_read(fd, buf, count);
     ScopedHookGuard guard;
+    if (fd < 65536 && g_fd_cache[fd].load(std::memory_order_relaxed) == 1) return orig_read(fd, buf, count);
     ssize_t ret = orig_read(fd, buf, count);
     if (ret > 0) callback_kotlin((jlong)fd, false, buf, ret, false);
     return ret;

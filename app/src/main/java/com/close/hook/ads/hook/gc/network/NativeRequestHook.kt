@@ -69,7 +69,7 @@ object NativeRequestHook {
     }
 
     private fun processSSLData(sslId: Long, isWrite: Boolean, data: ByteArray, address: String?, stack: String?): Boolean {
-        val key = sslId.hashCode()
+        val key = sslId.toInt() or Int.MIN_VALUE
         var shouldBlock = false
 
         val buffers = if (isWrite) RequestHook.requestBuffers else RequestHook.responseBuffers
@@ -227,7 +227,7 @@ object NativeRequestHook {
 
     @JvmStatic
     fun onConnectionClosed(id: Long, isSSL: Boolean) {
-        val key = if (isSSL) id.hashCode() else id.toInt()
+        val key = if (isSSL) id.toInt() or Int.MIN_VALUE else id.toInt()
         RequestHook.requestBuffers.remove(key)
         RequestHook.responseBuffers.remove(key)
         RequestHook.pendingRequests.remove(key)
