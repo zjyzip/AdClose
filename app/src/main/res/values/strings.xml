@@ -179,6 +179,7 @@
     <string name="clear_all_hooks">Clear All Hooks</string>
 
     <string name="fab_auto_detect_ads">Auto-Detect Ad SDKs</string>
+    <string name="toast_return_to_redetect">Please return to the module and re-detect after entering the app home page.</string>
     <string name="dialog_auto_detect_ads_title">Detected Ad Initialization Methods</string>
     <string name="import_selected_hooks_count">Imported %d hook rules.</string>
     <string name="no_hook_selected">No hook configuration selected</string>

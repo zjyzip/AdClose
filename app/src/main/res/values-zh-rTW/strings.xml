@@ -173,6 +173,7 @@
     <string name="clear_all_hooks">清空所有 Hook</string>
 
     <string name="fab_auto_detect_ads">自動偵測廣告SDK</string>
+    <string name="toast_return_to_redetect">請在進入應用首頁後返回模組重新檢測</string>
     <string name="dialog_auto_detect_ads_title">偵測到以下廣告初始化方法</string>
     <string name="import_selected_hooks_count">已匯入 %d 條Hook規則。</string>
     <string name="no_hook_selected">未選擇任何 Hook 配置</string>

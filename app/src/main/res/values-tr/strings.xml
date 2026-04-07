@@ -173,6 +173,7 @@
     <string name="clear_all_hooks">Tüm Hook\'ları Temizle</string>
 
     <string name="fab_auto_detect_ads">Reklam SDK\'sını Otomatik Algıla</string>
+    <string name="toast_return_to_redetect">Lütfen uygulama ana sayfasına girdikten sonra modüle dönün ve yeniden tarayın.</string>
     <string name="dialog_auto_detect_ads_title">Aşağıdaki reklam başlatma yöntemleri algılandı</string>
     <string name="import_selected_hooks_count">%d Hook kuralı içe aktarıldı.</string>
     <string name="no_hook_selected">Hiçbir Hook yapılandırması seçilmedi</string>

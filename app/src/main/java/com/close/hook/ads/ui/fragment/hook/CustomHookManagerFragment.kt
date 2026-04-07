@@ -1,5 +1,6 @@
 package com.close.hook.ads.ui.fragment.hook
 
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -87,6 +88,8 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private var editingConfig: CustomHookInfo? = null
     private var isFabMenuOpen = false
     private lateinit var childFabs: List<View>
+
+    private val launchedPackages = mutableSetOf<String>()
 
     private val scopeCallback = object : ScopeManager.ScopeCallback {
         override fun onScopeOperationSuccess(message: String) {
@@ -541,8 +544,22 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             binding.progressBar.isVisible = true
             viewModel.requestAutoDetectHooks(packageName)
             showSnackbar("已发送请求，请等待扫描结果...")
+
+            if (launchedPackages.add(packageName)) { 
+                requireContext().packageManager.getLaunchIntentForPackage(packageName)?.let { launchIntent ->
+                    try {
+                        startActivity(launchIntent)
+                        showToast(getString(R.string.toast_return_to_redetect))
+                    } catch (e: Exception) {
+                        Log.e("CustomHookManager", "Failed to launch app: $packageName", e)
+                        launchedPackages.remove(packageName)
+                    }
+                } ?: showToast("无法启动该应用（可能没有启动界面）")
+            }
+            
         } ?: showSnackbar("请先选择一个应用")
     }
+
     private fun onAddHookClicked() { showAddHookDialog() }
     private fun onClearAllHooksClicked() { showClearAllConfirmDialog() }
 
