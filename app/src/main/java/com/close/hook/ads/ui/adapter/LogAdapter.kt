@@ -7,9 +7,9 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.LogEntry
 import com.close.hook.ads.databinding.ItemLogBinding
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.format.DateTimeFormatter
+import java.time.Instant
+import java.time.ZoneId
 
 class LogAdapter(
     private val onItemClick: (LogEntry) -> Unit,
@@ -31,7 +31,6 @@ class LogAdapter(
                 bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }
                     ?.let { onItemClick(getItem(it)) }
             }
-            
             itemView.setOnLongClickListener {
                 bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION }
                     ?.let { onItemLongClick(getItem(it)) }
@@ -40,14 +39,16 @@ class LogAdapter(
         }
 
         fun bind(logEntry: LogEntry) {
-            binding.logTimestamp.text = dateFormat.format(Date(logEntry.timestamp))
+            binding.logTimestamp.text = dateFormatter
+                .format(Instant.ofEpochMilli(logEntry.timestamp).atZone(ZoneId.systemDefault()))
             binding.logTag.text = logEntry.tag
             binding.logMessage.text = logEntry.message
         }
     }
 
     companion object {
-        private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
+        private val dateFormatter: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
 
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<LogEntry>() {
             override fun areItemsTheSame(oldItem: LogEntry, newItem: LogEntry): Boolean =

@@ -10,14 +10,14 @@ import java.util.LinkedList
 object LogRepository {
 
     private val _logFlow = MutableSharedFlow<List<LogEntry>>(
-        replay = 1,
+        replay = 0,
         extraBufferCapacity = 100,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val logFlow = _logFlow.asSharedFlow()
 
     private val logCache = Collections.synchronizedList(LinkedList<LogEntry>())
-    private const val MAX_CACHE_SIZE = 1000
+    const val MAX_CACHE_SIZE = 1000
 
     suspend fun addLogs(logEntries: List<LogEntry>) {
         if (logEntries.isEmpty()) return
@@ -26,12 +26,11 @@ object LogRepository {
 
         synchronized(logCache) {
             logCache.addAll(0, logsToInsert)
-
             while (logCache.size > MAX_CACHE_SIZE) {
                 logCache.removeAt(logCache.size - 1)
             }
         }
-        
+
         _logFlow.emit(logsToInsert)
     }
 
@@ -44,9 +43,11 @@ object LogRepository {
             }
         }
     }
-    
+
     fun clearLogs() {
-        logCache.clear()
+        synchronized(logCache) {
+            logCache.clear()
+        }
         _logFlow.tryEmit(emptyList())
     }
 }

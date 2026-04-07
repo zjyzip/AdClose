@@ -19,7 +19,6 @@ class LogViewModel(private val packageName: String?) : ViewModel() {
 
     private val _allLogs = MutableStateFlow<List<LogEntry>>(emptyList())
     private val _searchQuery = MutableStateFlow("")
-
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     val logs: StateFlow<List<LogEntry>> =
@@ -31,22 +30,21 @@ class LogViewModel(private val packageName: String?) : ViewModel() {
             )
 
     init {
-        loadLogs()
-
         LogRepository.logFlow
             .onEach { newLogs ->
-                if (newLogs.isEmpty() && _allLogs.value.isNotEmpty()) {
+                if (newLogs.isEmpty()) {
                     _allLogs.value = emptyList()
                 } else {
                     processNewLogs(newLogs)
                 }
             }
             .launchIn(viewModelScope)
+
+        loadLogs()
     }
 
     private fun filterLogs(logs: List<LogEntry>, query: String): List<LogEntry> {
         if (query.isBlank()) return logs
-        
         return logs.filter {
             it.tag.contains(query, ignoreCase = true) ||
             it.message.contains(query, ignoreCase = true)
@@ -54,11 +52,16 @@ class LogViewModel(private val packageName: String?) : ViewModel() {
     }
 
     private fun processNewLogs(newLogs: List<LogEntry>) {
-        val filtered = if (packageName == null) newLogs else newLogs.filter { it.packageName == packageName }
-        
-        if (filtered.isNotEmpty()) {
-            _allLogs.update { currentLogs ->
-                filtered + currentLogs
+        val filtered = if (packageName == null) newLogs
+                       else newLogs.filter { it.packageName == packageName }
+        if (filtered.isEmpty()) return
+
+        _allLogs.update { currentLogs ->
+            val merged = filtered + currentLogs
+            if (merged.size > LogRepository.MAX_CACHE_SIZE) {
+                merged.take(LogRepository.MAX_CACHE_SIZE)
+            } else {
+                merged
             }
         }
     }

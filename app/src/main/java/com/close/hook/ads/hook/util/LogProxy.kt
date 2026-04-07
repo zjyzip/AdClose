@@ -26,18 +26,23 @@ object LogProxy {
 
     private enum class State { DISCONNECTED, CONNECTING, CONNECTED, DISCONNECTING }
 
-    private const val BATCH_SIZE = 500
+    private const val BATCH_SIZE = 50
+
+    private const val MAX_STACK_TRACE_LENGTH = 2000
+
     private const val FLUSH_INTERVAL_MS = 1000L
     private const val CHANNEL_CAPACITY = 1000
 
     @Volatile
     private var loggerService: ILoggerService? = null
-    
+
     private val logChannel = Channel<LogEntry>(CHANNEL_CAPACITY, BufferOverflow.DROP_OLDEST)
-    
+
     private val state = AtomicReference(State.DISCONNECTED)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val isInitialized = AtomicBoolean(false)
+
+    @Volatile
+    private var scope: CoroutineScope? = null
 
     @Volatile
     private var currentPackageName: String? = null
@@ -45,7 +50,6 @@ object LogProxy {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             if (state.get() == State.DISCONNECTING) return
-
             loggerService = ILoggerService.Stub.asInterface(service)
             state.set(State.CONNECTED)
             XposedBridge.log("LogProxy: Logger service connected for ${currentPackageName ?: "unknown"}.")
@@ -59,12 +63,13 @@ object LogProxy {
     }
 
     fun init(context: Context) {
-        if (!isInitialized.compareAndSet(false, true)) {
-            return
-        }
+        if (!isInitialized.compareAndSet(false, true)) return
         currentPackageName = context.packageName
 
-        scope.launch {
+        val newScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        scope = newScope
+
+        newScope.launch {
             while (isActive) {
                 flushQueue()
                 delay(FLUSH_INTERVAL_MS)
@@ -102,19 +107,18 @@ object LogProxy {
             tag = tag,
             message = message,
             packageName = pkgName,
-            stackTrace = stackTrace
+            stackTrace = stackTrace?.take(MAX_STACK_TRACE_LENGTH)
         )
         logChannel.trySend(entry)
     }
 
     private suspend fun flushQueue() {
-        if (state.get() != State.CONNECTED || logChannel.isEmpty) {
-            return
-        }
+        if (state.get() != State.CONNECTED) return
 
         val batch = mutableListOf<LogEntry>()
-        while (batch.size < BATCH_SIZE && !logChannel.isEmpty) {
-            logChannel.tryReceive().getOrNull()?.let { batch.add(it) }
+        while (batch.size < BATCH_SIZE) {
+            val entry = logChannel.tryReceive().getOrNull() ?: break
+            batch.add(entry)
         }
 
         if (batch.isNotEmpty()) {
@@ -127,12 +131,12 @@ object LogProxy {
     }
 
     fun disconnect(context: Context) {
-        if (state.get() == State.DISCONNECTED || state.get() == State.DISCONNECTING) {
-            return
-        }
+        val currentState = state.get()
+        if (currentState == State.DISCONNECTED || currentState == State.DISCONNECTING) return
         state.set(State.DISCONNECTING)
 
-        scope.launch {
+        val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        cleanupScope.launch {
             flushQueue()
 
             try {
@@ -140,18 +144,18 @@ object LogProxy {
             } catch (e: Exception) {
                 XposedBridge.log("LogProxy: Error unbinding service: ${e.message}")
             }
-            
+
             shutdown()
         }
     }
 
     private fun shutdown() {
-        scope.cancel()
+        scope?.cancel()
+        scope = null
 
-        while (!logChannel.isEmpty) {
-            logChannel.tryReceive()
+        while (true) {
+            logChannel.tryReceive().getOrNull() ?: break
         }
-        logChannel.close()
 
         loggerService = null
         currentPackageName = null
