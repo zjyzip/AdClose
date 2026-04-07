@@ -7,11 +7,10 @@ import android.util.Log
 import androidx.core.content.contentValuesOf
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.RequestInfo
-import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.provider.TemporaryFileProvider
-import com.close.hook.ads.provider.UrlContentProvider
+import com.close.hook.ads.data.repository.RuleRepository
 import com.close.hook.ads.util.AppUtils
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
@@ -40,31 +39,40 @@ object RequestHook {
         1, 1,
         0L, TimeUnit.MILLISECONDS,
         LinkedBlockingQueue(500),
-        { r -> Thread(r, "AdClose-AsyncBroadcast").apply { isDaemon = true } },
+        { runnable -> Thread(runnable, "AdClose-AsyncBroadcast").apply { isDaemon = true } },
         ThreadPoolExecutor.CallerRunsPolicy()
     )
 
     private val sentRequestsCache = CacheBuilder.newBuilder()
         .maximumSize(5000)
         .expireAfterWrite(10, TimeUnit.MINUTES)
-        .build<String, Boolean>().asMap()
+        .build<String, Boolean>()
+        .asMap()
 
     internal val requestBuffers = CacheBuilder.newBuilder()
         .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Int, ByteArrayOutputStream>().asMap()
+        .build<Int, ByteArrayOutputStream>()
+        .asMap()
+
     internal val responseBuffers = CacheBuilder.newBuilder()
         .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Int, ByteArrayOutputStream>().asMap()
+        .build<Int, ByteArrayOutputStream>()
+        .asMap()
+
     internal val pendingRequests = CacheBuilder.newBuilder()
         .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Int, BlockedRequest>().asMap()
+        .build<Int, BlockedRequest>()
+        .asMap()
 
     private val requestParsingStates = CacheBuilder.newBuilder()
         .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Int, ParsingState>().asMap()
+        .build<Int, ParsingState>()
+        .asMap()
+
     private val responseParsingStates = CacheBuilder.newBuilder()
         .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Int, ParsingState>().asMap()
+        .build<Int, ParsingState>()
+        .asMap()
 
     private data class ParsingState(
         var isHeaderParsed: Boolean = false,
@@ -76,20 +84,9 @@ object RequestHook {
 
     private val headerEndMarker = "\r\n\r\n".toByteArray()
 
-    private val URL_CONTENT_URI: Uri = Uri.Builder()
-        .scheme("content")
-        .authority(UrlContentProvider.AUTHORITY)
-        .appendPath(UrlContentProvider.URL_TABLE_NAME)
-        .build()
-
-    private val queryCache: Cache<String, Triple<Boolean, String?, String?>> = CacheBuilder.newBuilder()
-        .maximumSize(1000)
-        .expireAfterAccess(4, TimeUnit.HOURS)
-        .softValues()
-        .build()
-
     fun init(context: Context) {
         applicationContext = context
+        RuleRepository.init(context)
     }
 
     internal fun formatUrlWithoutQuery(urlObject: Any?): String {
@@ -97,9 +94,11 @@ object RequestHook {
             when (urlObject) {
                 is URL -> {
                     val decodedPath = URLDecoder.decode(urlObject.path, UTF8.name())
-                    val portStr = if (urlObject.port != -1 && urlObject.port != urlObject.defaultPort) ":${urlObject.port}" else ""
+                    val portStr =
+                        if (urlObject.port != -1 && urlObject.port != urlObject.defaultPort) ":${urlObject.port}" else ""
                     "${urlObject.protocol}://${urlObject.host}$portStr$decodedPath"
                 }
+
                 is Uri -> {
                     val decodedPath = URLDecoder.decode(urlObject.path ?: "", UTF8.name())
                     val port = urlObject.port
@@ -108,64 +107,48 @@ object RequestHook {
                     val portStr = if (port != -1) ":$port" else ""
                     "$scheme://$host$portStr$decodedPath"
                 }
+
                 else -> urlObject?.toString() ?: ""
             }
-        } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX URL format error: ${e.message}")
+        } catch (error: Exception) {
+            XposedBridge.log("$LOG_PREFIX URL format error: ${error.message}")
             urlObject?.toString() ?: ""
         }
     }
 
     internal fun checkShouldBlockRequest(info: BlockedRequest?): Boolean {
         info ?: return false
-        val blockResult = sequenceOf("URL", "Domain", "KeyWord")
-            .mapNotNull { type ->
-                val value = if (type == "Domain") AppUtils.extractHostOrSelf(info.requestValue) else info.requestValue
-                val result = queryContentProvider(type, value)
-                if (result.first) result else null
-            }
-            .firstOrNull()
-        blockResult?.let {
-            sendBroadcast(info, true, it.second, it.third)
+
+        val requestValue = info.requestValue
+        if (requestValue.isBlank()) {
+            sendBroadcast(info, false, null, null)
+            return false
+        }
+
+        val host = AppUtils.extractHostOrSelf(requestValue)
+        val match = RuleRepository.shouldBlock(requestValue = requestValue, host = host)
+
+        if (match.matched) {
+            sendBroadcast(info, true, match.ruleType, match.ruleUrl)
             return true
         }
+
         sendBroadcast(info, false, null, null)
         return false
-    }
-
-    private fun queryContentProvider(queryType: String, queryValue: String): Triple<Boolean, String?, String?> {
-        val cacheKey = "$queryType:$queryValue"
-        return queryCache.get(cacheKey) {
-            try {
-                applicationContext.contentResolver.query(
-                    URL_CONTENT_URI,
-                    arrayOf(Url.URL_TYPE, Url.URL_ADDRESS),
-                    null,
-                    arrayOf(queryType, queryValue),
-                    null
-                )?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val urlType = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_TYPE))
-                        val urlAddress = cursor.getString(cursor.getColumnIndexOrThrow(Url.URL_ADDRESS))
-                        return@get Triple(true, urlType, urlAddress)
-                    }
-                }
-            } catch (e: Exception) {
-                XposedBridge.log("$LOG_PREFIX Query error: ${e.message}")
-            }
-            Triple(false, null, null)
-        }
     }
 
     internal fun processDnsRequest(hostObject: Any?, result: Any?): Boolean {
         val host = hostObject as? String ?: return false
         val stackTrace = HookUtil.getFormattedStackTrace()
+
         val fullAddress = when (result) {
             is InetAddress -> result.hostAddress
             is Array<*> -> result.filterIsInstance<InetAddress>()
                 .joinToString(", ") { it.hostAddress.orEmpty() }
+
             else -> null
         }
+
         if (fullAddress.isNullOrEmpty()) return false
 
         val info = BlockedRequest(
@@ -184,13 +167,14 @@ object RequestHook {
             dnsHost = host,
             fullAddress = fullAddress
         )
+
         return checkShouldBlockRequest(info)
     }
 
     internal fun processRequestBuffer(key: Int, isHttps: Boolean) {
         try {
             val state = requestParsingStates.computeIfAbsent(key) { ParsingState() }
-            
+
             if (state.isIgnored) {
                 requestBuffers[key]?.reset()
                 return
@@ -213,12 +197,12 @@ object RequestHook {
                     }
 
                     state.contentLength = parseContentLength(headerString)
-                    
+
                     val reqInfo = buildHttpRequestWithoutBody(headerString, isHttps)
                     if (reqInfo != null) {
                         pendingRequests[key] = reqInfo
                         val shouldBlock = checkShouldBlockRequest(reqInfo)
-                        
+
                         if (shouldBlock) {
                             state.isIgnored = true
                             requestBuffers.remove(key)
@@ -235,19 +219,21 @@ object RequestHook {
 
             if (state.isHeaderParsed && !state.isIgnored) {
                 if (buffer.size >= state.headerSize + state.contentLength) {
-                    val bodyBytes = if (state.contentLength > 0)
+                    val bodyBytes = if (state.contentLength > 0) {
                         buffer.copyOfRange(state.headerSize, state.headerSize + state.contentLength)
-                    else null
-                    
-                    pendingRequests[key]?.let {
-                        pendingRequests[key] = it.copy(requestBody = bodyBytes)
+                    } else {
+                        null
+                    }
+
+                    pendingRequests[key]?.let { pending ->
+                        pendingRequests[key] = pending.copy(requestBody = bodyBytes)
                     }
 
                     cleanBuffer(bufferStream, buffer, state.headerSize + state.contentLength)
                     state.isHeaderParsed = false
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             requestBuffers.remove(key)
             requestParsingStates.remove(key)
         }
@@ -256,7 +242,7 @@ object RequestHook {
     internal fun processResponseBuffer(key: Int, param: XC_MethodHook.MethodHookParam?): Boolean {
         try {
             val state = responseParsingStates.computeIfAbsent(key) { ParsingState() }
-            
+
             if (state.isIgnored) {
                 responseBuffers[key]?.reset()
                 return false
@@ -275,8 +261,8 @@ object RequestHook {
                     state.contentLength = parseContentLength(headerString)
                     state.isChunked = headerString.contains("Transfer-Encoding: chunked", ignoreCase = true)
 
-                    val collect = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
-                    if (!collect) {
+                    val collectResponseBody = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
+                    if (!collectResponseBody) {
                         completeAndDispatchRequest(key, requestInfo, headerString, null, param)
                         state.isIgnored = true
                         responseBuffers[key]?.reset()
@@ -296,36 +282,53 @@ object RequestHook {
                 var complete = false
 
                 if (state.isChunked) {
-                    parseChunkedBody(buffer, bodyStartIndex)?.let {
-                        totalResponseSize = it.second
-                        bodyBytes = it.first
+                    parseChunkedBody(buffer, bodyStartIndex)?.let { parsed ->
+                        totalResponseSize = parsed.second
+                        bodyBytes = parsed.first
                         complete = true
                     }
                 } else {
                     totalResponseSize = bodyStartIndex + state.contentLength
                     if (buffer.size >= totalResponseSize) {
-                        bodyBytes = if (state.contentLength > 0) buffer.copyOfRange(bodyStartIndex, totalResponseSize) else null
+                        bodyBytes = if (state.contentLength > 0) {
+                            buffer.copyOfRange(bodyStartIndex, totalResponseSize)
+                        } else {
+                            null
+                        }
                         complete = true
                     }
                 }
 
                 if (complete) {
-                    val headerString = String(buffer, 0, state.headerSize - headerEndMarker.size, Charsets.ISO_8859_1)
-                    val isBlocked = completeAndDispatchRequest(key, requestInfo, headerString, bodyBytes, param)
-                    
+                    val headerString = String(
+                        buffer,
+                        0,
+                        state.headerSize - headerEndMarker.size,
+                        Charsets.ISO_8859_1
+                    )
+
+                    val isBlocked = completeAndDispatchRequest(
+                        key = key,
+                        requestInfo = requestInfo,
+                        headers = headerString,
+                        body = bodyBytes,
+                        param = param
+                    )
+
                     cleanBuffer(bufferStream, buffer, totalResponseSize)
                     responseParsingStates.remove(key)
                     requestParsingStates.remove(key)
                     pendingRequests.remove(key)
-                    
+
                     return isBlocked
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             responseBuffers.remove(key)
             responseParsingStates.remove(key)
             pendingRequests.remove(key)
         }
+
         return false
     }
 
@@ -343,7 +346,11 @@ object RequestHook {
 
         val method = requestLine[0]
         val path = requestLine[1]
-        val host = lines.find { it.startsWith("Host:", ignoreCase = true) }?.substring(6)?.trim() ?: return null
+        val host = lines.find { it.startsWith("Host:", ignoreCase = true) }
+            ?.substringAfter(":")
+            ?.trim()
+            ?: return null
+
         val scheme = if (isHttps) "https" else "http"
         val url = "$scheme://$host$path"
 
@@ -357,10 +364,14 @@ object RequestHook {
             urlString = url,
             requestHeaders = cleanedHeaders,
             requestBody = null,
-            responseCode = -1, responseMessage = null, responseHeaders = null,
-            responseBody = null, responseBodyContentType = null,
+            responseCode = -1,
+            responseMessage = null,
+            responseHeaders = null,
+            responseBody = null,
+            responseBodyContentType = null,
             stack = HookUtil.getFormattedStackTrace(),
-            dnsHost = null, fullAddress = null
+            dnsHost = null,
+            fullAddress = null
         )
     }
 
@@ -375,8 +386,14 @@ object RequestHook {
         val statusLine = lines.firstOrNull()?.split(" ", limit = 3) ?: return false
         val responseCode = statusLine.getOrNull(1)?.toIntOrNull() ?: -1
         val responseMessage = statusLine.getOrNull(2) ?: ""
-        val contentType = lines.find { it.startsWith("Content-Type:", ignoreCase = true) }?.substring(13)?.trim()
-        val contentEncoding = lines.find { it.startsWith("Content-Encoding:", ignoreCase = true) }?.substring(17)?.trim()
+
+        val contentType = lines.find { it.startsWith("Content-Type:", ignoreCase = true) }
+            ?.substring(13)
+            ?.trim()
+
+        val contentEncoding = lines.find { it.startsWith("Content-Encoding:", ignoreCase = true) }
+            ?.substring(17)
+            ?.trim()
 
         val mimeTypeForProvider = if (!contentEncoding.isNullOrEmpty()) {
             "$contentType; encoding=$contentEncoding"
@@ -399,6 +416,7 @@ object RequestHook {
         if (shouldBlock) {
             param?.throwable = IOException("Request blocked by AdClose")
         }
+
         pendingRequests.remove(key)
         return shouldBlock
     }
@@ -408,27 +426,33 @@ object RequestHook {
         if (startIndex >= data.size || pattern.size > data.size - startIndex) return -1
 
         val badCharShift = IntArray(256) { pattern.size }
-        for (i in 0 until pattern.size - 1) {
-            badCharShift[pattern[i].toInt() and 0xFF] = pattern.size - 1 - i
+        for (index in 0 until pattern.size - 1) {
+            badCharShift[pattern[index].toInt() and 0xFF] = pattern.size - 1 - index
         }
 
         var offset = startIndex
         while (offset <= data.size - pattern.size) {
-            var i = pattern.size - 1
-            while (i >= 0 && pattern[i] == data[offset + i]) {
-                i--
+            var patternIndex = pattern.size - 1
+            while (patternIndex >= 0 && pattern[patternIndex] == data[offset + patternIndex]) {
+                patternIndex--
             }
-            if (i < 0) return offset
+
+            if (patternIndex < 0) return offset
 
             val badCharIndex = data[offset + pattern.size - 1].toInt() and 0xFF
             offset += badCharShift[badCharIndex]
         }
+
         return -1
     }
 
     private fun parseContentLength(headers: String): Int {
-        return headers.lines().find { it.startsWith("Content-Length:", ignoreCase = true) }
-            ?.substring(15)?.trim()?.toIntOrNull() ?: 0
+        return headers.lines()
+            .find { it.startsWith("Content-Length:", ignoreCase = true) }
+            ?.substring(15)
+            ?.trim()
+            ?.toIntOrNull()
+            ?: 0
     }
 
     private fun parseChunkedBody(buffer: ByteArray, bodyStartIndex: Int): Pair<ByteArray, Int>? {
@@ -440,7 +464,13 @@ object RequestHook {
             val crlfIndex = findBytes(buffer, crlf, currentIndex)
             if (crlfIndex == -1) return null
 
-            val chunkSizeStr = String(buffer, currentIndex, crlfIndex - currentIndex, Charsets.US_ASCII).trim()
+            val chunkSizeStr = String(
+                buffer,
+                currentIndex,
+                crlfIndex - currentIndex,
+                Charsets.US_ASCII
+            ).trim()
+
             val hexPart = chunkSizeStr.substringBefore(';').trim()
             val chunkSize = hexPart.toIntOrNull(16) ?: return null
 
@@ -448,11 +478,12 @@ object RequestHook {
                 currentIndex = crlfIndex + 2
                 val finalCrlfIndex = findBytes(buffer, crlf, currentIndex)
                 if (finalCrlfIndex == -1) return null
-                return bodyStream.toByteArray() to finalCrlfIndex + 2
+                return bodyStream.toByteArray() to (finalCrlfIndex + 2)
             }
 
             val chunkDataStart = crlfIndex + 2
             val chunkDataEnd = chunkDataStart + chunkSize
+
             if (buffer.size < chunkDataEnd + 2) return null
 
             bodyStream.write(buffer, chunkDataStart, chunkSize)
@@ -492,11 +523,16 @@ object RequestHook {
             try {
                 fun storeBody(body: ByteArray?, contentType: String?): String? {
                     body ?: return null
-                    return try {
-                        val values = contentValuesOf("body_content" to body, "mime_type" to contentType)
-                        applicationContext.contentResolver.insert(TemporaryFileProvider.CONTENT_URI, values)?.toString()
-                    } catch (e: Exception) {
-                        Log.e(LOG_PREFIX, "Error inserting body into provider: ${e.message}", e)
+                    return runCatching {
+                        val values = contentValuesOf(
+                            "body_content" to body,
+                            "mime_type" to contentType
+                        )
+                        applicationContext.contentResolver
+                            .insert(TemporaryFileProvider.CONTENT_URI, values)
+                            ?.toString()
+                    }.getOrElse { error ->
+                        Log.e(LOG_PREFIX, "Error inserting body into provider: ${error.message}", error)
                         null
                     }
                 }
@@ -526,14 +562,15 @@ object RequestHook {
                     dnsHost = info.dnsHost,
                     fullAddress = info.fullAddress
                 )
+
                 Intent("com.rikkati.REQUEST").apply {
                     putExtra("request", requestInfoForBroadcast)
                     setPackage("com.close.hook.ads")
-                }.also {
-                    applicationContext.sendBroadcast(it)
+                }.also { intent ->
+                    applicationContext.sendBroadcast(intent)
                 }
-            } catch (e: Exception) {
-                Log.w(LOG_PREFIX, "Broadcast send error.", e)
+            } catch (error: Exception) {
+                Log.w(LOG_PREFIX, "Broadcast send error.", error)
             }
         }
     }

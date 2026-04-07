@@ -8,19 +8,15 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.data.model.ManagedItem
 import com.close.hook.ads.databinding.ItemDataManagerBinding
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 class DataManagerAdapter(
     private val onExportClick: (ManagedItem) -> Unit,
     private val onDeleteClick: (ManagedItem) -> Unit,
     private val onItemClick: (ManagedItem) -> Unit
 ) : ListAdapter<ManagedItem, DataManagerAdapter.ViewHolder>(DiffCallback) {
-
-    private val dateFormat by lazy {
-        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemDataManagerBinding.inflate(
@@ -35,27 +31,41 @@ class DataManagerAdapter(
 
     inner class ViewHolder(private val binding: ItemDataManagerBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        
+
+        init {
+            binding.exportButton.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) onExportClick(getItem(pos))
+            }
+            binding.deleteButton.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) onDeleteClick(getItem(pos))
+            }
+            binding.root.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) onItemClick(getItem(pos))
+            }
+        }
+
         fun bind(item: ManagedItem) {
             binding.itemName.text = item.name
             binding.itemSize.text = Formatter.formatShortFileSize(binding.root.context, item.size)
-            binding.itemDate.text = dateFormat.format(Date(item.lastModified))
-            binding.exportButton.setOnClickListener { onExportClick(item) }
-            binding.deleteButton.setOnClickListener { onDeleteClick(item) }
-            
-            binding.root.setOnClickListener { onItemClick(item) }
+            binding.itemDate.text = dateFormatter.format(
+                Instant.ofEpochMilli(item.lastModified).atZone(ZoneId.systemDefault())
+            )
         }
     }
 
     companion object {
+        private val dateFormatter: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
         private val DiffCallback = object : DiffUtil.ItemCallback<ManagedItem>() {
-            override fun areItemsTheSame(oldItem: ManagedItem, newItem: ManagedItem): Boolean {
-                return oldItem.name == newItem.name && oldItem.type == newItem.type
-            }
-            
-            override fun areContentsTheSame(oldItem: ManagedItem, newItem: ManagedItem): Boolean {
-                return oldItem == newItem
-            }
+            override fun areItemsTheSame(oldItem: ManagedItem, newItem: ManagedItem): Boolean =
+                oldItem.name == newItem.name && oldItem.type == newItem.type
+
+            override fun areContentsTheSame(oldItem: ManagedItem, newItem: ManagedItem): Boolean =
+                oldItem == newItem
         }
     }
 }

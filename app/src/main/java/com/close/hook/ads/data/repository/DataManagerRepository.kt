@@ -34,7 +34,7 @@ class DataManagerRepository(private val context: Context) {
         val service = ServiceManager.service ?: return@withContext emptyList()
         try {
             val fileNames = service.listRemoteFiles() ?: return@withContext emptyList()
-            
+
             fileNames.mapNotNull { fileName ->
                 try {
                     service.openRemoteFile(fileName).use { pfd ->
@@ -72,22 +72,22 @@ class DataManagerRepository(private val context: Context) {
 
     suspend fun getDatabases(): List<ManagedItem> = withContext(Dispatchers.IO) {
         val dbFilter = { name: String ->
-            !name.endsWith("-journal") && 
-            !name.endsWith("-shm") && 
+            !name.endsWith("-journal") &&
+            !name.endsWith("-shm") &&
             !name.endsWith("-wal")
         }
         getLocalDirectoryItems("databases", null, ItemType.DATABASE, dbFilter)
     }
 
     private fun getLocalDirectoryItems(
-        dirName: String, 
-        extension: String?, 
+        dirName: String,
+        extension: String?,
         itemType: ItemType,
         additionalFilter: ((String) -> Boolean)? = null
     ): List<ManagedItem> {
         return try {
             val dir = File("${context.applicationInfo.dataDir}/$dirName")
-            dir.listFiles { _, name -> 
+            dir.listFiles { _, name ->
                 val extMatch = extension == null || name.endsWith(extension)
                 val customMatch = additionalFilter?.invoke(name) ?: true
                 extMatch && customMatch
@@ -172,7 +172,6 @@ class DataManagerRepository(private val context: Context) {
                 val file = File("${context.applicationInfo.dataDir}/shared_prefs", "$groupName.xml")
                 if (file.exists()) file.delete() else false
             }
-            true
         } catch (e: Exception) {
             Log.e("DataManagerRepository", "Failed to delete local preference group: $groupName", e)
             false

@@ -26,11 +26,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.IOException
 
 class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
 
     private val viewModel by viewModels<DataManagerViewModel>()
+
+    private var pendingExportContent: ByteArray? = null
 
     private val createDocumentLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
@@ -77,19 +78,19 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                 launch {
                     viewModel.uiState.collect { state ->
                         binding.progressBar.isVisible = state.isLoading
-                        
+
                         state.frameworkInfo?.let {
                             binding.frameworkName.text = "Framework: ${it.frameworkName}"
                             binding.frameworkVersion.text = "Version: ${it.frameworkVersion}"
                             binding.apiVersion.text = "API: ${it.apiVersion}"
                         }
-                        
+
                         binding.filesCard.isVisible = state.managedFiles.isNotEmpty()
                         filesAdapter.submitList(state.managedFiles)
 
                         binding.prefsCard.isVisible = state.preferenceGroups.isNotEmpty()
                         prefsAdapter.submitList(state.preferenceGroups)
-                        
+
                         binding.dbsCard.isVisible = state.databases.isNotEmpty()
                         dbsAdapter.submitList(state.databases)
                     }
@@ -97,8 +98,9 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
 
                 launch {
                     viewModel.exportEvent.collect { event ->
-                        when(event) {
+                        when (event) {
                             is ExportEvent.Ready -> {
+                                pendingExportContent = event.content
                                 createDocumentLauncher.launch(event.fileName)
                             }
                             is ExportEvent.Failed -> {
@@ -107,7 +109,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                         }
                     }
                 }
-                
+
                 launch {
                     viewModel.viewFileEvent.collect { event ->
                         when (event) {
@@ -131,10 +133,11 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }
-    
+
     private fun onFileSelectedForExport(uri: Uri) {
-        val content = viewModel.pendingExportContent ?: return
-        
+        val content = pendingExportContent ?: return
+        pendingExportContent = null
+
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
@@ -143,13 +146,10 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(requireContext(), "Export successful", Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: IOException) {
-                e.printStackTrace()
+            } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "Export failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
-            } finally {
-                viewModel.clearPendingExport()
             }
         }
     }
@@ -157,7 +157,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
     private fun showDeleteConfirmationDialog(item: ManagedItem) {
         val titleRes: Int
         val messageRes: Int
-        when(item.type) {
+        when (item.type) {
             ItemType.FILE -> {
                 titleRes = R.string.delete_file_title
                 messageRes = R.string.delete_file_message
@@ -171,7 +171,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                 messageRes = R.string.delete_db_message
             }
         }
-        
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(titleRes)
             .setMessage(getString(messageRes, item.name))

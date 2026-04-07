@@ -9,6 +9,7 @@ import com.close.hook.ads.data.model.ManagedItem
 import com.close.hook.ads.data.repository.DataManagerRepository
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
 
 sealed class ExportEvent {
-    data class Ready(val fileName: String) : ExportEvent()
+    data class Ready(val fileName: String, val content: ByteArray) : ExportEvent()
     object Failed : ExportEvent()
 }
 
@@ -42,9 +43,6 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
 
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
-    var pendingExportContent: ByteArray? = null
-        private set
-
     init {
         loadAllData()
     }
@@ -52,24 +50,24 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun loadAllData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            
-            val frameworkInfo = repository.getFrameworkInfo()
-            val managedFiles = repository.getManagedFiles()
-            val preferenceGroups = repository.getPreferenceGroups()
-            val databases = repository.getDatabases()
+
+            val frameworkInfoDeferred    = async { repository.getFrameworkInfo() }
+            val managedFilesDeferred     = async { repository.getManagedFiles() }
+            val preferenceGroupsDeferred = async { repository.getPreferenceGroups() }
+            val databasesDeferred        = async { repository.getDatabases() }
 
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    frameworkInfo = frameworkInfo,
-                    managedFiles = managedFiles,
-                    preferenceGroups = preferenceGroups,
-                    databases = databases
+                    frameworkInfo = frameworkInfoDeferred.await(),
+                    managedFiles = managedFilesDeferred.await(),
+                    preferenceGroups = preferenceGroupsDeferred.await(),
+                    databases = databasesDeferred.await()
                 )
             }
         }
     }
-    
+
     private suspend fun getItemContent(item: ManagedItem): ByteArray? {
         return when (item.type) {
             ItemType.FILE -> repository.getFileContent(item.name)
@@ -116,22 +114,18 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val content = getItemContent(item)
+            _uiState.update { it.copy(isLoading = false) }
+
             if (content != null) {
-                pendingExportContent = content
                 val exportFileName = when (item.type) {
                     ItemType.PREFERENCE -> "${item.name}.xml"
                     else -> item.name
                 }
-                _exportEvent.emit(ExportEvent.Ready(exportFileName))
+                _exportEvent.emit(ExportEvent.Ready(exportFileName, content))
             } else {
                 _exportEvent.emit(ExportEvent.Failed)
             }
-            _uiState.update { it.copy(isLoading = false) }
         }
-    }
-    
-    fun clearPendingExport() {
-        pendingExportContent = null
     }
 
     fun deleteItem(item: ManagedItem) {
