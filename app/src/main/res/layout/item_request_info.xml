@@ -232,7 +232,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:adjustViewBounds="true"
-                android:contentDescription="Response body as image"
+                android:contentDescription="@string/response_body_image"
                 android:visibility="gone" />
         </LinearLayout>
 

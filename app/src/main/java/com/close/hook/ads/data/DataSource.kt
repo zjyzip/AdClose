@@ -17,9 +17,7 @@ class DataSource(context: Context) {
         if (searchText.isBlank()) urlDao.loadAllList() else urlDao.searchUrls(searchText)
 
     suspend fun addUrl(url: Url) {
-        if (!urlDao.isExist(url.type, url.url)) {
-            urlDao.insert(url)
-        }
+        urlDao.insertOrIgnore(url)
     }
 
     suspend fun removeList(list: List<Url>) {

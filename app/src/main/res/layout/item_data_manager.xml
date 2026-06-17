@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:paddingEnd="8dp">
+        android:paddingEnd="@dimen/spacing_small">
 
         <TextView
             android:id="@+id/item_name"
@@ -30,7 +30,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="@dimen/spacing_xsmall">
 
             <TextView
                 android:id="@+id/item_size"

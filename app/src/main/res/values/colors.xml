@@ -62,17 +62,15 @@
     <color name="md_theme_dark_outlineVariant">#49454F</color>
     <color name="md_theme_dark_scrim">#000000</color>
 
-    <color name="searchBar">#e7ecf6</color>
-    <color name="textSecondary">#8a000000</color>
-
     <color name="b">#c1e8ff</color>
     <color name="f">#374955</color>
 
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="wb">@color/white</color>
 
     <color name="red500">#C83C31</color>
     <color name="blue500">#176BAE</color>
+
+    <color name="marker_view_background">#CC000000</color>
 
 </resources>

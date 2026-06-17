@@ -4,9 +4,6 @@ import com.close.hook.ads.data.model.LogEntry
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import java.util.Collections
-import java.util.LinkedList
-
 object LogRepository {
 
     private val _logFlow = MutableSharedFlow<List<LogEntry>>(
@@ -16,22 +13,18 @@ object LogRepository {
     )
     val logFlow = _logFlow.asSharedFlow()
 
-    private val logCache = Collections.synchronizedList(LinkedList<LogEntry>())
+    private val logCache = ArrayDeque<LogEntry>()
     const val MAX_CACHE_SIZE = 1000
 
     suspend fun addLogs(logEntries: List<LogEntry>) {
         if (logEntries.isEmpty()) return
-
-        val logsToInsert = logEntries.reversed()
-
+        val newestFirst = logEntries.reversed()
         synchronized(logCache) {
-            logCache.addAll(0, logsToInsert)
-            while (logCache.size > MAX_CACHE_SIZE) {
-                logCache.removeAt(logCache.size - 1)
-            }
+            logCache.addAll(0, newestFirst)
+            val excess = logCache.size - MAX_CACHE_SIZE
+            repeat(excess.coerceAtLeast(0)) { logCache.removeLast() }
         }
-
-        _logFlow.emit(logsToInsert)
+        _logFlow.emit(newestFirst)
     }
 
     fun getLogsForPackage(packageName: String?): List<LogEntry> {
@@ -45,9 +38,7 @@ object LogRepository {
     }
 
     fun clearLogs() {
-        synchronized(logCache) {
-            logCache.clear()
-        }
+        synchronized(logCache) { logCache.clear() }
         _logFlow.tryEmit(emptyList())
     }
 }

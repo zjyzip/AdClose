@@ -5,13 +5,12 @@ import androidx.annotation.StyleRes
 import com.close.hook.ads.R
 import com.google.android.material.color.DynamicColors
 import com.close.hook.ads.preference.PrefManager
-import rikka.core.util.ResourceUtils
 
 object ThemeUtils {
 
     @StyleRes
     fun getNightThemeStyleRes(context: Context): Int {
-        return if (PrefManager.blackDarkTheme && ResourceUtils.isNightMode(context.resources.configuration))
+        return if (PrefManager.blackDarkTheme && context.resources.configuration.isNightMode())
             R.style.ThemeOverlay_Black else R.style.ThemeOverlay
     }
 

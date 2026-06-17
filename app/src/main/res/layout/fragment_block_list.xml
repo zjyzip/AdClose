@@ -2,18 +2,14 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    app:consumeSystemWindowsInsets="@integer/internal_fragment_insets"
-    app:edgeToEdge="true"
-    app:fitsSystemWindowsInsets="@integer/internal_fragment_insets">
+    android:layout_height="match_parent">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:fitsSystemWindows="true"
         android:id="@+id/appBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@null"
-        android:fitsSystemWindows="false"
-        app:fitsSystemWindowsInsets="@integer/internal_fragment_top_insets">
+        android:background="@null">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolBar"
@@ -30,11 +26,11 @@
                     android:id="@+id/toolbar_search"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginTop="@dimen/spacing_small"
+                    android:layout_marginBottom="@dimen/spacing_small"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="@color/searchBar"
-                    app:cardCornerRadius="24dp"
+                    app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+                    app:cardCornerRadius="@dimen/corner_radius_xlarge"
                     app:strokeWidth="0dp">
 
                     <LinearLayout
@@ -52,9 +48,10 @@
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
                             android:background="?attr/selectableItemBackgroundBorderless"
-                            android:paddingLeft="16dp"
-                            android:paddingRight="16dp"
-                            android:src="@drawable/ic_magnifier_to_back" />
+                            android:paddingLeft="@dimen/spacing_normal"
+                            android:paddingRight="@dimen/spacing_normal"
+                            android:src="@drawable/ic_magnifier_to_back"
+                            android:contentDescription="@null" />
 
                         <EditText
                             android:id="@+id/editText"
@@ -68,10 +65,10 @@
                             android:importantForAutofill="no"
                             android:inputType="text"
                             android:maxLines="1"
-                            android:paddingStart="2dp"
+                            android:paddingStart="@dimen/spacing_xsmall"
                             android:paddingEnd="0dp"
                             android:singleLine="true"
-                            android:textColorHint="@color/textSecondary"
+                            android:textColorHint="?attr/colorOnSurfaceVariant"
                             android:textSize="16sp" />
 
                         <ImageButton
@@ -80,9 +77,10 @@
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
                             android:background="?attr/selectableItemBackgroundBorderless"
-                            android:paddingLeft="16dp"
-                            android:paddingRight="16dp"
+                            android:paddingLeft="@dimen/spacing_normal"
+                            android:paddingRight="@dimen/spacing_normal"
                             android:src="@drawable/ic_close"
+                            android:contentDescription="@string/clear"
                             android:visibility="gone" />
 
                     </LinearLayout>
@@ -94,18 +92,20 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="?attr/actionBarItemBackground"
-                    android:padding="10dp"
+                    android:padding="@dimen/spacing_small"
                     android:tooltipText="@string/export"
+                    android:contentDescription="@string/export"
                     app:srcCompat="@drawable/ic_export" />
 
                 <ImageButton
                     android:id="@+id/restore"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginEnd="@dimen/spacing_xsmall"
                     android:background="?attr/actionBarItemBackground"
-                    android:padding="10dp"
+                    android:padding="@dimen/spacing_small"
                     android:tooltipText="@string/restore"
+                    android:contentDescription="@string/restore"
                     app:srcCompat="@drawable/ic_import" />
 
             </LinearLayout>
@@ -132,7 +132,6 @@
             android:layout_height="match_parent"
             android:clipToPadding="false"
             android:scrollbars="none"
-            app:fitsSystemWindowsInsets="bottom"
             app:layout_behavior="com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior" />
 
     </com.close.hook.ads.view.CustomViewFlipper>

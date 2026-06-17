@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -34,26 +36,27 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
 
     private val debouncedQuery = _requestSearchQuery.debounce(300L)
 
-    val filteredAll: StateFlow<List<RequestInfo>> = buildFilteredFlow("all")
-    val filteredBlock: StateFlow<List<RequestInfo>> = buildFilteredFlow("block")
-    val filteredPass: StateFlow<List<RequestInfo>> = buildFilteredFlow("pass")
-
-    private fun buildFilteredFlow(filterType: String): StateFlow<List<RequestInfo>> =
-        combine(_requestList, debouncedQuery) { requests, query ->
-            requests.filter { request ->
-                val matchesType = when (filterType) {
-                    "all" -> true
-                    "block" -> request.isBlocked == true
-                    "pass" -> request.isBlocked == false
-                    else -> false
-                }
-                val matchesQuery = query.isBlank() ||
-                        request.request.contains(query, ignoreCase = true) ||
-                        request.packageName.contains(query, ignoreCase = true) ||
-                        request.appName.contains(query, ignoreCase = true)
-                matchesType && matchesQuery
-            }
+    // Query matching computed once; block/pass filter the same result.
+    private val queryFilteredFlow = combine(_requestList, debouncedQuery) { requests, query ->
+        if (query.isBlank()) requests
+        else requests.filter { r ->
+            r.request.contains(query, ignoreCase = true) ||
+            r.packageName.contains(query, ignoreCase = true) ||
+            r.appName.contains(query, ignoreCase = true)
         }
+    }.flowOn(Dispatchers.Default)
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000), replay = 1)
+
+    val filteredAll: StateFlow<List<RequestInfo>> =
+        queryFilteredFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredBlock: StateFlow<List<RequestInfo>> =
+        queryFilteredFlow.map { it.filter { r -> r.isBlocked == true } }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredPass: StateFlow<List<RequestInfo>> =
+        queryFilteredFlow.map { it.filter { r -> r.isBlocked == false } }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -69,6 +72,14 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateRequestList(item: RequestInfo) {
         _requestList.update { currentList ->
+            if (item.responseCode != -1 && item.requestId.isNotEmpty()) {
+                val idx = currentList.indexOfFirst {
+                    it.requestId == item.requestId && it.responseCode == -1
+                }
+                if (idx >= 0) {
+                    return@update ArrayList(currentList).also { it[idx] = item }
+                }
+            }
             buildList {
                 add(item)
                 addAll(currentList)
@@ -94,7 +105,9 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
         }
         _requestList.update { currentList ->
             currentList.map {
-                if (it.timestamp == request.timestamp) it.copy(isBlocked = newIsBlocked) else it
+                val matches = if (request.requestId.isNotEmpty()) it.requestId == request.requestId
+                              else it.timestamp == request.timestamp
+                if (matches) it.copy(isBlocked = newIsBlocked) else it
             }
         }
     }

@@ -1,12 +1,10 @@
 package com.close.hook.ads.ui.fragment.hook
 
 import android.content.ActivityNotFoundException
-import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
 import android.util.Log
@@ -117,21 +115,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         requireActivity().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     }
 
-    private val autoDetectResultReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == ACTION_AUTO_DETECT_ADS_RESULT) {
-                intent.getStringExtra("detected_hooks_result")?.let { jsonString ->
-                    try {
-                        val hooks = json.decodeFromString<List<CustomHookInfo>>(jsonString)
-                        viewModel.handleAutoDetectResult(hooks)
-                    } catch (e: Exception) {
-                        Log.e("AutoDetectReceiver", "Failed to decode hooks from JSON", e)
-                    }
-                }
-            }
-        }
-    }
-
     private val actionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
             mode.menuInflater.inflate(R.menu.menu_custom_hook, menu)
@@ -164,17 +147,10 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         private const val ARG_PACKAGE_NAME = "packageName"
         const val REQUEST_KEY_HOOK_CONFIG = "hook_config_request"
         const val BUNDLE_KEY_HOOK_CONFIG = "hook_config_bundle"
-        private const val ACTION_AUTO_DETECT_ADS_RESULT = "com.close.hook.ads.ACTION_AUTO_DETECT_ADS_RESULT"
 
         fun newInstance(packageName: String?) = CustomHookManagerFragment().apply {
             arguments = Bundle().apply { putString(ARG_PACKAGE_NAME, packageName) }
         }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val filter = IntentFilter(ACTION_AUTO_DETECT_ADS_RESULT)
-        requireContext().registerReceiver(autoDetectResultReceiver, filter, getReceiverOptions())
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -190,9 +166,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         setupHeaderDisplay(targetPkgName)
         setupFragmentResultListener()
     }
-
-    private fun getReceiverOptions(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Context.RECEIVER_EXPORTED else 0
 
     private fun showAutoDetectedHookDialog(hookInfo: CustomHookInfo) {
         editingConfig = null
@@ -313,7 +286,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                 runCatching { requireContext().packageManager.getPackageInfo(packageName, 0) }.getOrNull()
             }
             val versionName = appInfo?.versionName ?: "N/A"
-            val versionCode = appInfo?.longVersionCode ?: 0L
+            val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                appInfo?.longVersionCode ?: 0L
+            } else {
+                @Suppress("DEPRECATION")
+                appInfo?.versionCode?.toLong() ?: 0L
+            }
             val icon = withContext(Dispatchers.IO) {
                 AppIconLoader.loadAndCompressIcon(
                     requireContext(), packageName,
@@ -543,20 +521,22 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         viewModel.getTargetPackageName()?.let { packageName ->
             binding.progressBar.isVisible = true
             viewModel.requestAutoDetectHooks(packageName)
-            showSnackbar("已发送请求，请等待扫描结果...")
+            showSnackbar("正在发送指令并等待扫描结果...")
 
             if (launchedPackages.add(packageName)) { 
                 requireContext().packageManager.getLaunchIntentForPackage(packageName)?.let { launchIntent ->
                     try {
                         startActivity(launchIntent)
-                        showToast(getString(R.string.toast_return_to_redetect))
+                        showToast(getString(R.string.toast_return_to_check_results))
                     } catch (e: Exception) {
                         Log.e("CustomHookManager", "Failed to launch app: $packageName", e)
                         launchedPackages.remove(packageName)
                     }
-                } ?: showToast("无法启动该应用（可能没有启动界面）")
+                } ?: run {
+                    showToast("无法启动应用")
+                    binding.progressBar.isVisible = false
+                }
             }
-            
         } ?: showSnackbar("请先选择一个应用")
     }
 
@@ -602,7 +582,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         }
     }
 
-    private fun updateEmptyView(isEmpty: Boolean) { binding.emptyView.isVisible = isEmpty }
+    private fun updateEmptyView(isEmpty: Boolean) { binding.emptyView.root.isVisible = isEmpty }
 
     private fun showDeleteConfigConfirmDialog(config: CustomHookInfo) {
         showConfirmDialog(R.string.delete_hook_title, R.string.delete_hook_message) {
@@ -769,10 +749,5 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         binding.editTextSearch.removeTextChangedListener(searchTextWatcher)
         childFragmentManager.clearFragmentResultListener(REQUEST_KEY_HOOK_CONFIG)
         super.onDestroyView()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        requireContext().unregisterReceiver(autoDetectResultReceiver)
     }
 }

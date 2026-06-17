@@ -12,7 +12,8 @@ import kotlinx.parcelize.Parcelize
     tableName = "url_info",
     indices = [
         Index(value = ["url"]),
-        Index(value = ["type"])
+        Index(value = ["type"]),
+        Index(value = ["type", "url"])
     ]
 )
 data class Url(

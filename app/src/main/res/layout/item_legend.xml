@@ -9,15 +9,15 @@
         android:id="@+id/legend_color"
         android:layout_width="10dp"
         android:layout_height="10dp"
-        android:background="@drawable/background_legend_circle" />
+        android:background="@drawable/background_legend_circle"
+        android:contentDescription="@null" />
 
     <TextView
         android:id="@+id/legend_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
+        android:layout_marginStart="@dimen/spacing_xsmall"
         android:text="Label"
-        android:textAppearance="?attr/textAppearanceBodySmall"
-        android:textColor="?attr/colorOnSurface"
-        android:textSize="11sp" />
+        android:textAppearance="?attr/textAppearanceLabelSmall"
+        android:textColor="?attr/colorOnSurface" />
 </LinearLayout>

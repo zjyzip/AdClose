@@ -187,6 +187,7 @@ class AppRepoPerformanceFragment : Fragment() {
             System.gc()
             delay(300)
 
+            val gcBefore = withContext(Dispatchers.Default) { getGcCollectionCount() }
             startFpsMeasurement()
 
             val allApps: List<AppInfo>
@@ -202,7 +203,7 @@ class AppRepoPerformanceFragment : Fragment() {
                     allApps,
                     AppFilterState(
                         appType = "all",
-                        filterOrder = R.string.sort_by_app_name,
+                        filterOrder = 0,
                         isReverse = false,
                         keyword = "",
                         showConfigured = true,
@@ -218,7 +219,7 @@ class AppRepoPerformanceFragment : Fragment() {
 
             val currentThreadCount = withContext(Dispatchers.Default) { getCurrentThreadCount() }
             val memoryMetrics = withContext(Dispatchers.Default) { getMemoryMetrics() }
-            val gcCollectionCount = withContext(Dispatchers.Default) { getGcCollectionCount() }
+            val gcCollectionCount = withContext(Dispatchers.Default) { getGcCollectionCount() } - gcBefore
 
             chartLabels.add("Run $testRunId")
             

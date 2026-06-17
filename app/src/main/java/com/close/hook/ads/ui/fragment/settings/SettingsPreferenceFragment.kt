@@ -5,30 +5,28 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.TextUtils
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.core.text.HtmlCompat
+import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
-import com.close.hook.ads.closeApp
 import com.close.hook.ads.preference.HookPrefs
+import com.close.hook.ads.preference.PrefManager
 import com.close.hook.ads.ui.activity.AboutActivity
 import com.close.hook.ads.ui.activity.CustomHookActivity
 import com.close.hook.ads.ui.activity.DataManagerActivity
 import com.close.hook.ads.util.CacheDataManager
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
-import com.close.hook.ads.preference.PrefManager
+import com.close.hook.ads.util.isNightMode
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import rikka.core.util.ResourceUtils
-import rikka.material.app.LocaleDelegate
-import rikka.material.preference.MaterialSwitchPreference
-import rikka.preference.SimpleMenuPreference
 import java.util.Locale
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
@@ -71,7 +69,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             return when (key) {
                 "darkTheme" -> PrefManager.darkTheme.toString()
                 "themeColor" -> PrefManager.themeColor
-                "language" -> PrefManager.language
+                "language" -> currentLanguageTag()
                 "defaultPage" -> PrefManager.defaultPage.toString()
                 HookPrefs.KEY_REQUEST_CACHE_EXPIRATION ->
                     HookPrefs.getLong(key, 5L).toString()
@@ -83,7 +81,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             when (key) {
                 "darkTheme" -> PrefManager.darkTheme = value!!.toInt()
                 "themeColor" -> PrefManager.themeColor = value!!
-                "language" -> PrefManager.language = value!!
+                "language" -> applyLanguageTag(value!!)
                 "defaultPage" -> PrefManager.defaultPage = value!!.toInt()
                 HookPrefs.KEY_REQUEST_CACHE_EXPIRATION ->
                     HookPrefs.setLong(key, value?.toLongOrNull() ?: 5L)
@@ -132,18 +130,45 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         syncHookPreferences()
     }
 
+    override fun onDisplayPreferenceDialog(preference: Preference) {
+        if (preference is ListPreference) {
+            showMaterialListDialog(preference)
+            return
+        }
+        super.onDisplayPreferenceDialog(preference)
+    }
+
+    private fun showMaterialListDialog(preference: ListPreference) {
+        val entries = preference.entries
+        val values = preference.entryValues
+        if (entries == null || values == null) return
+        val initial = values.indexOf(preference.value).coerceAtLeast(0)
+        var chosen = initial
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(preference.dialogTitle ?: preference.title)
+            .setSingleChoiceItems(entries, initial) { _, which -> chosen = which }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val newValue = values[chosen].toString()
+                if (preference.callChangeListener(newValue)) {
+                    preference.value = newValue
+                }
+            }
+            .show()
+    }
+
     private fun syncHookPreferences() {
         listOf(
             HookPrefs.KEY_ENABLE_DEX_DUMP,
             HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS
         ).forEach { key ->
-            findPreference<MaterialSwitchPreference>(key)?.let { pref ->
+            findPreference<SwitchPreferenceCompat>(key)?.let { pref ->
                 val value = HookPrefs.getBoolean(key, false)
                 if (pref.isChecked != value) pref.isChecked = value
             }
         }
 
-        findPreference<SimpleMenuPreference>(HookPrefs.KEY_REQUEST_CACHE_EXPIRATION)?.let { pref ->
+        findPreference<ListPreference>(HookPrefs.KEY_REQUEST_CACHE_EXPIRATION)?.let { pref ->
             val value = HookPrefs.getLong(HookPrefs.KEY_REQUEST_CACHE_EXPIRATION, 5L).toString()
             if (pref.value != value) pref.value = value
         }
@@ -164,11 +189,11 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     }
 
     private fun setupLanguagePreference() {
-        findPreference<SimpleMenuPreference>("language")?.let {
-            val userLocale = closeApp.getLocale(PrefManager.language)
+        findPreference<ListPreference>("language")?.let {
+            val displayLocale = Locale.getDefault()
             val entries = buildList {
                 for (lang in LangList.LOCALES) {
-                    if (lang == "SYSTEM") add(getString(rikka.core.R.string.follow_system))
+                    if (lang == "SYSTEM") add(getString(R.string.follow_system))
                     else {
                         val locale = Locale.forLanguageTag(lang)
                         add(HtmlCompat.fromHtml(locale.getDisplayName(locale), HtmlCompat.FROM_HTML_MODE_LEGACY))
@@ -177,19 +202,14 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             }
             it.entries = entries.toTypedArray()
             it.entryValues = LangList.LOCALES
-            setLanguageSummary(it, userLocale)
-
-            it.setOnPreferenceChangeListener { _, newValue ->
-                val locale = closeApp.getLocale(newValue as String)
-                updateLocale(locale)
-                true
-            }
+            it.value = currentLanguageTag()
+            setLanguageSummary(it, displayLocale)
         }
     }
 
-    private fun setLanguageSummary(preference: SimpleMenuPreference, userLocale: Locale) {
+    private fun setLanguageSummary(preference: ListPreference, userLocale: Locale) {
         if (preference.value == "SYSTEM") {
-            preference.summary = getString(rikka.core.R.string.follow_system)
+            preference.summary = getString(R.string.follow_system)
         } else {
             val locale = Locale.forLanguageTag(preference.value)
             preference.summary =
@@ -198,16 +218,22 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
     }
 
-    private fun updateLocale(locale: Locale) {
-        val config = resources.configuration
-        config.setLocale(locale)
-        LocaleDelegate.defaultLocale = locale
-        requireContext().createConfigurationContext(config)
-        requireActivity().recreate()
+    private fun currentLanguageTag(): String {
+        val locales = AppCompatDelegate.getApplicationLocales()
+        return if (locales.isEmpty) "SYSTEM" else locales.toLanguageTags()
+    }
+
+    private fun applyLanguageTag(tag: String) {
+        val locales = if (tag == "SYSTEM") {
+            LocaleListCompat.getEmptyLocaleList()
+        } else {
+            LocaleListCompat.forLanguageTags(tag)
+        }
+        AppCompatDelegate.setApplicationLocales(locales)
     }
 
     private fun setupThemePreferences() {
-        findPreference<SimpleMenuPreference>("darkTheme")?.setOnPreferenceChangeListener { _, newValue ->
+        findPreference<ListPreference>("darkTheme")?.setOnPreferenceChangeListener { _, newValue ->
             val newMode = (newValue as String).toInt()
             if (PrefManager.darkTheme != newMode) {
                 AppCompatDelegate.setDefaultNightMode(newMode)
@@ -215,19 +241,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             true
         }
 
-        findPreference<MaterialSwitchPreference>("blackDarkTheme")?.setOnPreferenceChangeListener { _, _ ->
-            if (ResourceUtils.isNightMode(requireContext().resources.configuration))
+        findPreference<SwitchPreferenceCompat>("blackDarkTheme")?.setOnPreferenceChangeListener { _, _ ->
+            if (requireContext().resources.configuration.isNightMode())
                 activity?.recreate()
-            true
-        }
-
-        findPreference<MaterialSwitchPreference>("followSystemAccent")?.setOnPreferenceChangeListener { _, _ ->
-            activity?.recreate()
-            true
-        }
-
-        findPreference<SimpleMenuPreference>("themeColor")?.setOnPreferenceChangeListener { _, _ ->
-            activity?.recreate()
             true
         }
     }

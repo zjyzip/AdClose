@@ -25,7 +25,8 @@ data class RequestInfo(
     var responseBodyContentType: String?,
     var stack: String?,
     var dnsHost: String?,
-    var fullAddress: String?
+    var fullAddress: String?,
+    var requestId: String = ""
 ) : Parcelable {
     @IgnoredOnParcel
     @Transient var requestBody: ByteArray? = null

@@ -45,3 +45,4 @@ target_link_libraries(
         shadowhook
         log
 )
+

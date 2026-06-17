@@ -4,9 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:paddingStart="20dp"
-    android:paddingTop="10dp"
-    android:paddingEnd="20dp">
+    android:paddingStart="@dimen/spacing_large"
+    android:paddingTop="@dimen/spacing_small"
+    android:paddingEnd="@dimen/spacing_large">
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/typeLayout"
@@ -35,7 +35,7 @@
         style="@style/Widget.Material3.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="@dimen/spacing_small"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/typeLayout">

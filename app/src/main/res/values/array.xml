@@ -1,26 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string-array name="scope">
-        <item>com.tencent.qqlive</item>
-
-        <item>com.tencent.mobileqq</item>
-
-        <item>cn.kuwo.player</item>
-
-        <item>com.weico.international</item>
-
-        <item>com.youku.phone</item>
-
-        <item>com.qiyi.video.pad</item>
-        <item>com.qiyi.video</item>
-
-        <item>com.duowan.kiwi</item>
-
-        <item>com.zhihu.android</item>
-
-        <item>com.sup.android.superb</item>
-    </string-array>
-
     <string-array name="cache_expiration_entries">
         <item>1 Minute</item>
         <item>5 Minutes (Default)</item>

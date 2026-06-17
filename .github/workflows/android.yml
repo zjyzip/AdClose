@@ -2,8 +2,12 @@ name: main
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: [ main ]
+  push:
+    branches:
+      - main
+      - 'claude/**'
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -14,6 +18,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -63,11 +69,99 @@ jobs:
           KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Collect build metadata
         if: ${{ github.event_name != 'pull_request' }}
+        id: meta
+        run: |
+          set -euo pipefail
+          BRANCH="${GITHUB_REF_NAME}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -n1)
+          VERSION_CODE=$(./gradlew -q :app:properties 2>/dev/null | awk -F': ' '/^versionCode:/ {print $2; exit}')
+          SAFE_BRANCH="${BRANCH//\//-}"
+          TAG="ci-${SAFE_BRANCH}-${SHORT_SHA}"
+          RELEASE_NAME="AdClose ${VERSION_NAME} (${VERSION_CODE}) · ${SHORT_SHA}"
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          {
+            echo "branch=${BRANCH}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "version_name=${VERSION_NAME}"
+            echo "version_code=${VERSION_CODE}"
+            echo "tag=${TAG}"
+            echo "release_name=${RELEASE_NAME}"
+            echo "build_time=${BUILD_TIME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Stage release artifacts
+        if: ${{ github.event_name != 'pull_request' }}
+        id: stage
+        run: |
+          set -euo pipefail
+          OUT_DIR="artifacts"
+          mkdir -p "${OUT_DIR}"
+          SHORT_SHA="${{ steps.meta.outputs.short_sha }}"
+          VERSION_NAME="${{ steps.meta.outputs.version_name }}"
+          SAFE_BRANCH="${GITHUB_REF_NAME//\//-}"
+
+          shopt -s nullglob
+          mapfile -t APKS < <(find app/build/outputs/apk/release -maxdepth 2 -name '*.apk' | sort)
+          if [ "${#APKS[@]}" -eq 0 ]; then
+            echo "No release APKs found" >&2
+            exit 1
+          fi
+          for src in "${APKS[@]}"; do
+            base="$(basename "${src}" .apk)"
+            dst="${OUT_DIR}/${base}-v${VERSION_NAME}-${SAFE_BRANCH}-${SHORT_SHA}.apk"
+            cp "${src}" "${dst}"
+          done
+
+          ls -la "${OUT_DIR}"
+          echo "dir=${OUT_DIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        if: ${{ github.event_name != 'pull_request' }}
+        id: notes
+        env:
+          BRANCH: ${{ steps.meta.outputs.branch }}
+          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          BUILD_TIME: ${{ steps.meta.outputs.build_time }}
+          FULL_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          COMMIT_MSG=$(git log -1 --pretty=format:'%s' "${FULL_SHA}")
+          {
+            echo "**Automated pre-release** built by GitHub Actions."
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Version | \`${VERSION_NAME}\` (\`${VERSION_CODE}\`) |"
+            echo "| Branch | \`${BRANCH}\` |"
+            echo "| Commit | [\`${SHORT_SHA}\`](https://github.com/${REPO}/commit/${FULL_SHA}) |"
+            echo "| Commit message | ${COMMIT_MSG} |"
+            echo "| Triggered by | @${ACTOR} (\`${EVENT}\`) |"
+            echo "| Built at (UTC) | ${BUILD_TIME} |"
+            echo "| Workflow run | [#${RUN_ID}](https://github.com/${REPO}/actions/runs/${RUN_ID}) |"
+            echo
+            echo "> This is a development build for testing. Not a stable release."
+          } > release_notes.md
+          cat release_notes.md
+
+      - name: Publish pre-release
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: softprops/action-gh-release@v2
         with:
-          name: build_output_${{ github.sha }}
-          path: |
-            app/build/outputs/**
-          compression-level: 9
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.release_name }}
+          body_path: release_notes.md
+          prerelease: true
+          draft: false
+          target_commitish: ${{ github.sha }}
+          files: artifacts/*
+          fail_on_unmatched_files: true

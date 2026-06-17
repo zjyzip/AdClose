@@ -324,19 +324,9 @@ H2FeedResult h2_feed(std::shared_ptr<Http2Connection> conn, const uint8_t* data,
     std::lock_guard<std::mutex> io_lk(io_mutex);
 
     std::vector<uint8_t>& buf = is_local ? conn->local_buf : conn->remote_buf;
-    size_t& offset = is_local ? conn->local_offset : conn->remote_offset;
+    size_t offset = 0;
 
     buf.insert(buf.end(), data, data + len);
-
-    if (offset > 0) {
-        if ((offset > 32 * 1024 && offset > buf.size() / 2) || offset > 256 * 1024) {
-            buf.erase(buf.begin(), buf.begin() + offset);
-            offset = 0;
-            if (buf.capacity() > 512 * 1024) {
-                buf.shrink_to_fit();
-            }
-        }
-    }
 
     if (!conn->h2_checked && is_local) {
         if (buf.size() - offset < H2_CLIENT_PREFACE_LEN) return {};

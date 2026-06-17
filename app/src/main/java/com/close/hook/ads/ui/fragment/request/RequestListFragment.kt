@@ -103,7 +103,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 requestViewModel.getFilteredFlow(type).collect { filteredList ->
                     mAdapter.submitList(filteredList) {
-                        binding?.vfContainer?.let {
+                        _binding?.vfContainer?.let {
                             val targetChild = if (filteredList.isEmpty()) 0 else 1
                             if (it.displayedChild != targetChild) {
                                 it.displayedChild = targetChild
@@ -169,7 +169,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
                         mActionMode = (activity as? MainActivity)
                             ?.startSupportActionMode(mActionModeCallback)
                     }
-                    mActionMode?.title = "Selected $size"
+                    mActionMode?.title = getString(R.string.selected_items_count, size)
                 } else {
                     mActionMode?.finish()
                     mActionMode = null
@@ -181,7 +181,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     private val mActionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             mode?.menuInflater?.inflate(R.menu.menu_request, menu)
-            mode?.title = "Choose option"
+            mode?.title = getString(R.string.action_mode_select)
             return true
         }
 
@@ -332,8 +332,9 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
         if (selectedList.isNullOrEmpty()) return
 
         val combinedText = selectedList.map { item ->
-            val itemType = if (item.request.startsWith("http://") || item.request.startsWith("https://"))
-                "URL" else item.blockType
+            val itemType = item.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
+                if (item.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
+            }
             "$itemType, ${item.request}"
         }.joinToString(separator = "\n")
 

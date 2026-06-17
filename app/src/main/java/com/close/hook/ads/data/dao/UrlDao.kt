@@ -3,6 +3,7 @@ package com.close.hook.ads.data.dao
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.close.hook.ads.data.model.Url
@@ -13,6 +14,9 @@ interface UrlDao {
 
     @Insert
     fun insert(url: Url): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertOrIgnore(url: Url): Long
 
     @Query("SELECT * FROM url_info")
     fun findAllList(): List<Url>

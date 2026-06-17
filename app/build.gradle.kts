@@ -73,7 +73,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = calculateVersionCode()
-        versionName = "4.3.1"
+        versionName = "4.3.4"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -152,10 +152,6 @@ fun calculateVersionCode(): Int {
     return year * 10000 + month * 100 + day
 }
 
-configurations.configureEach {
-    exclude("androidx.appcompat", "appcompat")
-}
-
 dependencies {
     compileOnly(libs.xposedApi)
     compileOnly(libs.libxposed.api)
@@ -169,6 +165,7 @@ dependencies {
     implementation(libs.preferenceKtx)
     implementation(libs.constraintLayout)
     implementation(libs.recyclerviewSelection)
+    implementation(libs.swipeRefreshLayout)
     implementation(libs.roomRuntime)
     ksp(libs.roomCompiler)
     implementation(libs.roomKtx)
@@ -176,10 +173,7 @@ dependencies {
     implementation(libs.fragmentKtx)
 
     implementation(libs.material)
-    implementation(libs.about)
     implementation(libs.fastscroll)
-    implementation(libs.rikkaMaterial)
-    implementation(libs.rikkaMaterialPreference)
 
     implementation(libs.kotlinxSerializationJson)
 

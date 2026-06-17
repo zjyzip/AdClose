@@ -102,10 +102,7 @@ struct Http2Connection {
     bool      h2_checked = false;
 
     std::vector<uint8_t> local_buf;
-    size_t local_offset = 0;
-
     std::vector<uint8_t> remote_buf;
-    size_t remote_offset = 0;
 
     nghttp2_hd_inflater* local_inflater  = nullptr;
     nghttp2_hd_inflater* remote_inflater = nullptr;

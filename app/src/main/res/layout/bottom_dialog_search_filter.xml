@@ -50,7 +50,7 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="@dimen/spacing_small"
                         android:orientation="horizontal">
 
                         <TextView
@@ -58,12 +58,11 @@
                             android:layout_height="wrap_content"
                             android:layout_gravity="center_vertical"
                             android:layout_weight="1.0"
-                            android:drawablePadding="8dp"
+                            android:drawablePadding="@dimen/spacing_small"
                             android:gravity="bottom"
                             android:text="@string/sort_by"
-                            android:textColor="@color/textSecondary"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
                             app:drawableStartCompat="@drawable/ic_sort"
                             app:drawableTint="?attr/colorPrimary" />
 
@@ -72,42 +71,41 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center|end"
-                            android:layout_marginEnd="10dp"
+                            android:layout_marginEnd="@dimen/spacing_small"
                             android:scrollbars="none"
                             android:text="@string/reverse"
-                            android:textColor="@color/textSecondary" />
+                            android:textColor="?attr/colorOnSurfaceVariant" />
                     </LinearLayout>
 
                     <com.google.android.material.chip.ChipGroup
                         android:id="@+id/sort_by"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="@dimen/spacing_small"
                         app:chipSpacingVertical="0dp"
                         app:selectionRequired="true"
                         app:singleSelection="true" />
 
-                    <View
+                    <com.google.android.material.divider.MaterialDivider
                         android:id="@+id/divider1"
                         android:layout_width="match_parent"
-                        android:layout_height="1px"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginTop="16dp"
-                        android:layout_marginEnd="8dp"
-                        android:layout_marginBottom="16dp" />
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/spacing_small"
+                        android:layout_marginTop="@dimen/spacing_normal"
+                        android:layout_marginEnd="@dimen/spacing_small"
+                        android:layout_marginBottom="@dimen/spacing_normal" />
 
                     <TextView
                         android:id="@+id/filter_text"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginBottom="8dp"
-                        android:drawablePadding="8dp"
+                        android:layout_marginStart="@dimen/spacing_small"
+                        android:layout_marginBottom="@dimen/spacing_small"
+                        android:drawablePadding="@dimen/spacing_small"
                         android:gravity="bottom"
                         android:text="@string/filter"
-                        android:textColor="@color/textSecondary"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textAppearance="?attr/textAppearanceTitleMedium"
                         app:drawableStartCompat="@drawable/ic_filter_alt"
                         app:drawableTint="?attr/colorPrimary" />
 
@@ -115,17 +113,17 @@
                         android:id="@+id/filter"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="@dimen/spacing_small"
                         app:chipSpacingVertical="0dp" />
 
-                    <View
+                    <com.google.android.material.divider.MaterialDivider
                         android:id="@+id/divider2"
                         android:layout_width="match_parent"
-                        android:layout_height="1px"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginTop="16dp"
-                        android:layout_marginEnd="8dp"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/spacing_small"
+                        android:layout_marginTop="@dimen/spacing_normal"
+                        android:layout_marginEnd="@dimen/spacing_small"
+                        android:layout_marginBottom="@dimen/spacing_small" />
 
                 </LinearLayout>
         </androidx.core.widget.NestedScrollView>

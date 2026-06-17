@@ -14,22 +14,22 @@
         android:layout_width="100dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:background="@color/blue500"
+        android:background="?attr/colorTertiaryContainer"
         android:gravity="center"
         android:text="@string/copy"
-        android:textColor="@color/white"
-        android:textSize="16sp" />
+        android:textColor="?attr/colorOnTertiaryContainer"
+        android:textAppearance="?attr/textAppearanceLabelLarge" />
 
     <TextView
         android:id="@+id/block"
         android:layout_width="100dp"
         android:layout_height="match_parent"
         android:layout_gravity="end"
-        android:background="@color/red500"
+        android:background="?attr/colorErrorContainer"
         android:gravity="center"
         android:text="@string/block"
-        android:textColor="@color/white"
-        android:textSize="16sp" />
+        android:textColor="?attr/colorOnErrorContainer"
+        android:textAppearance="?attr/textAppearanceLabelLarge" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardView"
@@ -52,6 +52,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginStart="16dp"
+                android:contentDescription="@string/app_icon"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -61,7 +62,7 @@
                 android:id="@+id/infoLayout"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_margin="12dp"
+                android:layout_margin="@dimen/spacing_medium"
                 android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/typeLayout"
@@ -76,14 +77,13 @@
                     android:lines="1"
                     android:maxLines="1"
                     android:singleLine="true"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
                     android:id="@+id/request"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp" />
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <TextView
                     android:id="@+id/timestamp"
@@ -93,8 +93,8 @@
                     android:lines="1"
                     android:maxLines="1"
                     android:singleLine="true"
-                    android:textColor="@android:color/darker_gray"
-                    android:textSize="13sp" />
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
 
             </LinearLayout>
 

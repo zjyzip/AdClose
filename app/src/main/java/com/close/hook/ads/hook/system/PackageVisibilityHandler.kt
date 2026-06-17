@@ -31,6 +31,7 @@ object PackageVisibilityHandler {
     @Volatile
     private var cachedSystemContext: Context? = null
 
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
     fun init(xposed: XposedInterface) {
         xposed.log(Log.INFO, TAG, "Initializing Package Visibility Handler...")
 

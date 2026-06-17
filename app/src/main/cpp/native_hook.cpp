@@ -214,7 +214,7 @@ void notify_kotlin_close(jlong id, bool is_ssl) {
 }
 
 bool callback_kotlin(jlong id, bool is_write, const void *buf, size_t len, bool is_ssl) {
-    if (gNativeRequestHookClass == nullptr || buf == nullptr || len <= 0) return false;
+    if (gNativeRequestHookClass == nullptr || buf == nullptr || len == 0) return false;
     if (len > JNI_MAX_BUFFER_MAPPING) return false;
     if (!is_ssl && !is_network_fd((int)id)) return false;
 
@@ -406,7 +406,7 @@ int hook_SSL_write_t(void *ssl, const void *buf, int num) {
     std::vector<std::vector<uint8_t>> local_rst_queue;
 
     if (h2conn != nullptr && buf != nullptr && num > 0) {
-        bool collect = callback_collect_resp_body();
+        bool collect = h2conn->h2_checked && h2conn->is_h2 && callback_collect_resp_body();
         auto feed_res = h2_feed(h2conn, static_cast<const uint8_t*>(buf), (size_t)num, true, collect);
         if (!feed_res.early_checks.empty() || !feed_res.data_chunks.empty() || !feed_res.completed.empty()) {
             callback_kotlin_h2(conn_id, feed_res);
@@ -478,7 +478,7 @@ void hook_func(const char *lib_name, const char *sym_name, void *hook_func, void
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_close_hook_ads_hook_gc_network_NativeRequestHook_feedH2Data(
+Java_com_close_hook_ads_hook_network_NativeRequestHook_feedH2Data(
     JNIEnv *env, jclass clazz, jlong connId, jboolean isLocal, jbyteArray data, jint offset, jint length, jboolean collectRespBody) {
     if (data == nullptr || length <= 0) return 0;
     jbyte* buf = env->GetByteArrayElements(data, nullptr);
@@ -497,15 +497,15 @@ Java_com_close_hook_ads_hook_gc_network_NativeRequestHook_feedH2Data(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_close_hook_ads_hook_gc_network_NativeRequestHook_freeH2Conn(JNIEnv *env, jclass clazz, jlong connId) {
+Java_com_close_hook_ads_hook_network_NativeRequestHook_freeH2Conn(JNIEnv *env, jclass clazz, jlong connId) {
     h2_free((uintptr_t)connId);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_close_hook_ads_hook_gc_network_NativeRequestHook_initNativeHook(JNIEnv *env, jobject thiz, jboolean enableNativeHook) {
+Java_com_close_hook_ads_hook_network_NativeRequestHook_initNativeHook(JNIEnv *env, jobject thiz, jboolean enableNativeHook) {
     env->GetJavaVM(&gJvm);
     pthread_key_create(&g_thread_key, detach_current_thread);
-    jclass clazz = env->FindClass("com/close/hook/ads/hook/gc/network/NativeRequestHook");
+    jclass clazz = env->FindClass("com/close/hook/ads/hook/network/NativeRequestHook");
     if (!clazz) return;
     gNativeRequestHookClass = (jclass) env->NewGlobalRef(clazz);
     

@@ -1,51 +1,64 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="AppTheme" parent="Theme.Material3.DynamicColors.Light.Rikka">
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Rikka.Material3</item>
-        <item name="colorPrimaryVariant">@color/primary_dark_light_light_status_bar</item>
+    <style name="AppTheme" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="windowActionModeOverlay">true</item>
-        <!-- Preference title -->
-        <item name="android:textAppearanceListItem">?textAppearanceSubtitle1</item>
-        <!-- Preference category title -->
-        <item name="android:colorAccent">?colorPrimary</item>
-        <!-- Preference switch -->
-        <item name="android:colorControlActivated">?colorPrimary</item>
+
+        <item name="android:textAppearanceListItem">?attr/textAppearanceTitleMedium</item>
+        <item name="android:colorAccent">?attr/colorPrimary</item>
+        <item name="android:colorControlActivated">?attr/colorPrimary</item>
 
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
-        <item name="android:windowLightNavigationBar" tools:ignore="NewApi">true</item>
+        <item name="android:windowLightNavigationBar" tools:ignore="NewApi">?attr/isLightTheme</item>
 
+        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.App</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+    </style>
+
+    <style name="Preference.SwitchPreferenceCompat.App" parent="Preference.SwitchPreferenceCompat.Material">
+        <item name="android:widgetLayout">@layout/preference_widget_material_switch</item>
     </style>
 
     <style name="SplashTheme" parent="AppTheme">
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
-
     </style>
 
-    <style name="AppTheme.About" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">#465C67</item>
-        <item name="colorPrimaryDark">#465C67</item>
+    <style name="Widget.App.About.SectionTitle" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/spacing_large</item>
+        <item name="android:layout_marginBottom">@dimen/spacing_small</item>
+        <item name="android:paddingHorizontal">@dimen/spacing_xsmall</item>
+        <item name="android:textAppearance">?attr/textAppearanceTitleSmall</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+    </style>
 
+    <style name="Widget.App.About.Card" parent="Widget.Material3.CardView.Filled">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">@dimen/spacing_small</item>
+        <item name="cardCornerRadius">@dimen/corner_radius_medium</item>
+        <item name="cardElevation">0dp</item>
     </style>
 
     <style name="Widget.App.ExtendedFloatingActionButton" parent="Widget.Material3.ExtendedFloatingActionButton.Primary">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_gravity">end</item>
-        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:layout_marginBottom">@dimen/spacing_small</item>
         <item name="android:visibility">invisible</item>
-        <item name="iconPadding">12dp</item>
+        <item name="iconPadding">@dimen/spacing_medium</item>
         <item name="android:textColor">?attr/colorOnPrimaryContainer</item>
         <item name="elevation">0dp</item>
         <item name="pressedTranslationZ">0dp</item>
         <item name="android:stateListAnimator">@null</item>
-        tools:visibility="visible"
     </style>
 
     <style name="circleImageStyle">

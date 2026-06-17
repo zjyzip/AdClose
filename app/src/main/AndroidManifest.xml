@@ -13,7 +13,7 @@
         android:protectionLevel="normal" />
     <permission
         android:name="com.close.hook.ads.WRITE_DATABASE"
-        android:protectionLevel="normal" />
+        android:protectionLevel="signature" />
 
     <permission android:name="com.close.hook.ads.permission.READ_TEMP_FILES"
         android:protectionLevel="signature" />
@@ -26,7 +26,17 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
+        android:localeConfig="@xml/locales_config"
         android:enableOnBackInvokedCallback="false">
+
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
 
         <activity
             android:name=".ui.activity.SplashActivity"
@@ -71,8 +81,7 @@
 
         <activity
             android:name=".ui.activity.AboutActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme.About" />
+            android:exported="false" />
 
         <activity
             android:name=".crash.activity.DefaultErrorActivity"
@@ -80,10 +89,16 @@
             android:exported="false" />
 
         <provider
+            android:name=".provider.AutoDetectProvider"
+            android:authorities="com.close.hook.ads.provider.auto_detect"
+            android:exported="true" />
+
+        <provider
             android:name=".provider.UrlContentProvider"
             android:authorities="com.close.hook.ads.provider.url"
             android:enabled="true"
-            android:exported="true" />
+            android:exported="true"
+            android:writePermission="com.close.hook.ads.WRITE_DATABASE" />
 
         <provider
             android:name=".provider.TemporaryFileProvider"

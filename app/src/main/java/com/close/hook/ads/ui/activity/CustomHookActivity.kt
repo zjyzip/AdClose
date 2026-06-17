@@ -25,7 +25,6 @@ class CustomHookActivity : BaseActivity(), OnBackPressContainer, INavContainer {
     }
 
     private val binding by lazy { ActivityCustomHookBinding.inflate(layoutInflater) }
-    
     private val targetPackageName by lazy { intent.getStringExtra("packageName") }
 
     private val viewPager by lazy { binding.viewPager }
@@ -48,7 +47,7 @@ class CustomHookActivity : BaseActivity(), OnBackPressContainer, INavContainer {
             adapter = ViewPagerAdapter(this@CustomHookActivity, targetPackageName)
             isUserInputEnabled = false
             offscreenPageLimit = 2
-            
+
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     bottomNavigationView.menu.getItem(position).isChecked = true
@@ -74,7 +73,7 @@ class CustomHookActivity : BaseActivity(), OnBackPressContainer, INavContainer {
                 return@addCallback
             }
 
-            if (viewPager.currentItem == LOG_FRAGMENT_INDEX) {
+            if (viewPager.currentItem != MANAGER_FRAGMENT_INDEX) {
                 viewPager.currentItem = MANAGER_FRAGMENT_INDEX
             } else {
                 finish()

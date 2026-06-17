@@ -437,7 +437,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     ) {
         val currentScope = ScopeManager.getScope() ?: run {
             withContext(Dispatchers.Main) {
-                Toast.makeText(ctx, "Could not get scope list. Service might not be available.", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, ctx.getString(R.string.scope_get_failed), Toast.LENGTH_LONG).show()
             }
             return
         }
@@ -481,7 +481,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     if (error == null) {
                         scopeCallback.onScopeOperationSuccess("$pkgName removed from scope.")
                     } else {
-                        scopeCallback.onScopeOperationFail("Failed to remove $pkgName: $error")
+                        scopeCallback.onScopeOperationFail(getString(R.string.scope_remove_failed, pkgName, error))
                     }
                 }
             }
@@ -560,16 +560,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         appConfigDialog = null
         appInfoDialog = null
         currentAppPackageName = null
-    }
-
-    override fun updateSortList(
-        filterOrder: Int,
-        keyWord: String,
-        isReverse: Boolean,
-        showConfigured: Boolean,
-        showUpdated: Boolean,
-        showDisabled: Boolean
-    ) {
     }
 
     override fun onExport() {

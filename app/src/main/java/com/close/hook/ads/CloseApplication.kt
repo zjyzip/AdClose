@@ -5,11 +5,11 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.close.hook.ads.preference.PrefManager
 import com.close.hook.ads.preference.PrefManager.darkTheme
 import com.close.hook.ads.manager.ServiceManager
+import com.google.android.material.color.DynamicColors
+import com.google.android.material.color.DynamicColorsOptions
 import com.microsoft.appcenter.AppCenter
 import com.microsoft.appcenter.analytics.Analytics
 import com.microsoft.appcenter.crashes.Crashes
-import rikka.material.app.LocaleDelegate
-import java.util.Locale
 
 lateinit var closeApp: CloseApplication
 
@@ -23,7 +23,12 @@ class CloseApplication : Application() {
 
         initAppCenter()
         AppCompatDelegate.setDefaultNightMode(darkTheme)
-        applyLocale(PrefManager.language)
+        DynamicColors.applyToActivitiesIfAvailable(
+            this,
+            DynamicColorsOptions.Builder()
+                .setPrecondition { _, _ -> PrefManager.followSystemAccent }
+                .build()
+        )
     }
 
     private fun initAppCenter() {
@@ -33,20 +38,5 @@ class CloseApplication : Application() {
             Analytics::class.java,
             Crashes::class.java
         )
-    }
-
-    private fun applyLocale(languageTag: String) {
-        LocaleDelegate.defaultLocale = getLocale(languageTag)
-        val config = resources.configuration
-        config.setLocale(LocaleDelegate.defaultLocale)
-        createConfigurationContext(config)
-    }
-
-    fun getLocale(tag: String): Locale {
-        return if (tag == "SYSTEM") {
-            LocaleDelegate.systemLocale
-        } else {
-            Locale.forLanguageTag(tag)
-        }
     }
 }

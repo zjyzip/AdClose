@@ -54,9 +54,11 @@ class RequestListAdapter(
 
         private val targetIconSizePx by lazy { AppIconLoader.calculateTargetIconSizePx(binding.root.context) }
         private val defaultTextColor: Int
+        private val errorTextColor: Int
 
         init {
             defaultTextColor = binding.request.currentTextColor
+            errorTextColor = binding.root.context.resolveColorAttr(android.R.attr.colorError)
             setupListeners()
         }
 
@@ -74,7 +76,7 @@ class RequestListAdapter(
             appName.text = request.appName + if (request.stack.isNullOrEmpty()) "" else " LOG"
             this.request.text = request.request
             timestamp.text = DATE_FORMATTER.format(
-                Instant.ofEpochMilli(request.timestamp).atZone(ZoneId.systemDefault())
+                Instant.ofEpochMilli(request.timestamp).atZone(ZONE_ID)
             )
 
             blockType.text = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
@@ -115,7 +117,8 @@ class RequestListAdapter(
         }
 
         private fun openRequestInfoActivity(request: RequestInfo) {
-            Intent(itemView.context, RequestInfoActivity::class.java).apply {
+            val context = itemView.context
+            val intent = Intent(context, RequestInfoActivity::class.java).apply {
                 putExtra("method", request.method)
                 putExtra("urlString", request.urlString)
                 putExtra("requestHeaders", request.requestHeaders)
@@ -127,7 +130,16 @@ class RequestListAdapter(
                 putExtra("stack", request.stack)
                 putExtra("dnsHost", request.dnsHost)
                 putExtra("fullAddress", request.fullAddress)
-            }.also { itemView.context.startActivity(it) }
+            }
+            val activity = context as? android.app.Activity
+            if (activity != null) {
+                binding.cardView.transitionName = SHARED_CARD_NAME
+                val options = androidx.core.app.ActivityOptionsCompat
+                    .makeSceneTransitionAnimation(activity, binding.cardView, SHARED_CARD_NAME)
+                activity.startActivity(intent, options.toBundle())
+            } else {
+                context.startActivity(intent)
+            }
         }
 
         private fun copyToClipboard(text: String) {
@@ -151,22 +163,22 @@ class RequestListAdapter(
                 context.getString(R.string.add_to_blocklist)
             }
 
-            val textColor = if (isBlocked) {
-                context.resolveColorAttr(android.R.attr.colorError)
-            } else {
-                defaultTextColor
-            }
+            val textColor = if (isBlocked) errorTextColor else defaultTextColor
             binding.request.setTextColor(textColor)
         }
     }
 
     companion object {
+        const val SHARED_CARD_NAME = "request_card"
+
+        private val ZONE_ID: ZoneId = ZoneId.systemDefault()
+
         private val DATE_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<RequestInfo>() {
             override fun areItemsTheSame(oldItem: RequestInfo, newItem: RequestInfo): Boolean =
-                oldItem.timestamp == newItem.timestamp
+                oldItem.requestId.isNotEmpty() && oldItem.requestId == newItem.requestId
 
             override fun areContentsTheSame(oldItem: RequestInfo, newItem: RequestInfo): Boolean =
                 oldItem == newItem

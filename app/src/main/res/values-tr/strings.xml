@@ -28,6 +28,18 @@
     <string name="delete_db_message">\"%1$s\" veritabanını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</string>
     <string name="action_delete">Sil</string>
 
+    <string name="sig_toolbar_title">İmza Analizi</string>
+    <string name="sig_switch_java">Java İmza Hook\'unu Etkinleştir</string>
+    <string name="sig_switch_native">Yerel İmza Hook\'unu Etkinleştir</string>
+    <string name="sig_empty_hint">Kaydedilmiş imza denetimi yok</string>
+    <string name="sig_java_count">Java Denetim: %d</string>
+    <string name="sig_native_count">Yerel Denetim: %d</string>
+
+    <string name="remove_scope_dialog_title">Kapsam Kaldırılsın mı?</string>
+    <string name="action_remove">Kaldır</string>
+    <string name="disable_scope_dialog_message">%s için modülü devre dışı bırakmak istediğinizden emin misiniz?</string>
+    <string name="remove_scope_dialog_message">%s için tüm anahtarlar kapalı. Bu uygulamayı modül kapsamından tamamen kaldırmak ister misiniz?</string>
+
     <string name="search_hint">Ara</string>
     <string name="search_hint_with_count">%1$d uygulama ara</string>
 
@@ -173,7 +185,7 @@
     <string name="clear_all_hooks">Tüm Hook\'ları Temizle</string>
 
     <string name="fab_auto_detect_ads">Reklam SDK\'sını Otomatik Algıla</string>
-    <string name="toast_return_to_redetect">Lütfen uygulama ana sayfasına girdikten sonra modüle dönün ve yeniden tarayın.</string>
+    <string name="toast_return_to_check_results">Please return to the module to check results after entering the app home page.</string>
     <string name="dialog_auto_detect_ads_title">Aşağıdaki reklam başlatma yöntemleri algılandı</string>
     <string name="import_selected_hooks_count">%d Hook kuralı içe aktarıldı.</string>
     <string name="no_hook_selected">Hiçbir Hook yapılandırması seçilmedi</string>
@@ -211,6 +223,7 @@
     <string name="android_id">Android ID</string>
     <string name="brand">Marka</string>
     <string name="model">Model</string>
+    <string name="sku">SKU</string>
     <string name="build_type">Yapı Türü</string>
     <string name="finger_print">Parmak İzi</string>
     <string name="support">Destek</string>
@@ -265,4 +278,36 @@
     <string name="confirm_clear_cache_title">Önbelleği temizlemek istediğinizden emin misiniz?</string>
     <string name="confirm_clear_cache_message">Geçerli önbellek %1$s</string>
     <string name="cache_cleared_recently">Az önce temizlendi</string>
+
+    <string name="action_mode_select">Öğe seç</string>
+    <string name="rule_type_select_title">Kural Türü Seç</string>
+    <string name="content_empty_or_loading">İçerik boş veya hâlâ yükleniyor</string>
+    <string name="image_saved_to_gallery">Resim galeriye kaydedildi</string>
+    <string name="image_save_failed">Resim kaydedilemedi: %s</string>
+    <string name="scope_get_failed">Kapsam listesi alınamadı. Servis kullanılamıyor olabilir.</string>
+    <string name="scope_remove_failed">%1$s kaldırılamadı: %2$s</string>
+
+    <string name="about_section_intro">Tanıtım</string>
+    <string name="about_section_developers">Geliştiriciler</string>
+    <string name="about_section_adrules">Reklam Kural Kaynakları</string>
+    <string name="about_section_feedback">Geri Bildirim</string>
+    <string name="about_section_open_source">Açık Kaynak Lisansları</string>
+    <string name="about_intro_text">Bir Xposed modülü. LSPosed çerçevesi içinde çalıştırın.\n\nBu modül, gereksiz reklam müdahalesini azaltarak ve uygulama verimliliğini artırarak kullanıcı deneyimini iyileştirmeyi amaçlar.\n\nYalnızca eğitim ve araştırma amaçlıdır. Yasa dışı amaçlarla kullanmayın. Modül ücretsizdir.\n\nTemel özellikler:\n• Yaygın reklam SDK\'lerinin ve seçili analitik SDK\'lerinin başlatılmasını engeller.\n• Uygulama içi ağ reklam isteklerini durdurur ve engeller.\n\nEk Hook araçları ve uygulamaya özgü reklam kaldırma uyarlamaları da sunulur.</string>
+    <string name="about_role_developer">Geliştirici &amp; Tasarımcı</string>
+    <string name="about_role_collaborator">Geliştirici &amp; İşbirlikçi</string>
+    <string name="about_feedback_telegram_channel">Telegram Kanalı</string>
+    <string name="about_feedback_telegram_group">Telegram Grubu</string>
+    <string name="empty_state_title">Burada henüz bir şey yok</string>
+    <string name="empty_state_subtitle">Eklediğiniz öğeler burada görünecek.</string>
+    <string name="search">Ara</string>
+    <string name="clear">Temizle</string>
+    <string name="export_action">Dışa Aktar</string>
+    <string name="import_action">İçe Aktar</string>
+    <string name="app_icon">Uygulama simgesi</string>
+    <string name="status_icon">Durum göstergesi</string>
+    <string name="close">Kapat</string>
+    <string name="response_body_image">Yanıt gövde görüntüsü</string>
+    <string name="theme_color_dynamic">Duvar Kağıdı</string>
+    <string name="theme_color_summary_dynamic">Tema rengi sistem duvar kağıdını takip eder</string>
+    <string name="theme_color_summary_custom">El ile renk: %s</string>
 </resources>

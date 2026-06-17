@@ -1,6 +1,7 @@
 package com.close.hook.ads.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -35,6 +37,14 @@ class CustomHookViewModel(
     private val _isLoading = MutableStateFlow(true)
     private val _isGlobalEnabled = MutableStateFlow(false)
     private val _autoDetectedHooksResult = MutableStateFlow<List<CustomHookInfo>?>(null)
+
+    private val scanPrefs by lazy {
+        getApplication<Application>().getSharedPreferences("custom_hook_scan", Context.MODE_PRIVATE)
+    }
+    private var isWaitingForScanResult: Boolean
+        get() = scanPrefs.getBoolean("waiting_for_scan", false)
+        set(value) = if (value) scanPrefs.edit().putBoolean("waiting_for_scan", true).apply()
+                     else scanPrefs.edit().remove("waiting_for_scan").apply()
 
     val isGlobalEnabled: StateFlow<Boolean> = _isGlobalEnabled.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -65,12 +75,23 @@ class CustomHookViewModel(
         )
 
     private val prettyJson = Json { prettyPrint = true }
-
     private var saveJob: Job? = null
 
     init {
         loadHookConfigs()
         loadGlobalHookStatus()
+        observeAutoDetectResults()
+    }
+
+    private fun observeAutoDetectResults() {
+        viewModelScope.launch {
+            CustomHookRepository.autoDetectResult.collectLatest { hooks ->
+                if (hooks != null && isWaitingForScanResult) {
+                    _autoDetectedHooksResult.value = hooks
+                    isWaitingForScanResult = false
+                }
+            }
+        }
     }
 
     private fun loadHookConfigs() {
@@ -103,20 +124,18 @@ class CustomHookViewModel(
         _searchQuery.value = query
     }
 
-    fun handleAutoDetectResult(hooks: List<CustomHookInfo>) {
-        _autoDetectedHooksResult.value = hooks
-    }
-
-    fun clearAutoDetectHooksResult() {
-        _autoDetectedHooksResult.value = null
-    }
-
     fun requestAutoDetectHooks(packageName: String) {
+        isWaitingForScanResult = true
         val intent = Intent("com.close.hook.ads.ACTION_AUTO_DETECT_ADS").apply {
             putExtra("target_package", packageName)
             setPackage(packageName)
         }
         getApplication<Application>().sendBroadcast(intent)
+    }
+
+    fun clearAutoDetectHooksResult() {
+        _autoDetectedHooksResult.value = null
+        CustomHookRepository.clearAutoDetectResult()
     }
 
     fun addHook(hookConfig: CustomHookInfo) {

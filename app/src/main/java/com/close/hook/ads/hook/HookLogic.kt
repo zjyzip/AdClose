@@ -2,18 +2,18 @@ package com.close.hook.ads.hook
 
 import android.content.Context
 import android.util.Log
-import com.close.hook.ads.hook.gc.DisableClipboard
-import com.close.hook.ads.hook.gc.DisableFlagSecure
-import com.close.hook.ads.hook.gc.DisableShakeAd
-import com.close.hook.ads.hook.gc.HideEnvi
-import com.close.hook.ads.hook.gc.network.HideVPNStatus
-import com.close.hook.ads.hook.gc.network.NativeRequestHook
-import com.close.hook.ads.hook.gc.network.RequestHook
-import com.close.hook.ads.hook.gc.network.RequestHookHandler
-import com.close.hook.ads.hook.ha.AppAds
-import com.close.hook.ads.hook.ha.AutoHookAds
-import com.close.hook.ads.hook.ha.CustomHookAds
-import com.close.hook.ads.hook.ha.SDKAdsKit
+import com.close.hook.ads.hook.common.DisableClipboard
+import com.close.hook.ads.hook.common.DisableFlagSecure
+import com.close.hook.ads.hook.common.DisableShakeAd
+import com.close.hook.ads.hook.common.HideEnvi
+import com.close.hook.ads.hook.network.HideVPNStatus
+import com.close.hook.ads.hook.network.NativeRequestHook
+import com.close.hook.ads.hook.network.RequestHook
+import com.close.hook.ads.hook.network.RequestHookHandler
+import com.close.hook.ads.hook.shield.AppAds
+import com.close.hook.ads.hook.shield.AutoHookAds
+import com.close.hook.ads.hook.shield.CustomHook
+import com.close.hook.ads.hook.shield.SDKAdsKit
 import com.close.hook.ads.hook.util.ContextUtil
 import com.close.hook.ads.hook.util.DexDumpUtil
 import com.close.hook.ads.hook.util.LogProxy
@@ -82,37 +82,37 @@ object HookLogic {
         )
 
         hookTasks.forEach { (configProvider, isEnabled) ->
-            CustomHookAds.hookCustomAds(classLoader, configProvider(), isEnabled)
+            CustomHook.hookCustomAds(classLoader, configProvider(), isEnabled)
         }
 
         if (hookPrefs.getOverallHookEnabled(packageName)) {
             AutoHookAds.registerAutoDetectReceiver(context)
             hookScope.launch {
-                AutoHookAds.findAndCacheSdkMethods(packageName)
+                AutoHookAds.findAndCacheSdkMethods(context, packageName)
             }
             if (hookPrefs.getEnableLogging(packageName)) {
                 LogProxy.init(context)
             }
         }
+
     }
 
     private fun applySettings(context: Context, manager: SettingsManager) {
         manager.run {
             val needRequestHook = isRequestHookEnabled
-            val needNativeHook = isNativeRequestHookEnabled
+            val needNativeHook  = isNativeRequestHookEnabled
 
             if (needRequestHook || needNativeHook) {
                 RequestHook.init(context)
-                NativeRequestHook.init(needNativeHook) 
+                NativeRequestHook.init(needNativeHook)
             }
-
             if (needRequestHook) RequestHookHandler.init(context)
-            
-            if (isHideVPNStatusEnabled) HideVPNStatus.proxy()
+
+            if (isHideVPNStatusEnabled)     HideVPNStatus.proxy()
             if (isDisableFlagSecureEnabled) DisableFlagSecure.process()
-            if (isDisableShakeAdEnabled) DisableShakeAd.handle()
-            if (isHideEnivEnabled) HideEnvi.handle()
-            if (isDisableClipboard) DisableClipboard.handle()
+            if (isDisableShakeAdEnabled)    DisableShakeAd.handle()
+            if (isHideEnivEnabled)          HideEnvi.handle()
+            if (isDisableClipboard)         DisableClipboard.handle()
         }
     }
 }

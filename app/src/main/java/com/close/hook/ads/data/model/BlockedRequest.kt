@@ -18,5 +18,6 @@ data class BlockedRequest(
     var responseBodyContentType: String?,
     var stack: String?,
     var dnsHost: String?,
-    var fullAddress: String?
+    var fullAddress: String?,
+    var requestId: String = ""
 ) : Parcelable

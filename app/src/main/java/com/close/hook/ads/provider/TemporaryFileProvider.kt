@@ -83,10 +83,8 @@ class TemporaryFileProvider : ContentProvider() {
             Log.w(TAG, "insert: missing body_content")
             return null
         }
-        val mimeType = values.getAsString(KEY_MIME_TYPE) ?: run {
-            Log.w(TAG, "insert: missing mime_type")
-            return null
-        }
+        val mimeType = values.getAsString(KEY_MIME_TYPE)?.takeIf { it.isNotEmpty() }
+            ?: "application/octet-stream"
         val id = UUID.randomUUID().toString()
         contentStore.put(id, bodyContent to mimeType)
         val newUri = Uri.withAppendedPath(CONTENT_URI, id)

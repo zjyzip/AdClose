@@ -4,18 +4,12 @@ import android.content.res.Resources
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.view.View
-import android.view.ViewGroup
-import android.view.WindowInsets
 import android.view.WindowManager
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import com.close.hook.ads.R
 import com.close.hook.ads.util.ThemeUtils
-import rikka.material.app.MaterialActivity
 
-abstract class BaseActivity : MaterialActivity() {
+abstract class BaseActivity : MaterialThemeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,7 +26,16 @@ abstract class BaseActivity : MaterialActivity() {
 
     override fun onPause() {
         super.onPause()
-        overridePendingTransition(R.anim.slide_in_scale, R.anim.slide_out_scale)
+        // Skip the global slide overlay when this activity opts into shared-element
+        // transitions (e.g. MaterialContainerTransform) — they animate the close
+        // themselves and overlaying a slide would fight the morph.
+        if (window.sharedElementEnterTransition != null) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_scale, R.anim.slide_out_scale)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(R.anim.slide_in_scale, R.anim.slide_out_scale)
+        }
     }
 
     private fun setImmersiveStatusBar() {
@@ -44,12 +47,6 @@ abstract class BaseActivity : MaterialActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
-            val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val displayCutoutInsets = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            insets
         }
     }
 }

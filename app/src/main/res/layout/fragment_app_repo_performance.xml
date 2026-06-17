@@ -17,7 +17,7 @@
             android:id="@+id/runTestButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingVertical="12dp"
+            android:paddingVertical="@dimen/spacing_medium"
             android:text="运行应用数据测试"
             android:textSize="16sp" />
 
@@ -25,7 +25,7 @@
             android:id="@+id/summary_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/spacing_normal"
             app:cardBackgroundColor="?attr/colorSurfaceContainer"
             app:strokeWidth="0dp">
 
@@ -46,7 +46,7 @@
                     android:id="@+id/time_summary"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="@dimen/spacing_small"
                     android:lineSpacingMultiplier="1.2"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant"
@@ -59,12 +59,12 @@
             android:id="@+id/memory_chart"
             android:layout_width="match_parent"
             android:layout_height="300dp"
-            android:layout_marginTop="24dp" />
+            android:layout_marginTop="@dimen/spacing_large" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/spacing_small"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -77,14 +77,14 @@
 
                 <View
                     android:id="@+id/legend_java_color"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
                     android:background="@drawable/background_legend_circle" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="@dimen/spacing_small"
                     android:text="Java 堆"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurface" />
@@ -99,8 +99,8 @@
 
                 <View
                     android:id="@+id/legend_native_color"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
                     android:background="@drawable/background_legend_circle" />
 
                 <TextView
@@ -120,8 +120,8 @@
 
                 <View
                     android:id="@+id/legend_pss_color"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
                     android:background="@drawable/background_legend_circle" />
 
                 <TextView
@@ -139,7 +139,7 @@
             android:id="@+id/log_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="@dimen/spacing_large"
             app:cardBackgroundColor="?attr/colorSurfaceContainer"
             app:strokeWidth="0dp">
 
@@ -161,7 +161,7 @@
                     android:id="@+id/log_view"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="@dimen/spacing_small"
                     android:lineSpacingMultiplier="1.2"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant"

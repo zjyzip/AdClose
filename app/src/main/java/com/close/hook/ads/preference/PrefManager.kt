@@ -20,7 +20,6 @@ object PrefManager {
     private const val PREF_DISABLED = "disabled"
     private const val PREF_IS_REVERSE = "isReverse"
     private const val PREF_SET_DATA = "setData"
-    private const val PREF_LANGUAGE = "language"
     private const val PREF_DEFAULT_PAGE = "defaultPage"
 
     private val pref by lazy { closeApp.getSharedPreferences("settings", MODE_PRIVATE) }
@@ -79,10 +78,6 @@ object PrefManager {
     var setData: Boolean
         get() = pref.getBoolean(PREF_SET_DATA, true)
         set(value) = pref.edit().putBoolean(PREF_SET_DATA, value).apply()
-
-    var language: String
-        get() = pref.getString(PREF_LANGUAGE, "SYSTEM") ?: "SYSTEM"
-        set(value) = pref.edit().putString(PREF_LANGUAGE, value).apply()
 
     var defaultPage: Int
         get() = pref.getInt(PREF_DEFAULT_PAGE, 2)

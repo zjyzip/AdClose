@@ -44,21 +44,33 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
     @SuppressLint("SetTextI18n")
     private fun updateStatus(isActivated: Boolean) {
         val context = requireContext()
-        val colorAttr = if (isActivated) {
-            android.R.attr.colorPrimary
+        val bgAttr = if (isActivated) {
+            androidx.appcompat.R.attr.colorPrimary
         } else {
-            android.R.attr.colorError
+            // colorErrorContainer is the M3 soft pastel red — same semantic meaning
+            // as colorError but readable as a surface, not a screaming alert.
+            com.google.android.material.R.attr.colorErrorContainer
         }
-        val primaryOrErrorColor = context.resolveColorAttr(colorAttr)
+        val onBgAttr = if (isActivated) {
+            com.google.android.material.R.attr.colorOnPrimary
+        } else {
+            com.google.android.material.R.attr.colorOnErrorContainer
+        }
+        val bgColor = context.resolveColorAttr(bgAttr)
+        val onBgColor = context.resolveColorAttr(onBgAttr)
+        val onBgTint = android.content.res.ColorStateList.valueOf(onBgColor)
 
         binding.apply {
-            status.setCardBackgroundColor(primaryOrErrorColor)
+            status.setCardBackgroundColor(bgColor)
             statusIcon.setImageDrawable(
                 ContextCompat.getDrawable(
                     context,
                     if (isActivated) R.drawable.ic_round_check_circle_24 else R.drawable.ic_about
                 )
             )
+            statusIcon.imageTintList = onBgTint
+            statusTitle.setTextColor(onBgColor)
+            statusSummary.setTextColor(onBgColor)
             statusTitle.text = getString(if (isActivated) R.string.activated else R.string.not_activated)
             statusSummary.text = getString(R.string.version_format, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
         }

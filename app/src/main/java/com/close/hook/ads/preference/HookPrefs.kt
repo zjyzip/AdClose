@@ -57,25 +57,24 @@ object HookPrefs {
     private val ioScope = CoroutineScope(Dispatchers.IO.limitedParallelism(1) + SupervisorJob())
 
     private interface IFileAccessor {
-        fun openRemoteFile(fileName: String, mode: String = "rw"): ParcelFileDescriptor?
+        fun openRemoteFile(fileName: String): ParcelFileDescriptor?
         fun listRemoteFiles(): Array<String>?
         fun deleteRemoteFile(fileName: String): Boolean
     }
 
+    // Read-capable accessor: prefers service, falls back to xposedInterface (read-only).
     private val fileAccessor: IFileAccessor?
         get() {
             ServiceManager.service?.let { service ->
                 return object : IFileAccessor {
-                    override fun openRemoteFile(fileName: String, mode: String) =
-                        service.openRemoteFile(fileName)
+                    override fun openRemoteFile(fileName: String) = service.openRemoteFile(fileName)
                     override fun listRemoteFiles(): Array<String>? = service.listRemoteFiles()
                     override fun deleteRemoteFile(fileName: String) = service.deleteRemoteFile(fileName)
                 }
             }
             HookLogic.xposedInterface?.let { xposedInterface ->
                 return object : IFileAccessor {
-                    override fun openRemoteFile(fileName: String, mode: String) =
-                        xposedInterface.openRemoteFile(fileName)
+                    override fun openRemoteFile(fileName: String) = xposedInterface.openRemoteFile(fileName)
                     override fun listRemoteFiles(): Array<String>? = xposedInterface.listRemoteFiles()
                     override fun deleteRemoteFile(fileName: String): Boolean = false
                 }
@@ -125,7 +124,7 @@ object HookPrefs {
         ioScope.launch {
             try {
                 val jsonString = jsonFormat.encodeToString(newJson)
-                if (writeTextToFile(FILE_GENERAL_SETTINGS, jsonString)) {
+                if (writeTextToFile(FILE_GENERAL_SETTINGS, jsonString) && shouldNotify) {
                     closeApp.sendBroadcast(
                         Intent("com.close.hook.ads.ACTION_UPDATE_PKG_VISIBILITY").apply {
                             setPackage("android")
@@ -301,7 +300,7 @@ object HookPrefs {
         }
 
         return try {
-            accessor.openRemoteFile(fileName, "r")?.use { pfd ->
+            accessor.openRemoteFile(fileName)?.use { pfd ->
                 InputStreamReader(
                     ParcelFileDescriptor.AutoCloseInputStream(pfd),
                     StandardCharsets.UTF_8
@@ -314,9 +313,13 @@ object HookPrefs {
     }
 
     private fun writeTextToFile(fileName: String, content: String): Boolean {
-        val accessor = fileAccessor ?: return false
+        val service = ServiceManager.service
+        if (service == null) {
+            Log.w(TAG, "Write skipped — service unavailable: $fileName")
+            return false
+        }
         return try {
-            accessor.openRemoteFile(fileName, "rw")?.use { pfd ->
+            service.openRemoteFile(fileName).use { pfd ->
                 FileOutputStream(pfd.fileDescriptor).use { fos ->
                     fos.channel.truncate(0)
                     fos.channel.position(0)
@@ -361,4 +364,5 @@ object HookPrefs {
     }
 
     fun getRequestCacheExpiration(): Long = getLong(KEY_REQUEST_CACHE_EXPIRATION, 5L)
+
 }

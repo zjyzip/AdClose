@@ -28,6 +28,13 @@
     <string name="delete_db_message">Are you sure you want to delete the database \"%1$s\"? This action cannot be undone.</string>
     <string name="action_delete">Delete</string>
 
+    <string name="sig_toolbar_title">Signature Analysis</string>
+    <string name="sig_switch_java">Enable Java Signature Hook</string>
+    <string name="sig_switch_native">Enable Native Signature Hook</string>
+    <string name="sig_empty_hint">No signature check recorded</string>
+    <string name="sig_java_count">Java Check: %d</string>
+    <string name="sig_native_count">Native Check: %d</string>
+
     <string name="remove_scope_dialog_title">Remove Scope?</string>
     <string name="action_remove">Remove</string>
     <string name="disable_scope_dialog_message">Are you sure you want to disable the module for %s?</string>
@@ -72,6 +79,9 @@
     <string name="settings_system_theme_color_summary">Theme color from system</string>
     <string name="settings_system_theme_color">System Theme Color</string>
     <string name="settings_theme_color">Theme Color</string>
+    <string name="theme_color_dynamic">Wallpaper</string>
+    <string name="theme_color_summary_dynamic">Theme color follows the system wallpaper</string>
+    <string name="theme_color_summary_custom">Manual color: %s</string>
     <string name="dark_theme">Dark Theme</string>
     <string name="settings_pure_black_dark_theme">Pure Black Dark Theme</string>
     <string name="settings_pure_black_dark_theme_summary">Use the pure black theme if dark theme is enabled</string>
@@ -179,7 +189,7 @@
     <string name="clear_all_hooks">Clear All Hooks</string>
 
     <string name="fab_auto_detect_ads">Auto-Detect Ad SDKs</string>
-    <string name="toast_return_to_redetect">Please return to the module and re-detect after entering the app home page.</string>
+    <string name="toast_return_to_check_results">Please return to the module to check results after entering the app home page.</string>
     <string name="dialog_auto_detect_ads_title">Detected Ad Initialization Methods</string>
     <string name="import_selected_hooks_count">Imported %d hook rules.</string>
     <string name="no_hook_selected">No hook configuration selected</string>
@@ -196,13 +206,13 @@
 
     <string name="others">Others</string>
     <string name="about">About</string>
+    <string name="about_view_source_code"><![CDATA[View source code at %1$s]]></string>
     <string name="feedback">FeedBack</string>
     <string name="cache_clean">Cache Clean</string>
     <string name="select_all">Select All</string>
     <string name="hide_icon">Hide Icon</string>
     <string name="filter_disabled">Disabled</string>
     <string name="sort_by_default">The default sorting method has been switched to</string>
-    <string name="about_view_source_code"><![CDATA[View source code at %1$s]]></string>
     <string name="block">block</string>
     <string name="copy">copy to clipboard</string>
     <string name="clearAll">clear all</string>
@@ -273,4 +283,33 @@
     <string name="confirm_clear_cache_message">Current cache %1$s</string>
     <string name="cache_cleared_recently">Just cleared</string>
     <string name="invalid_file_format">The file format is invalid, please select a file ending with .rule</string>
+
+    <string name="action_mode_select">Select items</string>
+    <string name="rule_type_select_title">Select Rule Type</string>
+    <string name="content_empty_or_loading">Content is empty or still loading</string>
+    <string name="image_saved_to_gallery">Image saved to gallery</string>
+    <string name="image_save_failed">Failed to save image: %s</string>
+    <string name="scope_get_failed">Failed to get scope list. Service may not be available.</string>
+    <string name="scope_remove_failed">Failed to remove %1$s: %2$s</string>
+
+    <string name="about_section_intro">Introduction</string>
+    <string name="about_section_developers">Developers</string>
+    <string name="about_section_adrules">Ad Rule Sources</string>
+    <string name="about_section_feedback">Feedback</string>
+    <string name="about_section_open_source">Open Source Licenses</string>
+    <string name="about_intro_text">An Xposed module. Run inside the LSPosed framework.\n\nThis module is intended to improve user experience by reducing unnecessary ad interference and improving app efficiency.\n\nFor educational and research purposes only. Do not use for illegal purposes. The module is free of charge.\n\nMain features:\n• Block common ad SDKs and selected analytics SDKs from initializing.\n• Intercept and block in-app network ad requests.\n\nAdditional Hook utilities and per-app ad-removal adaptations are also provided.</string>
+    <string name="about_role_developer">Developer &amp; Designer</string>
+    <string name="about_role_collaborator">Developer &amp; Collaborator</string>
+    <string name="about_feedback_telegram_channel">Telegram Channel</string>
+    <string name="about_feedback_telegram_group">Telegram Group</string>
+    <string name="empty_state_title">Nothing here yet</string>
+    <string name="empty_state_subtitle">Items you add will show up here.</string>
+    <string name="search">Search</string>
+    <string name="clear">Clear</string>
+    <string name="export_action">Export</string>
+    <string name="import_action">Import</string>
+    <string name="app_icon">App icon</string>
+    <string name="status_icon">Status indicator</string>
+    <string name="close">Close</string>
+    <string name="response_body_image">Response body image</string>
 </resources>

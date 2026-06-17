@@ -297,7 +297,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     private fun exportRequestBody() {
         val content = viewModel.requestBody.value
         if (content.isNullOrEmpty()) {
-            Toast.makeText(requireContext(), "内容为空或仍在加载中", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.content_empty_or_loading), Toast.LENGTH_SHORT).show()
             return
         }
         contentToSave = content
@@ -311,7 +311,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
 
     private fun exportResponseBodyText(content: String) {
         if (content.isEmpty()) {
-            Toast.makeText(requireContext(), "内容为空或仍在加载中", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.content_empty_or_loading), Toast.LENGTH_SHORT).show()
             return
         }
         contentToSave = content
@@ -330,11 +330,11 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                     it.write(content.toByteArray(Charsets.UTF_8))
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "文件导出成功", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: IOException) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "文件导出失败", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -347,7 +347,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 responseData.mimeType
             )
             is ResponseBodyContent.Text -> exportResponseBodyText(responseData.content)
-            else -> Toast.makeText(requireContext(), "内容为空或仍在加载中", Toast.LENGTH_SHORT)
+            else -> Toast.makeText(requireContext(), getString(R.string.content_empty_or_loading), Toast.LENGTH_SHORT)
                 .show()
         }
     }
@@ -372,14 +372,14 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                     values.put(MediaStore.Images.Media.IS_PENDING, 0)
                     resolver.update(it, values, null, null)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(requireContext(), "图片已保存到相册", Toast.LENGTH_SHORT)
+                        Toast.makeText(requireContext(), getString(R.string.image_saved_to_gallery), Toast.LENGTH_SHORT)
                             .show()
                     }
                 } ?: throw IOException("URI generation failed")
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
-                        requireContext(), "图片保存失败: ${e.message}", Toast.LENGTH_SHORT
+                        requireContext(), getString(R.string.image_save_failed, e.message), Toast.LENGTH_SHORT
                     ).show()
                 }
             }

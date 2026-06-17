@@ -89,10 +89,13 @@ class RoomPerformanceFragment : Fragment() {
         bindLegendItem(binding.legendInsert, ChartMetric.INSERT)
         bindLegendItem(binding.legendQuery, ChartMetric.QUERY_ALL)
         bindLegendItem(binding.legendDelete, ChartMetric.DELETE)
-        
+
         bindLegendItem(binding.legendMatchUrl, ChartMetric.EXISTS_URL_MATCH)
         bindLegendItem(binding.legendMatchKeyword, ChartMetric.EXISTS_KEYWORD_MATCH)
         bindLegendItem(binding.legendMatchDomain, ChartMetric.EXISTS_DOMAIN)
+
+        bindLegendItem(binding.legendNotFoundUrl, ChartMetric.NOT_FOUND_URL_PREFIX)
+        bindLegendItem(binding.legendNotFoundKeyword, ChartMetric.NOT_FOUND_KEYWORD)
     }
 
     private fun bindLegendItem(itemBinding: ItemLegendBinding, metric: ChartMetric) {
@@ -281,12 +284,14 @@ class RoomPerformanceFragment : Fragment() {
         val dataSets = mutableListOf<LineDataSet>()
         
         val metricsToDraw = listOf(
-            ChartMetric.INSERT, 
-            ChartMetric.QUERY_ALL, 
+            ChartMetric.INSERT,
+            ChartMetric.QUERY_ALL,
             ChartMetric.DELETE,
             ChartMetric.EXISTS_URL_MATCH,
             ChartMetric.EXISTS_KEYWORD_MATCH,
-            ChartMetric.EXISTS_DOMAIN
+            ChartMetric.EXISTS_DOMAIN,
+            ChartMetric.NOT_FOUND_URL_PREFIX,
+            ChartMetric.NOT_FOUND_KEYWORD
         )
 
         metricsToDraw.forEach { metric ->

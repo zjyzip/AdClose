@@ -12,7 +12,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_hook_method_type"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/hint_hook_method_type">
@@ -31,7 +31,7 @@
             android:id="@+id/tv_hook_point_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/spacing_normal"
             android:labelFor="@id/toggle_group_hook_point"
             android:text="@string/hint_hook_point"
             android:textAppearance="?attr/textAppearanceTitleSmall" />
@@ -40,7 +40,7 @@
             android:id="@+id/toggle_group_hook_point"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/spacing_small"
             android:visibility="gone"
             app:selectionRequired="true"
             app:singleSelection="true">
@@ -64,10 +64,10 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_class_name"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/spacing_small"
             android:hint="@string/hint_class_name">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -79,7 +79,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_search_strings"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -95,7 +95,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_method_name"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -111,7 +111,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_parameter_types"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -127,7 +127,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_field_name"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -143,7 +143,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_field_value"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -159,7 +159,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_return_value"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -177,7 +177,7 @@
             android:id="@+id/tv_parameter_replacements"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/spacing_normal"
             android:text="@string/parameter_replacements_label"
             android:textAppearance="?attr/textAppearanceTitleSmall"
             android:visibility="gone" />

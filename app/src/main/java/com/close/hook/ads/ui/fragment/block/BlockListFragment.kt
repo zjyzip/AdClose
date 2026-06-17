@@ -3,7 +3,6 @@ package com.close.hook.ads.ui.fragment.block
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -17,12 +16,13 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import java.io.IOException
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
@@ -45,7 +45,7 @@ import com.close.hook.ads.databinding.FragmentBlockListBinding
 import com.close.hook.ads.databinding.ItemBlockListAddBinding
 import com.close.hook.ads.ui.activity.MainActivity
 import com.close.hook.ads.ui.adapter.BlockListAdapter
-import com.close.hook.ads.ui.fragment.base.BaseFragment
+import com.close.hook.ads.ui.fragment.base.BaseSearchFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
@@ -61,16 +61,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 
-class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressListener {
+class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBackPressListener {
 
     private val viewModel by viewModels<BlockListViewModel>()
     private lateinit var mAdapter: BlockListAdapter
     private lateinit var footerSpaceDecoration: FooterSpaceItemDecoration
     private var tracker: SelectionTracker<Url>? = null
     private var mActionMode: ActionMode? = null
-    private val imm: InputMethodManager by lazy {
-        requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-    }
+
+    override val searchIconView: ImageView get() = binding.searchIcon
+    override val searchEditTextView: EditText get() = binding.editText
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -100,7 +100,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 private var totalDy = 0
-                private val scrollThreshold = 20
+                private val scrollThreshold = 20.dp
 
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     super.onScrolled(recyclerView, dx, dy)
@@ -198,7 +198,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
             if (mActionMode == null) {
                 mActionMode = (activity as? MainActivity)?.startSupportActionMode(mActionModeCallback)
             }
-            mActionMode?.title = "Selected $size"
+            mActionMode?.title = getString(R.string.selected_items_count, size)
         } else {
             mActionMode?.finish()
             mActionMode = null
@@ -288,18 +288,6 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         binding.editText.addTextChangedListener(textWatcher)
     }
 
-    private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
-        binding.searchIcon.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
-        (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
-        if (focus) {
-            binding.editText.requestFocus()
-            imm.showSoftInput(binding.editText, 0)
-        } else {
-            binding.editText.clearFocus()
-            imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
-        }
-    }
-
     private fun initButton() {
         binding.apply {
             searchIcon.setOnClickListener {
@@ -333,7 +321,7 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
         dialogBinding.type.setOnClickListener {
             val currentTypeIndex = ruleTypes.indexOf(selectedType)
             MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Select Rule Type")
+                .setTitle(getString(R.string.rule_type_select_title))
                 .setSingleChoiceItems(ruleTypes, currentTypeIndex) { dialog, which ->
                     val newType = ruleTypes[which]
                     if (selectedType != newType) {
@@ -404,13 +392,15 @@ class BlockListFragment : BaseFragment<FragmentBlockListBinding>(), OnBackPressL
                     runCatching {
                         val currentList = viewModel.blackList.value
 
-                        requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
+                        val outputStream = requireContext().contentResolver.openOutputStream(uri)
+                            ?: throw IOException("Failed to open output stream")
+                        outputStream.bufferedWriter().use { writer ->
                             currentList
                                 .map { "${it.type}, ${it.url}" }
                                 .distinct()
                                 .filter { it.contains(",") }
                                 .sorted()
-                                .forEach { line -> writer?.write("$line\n") }
+                                .forEach { line -> writer.write("$line\n") }
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()

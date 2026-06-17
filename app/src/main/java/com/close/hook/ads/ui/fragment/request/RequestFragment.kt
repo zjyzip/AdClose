@@ -55,6 +55,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         }
     }
 
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val filter = IntentFilter("com.rikkati.REQUEST")

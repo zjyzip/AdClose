@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.close.hook.ads.data.dao.UrlDao
 import com.close.hook.ads.data.model.Url
 
-@Database(entities = [Url::class], version = 4, exportSchema = false)
+@Database(entities = [Url::class], version = 5, exportSchema = false)
 abstract class UrlDatabase : RoomDatabase() {
     abstract val urlDao: UrlDao
 
@@ -39,6 +39,12 @@ abstract class UrlDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_url_info_type_url ON url_info(type, url)")
+            }
+        }
+
         fun getDatabase(context: Context): UrlDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -46,7 +52,7 @@ abstract class UrlDatabase : RoomDatabase() {
                     UrlDatabase::class.java,
                     "url_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also {
                     instance = it
                 }

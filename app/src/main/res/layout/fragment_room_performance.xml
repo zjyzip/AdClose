@@ -17,7 +17,7 @@
             android:id="@+id/runTestButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingVertical="12dp"
+            android:paddingVertical="@dimen/spacing_medium"
             android:text="运行数据库性能测试"
             android:textSize="16sp" />
 
@@ -25,7 +25,7 @@
             android:id="@+id/summary_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/spacing_normal"
             app:cardBackgroundColor="?attr/colorSurfaceContainer"
             app:strokeWidth="0dp">
 
@@ -46,7 +46,7 @@
                     android:id="@+id/time_summary"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="@dimen/spacing_small"
                     android:lineSpacingMultiplier="1.2"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant"
@@ -59,12 +59,12 @@
             android:id="@+id/memory_chart"
             android:layout_width="match_parent"
             android:layout_height="300dp"
-            android:layout_marginTop="24dp" />
+            android:layout_marginTop="@dimen/spacing_large" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/spacing_medium"
             android:orientation="vertical">
 
             <LinearLayout
@@ -74,24 +74,36 @@
                 android:orientation="horizontal">
 
                 <include layout="@layout/item_legend" android:id="@+id/legend_insert" />
-                <Space android:layout_width="12dp" android:layout_height="wrap_content" />
+                <Space android:layout_width="@dimen/spacing_medium" android:layout_height="wrap_content" />
                 <include layout="@layout/item_legend" android:id="@+id/legend_query" />
-                <Space android:layout_width="12dp" android:layout_height="wrap_content" />
+                <Space android:layout_width="@dimen/spacing_medium" android:layout_height="wrap_content" />
                 <include layout="@layout/item_legend" android:id="@+id/legend_delete" />
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/spacing_small"
                 android:gravity="center"
                 android:orientation="horizontal">
 
                 <include layout="@layout/item_legend" android:id="@+id/legend_match_url" />
-                <Space android:layout_width="12dp" android:layout_height="wrap_content" />
+                <Space android:layout_width="@dimen/spacing_medium" android:layout_height="wrap_content" />
                 <include layout="@layout/item_legend" android:id="@+id/legend_match_keyword" />
-                <Space android:layout_width="12dp" android:layout_height="wrap_content" />
+                <Space android:layout_width="@dimen/spacing_medium" android:layout_height="wrap_content" />
                 <include layout="@layout/item_legend" android:id="@+id/legend_match_domain" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_small"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <include layout="@layout/item_legend" android:id="@+id/legend_not_found_url" />
+                <Space android:layout_width="@dimen/spacing_medium" android:layout_height="wrap_content" />
+                <include layout="@layout/item_legend" android:id="@+id/legend_not_found_keyword" />
             </LinearLayout>
         </LinearLayout>
 
@@ -99,7 +111,7 @@
             android:id="@+id/log_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="@dimen/spacing_large"
             app:cardBackgroundColor="?attr/colorSurfaceContainer"
             app:strokeWidth="0dp">
 
@@ -121,7 +133,7 @@
                     android:id="@+id/log_view"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="@dimen/spacing_small"
                     android:lineSpacingMultiplier="1.2"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant"

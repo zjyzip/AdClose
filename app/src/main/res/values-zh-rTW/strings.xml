@@ -173,7 +173,7 @@
     <string name="clear_all_hooks">清空所有 Hook</string>
 
     <string name="fab_auto_detect_ads">自動偵測廣告SDK</string>
-    <string name="toast_return_to_redetect">請在進入應用首頁後返回模組重新檢測</string>
+    <string name="toast_return_to_check_results">請在進入應用首頁後返回模組查看結果</string>
     <string name="dialog_auto_detect_ads_title">偵測到以下廣告初始化方法</string>
     <string name="import_selected_hooks_count">已匯入 %d 條Hook規則。</string>
     <string name="no_hook_selected">未選擇任何 Hook 配置</string>
@@ -266,4 +266,36 @@
     <string name="confirm_clear_cache_message">目前快取 %1$s</string>
     <string name="cache_cleared_recently">剛清理</string>
     <string name="invalid_file_format">檔案格式無效，請選擇以 .rule 結尾的檔案</string>
+
+    <string name="action_mode_select">選擇條目</string>
+    <string name="rule_type_select_title">選擇規則類型</string>
+    <string name="content_empty_or_loading">內容為空或仍在載入中</string>
+    <string name="image_saved_to_gallery">圖片已儲存至相簿</string>
+    <string name="image_save_failed">圖片儲存失敗：%s</string>
+    <string name="scope_get_failed">取得 Scope 清單失敗，服務可能無法使用。</string>
+    <string name="scope_remove_failed">移除 %1$s 失敗：%2$s</string>
+
+    <string name="about_section_intro">介紹</string>
+    <string name="about_section_developers">開發者</string>
+    <string name="about_section_adrules">廣告規則來源</string>
+    <string name="about_section_feedback">回饋</string>
+    <string name="about_section_open_source">開源授權</string>
+    <string name="about_intro_text">這是一個 Xposed 模組，請在 LSPosed 框架環境中使用。\n\n此模組旨在最佳化使用者體驗，減少不必要的廣告干擾、提升應用程式效率。\n\n僅供學習交流，請勿用於違法違規用途，模組完全免費使用。\n\n主要功能：\n• 阻止常見 SDK 廣告與部分統計 SDK 的初始化載入。\n• 攔截封鎖應用程式的網路廣告請求。\n\n同時提供一些其他 Hook 功能與特定應用程式的去廣告適配。</string>
+    <string name="about_role_developer">開發者 &amp; 設計師</string>
+    <string name="about_role_collaborator">開發者 &amp; 協作者</string>
+    <string name="about_feedback_telegram_channel">Telegram 頻道</string>
+    <string name="about_feedback_telegram_group">Telegram 群組</string>
+    <string name="empty_state_title">這裡還沒有任何項目</string>
+    <string name="empty_state_subtitle">新增的項目會顯示在這裡。</string>
+    <string name="search">搜尋</string>
+    <string name="clear">清除</string>
+    <string name="export_action">匯出</string>
+    <string name="import_action">匯入</string>
+    <string name="app_icon">應用程式圖示</string>
+    <string name="status_icon">狀態指示</string>
+    <string name="close">關閉</string>
+    <string name="response_body_image">回應內容圖片</string>
+    <string name="theme_color_dynamic">桌布</string>
+    <string name="theme_color_summary_dynamic">主題色跟隨系統桌布</string>
+    <string name="theme_color_summary_custom">手動配色：%s</string>
 </resources>

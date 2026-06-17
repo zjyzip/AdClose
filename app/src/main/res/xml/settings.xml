@@ -14,7 +14,7 @@
             android:title="@string/data_manager"
             android:summary="@string/data_manager_summary" />
 
-        <rikka.preference.SimpleMenuPreference
+        <ListPreference
             android:key="request_cache_expiration"
             android:title="@string/request_cache_expiration_title"
             android:summary="@string/request_cache_expiration_summary"
@@ -23,14 +23,14 @@
             android:defaultValue="5"
             android:icon="@drawable/ic_outline_timer_24" />
 
-        <rikka.material.preference.MaterialSwitchPreference
+        <SwitchPreferenceCompat
             android:key="enable_dex_dump"
             android:title="@string/dex_dump_title"
             android:summary="@string/dex_dump_summary"
             android:defaultValue="false"
             android:icon="@drawable/ic_outline_file_save_24" />
 
-        <rikka.material.preference.MaterialSwitchPreference
+        <SwitchPreferenceCompat
             android:key="enable_package_visibility_bypass"
             android:title="@string/package_visibility_bypass_title"
             android:summary="@string/package_visibility_bypass_summary"
@@ -39,7 +39,7 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/settings_language">
-        <rikka.preference.SimpleMenuPreference
+        <ListPreference
             android:defaultValue="SYSTEM"
             android:icon="@drawable/outline_language_24"
             android:key="language"
@@ -48,23 +48,11 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/settings_theme">
-        <rikka.material.preference.MaterialSwitchPreference
-            android:defaultValue="true"
-            android:disableDependentsState="true"
+        <com.close.hook.ads.ui.preference.ThemeColorPalettePreference
             android:icon="@drawable/outline_palette_24"
-            android:key="followSystemAccent"
-            android:summary="@string/settings_system_theme_color"
-            android:title="@string/settings_system_theme_color" />
-        <rikka.preference.SimpleMenuPreference
-            android:defaultValue="DEFAULT"
-            android:dependency="followSystemAccent"
-            android:entries="@array/color_texts"
-            android:entryValues="@array/color_values"
-            android:icon="@drawable/outline_format_color_fill_24"
             android:key="themeColor"
-            android:summary="%s"
             android:title="@string/settings_theme_color" />
-        <rikka.preference.SimpleMenuPreference
+        <ListPreference
             android:defaultValue="-1"
             android:entries="@array/theme_texts"
             android:entryValues="@array/theme_values"
@@ -72,7 +60,7 @@
             android:key="darkTheme"
             android:summary="%s"
             android:title="@string/dark_theme" />
-        <rikka.material.preference.MaterialSwitchPreference
+        <SwitchPreferenceCompat
             android:icon="@drawable/outline_invert_colors_24"
             android:key="blackDarkTheme"
             android:summary="@string/settings_pure_black_dark_theme_summary"
@@ -84,7 +72,7 @@
             android:icon="@drawable/ic_about"
             android:key="about"
             android:title="@string/about" />
-        <rikka.preference.SimpleMenuPreference
+        <ListPreference
             android:defaultValue="2"
             android:entries="@array/default_page_texts"
             android:entryValues="@array/default_page_values"
@@ -96,7 +84,7 @@
             android:icon="@drawable/ic_clean"
             android:key="clean"
             android:title="@string/cache_clean" />
-        <rikka.material.preference.MaterialSwitchPreference
+        <SwitchPreferenceCompat
             android:icon="@drawable/outline_hide_image_24"
             android:key="hideIcon"
             android:title="@string/hide_icon" />

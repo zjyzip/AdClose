@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -60,16 +61,17 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private val _currentMatchIndex = MutableStateFlow(-1)
     val currentMatchIndex: StateFlow<Int> = _currentMatchIndex.asStateFlow()
 
-    private var currentTabType: String? = null
+    private val _currentTabType = MutableStateFlow<String?>(null)
 
     fun init(arguments: Bundle) {
         arguments.getString("requestBodyUriString")?.let { loadRequestBody(it) }
         arguments.getString("responseBodyUriString")?.let { loadResponseBody(it) }
 
         viewModelScope.launch {
-            _currentQuery
-                .debounce(300)
-                .distinctUntilChanged()
+            combine(
+                _currentQuery.debounce(300).distinctUntilChanged(),
+                _currentTabType
+            ) { query, _ -> query }
                 .flatMapLatest { query ->
                     flow {
                         val content = getCurrentContent()
@@ -94,15 +96,14 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun setCurrentTab(tabType: String) {
-        currentTabType = tabType
-        _currentQuery.value = _currentQuery.value
+        _currentTabType.value = tabType
     }
 
     fun updateQuery(query: String) {
         _currentQuery.value = query
     }
 
-    private fun getCurrentContent(): String? = when (currentTabType) {
+    private fun getCurrentContent(): String? = when (_currentTabType.value) {
         TAB_REQUEST_BODY -> _requestBody.value
         TAB_RESPONSE_BODY -> (_responseBody.value as? ResponseBodyContent.Text)?.content
         else -> null
