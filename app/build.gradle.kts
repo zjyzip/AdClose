@@ -159,7 +159,7 @@ dependencies {
     implementation(libs.libxposed.`interface`)
     implementation(libs.dexkit)
 
-    implementation("com.bytedance.android:shadowhook:2.0.0")
+    implementation("com.bytedance.android:shadowhook:2.0.1")
 
     implementation(libs.appcompat)
     implementation(libs.preferenceKtx)
