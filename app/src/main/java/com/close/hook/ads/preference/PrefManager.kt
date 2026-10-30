@@ -80,8 +80,8 @@ object PrefManager {
         set(value) = pref.edit().putBoolean(PREF_SET_DATA, value).apply()
 
     var defaultPage: Int
-        get() = pref.getInt(PREF_DEFAULT_PAGE, 2)
-        set(value) = pref.edit().putInt(PREF_DEFAULT_PAGE, value).apply()
+        get() = pref.getInt(PREF_DEFAULT_PAGE, 2).coerceIn(0, 4)
+        set(value) = pref.edit().putInt(PREF_DEFAULT_PAGE, value.coerceIn(0, 4)).apply()
 
     fun updatePreferences(block: (editor: android.content.SharedPreferences.Editor) -> Unit) {
         pref.edit().apply {

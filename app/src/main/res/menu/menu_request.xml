@@ -4,17 +4,17 @@
     tools:ignore="AppCompatResource">
     <item
         android:id="@+id/action_block"
-        android:title="Block"
+        android:title="@string/add_to_blocklist"
         android:icon="@drawable/ic_block"
         app:showAsAction="ifRoom"/>
     <item
         android:id="@+id/action_clear_block"
-        android:title="Unblock"
+        android:title="@string/remove_from_blocklist"
         android:icon="@drawable/ic_unblock" 
         app:showAsAction="ifRoom"/>
     <item
         android:id="@+id/action_copy"
-        android:title="Copy"
+        android:title="@string/copy"
         android:icon="@drawable/ic_copy"
         app:showAsAction="ifRoom"/>
 </menu>

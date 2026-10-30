@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import com.close.hook.ads.R
+import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.ThemeUtils
 
 abstract class BaseActivity : MaterialThemeActivity() {
@@ -26,6 +27,7 @@ abstract class BaseActivity : MaterialThemeActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (!MotionUtils.areAnimationsEnabled(this)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_scale, R.anim.slide_out_scale)
         } else {

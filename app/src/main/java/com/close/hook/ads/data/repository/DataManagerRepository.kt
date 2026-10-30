@@ -10,10 +10,17 @@ import com.close.hook.ads.data.model.ItemType
 import com.close.hook.ads.data.model.ManagedItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
+import java.io.InputStream
 
 class DataManagerRepository(private val context: Context) {
+
+    companion object {
+        private const val MAX_READ_SIZE = 10 * 1024 * 1024
+        private const val ACTIVE_RULE_DATABASE = "url_database"
+    }
 
     suspend fun getFrameworkInfo(): FrameworkInfo? = withContext(Dispatchers.IO) {
         ServiceManager.service?.let {
@@ -33,7 +40,7 @@ class DataManagerRepository(private val context: Context) {
     suspend fun getManagedFiles(): List<ManagedItem> = withContext(Dispatchers.IO) {
         val service = ServiceManager.service ?: return@withContext emptyList()
         try {
-            val fileNames = service.listRemoteFiles() ?: return@withContext emptyList()
+            val fileNames = service.listRemoteFiles()
 
             fileNames.mapNotNull { fileName ->
                 try {
@@ -116,7 +123,7 @@ class DataManagerRepository(private val context: Context) {
             try {
                 it.openRemoteFile(fileName).use { pfd ->
                     FileInputStream(pfd.fileDescriptor).use { fis ->
-                        fis.readBytes()
+                        fis.readBytesLimited(MAX_READ_SIZE)
                     }
                 }
             } catch (e: Exception) {
@@ -138,11 +145,11 @@ class DataManagerRepository(private val context: Context) {
         return try {
             val file = File("${context.applicationInfo.dataDir}/$dirName", fileName)
             if (file.exists()) {
-                if (file.length() > 10 * 1024 * 1024) {
+                if (file.length() > MAX_READ_SIZE) {
                     Log.w("DataManagerRepository", "File too large to read into memory: $fileName")
                     null
                 } else {
-                    file.readBytes()
+                    file.inputStream().use { it.readBytesLimited(MAX_READ_SIZE) }
                 }
             } else {
                 null
@@ -179,6 +186,10 @@ class DataManagerRepository(private val context: Context) {
     }
 
     suspend fun deleteDatabase(dbName: String): Boolean = withContext(Dispatchers.IO) {
+        if (dbName == ACTIVE_RULE_DATABASE) {
+            Log.w("DataManagerRepository", "Refusing to delete active rules database: $dbName")
+            return@withContext false
+        }
         return@withContext try {
             context.deleteDatabase(dbName)
         } catch (e: Exception) {
@@ -186,4 +197,18 @@ class DataManagerRepository(private val context: Context) {
             false
         }
     }
+}
+
+private fun InputStream.readBytesLimited(limit: Int): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) break
+        if (output.size() + count > limit) {
+            throw IllegalArgumentException("File exceeds ${limit / (1024 * 1024)} MiB")
+        }
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
 }

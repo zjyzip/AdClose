@@ -174,7 +174,12 @@
     <string name="clear_all_hooks">清空所有 Hook</string>
 
     <string name="fab_auto_detect_ads">自动检测广告SDK</string>
-    <string name="toast_return_to_check_results">请在进入应用首页后返回模块查看结果</string>
+    <string name="toast_return_to_check_results">请进入应用首页后返回模块查看结果。</string>
+    <string name="auto_detect_waiting">正在发送指令并等待扫描结果…</string>
+    <string name="auto_detect_no_app">无法启动应用</string>
+    <string name="auto_detect_select_app">请先选择一个应用</string>
+    <string name="auto_detect_timeout">扫描超时，请重试。</string>
+    <string name="import_clipboard_title">从剪贴板导入</string>
     <string name="dialog_auto_detect_ads_title">检测到以下广告初始化方法</string>
     <string name="import_selected_hooks_count">已导入 %d 条Hook规则。</string>
     <string name="no_hook_selected">未选择任何 Hook 配置</string>
@@ -222,6 +227,16 @@
     <string name="version_format">版本: %1$s(%2$d)</string>
     <string name="export_empty_request_list">请求列表为空，无法导出</string>
     <string name="export_failed">导出失败</string>
+    <string name="log_search_hint">搜索日志</string>
+    <string name="log_enable">启用日志</string>
+    <string name="log_no_record">暂无日志记录</string>
+    <string name="log_disabled">日志记录未启用</string>
+    <string name="log_no_results">没有找到“%1$s”的结果</string>
+    <string name="log_no_stack_trace">没有可用的堆栈信息</string>
+    <string name="log_stack_trace">堆栈信息</string>
+    <string name="log_copy_stack">复制堆栈</string>
+    <string name="log_copy_log">复制日志</string>
+    <string name="copied_to_clipboard">已复制到剪贴板</string>
     <string name="export_no_app_found">无法导出文件，未找到合适的应用来创建文件</string>
     <string name="add_to_blocklist_success">已批量加入黑名单</string>
     <string name="import_success">导入成功</string>
@@ -314,6 +329,7 @@
     <string name="subscription_add">添加订阅</string>
     <string name="subscription_refresh">立即更新</string>
     <string name="subscription_refresh_enqueued">已加入更新队列</string>
+    <string name="subscription_refresh_started">已开始更新</string>
     <string name="subscription_rule_count">%1$d 条规则</string>
     <string name="subscription_more_actions">更多操作</string>
     <string name="subscription_url_helper">https:// 或 http://</string>

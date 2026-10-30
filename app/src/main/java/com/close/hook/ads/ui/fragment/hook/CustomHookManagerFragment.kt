@@ -57,11 +57,14 @@ import com.close.hook.ads.util.ClipboardHookParser
 import com.close.hook.ads.util.ParseResult
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.readTextLimited
 import com.close.hook.ads.util.FooterSpaceItemDecoration
+import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -69,6 +72,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
+
+private const val MAX_HOOK_IMPORT_BYTES = 10 * 1024 * 1024
 
 class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>(), OnBackPressListener {
 
@@ -97,7 +102,9 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             Log.i("CustomHookManagerFragment", message)
         }
         override fun onScopeOperationFail(message: String) {
-            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+            if (isAdded) {
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -205,7 +212,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         switch.setOnClickListener {
             val isCheckedAfterClick = switch.isChecked
             val targetPackageName = viewModel.getTargetPackageName()
-            lifecycleScope.launch {
+            viewLifecycleOwner.lifecycleScope.launch {
                 handleGlobalHookToggle(isCheckedAfterClick, targetPackageName)
             }
         }
@@ -241,11 +248,21 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         val isPackageInScope = pkgName in currentScope
         if (isEnabling) {
             if (!isPackageInScope) {
-                ScopeManager.addScope(pkgName, scopeCallback)
+                ScopeManager.addScope(pkgName, object : ScopeManager.ScopeCallback {
+                    override fun onScopeOperationSuccess(message: String) {
+                        scopeCallback.onScopeOperationSuccess(message)
+                        viewModel.setGlobalHookStatus(true)
+                    }
+
+                    override fun onScopeOperationFail(message: String) {
+                        scopeCallback.onScopeOperationFail(message)
+                        viewModel.setGlobalHookStatus(false)
+                    }
+                })
             } else {
                 scopeCallback.onScopeOperationSuccess("'$pkgName' is already enabled.")
+                viewModel.setGlobalHookStatus(true)
             }
-            viewModel.setGlobalHookStatus(true)
         } else {
             if (isPackageInScope) {
                 withContext(Dispatchers.Main) { showRemoveScopeConfirmationDialog(pkgName) }
@@ -261,12 +278,13 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             .setMessage(getString(R.string.disable_scope_dialog_message, packageName))
             .setCancelable(false)
             .setPositiveButton(R.string.action_remove) { _, _ ->
-                viewModel.setGlobalHookStatus(false)
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     val error = ScopeManager.removeScope(packageName)
                     if (error == null) {
+                        viewModel.setGlobalHookStatus(false)
                         scopeCallback.onScopeOperationSuccess("$packageName disabled and removed from scope successfully.")
                     } else {
+                        viewModel.setGlobalHookStatus(true)
                         scopeCallback.onScopeOperationFail("Failed to remove $packageName from scope: $error")
                     }
                 }
@@ -432,8 +450,19 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                 }
                 launch { viewModel.isLoading.collect { binding.progressBar.isVisible = it } }
                 launch {
+                    viewModel.autoDetectError.collect { error ->
+                        if (error == "timeout") {
+                            launchedPackages.remove(viewModel.getTargetPackageName())
+                            binding.progressBar.isVisible = false
+                            showSnackbar(getString(R.string.auto_detect_timeout))
+                            viewModel.clearAutoDetectHooksResult()
+                        }
+                    }
+                }
+                launch {
                     viewModel.autoDetectedHooksResult.collect { hooks ->
                         hooks?.let {
+                            launchedPackages.remove(viewModel.getTargetPackageName())
                             binding.progressBar.isVisible = false
                             showAutoDetectHooksDialog(it)
                             viewModel.clearAutoDetectHooksResult()
@@ -451,7 +480,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             titleRes = R.string.delete_selected_hooks_title,
             messageRes = R.string.delete_selected_hooks_message,
             onConfirmed = {
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     val deletedCount = viewModel.deleteHookConfigs(selectedItemsList)
                     showSnackbar(getString(R.string.deleted_hooks_count, deletedCount))
                     tracker?.clearSelection()
@@ -508,6 +537,17 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun openFabMenu() {
         if (isFabMenuOpen) return
         isFabMenuOpen = true
+        if (!MotionUtils.areAnimationsEnabled(requireContext())) {
+            binding.scrim.visibility = View.VISIBLE
+            binding.scrim.alpha = 1f
+            binding.fabMain.setImageResource(R.drawable.ic_close)
+            childFabs.forEach { fab ->
+                fab.visibility = View.VISIBLE
+                fab.alpha = 1f
+                fab.translationY = 0f
+            }
+            return
+        }
         binding.scrim.visibility = View.VISIBLE
         binding.scrim.animate().alpha(1f).setDuration(300).start()
         binding.fabMain.setImageResource(R.drawable.ic_close)
@@ -523,6 +563,16 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun closeFabMenu() {
         if (!isFabMenuOpen) return
         isFabMenuOpen = false
+        if (!MotionUtils.areAnimationsEnabled(requireContext())) {
+            binding.scrim.visibility = View.GONE
+            binding.fabMain.setImageResource(R.drawable.ic_add)
+            childFabs.forEach { fab ->
+                fab.visibility = View.INVISIBLE
+                fab.alpha = 0f
+                fab.translationY = 0f
+            }
+            return
+        }
         binding.scrim.animate().alpha(0f).setDuration(300).withEndAction { binding.scrim.visibility = View.GONE }.start()
         binding.fabMain.setImageResource(R.drawable.ic_add)
         (binding.fabMain.drawable as? AnimatedVectorDrawable)?.start()
@@ -537,7 +587,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         viewModel.getTargetPackageName()?.let { packageName ->
             binding.progressBar.isVisible = true
             viewModel.requestAutoDetectHooks(packageName)
-            showSnackbar("正在发送指令并等待扫描结果...")
+            showSnackbar(getString(R.string.auto_detect_waiting))
 
             if (launchedPackages.add(packageName)) { 
                 requireContext().packageManager.getLaunchIntentForPackage(packageName)?.let { launchIntent ->
@@ -549,11 +599,12 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
                         launchedPackages.remove(packageName)
                     }
                 } ?: run {
-                    showToast("无法启动应用")
+                    launchedPackages.remove(packageName)
+                    showToast(getString(R.string.auto_detect_no_app))
                     binding.progressBar.isVisible = false
                 }
             }
-        } ?: showSnackbar("请先选择一个应用")
+        } ?: showSnackbar(getString(R.string.auto_detect_select_app))
     }
 
     private fun onAddHookClicked() { showAddHookDialog() }
@@ -581,7 +632,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
         val items = newDetectedHooks.map { "${it.className}.${it.methodNames?.joinToString(", ") ?: ""}" }.toTypedArray()
         val checkedItems = BooleanArray(items.size) { true }
         MaterialAlertDialogBuilder(requireContext())
-            .apply { if (titleResId != null) setTitle(titleResId) else setTitle("Import from Clipboard") }
+            .apply { if (titleResId != null) setTitle(titleResId) else setTitle(R.string.import_clipboard_title) }
             .setMultiChoiceItems(items, checkedItems) { _, which, isChecked -> checkedItems[which] = isChecked }
             .setPositiveButton(R.string.restore) { dialog, _ ->
                 val selectedHooks = newDetectedHooks.filterIndexed { index, _ -> checkedItems[index] }
@@ -669,7 +720,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun exportHooks(uri: Uri) {
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
                 val jsonString = viewModel.getJsonStringForConfigs(viewModel.getExportableHooks())
                 requireContext().contentResolver.openOutputStream(uri)?.bufferedWriter().use { it?.write(jsonString) }
@@ -679,14 +730,20 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun importHooks(uri: Uri) {
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
-                val jsonString = requireContext().contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                val jsonString = requireContext().contentResolver.openInputStream(uri)
+                    ?.use { it.readTextLimited(MAX_HOOK_IMPORT_BYTES) }
                 if (jsonString.isNullOrEmpty()) throw IllegalArgumentException(getString(R.string.error_empty_or_invalid_json))
                 val importedConfigs = Json.decodeFromString<List<CustomHookInfo>>(jsonString)
                 val importAction = viewModel.getImportAction(importedConfigs)
                 withContext(Dispatchers.Main) { handleImportAction(importAction) }
-            }.onFailure { withContext(Dispatchers.Main) { showMessageDialog(R.string.import_failed, it.message ?: "Unknown error", it) } }
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                withContext(Dispatchers.Main) {
+                    showMessageDialog(R.string.import_failed, e.message ?: "Unknown error", e)
+                }
+            }
         }
     }
 
@@ -727,7 +784,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun showImportGlobalRulesDialog(importedConfigs: List<CustomHookInfo>) {
         MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.import_global_rules_title).setMessage(R.string.import_global_rules_message)
             .setPositiveButton(R.string.import_to_global) { dialog, _ ->
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     val globalOnlyImported = importedConfigs.filter { it.packageName.isNullOrEmpty() }
                     if (globalOnlyImported.isEmpty()) showSnackbar(getString(R.string.no_global_hooks_found_to_import))
                     else {

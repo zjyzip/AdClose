@@ -70,8 +70,7 @@ object SubscriptionRuleParser {
 
     private fun parseDomainLine(line: String, domains: MutableSet<String>): Boolean {
         adGuardDomain.matchEntire(line)?.groupValues?.getOrNull(1)?.let { domain ->
-            normalizeDomain(domain)?.let(domains::add)
-            return true
+            return normalizeDomain(domain)?.let(domains::add) == true
         }
 
         val tokens = line.substringBefore('#').trim().split(Regex("\\s+"))

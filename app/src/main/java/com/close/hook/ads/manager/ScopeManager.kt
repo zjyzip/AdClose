@@ -1,5 +1,7 @@
 package com.close.hook.ads.manager
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.Dispatchers
@@ -8,6 +10,8 @@ import kotlinx.coroutines.withContext
 object ScopeManager {
 
     private const val TAG = "ScopeManager"
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     interface ScopeCallback {
         fun onScopeOperationSuccess(message: String)
@@ -43,15 +47,19 @@ object ScopeManager {
             
             val serviceCallback = object : XposedService.OnScopeEventListener {
                 override fun onScopeRequestApproved(approved: List<String>) {
-                    if (approved.contains(packageName)) {
-                        callback.onScopeOperationSuccess("$packageName enabled successfully.")
-                    } else {
-                        callback.onScopeOperationSuccess("Scope updated, but $packageName status is unknown.")
+                    mainHandler.post {
+                        if (approved.contains(packageName)) {
+                            callback.onScopeOperationSuccess("$packageName enabled successfully.")
+                        } else {
+                            callback.onScopeOperationFail("Scope update did not enable $packageName.")
+                        }
                     }
                 }
 
                 override fun onScopeRequestFailed(message: String) {
-                    callback.onScopeOperationFail("Failed to enable $packageName: $message")
+                    mainHandler.post {
+                        callback.onScopeOperationFail("Failed to enable $packageName: $message")
+                    }
                 }
             }
             
@@ -59,7 +67,9 @@ object ScopeManager {
                 service.requestScope(listOf(packageName), serviceCallback)
             } catch (e: Exception) {
                 Log.e(TAG, "addScope failed", e)
-                callback.onScopeOperationFail(e.message ?: "Unknown error")
+                mainHandler.post {
+                    callback.onScopeOperationFail(e.message ?: "Unknown error")
+                }
             }
         }
     }

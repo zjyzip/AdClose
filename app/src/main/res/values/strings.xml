@@ -190,6 +190,11 @@
 
     <string name="fab_auto_detect_ads">Auto-Detect Ad SDKs</string>
     <string name="toast_return_to_check_results">Please return to the module to check results after entering the app home page.</string>
+    <string name="auto_detect_waiting">Sending command and waiting for scan results…</string>
+    <string name="auto_detect_no_app">Unable to launch the application</string>
+    <string name="auto_detect_select_app">Select an application first</string>
+    <string name="auto_detect_timeout">Scan timed out. Please try again.</string>
+    <string name="import_clipboard_title">Import from clipboard</string>
     <string name="dialog_auto_detect_ads_title">Detected Ad Initialization Methods</string>
     <string name="import_selected_hooks_count">Imported %d hook rules.</string>
     <string name="no_hook_selected">No hook configuration selected</string>
@@ -238,6 +243,16 @@
     <string name="version_format">Version: %1$s(%2$d)</string>
     <string name="export_empty_request_list">The request list is empty and cannot be exported</string>
     <string name="export_failed">Export failed</string>
+    <string name="log_search_hint">Search logs</string>
+    <string name="log_enable">Enable log</string>
+    <string name="log_no_record">No log records</string>
+    <string name="log_disabled">Logging is disabled</string>
+    <string name="log_no_results">No results for "%1$s"</string>
+    <string name="log_no_stack_trace">No stack trace available.</string>
+    <string name="log_stack_trace">Stack trace</string>
+    <string name="log_copy_stack">Copy stack</string>
+    <string name="log_copy_log">Copy log</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="export_no_app_found">Cannot export file, no suitable application was found to create the file</string>
     <string name="add_to_blocklist_success">Has been added to the blacklist in batches</string>
     <string name="import_success">Import successful</string>
@@ -327,6 +342,7 @@
     <string name="subscription_add">Add subscription</string>
     <string name="subscription_refresh">Refresh now</string>
     <string name="subscription_refresh_enqueued">Refresh enqueued</string>
+    <string name="subscription_refresh_started">Refresh started</string>
     <string name="subscription_rule_count">%1$d rules</string>
     <string name="subscription_more_actions">More actions</string>
     <string name="subscription_url_helper">https:// or http://</string>

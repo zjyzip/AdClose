@@ -10,12 +10,16 @@ import com.close.hook.ads.data.RuleSnapshot
 import com.close.hook.ads.provider.UrlContentProvider
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 object RuleRepository {
 
     private const val LOG_PREFIX = "[RuleRepository]"
     private const val MIN_REFRESH_INTERVAL_MS = 5_000L
+    private const val INITIAL_LOAD_WAIT_MS = 250L
+    private const val FAILURE_RETRY_DELAY_MS = 1_000L
 
     private val contentUri: Uri = Uri.Builder()
         .scheme("content")
@@ -32,6 +36,7 @@ object RuleRepository {
     // Guards only the background DB load — not the hot shouldBlock() path
     private val refreshing = AtomicBoolean(false)
     private val initialLoadComplete = CountDownLatch(1)
+    private val retryNotBefore = AtomicLong(0L)
 
     private val backgroundExecutor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "AdClose-RuleRefresh").apply { isDaemon = true }
@@ -69,7 +74,7 @@ object RuleRepository {
         if (initialLoadComplete.count > 0L) {
             scheduleRefresh()
             try {
-                initialLoadComplete.await()
+                initialLoadComplete.await(INITIAL_LOAD_WAIT_MS, TimeUnit.MILLISECONDS)
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
             }
@@ -84,10 +89,12 @@ object RuleRepository {
 
     fun forceRefresh() {
         dirty.set(true)
+        retryNotBefore.set(0L)
         scheduleRefresh()
     }
 
     private fun scheduleRefresh() {
+        if (System.currentTimeMillis() < retryNotBefore.get()) return
         if (refreshing.compareAndSet(false, true)) {
             backgroundExecutor.execute {
                 try {
@@ -108,8 +115,10 @@ object RuleRepository {
             val rules = loadAllRules(safeContext)
             snapshot = RuleSnapshot.fromUrls(rules)
             lastRefreshAt = System.currentTimeMillis()
+            retryNotBefore.set(0L)
         }.onFailure { error ->
             dirty.set(true)
+            retryNotBefore.set(System.currentTimeMillis() + FAILURE_RETRY_DELAY_MS)
             Log.w(LOG_PREFIX, "Failed to refresh rule snapshot: ${error.message}")
         }
     }

@@ -27,7 +27,7 @@ interface UrlDao {
     @Update
     suspend fun update(url: Url): Int
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(urls: List<Url>): List<Long>
 
     @Query("SELECT * FROM url_info ORDER BY id DESC")

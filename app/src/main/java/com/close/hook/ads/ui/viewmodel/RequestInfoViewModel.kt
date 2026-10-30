@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import org.brotli.dec.BrotliInputStream
 import java.io.IOException
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import java.util.Locale
@@ -35,12 +36,15 @@ import java.util.zip.InflaterInputStream
 
 class RequestInfoViewModel(application: Application) : AndroidViewModel(application) {
 
-    companion object {
-        private val HIGHLIGHT_COLOR = Color.YELLOW
-        private val ACTIVE_HIGHLIGHT_COLOR = Color.parseColor("#FF9800")
+    private var initialized = false
 
+    private var highlightColor = Color.YELLOW
+    private var activeHighlightColor = Color.parseColor("#FF9800")
+
+    companion object {
         const val TAB_REQUEST_BODY = "RequestBody"
         const val TAB_RESPONSE_BODY = "ResponseBody"
+        private const val MAX_CONTENT_BYTES = 10 * 1024 * 1024
     }
 
     private val _requestBody = MutableStateFlow<String?>(null)
@@ -64,15 +68,20 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     private val _currentTabType = MutableStateFlow<String?>(null)
 
     fun init(arguments: Bundle) {
+        if (initialized) return
+        initialized = true
+
         arguments.getString("requestBodyUriString")?.let { loadRequestBody(it) }
         arguments.getString("responseBodyUriString")?.let { loadResponseBody(it) }
 
         viewModelScope.launch {
             combine(
                 _currentQuery.debounce(300).distinctUntilChanged(),
-                _currentTabType
-            ) { query, _ -> query }
-                .flatMapLatest { query ->
+                _currentTabType,
+                _requestBody,
+                _responseBody
+            ) { query, tab, _, _ -> query to tab }
+                .flatMapLatest { (query, _) ->
                     flow {
                         val content = getCurrentContent()
                         if (query.isEmpty() || content.isNullOrEmpty()) {
@@ -137,6 +146,11 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun setHighlightColors(normal: Int, active: Int) {
+        highlightColor = normal
+        activeHighlightColor = active
+    }
+
     fun createHighlightedText(
         text: String,
         query: String,
@@ -150,9 +164,9 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
         val spannable = SpannableString(text)
         foundMatches.forEachIndexed { index, (start, end) ->
             val color = if (currentIndex != -1 && index == currentIndex) {
-                ACTIVE_HIGHLIGHT_COLOR
+                activeHighlightColor
             } else {
-                HIGHLIGHT_COLOR
+                highlightColor
             }
             spannable.setSpan(
                 BackgroundColorSpan(color), start, end,
@@ -195,7 +209,7 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
                         mime?.split(";")?.find { it.trim().startsWith("encoding=") }
                             ?.substringAfter("=")
                     decompressStream(encoding, inputStream).use { decompressedStream ->
-                        val bytes = decompressedStream.readBytes()
+                        val bytes = decompressedStream.readBytesLimited(MAX_CONTENT_BYTES)
                         if (mime?.startsWith("image/") == true && isBitmap(bytes)) {
                             _responseBody.value = ResponseBodyContent.Image(bytes, mime)
                         } else {
@@ -223,7 +237,7 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
 
     private fun getBytesFromUri(uriString: String): ByteArray? = try {
         getApplication<Application>().contentResolver
-            .openInputStream(Uri.parse(uriString))?.use { it.readBytes() }
+            .openInputStream(Uri.parse(uriString))?.use { it.readBytesLimited(MAX_CONTENT_BYTES) }
     } catch (e: Exception) {
         Log.e("RequestInfoViewModel", "Failed to get bytes from URI", e)
         null
@@ -258,4 +272,19 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     } catch (e: Exception) {
         String(bytes, StandardCharsets.UTF_8)
     }
+
+}
+
+private fun InputStream.readBytesLimited(limit: Int): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) break
+        if (output.size() + count > limit) {
+            throw IOException("Content exceeds ${limit / (1024 * 1024)} MiB")
+        }
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
 }

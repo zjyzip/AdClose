@@ -31,9 +31,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
 
     /** Returns true if added, false if the rule already exists. */
     suspend fun addUrlIfAbsent(url: Url): Boolean {
-        if (dataSource.isExist(url.type, url.url)) return false
-        dataSource.addUrl(url)
-        return true
+        return dataSource.addUrl(url)
     }
 
     fun updateUrl(url: Url) = viewModelScope.launch { dataSource.updateUrl(url) }
@@ -49,7 +47,7 @@ class BlockListViewModel(application: Application) : AndroidViewModel(applicatio
     fun removeUrlString(type: String, url: String) =
         viewModelScope.launch { dataSource.removeUrlString(type, url) }
 
-    fun addListUrl(list: List<Url>) = viewModelScope.launch { dataSource.addListUrl(list) }
+    suspend fun addListUrl(list: List<Url>) = dataSource.addListUrl(list)
 
     suspend fun getAllUrls(): List<Url> = dataSource.getAllUrls()
 }

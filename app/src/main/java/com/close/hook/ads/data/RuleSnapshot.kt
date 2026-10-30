@@ -7,8 +7,14 @@ import java.util.Locale
 data class RuleSnapshot(
     val exactUrls: Set<String>,
     val domains: Set<String>,
-    val keywords: List<String>
+    val keywords: List<KeywordRule>
 ) {
+    private val keywordMatcher = KeywordMatcher.fromRules(keywords)
+
+    data class KeywordRule(
+        val value: String,
+        val normalized: String
+    )
     fun match(requestValue: String, host: String?): RuleMatch {
         val normalizedRequest = requestValue.trim()
         val normalizedHost = host?.trim().orEmpty()
@@ -34,10 +40,8 @@ data class RuleSnapshot(
             }
         }
 
-        keywords.firstOrNull { keyword ->
-            keyword.isNotBlank() && lowerRequest.contains(keyword, ignoreCase = true)
-        }?.let {
-            return RuleMatch(matched = true, ruleType = "KeyWord", ruleUrl = it)
+        keywordMatcher.firstMatch(lowerRequest)?.let { keyword ->
+            return RuleMatch(matched = true, ruleType = "KeyWord", ruleUrl = keyword)
         }
 
         return RuleMatch.NOT_MATCHED
@@ -55,7 +59,7 @@ data class RuleSnapshot(
 
             val exactUrls = LinkedHashSet<String>()
             val domains = LinkedHashSet<String>()
-            val keywords = ArrayList<String>()
+            val keywords = LinkedHashMap<String, String>()
 
             urls.forEach { rule ->
                 val type = rule.type.trim()
@@ -65,14 +69,18 @@ data class RuleSnapshot(
                 when (type.lowercase(Locale.ROOT)) {
                     "url"     -> exactUrls += value.lowercase(Locale.ROOT)
                     "domain"  -> domains   += value.lowercase(Locale.ROOT)
-                    "keyword" -> keywords  += value
+                    "keyword" -> keywords.putIfAbsent(value.lowercase(Locale.ROOT), value)
                 }
+            }
+
+            val keywordRules = keywords.map { (normalized, value) ->
+                KeywordRule(value = value, normalized = normalized)
             }
 
             return RuleSnapshot(
                 exactUrls = exactUrls,
                 domains = domains,
-                keywords = keywords
+                keywords = keywordRules
             )
         }
     }

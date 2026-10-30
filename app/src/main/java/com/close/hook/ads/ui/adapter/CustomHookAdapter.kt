@@ -1,7 +1,6 @@
 package com.close.hook.ads.ui.adapter
 
 import android.content.Context
-import android.graphics.Color
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
@@ -15,6 +14,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
+import com.google.android.material.color.MaterialColors
 import com.close.hook.ads.data.model.CustomHookInfo
 import com.close.hook.ads.data.model.HookField
 import com.close.hook.ads.databinding.ItemCustomHookConfigBinding
@@ -82,7 +82,10 @@ class CustomHookAdapter(
         private val noneString: String = context.getString(R.string.none)
         private val afterHookPoint: String = context.resources.getStringArray(R.array.hook_points_array)[0]
         private val beforeHookPoint: String = context.resources.getStringArray(R.array.hook_points_array)[1]
-        private val highlightColor: Int = Color.YELLOW
+        private val highlightColor: Int = MaterialColors.getColor(
+            binding.root,
+            com.google.android.material.R.attr.colorSecondaryContainer
+        )
 
         private val fieldViewMap: Map<HookField, Pair<TextView, Int>> = mapOf(
             HookField.CLASS_NAME to (binding.tvClassName to R.string.class_name_format),

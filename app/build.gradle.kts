@@ -1,5 +1,5 @@
-import java.util.Calendar
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Calendar
 
 plugins {
     id("com.android.application")
@@ -129,7 +129,6 @@ android {
             }
         }
     }
-
     buildFeatures {
         aidl = true
         viewBinding = true
@@ -153,6 +152,8 @@ fun calculateVersionCode(): Int {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+
     compileOnly(libs.xposedApi)
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
@@ -183,4 +184,36 @@ dependencies {
     implementation(libs.appcenterAnalytics)
     implementation(libs.appcenterCrashes)
     implementation(libs.mpandroidchart)
+}
+
+// Opt-in benchmark: ./gradlew :app:testDebugUnitTest --tests '*KeywordBenchmark*' -PkeywordBenchmark
+val compileKeywordMemoryAgent by tasks.registering(JavaCompile::class) {
+    source("src/benchmarkAgent/java")
+    classpath = files()
+    destinationDirectory.set(layout.buildDirectory.dir("keywordBenchmark/agentClasses"))
+    options.release.set(17)
+}
+val keywordMemoryAgent by tasks.registering(Jar::class) {
+    from(compileKeywordMemoryAgent.flatMap { it.destinationDirectory })
+    archiveFileName.set("keyword-memory-agent.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("keywordBenchmark"))
+    manifest.attributes["Premain-Class"] = "com.close.hook.ads.benchmark.MemoryAgent"
+}
+val benchmarkEnabled = providers.gradleProperty("keywordBenchmark").isPresent
+if (benchmarkEnabled) {
+    tasks.withType<Test>().configureEach {
+        dependsOn(keywordMemoryAgent)
+        jvmArgs(
+            "-javaagent:${keywordMemoryAgent.get().archiveFile.get().asFile.absolutePath}",
+            "--add-opens=java.base/java.util=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED"
+        )
+        minHeapSize = "512m"
+        maxHeapSize = "2g"
+        maxParallelForks = 1
+        systemProperty("adclose.keywordBenchmark", "true")
+        systemProperty("adclose.benchmark.output", layout.buildDirectory.dir("reports/keywordBenchmark").get().asFile.absolutePath)
+        testLogging.showStandardStreams = true
+        outputs.upToDateWhen { false }
+    }
 }

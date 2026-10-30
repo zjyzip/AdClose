@@ -103,7 +103,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
 
                 val enableLogItem = menu.findItem(R.id.action_enable_log)
                 enableLogItem?.isChecked = isLogEnabled
-                enableLogItem?.title = "Enable Log"
+                enableLogItem?.title = getString(R.string.log_enable)
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
@@ -137,9 +137,9 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         binding.emptyView.isVisible = !isEnabled
 
         if (isEnabled) {
-            binding.emptyView.text = "No Log Record"
+            binding.emptyView.text = getString(R.string.log_no_record)
         } else {
-            binding.emptyView.text = "Logging is disabled"
+            binding.emptyView.text = getString(R.string.log_disabled)
             logAdapter.submitList(emptyList())
             if (binding.editTextSearch.isFocused) {
                 setIconAndFocus(isFocused = false)
@@ -228,16 +228,16 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         if (isEmpty) {
             val currentQuery = viewModel.searchQuery.value
             binding.emptyView.text = if (currentQuery.isNotBlank()) {
-                "No results for \"$currentQuery\""
+                getString(R.string.log_no_results, currentQuery)
             } else {
-                "No Log Record"
+                getString(R.string.log_no_record)
             }
         }
     }
 
     private fun showLogDetailDialog(logEntry: LogEntry) {
         val stackTrace = logEntry.stackTrace.takeIf { !it.isNullOrBlank() } ?: run {
-            Toast.makeText(requireContext(), "No stack trace available.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.log_no_stack_trace), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -246,11 +246,11 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         textView.text = stackTrace
 
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Stack Trace")
+            .setTitle(R.string.log_stack_trace)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok, null)
-            .setNeutralButton("Copy Stack") { _, _ -> copyToClipboard("stack_trace", stackTrace) }
-            .setNegativeButton("Copy Log") { _, _ -> copyToClipboard("log_entry", formatLogEntry(logEntry)) }
+            .setNeutralButton(R.string.log_copy_stack) { _, _ -> copyToClipboard("stack_trace", stackTrace) }
+            .setNegativeButton(R.string.log_copy_log) { _, _ -> copyToClipboard("log_entry", formatLogEntry(logEntry)) }
             .show()
     }
 
@@ -262,7 +262,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
     }
 
     private fun EditText.showKeyboard() {

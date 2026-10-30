@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewbinding.ViewBinding
 import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.dp
 import com.google.android.material.transition.MaterialFadeThrough
 import java.lang.reflect.ParameterizedType
@@ -19,9 +20,11 @@ abstract class BaseFragment<VB : ViewBinding> : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enterTransition = MaterialFadeThrough()
-        reenterTransition = MaterialFadeThrough()
-        exitTransition = MaterialFadeThrough()
+        if (MotionUtils.areAnimationsEnabled(requireContext())) {
+            enterTransition = MaterialFadeThrough().apply { duration = 250L }
+            reenterTransition = MaterialFadeThrough().apply { duration = 250L }
+            exitTransition = MaterialFadeThrough().apply { duration = 220L }
+        }
     }
 
     override fun onCreateView(

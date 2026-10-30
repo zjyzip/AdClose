@@ -23,6 +23,7 @@ import com.close.hook.ads.ui.viewmodel.DataManagerViewModel
 import com.close.hook.ads.ui.viewmodel.ExportEvent
 import com.close.hook.ads.ui.viewmodel.ViewFileEvent
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -104,7 +105,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                                 createDocumentLauncher.launch(event.fileName)
                             }
                             is ExportEvent.Failed -> {
-                                Toast.makeText(requireContext(), "Failed to read content for export", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(requireContext(), R.string.export_failed, Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -144,11 +145,12 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                     outputStream.write(content)
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "Export successful", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), R.string.export_success, Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.export_failed) + ": ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }

@@ -9,9 +9,9 @@ import android.database.MatrixCursor
 import android.net.Uri
 import com.close.hook.ads.data.dao.UrlDao
 import com.close.hook.ads.data.database.UrlDatabase
-import com.close.hook.ads.data.model.SubscriptionRule
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.runBlocking
+import java.util.Locale
 
 class UrlContentProvider : ContentProvider() {
 
@@ -40,32 +40,28 @@ class UrlContentProvider : ContentProvider() {
         }
     }
 
-    private fun handleQueryData(selectionArgs: Array<String>?): Cursor {
-        val urls: List<Url> = when {
-            selectionArgs == null -> urlDao.findAllList() + subscriptionRuleDao.findEnabledRules().map { it.toUrl() }
-
-            selectionArgs.size == 2 -> {
-                val queryType = selectionArgs[0]
-                val queryValue = selectionArgs[1]
-                val result = when (queryType) {
-                    "URL"     -> urlDao.findUrlMatch(queryValue)
-                    "Domain"  -> urlDao.findDomainMatch(queryValue)
-                    "KeyWord" -> urlDao.findKeywordMatch(queryValue)
-                    else      -> null
-                }
-                listOfNotNull(result)
+    private fun handleQueryData(selectionArgs: Array<String>?): MatrixCursor {
+        val cursor = MatrixCursor(arrayOf(Url.URL_TYPE, Url.URL_ADDRESS, "id"))
+        if (selectionArgs == null) {
+            urlDao.findAllList().forEach { url ->
+                cursor.addRow(arrayOf<Any>(url.type, url.url, url.id))
             }
-
-            else -> emptyList()
+            subscriptionRuleDao.findEnabledRules().forEach { rule ->
+                cursor.addRow(arrayOf<Any>(rule.type, rule.value, -rule.id))
+            }
+            return cursor
         }
 
-        return urlsToCursor(urls)
-    }
-
-    private fun urlsToCursor(urls: List<Url>): MatrixCursor {
-        val cursor = MatrixCursor(arrayOf(Url.URL_TYPE, Url.URL_ADDRESS, "id"))
-        urls.forEach { url ->
-            cursor.addRow(arrayOf<Any>(url.type, url.url, url.id))
+        if (selectionArgs.size == 2) {
+            val queryType = canonicalType(selectionArgs[0])
+            val queryValue = selectionArgs[1]
+            val result = when (queryType) {
+                "URL" -> urlDao.findUrlMatch(queryValue)
+                "Domain" -> urlDao.findDomainMatch(queryValue)
+                "KeyWord" -> urlDao.findKeywordMatch(queryValue)
+                else -> null
+            }
+            result?.let { cursor.addRow(arrayOf<Any>(it.type, it.url, it.id)) }
         }
         return cursor
     }
@@ -82,7 +78,7 @@ class UrlContentProvider : ContentProvider() {
         if (uriMatcher.match(uri) != ID_URL_DATA || values == null) return null
         val url = values.toUrlOrNull() ?: return null
 
-        val insertedId = runBlocking { urlDao.insert(url) }
+        val insertedId = runBlocking { urlDao.insertOrIgnore(url) }
         if (insertedId <= 0L) return null
 
         notifyChange(uri)
@@ -117,13 +113,18 @@ class UrlContentProvider : ContentProvider() {
     }
 
     private fun ContentValues.toUrlOrNull(): Url? {
-        val type = getAsString(Url.URL_TYPE)?.trim().orEmpty()
+        val type = canonicalType(getAsString(Url.URL_TYPE))
         val url = getAsString(Url.URL_ADDRESS)?.trim().orEmpty()
         if (type.isEmpty() || url.isEmpty()) return null
         return Url(type = type, url = url)
     }
 
-    private fun SubscriptionRule.toUrl(): Url = Url(type = type, url = value, id = -id)
+    private fun canonicalType(value: String?): String = when (value?.trim()?.lowercase(Locale.ROOT)) {
+        "url" -> "URL"
+        "domain" -> "Domain"
+        "keyword" -> "KeyWord"
+        else -> value?.trim().orEmpty()
+    }
 
     companion object {
         const val AUTHORITY = "com.close.hook.ads.provider.url"

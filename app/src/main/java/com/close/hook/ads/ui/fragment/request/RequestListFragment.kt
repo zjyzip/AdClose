@@ -10,6 +10,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.view.ActionMode
@@ -30,6 +31,7 @@ import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.FragmentRequestListBinding
 import com.close.hook.ads.ui.activity.MainActivity
+import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.ui.adapter.RequestListAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
@@ -122,8 +124,9 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
         binding.recyclerView.apply {
             adapter = mAdapter
             layoutManager = LinearLayoutManager(requireContext())
-            addItemDecoration(footerSpaceDecoration)
-            clipToPadding = false
+            if (MotionUtils.areAnimationsEnabled(requireContext())) {
+                layoutAnimation = AnimationUtils.loadLayoutAnimation(requireContext(), R.anim.layout_list_enter)
+            }
             attachNavScrollListener()
 
             (activity as? MainActivity)?.getBottomNavigationView()?.post {
@@ -252,7 +255,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
         val selectedList = tracker?.selection?.toList()
         if (selectedList.isNullOrEmpty()) return
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val urlsToAdd = selectedList.map { request ->
                 val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
                     if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"

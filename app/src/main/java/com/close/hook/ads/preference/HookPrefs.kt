@@ -398,6 +398,7 @@ object HookPrefs {
         setBoolean(buildKey(KEY_PREFIX_ENABLE_LOGGING, packageName), isEnabled)
     }
 
-    fun getRequestCacheExpiration(): Long = getLong(KEY_REQUEST_CACHE_EXPIRATION, 5L)
+    fun getRequestCacheExpiration(): Long =
+        getLong(KEY_REQUEST_CACHE_EXPIRATION, 5L).coerceIn(1L, 24L * 60L)
 
 }

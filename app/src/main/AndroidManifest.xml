@@ -42,7 +42,7 @@
 
         <activity
             android:name=".ui.activity.SplashActivity"
-            android:exported="true"
+            android:exported="false"
             android:theme="@style/SplashTheme">
         </activity>
 
@@ -68,18 +68,18 @@
         </activity-alias>
 
         <activity android:name=".ui.activity.CustomHookActivity"
-            android:exported="true"
+            android:exported="false"
             android:windowSoftInputMode="adjustNothing" />
 
         <activity android:name=".ui.activity.DataManagerActivity"
-            android:exported="true" />
+            android:exported="false" />
 
         <activity android:name=".debug.PerformanceActivity"
-            android:exported="true" />
+            android:exported="false" />
 
         <activity
             android:name=".ui.activity.RequestInfoActivity"
-            android:exported="true" />
+            android:exported="false" />
 
         <activity
             android:name=".ui.activity.AboutActivity"

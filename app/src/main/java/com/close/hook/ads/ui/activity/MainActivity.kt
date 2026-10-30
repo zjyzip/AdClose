@@ -15,6 +15,7 @@ import com.close.hook.ads.ui.fragment.home.HomeFragment
 import com.close.hook.ads.ui.fragment.request.RequestFragment
 import com.close.hook.ads.ui.fragment.settings.SettingsFragment
 import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
@@ -48,16 +49,27 @@ class MainActivity : BaseActivity(), OnBackPressContainer, INavContainer {
 
         val adapter = BottomFragmentStateAdapter(supportFragmentManager, lifecycle, fragmentSuppliers)
         viewPager2.adapter = adapter
+        val animationsEnabled = MotionUtils.areAnimationsEnabled(this)
         viewPager2.isUserInputEnabled = false
         viewPager2.offscreenPageLimit = fragmentSuppliers.size
 
+        if (animationsEnabled) {
+            viewPager2.setPageTransformer { page, position ->
+                val distance = kotlin.math.abs(position).coerceAtMost(1f)
+                page.alpha = 1f - distance * 0.18f
+                val scale = 1f - distance * 0.025f
+                page.scaleX = scale
+                page.scaleY = scale
+            }
+        }
+
         bottomNavigationView.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.bottom_item_1 -> viewPager2.setCurrentItem(0, false)
-                R.id.bottom_item_2 -> viewPager2.setCurrentItem(1, false)
-                R.id.bottom_item_3 -> viewPager2.setCurrentItem(2, false)
-                R.id.bottom_item_4 -> viewPager2.setCurrentItem(3, false)
-                R.id.bottom_item_5 -> viewPager2.setCurrentItem(4, false)
+                R.id.bottom_item_1 -> viewPager2.setCurrentItem(0, animationsEnabled)
+                R.id.bottom_item_2 -> viewPager2.setCurrentItem(1, animationsEnabled)
+                R.id.bottom_item_3 -> viewPager2.setCurrentItem(2, animationsEnabled)
+                R.id.bottom_item_4 -> viewPager2.setCurrentItem(3, animationsEnabled)
+                R.id.bottom_item_5 -> viewPager2.setCurrentItem(4, animationsEnabled)
             }
             true
         }

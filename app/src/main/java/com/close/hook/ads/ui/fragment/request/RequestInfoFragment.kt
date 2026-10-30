@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.NestedScrollView
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -28,6 +29,7 @@ import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -45,6 +47,15 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     private lateinit var availableTabs: List<String>
     private var contentToSave: String? = null
     private lateinit var pagerAdapter: RequestInfoPagerAdapter
+    private var boundScrollView: NestedScrollView? = null
+    private val scrollListener = NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+        val delta = scrollY - oldScrollY
+        when {
+            delta > 8 -> binding.exportFab.hide()
+            delta < -8 && isExportTab(availableTabs.getOrNull(binding.viewPager.currentItem)) ->
+                binding.exportFab.show()
+        }
+    }
 
     private val createDocumentLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri: Uri? ->
@@ -59,6 +70,10 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        viewModel.setHighlightColors(
+            MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSecondaryContainer),
+            MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorTertiaryContainer)
+        )
         viewModel.init(requireArguments())
         availableTabs = getAvailableTabs()
 
@@ -87,7 +102,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     }
 
     private fun observeViewModel() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.currentQuery.collect {
@@ -204,6 +219,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 super.onPageSelected(position)
                 val newTab = availableTabs[position]
                 updateFabVisibility(newTab)
+                binding.viewPager.post { bindFabToCurrentPage() }
 
                 viewModel.setCurrentTab(newTab)
 
@@ -217,6 +233,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
             val firstTab = availableTabs.first()
             updateFabVisibility(firstTab)
             viewModel.setCurrentTab(firstTab)
+            binding.viewPager.post { bindFabToCurrentPage() }
         }
     }
 
@@ -273,17 +290,37 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                     add(RequestInfoViewModel.TAB_REQUEST_BODY)
 
                 if (!getString("responseHeaders").isNullOrEmpty()) add("Response")
-                add(RequestInfoViewModel.TAB_RESPONSE_BODY)
+                if (!getString("responseBodyUriString").isNullOrEmpty()) {
+                    add(RequestInfoViewModel.TAB_RESPONSE_BODY)
+                }
             }
 
             if (!getString("stack").isNullOrEmpty()) add("Stack")
         }
     } ?: emptyList()
 
+    private fun isExportTab(tab: String?): Boolean =
+        tab == RequestInfoViewModel.TAB_REQUEST_BODY || tab == RequestInfoViewModel.TAB_RESPONSE_BODY
+
+    private fun bindFabToCurrentPage() {
+        boundScrollView?.setOnScrollChangeListener(null as NestedScrollView.OnScrollChangeListener?)
+        boundScrollView = null
+
+        val recyclerView = binding.viewPager.getChildAt(0) as? RecyclerView ?: return
+        val holder = recyclerView.findViewHolderForAdapterPosition(binding.viewPager.currentItem)
+            as? RequestInfoPagerAdapter.RequestInfoViewHolder ?: return
+        boundScrollView = holder.binding.scrollView
+        boundScrollView?.setOnScrollChangeListener(scrollListener)
+    }
+
     private fun updateFabVisibility(tabText: String) {
-        val fabIsVisible = tabText == RequestInfoViewModel.TAB_REQUEST_BODY ||
-                tabText == RequestInfoViewModel.TAB_RESPONSE_BODY
-        if (fabIsVisible) binding.exportFab.show() else binding.exportFab.hide()
+        val fabIsVisible = isExportTab(tabText)
+        if (fabIsVisible) {
+            binding.exportFab.show()
+            bindFabToCurrentPage()
+        } else {
+            binding.exportFab.hide()
+        }
 
         binding.exportFab.setOnClickListener {
             if (tabText == RequestInfoViewModel.TAB_REQUEST_BODY) {
@@ -292,6 +329,12 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 exportResponseContent()
             }
         }
+    }
+
+    override fun onDestroyView() {
+        boundScrollView?.setOnScrollChangeListener(null as NestedScrollView.OnScrollChangeListener?)
+        boundScrollView = null
+        super.onDestroyView()
     }
 
     private fun exportRequestBody() {
@@ -322,7 +365,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     }
 
     private fun saveTextToFile(uri: Uri, content: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 requireContext().contentResolver.openOutputStream(uri)?.use {
                     it.write(content.toByteArray(Charsets.UTF_8))
@@ -351,18 +394,19 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     }
 
     private fun saveImageToGallery(bytes: ByteArray, mimeType: String?) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val mime = mimeType ?: "image/jpeg"
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val mime = mimeType?.substringBefore(';') ?: "image/jpeg"
             val fileName =
-                "ResponseBody_${System.currentTimeMillis()}.${mime.substringAfter('/')}"
+                "ResponseBody_${System.currentTimeMillis()}.${mime.substringAfter('/', "jpg")}"
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, mime)
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }
+            var uri: Uri? = null
             try {
                 val resolver = requireContext().contentResolver
-                val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                 uri?.let {
                     resolver.openOutputStream(it)
                         ?.use { out -> ByteArrayInputStream(bytes).copyTo(out) }
@@ -375,6 +419,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                     }
                 } ?: throw IOException("URI generation failed")
             } catch (e: Exception) {
+                uri?.let { runCatching { requireContext().contentResolver.delete(it, null, null) } }
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         requireContext(), getString(R.string.image_save_failed, e.message), Toast.LENGTH_SHORT

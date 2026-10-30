@@ -89,7 +89,7 @@ class SubscriptionRuleFragment : BaseFragment<FragmentSubscriptionRuleBinding>()
             viewModel.events.collect { event ->
                 when (event) {
                     is SubscriptionViewModel.Event.RefreshStarted ->
-                        Toast.makeText(requireContext(), R.string.subscription_refresh_enqueued, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), R.string.subscription_refresh_started, Toast.LENGTH_SHORT).show()
                     is SubscriptionViewModel.Event.Error ->
                         Toast.makeText(requireContext(), event.message, Toast.LENGTH_LONG).show()
                 }

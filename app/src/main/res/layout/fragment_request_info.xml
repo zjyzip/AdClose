@@ -141,6 +141,5 @@
         android:layout_margin="16dp"
         android:src="@drawable/ic_export"
         android:tooltipText="@string/export"
-        android:visibility="gone"
-        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior" />
+        android:visibility="gone" />
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

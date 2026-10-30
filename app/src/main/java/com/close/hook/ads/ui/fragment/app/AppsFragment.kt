@@ -2,6 +2,7 @@ package com.close.hook.ads.ui.fragment.app
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -10,6 +11,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +20,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
@@ -40,6 +43,7 @@ import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.IOnTabClickContainer
 import com.close.hook.ads.util.IOnTabClickListener
 import com.close.hook.ads.util.KeyboardUtils
+import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
@@ -48,12 +52,14 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
+import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
@@ -64,6 +70,9 @@ import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+
+private const val MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024
+private const val MAX_BACKUP_TOTAL_BYTES = 20 * 1024 * 1024
 
 class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClickListener,
     IOnTabClickListener, OnClearClickListener, IOnFabClickListener {
@@ -81,10 +90,15 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val scopeCallback = object : ScopeManager.ScopeCallback {
         override fun onScopeOperationSuccess(message: String) {
             Log.i("AppsFragmentScope", message)
+            if (isAdded) {
+                Toast.makeText(requireContext(), R.string.save_success, Toast.LENGTH_SHORT).show()
+            }
         }
 
         override fun onScopeOperationFail(message: String) {
-            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+            if (isAdded) {
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -118,6 +132,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     companion object {
         private const val PREFS_FILE_NAME = "com.close.hook.ads_preferences.json"
         private const val CUSTOM_HOOKS_PREFIX = "custom_hooks_"
+        private const val MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
         @JvmStatic
@@ -295,10 +310,18 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         mAdapter = AppsAdapter(this, viewLifecycleOwner)
 
         binding.recyclerView.apply {
-            setHasFixedSize(true)
+            if (MotionUtils.areAnimationsEnabled(requireContext())) {
+                layoutAnimation = AnimationUtils.loadLayoutAnimation(requireContext(), R.anim.layout_apps_enter)
+            }
             setItemViewCacheSize(30)
             adapter = mAdapter
             layoutManager = LinearLayoutManager(requireContext())
+            itemAnimator = DefaultItemAnimator().apply {
+                addDuration = 180L
+                removeDuration = 150L
+                moveDuration = 220L
+                changeDuration = 180L
+            }
 
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 val bottomNavHeight =
@@ -350,7 +373,12 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                             }
                         }
 
-                        mAdapter.submitList(apps)
+                        val wasEmpty = mAdapter.currentList.isEmpty()
+                        mAdapter.submitList(apps) {
+                            if (wasEmpty && apps.isNotEmpty()) {
+                                binding.recyclerView.scheduleLayoutAnimation()
+                            }
+                        }
                         updateSearchHint(apps.size)
                     }
             }
@@ -399,7 +427,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
                 val areAllOff = childrenCheckBoxes.all { !it.isChecked }
                 val ctx = requireContext()
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     handleScopeLogic(pkgName, areAllOff, ctx)
                 }
                 appConfigDialog?.dismiss()
@@ -411,7 +439,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private suspend fun handleScopeLogic(
         pkgName: String,
         areAllSwitchesOff: Boolean,
-        ctx: android.content.Context
+        ctx: Context
     ) {
         val currentScope = ScopeManager.getScope() ?: run {
             withContext(Dispatchers.Main) {
@@ -423,20 +451,17 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         val isPackageInScope = pkgName in currentScope
 
         val showSuccessToast: () -> Unit = {
-            lifecycleScope.launch(Dispatchers.Main) {
-                Toast.makeText(ctx, R.string.save_success, Toast.LENGTH_SHORT).show()
-            }
+            Toast.makeText(ctx, R.string.save_success, Toast.LENGTH_SHORT).show()
         }
 
         when {
             isPackageInScope && areAllSwitchesOff -> {
                 withContext(Dispatchers.Main) {
-                    showRemoveScopeConfirmationDialog(pkgName, ctx, onDismissed = showSuccessToast)
+                    showRemoveScopeConfirmationDialog(pkgName, ctx)
                 }
             }
             !isPackageInScope && !areAllSwitchesOff -> {
                 ScopeManager.addScope(pkgName, scopeCallback)
-                showSuccessToast()
             }
             else -> {
                 showSuccessToast()
@@ -446,15 +471,14 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
 
     private fun showRemoveScopeConfirmationDialog(
         pkgName: String,
-        ctx: android.content.Context,
-        onDismissed: () -> Unit
+        ctx: Context
     ) {
         MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.remove_scope_dialog_title)
             .setMessage(getString(R.string.remove_scope_dialog_message, pkgName))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.action_remove) { _, _ ->
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     val error = ScopeManager.removeScope(pkgName)
                     if (error == null) {
                         scopeCallback.onScopeOperationSuccess("$pkgName removed from scope.")
@@ -463,7 +487,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                     }
                 }
             }
-            .setOnDismissListener { onDismissed() }
             .show()
     }
 
@@ -548,7 +571,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val backupSAFLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
             uri?.let {
-                lifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
                         val service =
                             ServiceManager.service ?: throw IOException("Service not available.")
@@ -584,6 +607,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                             ).show()
                         }
                     }.onFailure { e ->
+                        if (e is CancellationException) throw e
                         withContext(Dispatchers.Main) {
                             showErrorDialog(getString(R.string.export_failed), e)
                         }
@@ -599,7 +623,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let {
-                lifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
                         val contentResolver = requireContext().contentResolver
                         val (fileName, mimeType) = getFileInfo(it)
@@ -627,6 +651,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                             }
                         }
                     }.onFailure { e ->
+                        if (e is CancellationException) throw e
                         withContext(Dispatchers.Main) {
                             showErrorDialog(getString(R.string.import_failed), e)
                         }
@@ -656,7 +681,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             throw IOException("Invalid JSON file name. Only '$PREFS_FILE_NAME' or files starting with '$CUSTOM_HOOKS_PREFIX' can be imported individually.")
         }
         val service = ServiceManager.service ?: throw IOException("Service not available.")
-        val content = inputStream.reader().use { it.readText() }
+        val content = inputStream.readBytesLimited(MAX_BACKUP_FILE_BYTES).toString(Charsets.UTF_8)
         if (content.isBlank()) throw IOException("Backup file is empty.")
 
         val bytes = content.toByteArray(Charsets.UTF_8)
@@ -672,11 +697,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun handleZipRestore(inputStream: InputStream) {
         val service = ServiceManager.service ?: throw IOException("Service not available.")
         ZipInputStream(inputStream).use { zis ->
+            var totalBytes = 0
             var zipEntry: ZipEntry? = zis.nextEntry
             while (zipEntry != null) {
                 val fileName = zipEntry.name
                 if (fileName == PREFS_FILE_NAME || fileName.startsWith(CUSTOM_HOOKS_PREFIX)) {
-                    val bytes = zis.readBytes()
+                    val bytes = zis.readBytesLimited(MAX_BACKUP_FILE_BYTES)
+                    totalBytes += bytes.size
+                    if (totalBytes > MAX_BACKUP_TOTAL_BYTES) {
+                        throw IOException("Backup exceeds ${MAX_BACKUP_TOTAL_BYTES / (1024 * 1024)} MiB")
+                    }
                     service.openRemoteFile(fileName).use { pfd ->
                         FileOutputStream(pfd.fileDescriptor).use { fos ->
                             fos.channel.truncate(0)
@@ -704,4 +734,18 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             }
             .show()
     }
+}
+
+private fun InputStream.readBytesLimited(limit: Int): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) break
+        if (output.size() + count > limit) {
+            throw IOException("Backup entry exceeds ${limit / (1024 * 1024)} MiB")
+        }
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
 }

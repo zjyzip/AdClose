@@ -15,6 +15,7 @@ import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AnimationUtils
 import android.view.WindowManager
 import android.widget.EditText
 import android.widget.ImageView
@@ -48,18 +49,23 @@ import com.close.hook.ads.ui.adapter.BlockListAdapter
 import com.close.hook.ads.ui.fragment.base.BaseSearchFragment
 import com.close.hook.ads.ui.viewmodel.BlockListViewModel
 import com.close.hook.ads.util.INavContainer
+import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.FooterSpaceItemDecoration
+import com.close.hook.ads.util.readTextLimited
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
+
+private const val MAX_RULE_IMPORT_BYTES = 10 * 1024 * 1024
 
 class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBackPressListener {
 
@@ -98,8 +104,9 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                 clipToPadding = false
             }
 
-            addItemDecoration(footerSpaceDecoration)
-            attachNavScrollListener()
+            if (MotionUtils.areAnimationsEnabled(requireContext())) {
+                layoutAnimation = AnimationUtils.loadLayoutAnimation(requireContext(), R.anim.layout_list_enter)
+            }
             FastScrollerBuilder(this).useMd2Style().build()
         }
     }
@@ -332,7 +339,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
 
                 val newItem = Url(type = selectedType, url = newUrl).also { it.id = url?.id ?: 0L }
 
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     if (url == null) {
                         val added = viewModel.addUrlIfAbsent(newItem)
                         if (!added) {
@@ -364,7 +371,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
     private val backupSAFLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
             uri?.let {
-                lifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
                         val currentList = viewModel.getAllUrls()
 
@@ -382,6 +389,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                             Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
                         }
                     }.onFailure {
+                        if (it is CancellationException) throw it
                         withContext(Dispatchers.Main) {
                             showErrorDialog(getString(R.string.export_failed), it)
                         }
@@ -393,7 +401,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
     private val restoreSAFLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let { validUri ->
-                lifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
                         val contentResolver = requireContext().contentResolver
 
@@ -413,8 +421,10 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                             .map { "${it.type.lowercase()},${it.url}" }
                             .toSet()
 
-                        val newUrls = contentResolver.openInputStream(validUri)?.bufferedReader()?.useLines { lines ->
-                            lines.mapNotNull { line ->
+                        val newUrls = contentResolver.openInputStream(validUri)?.use { input ->
+                            input.readTextLimited(MAX_RULE_IMPORT_BYTES)
+                                .lineSequence()
+                                .mapNotNull { line ->
                                 val parts = line.split(",\\s*".toRegex(), 2).map(String::trim)
                                 if (parts.size == 2 && parts[0].lowercase() in validTypes) {
                                     Url(parts[0], parts[1])
@@ -440,6 +450,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                             Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
                         }
                     }.onFailure {
+                        if (it is CancellationException) throw it
                         withContext(Dispatchers.Main) {
                             showErrorDialog(getString(R.string.import_failed), it)
                         }

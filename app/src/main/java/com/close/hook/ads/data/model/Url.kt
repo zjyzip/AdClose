@@ -13,7 +13,7 @@ import kotlinx.parcelize.Parcelize
     indices = [
         Index(value = ["url"]),
         Index(value = ["type"]),
-        Index(value = ["type", "url"])
+        Index(value = ["type", "url"], unique = true)
     ]
 )
 data class Url(

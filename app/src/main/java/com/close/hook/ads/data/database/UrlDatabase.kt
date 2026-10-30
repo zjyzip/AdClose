@@ -13,7 +13,7 @@ import com.close.hook.ads.data.model.SubscriptionRule
 import com.close.hook.ads.data.model.SubscriptionSource
 import com.close.hook.ads.data.model.Url
 
-@Database(entities = [Url::class, SubscriptionSource::class, SubscriptionRule::class], version = 6, exportSchema = false)
+@Database(entities = [Url::class, SubscriptionSource::class, SubscriptionRule::class], version = 7, exportSchema = false)
 abstract class UrlDatabase : RoomDatabase() {
     abstract val urlDao: UrlDao
     abstract val subscriptionSourceDao: SubscriptionSourceDao
@@ -77,6 +77,26 @@ abstract class UrlDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Remove duplicates before creating the unique index required by the entity.
+                db.execSQL(
+                    "UPDATE url_info SET type = CASE lower(type) " +
+                        "WHEN 'url' THEN 'URL' WHEN 'domain' THEN 'Domain' " +
+                        "WHEN 'keyword' THEN 'KeyWord' ELSE type END"
+                )
+                db.execSQL(
+                    "DELETE FROM url_info WHERE id NOT IN " +
+                        "(SELECT MIN(id) FROM url_info GROUP BY type, url)"
+                )
+                db.execSQL("DROP INDEX IF EXISTS index_url_info_type_url")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX index_url_info_type_url " +
+                        "ON url_info(type, url)"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): UrlDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -84,7 +104,14 @@ abstract class UrlDatabase : RoomDatabase() {
                     UrlDatabase::class.java,
                     "url_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_6_7
+                )
                 .build().also {
                     instance = it
                 }

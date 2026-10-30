@@ -3,7 +3,9 @@ package com.close.hook.ads.ui.adapter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -64,12 +66,24 @@ class RequestInfoPagerAdapter(
     inner class RequestInfoViewHolder(val binding: ItemRequestInfoBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
+        private val stackGestureDetector = GestureDetector(
+            binding.root.context,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(event: MotionEvent): Boolean = true
+
+                override fun onLongPress(event: MotionEvent) {
+                    binding.stackText.parent?.requestDisallowInterceptTouchEvent(true)
+                }
+            }
+        )
+
         fun bind(tabTitle: String) {
             val sections = listOf(
                 binding.dnsSection, binding.requestSection, binding.requestBodySection,
                 binding.responseSection, binding.responseBodySection, binding.stackSection
             )
             sections.forEach { it.visibility = View.GONE }
+            binding.stackText.setOnTouchListener(null)
 
             when (tabTitle) {
                 "DNS Info" -> {
@@ -106,6 +120,20 @@ class RequestInfoPagerAdapter(
                 }
                 "Stack" -> {
                     binding.stackSection.visibility = View.VISIBLE
+                    binding.stackText.apply {
+                        setTextIsSelectable(true)
+                        isFocusableInTouchMode = true
+                        isLongClickable = true
+                        setOnTouchListener { view, event ->
+                            stackGestureDetector.onTouchEvent(event)
+                            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                                event.actionMasked == MotionEvent.ACTION_CANCEL
+                            ) {
+                                view.parent?.requestDisallowInterceptTouchEvent(false)
+                            }
+                            false
+                        }
+                    }
                     updateStaticTextViews(binding.stackText to arguments.getString("stack"))
                 }
             }

@@ -65,7 +65,10 @@ class RequestListAdapter(
         fun getItemDetails(): ItemDetailsLookup.ItemDetails<RequestInfo> =
             object : ItemDetailsLookup.ItemDetails<RequestInfo>() {
                 override fun getPosition(): Int = bindingAdapterPosition
-                override fun getSelectionKey(): RequestInfo? = getItem(bindingAdapterPosition)
+                override fun getSelectionKey(): RequestInfo? {
+                    val position = bindingAdapterPosition
+                    return if (position == RecyclerView.NO_POSITION) null else getItem(position)
+                }
             }
 
         @SuppressLint("SetTextI18n")

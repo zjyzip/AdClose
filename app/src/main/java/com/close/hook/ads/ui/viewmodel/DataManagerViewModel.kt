@@ -50,20 +50,23 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun loadAllData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            try {
+                val frameworkInfoDeferred = async { repository.getFrameworkInfo() }
+                val managedFilesDeferred = async { repository.getManagedFiles() }
+                val preferenceGroupsDeferred = async { repository.getPreferenceGroups() }
+                val databasesDeferred = async { repository.getDatabases() }
 
-            val frameworkInfoDeferred    = async { repository.getFrameworkInfo() }
-            val managedFilesDeferred     = async { repository.getManagedFiles() }
-            val preferenceGroupsDeferred = async { repository.getPreferenceGroups() }
-            val databasesDeferred        = async { repository.getDatabases() }
-
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    frameworkInfo = frameworkInfoDeferred.await(),
-                    managedFiles = managedFilesDeferred.await(),
-                    preferenceGroups = preferenceGroupsDeferred.await(),
-                    databases = databasesDeferred.await()
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        frameworkInfo = frameworkInfoDeferred.await(),
+                        managedFiles = managedFilesDeferred.await(),
+                        preferenceGroups = preferenceGroupsDeferred.await(),
+                        databases = databasesDeferred.await()
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -84,28 +87,23 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
             }
 
             _uiState.update { it.copy(isLoading = true) }
-            val contentBytes = getItemContent(item)
-            _uiState.update { it.copy(isLoading = false) }
-
-            if (contentBytes != null) {
-                try {
+            try {
+                val contentBytes = getItemContent(item)
+                _uiState.update { it.copy(isLoading = false) }
+                if (contentBytes != null) {
                     val contentStr = String(contentBytes, StandardCharsets.UTF_8)
-                    val formattedContent = try {
+                    val formattedContent = runCatching {
                         if (contentStr.trim().startsWith("{") || contentStr.trim().startsWith("[")) {
-                            val jsonElement = JsonParser.parseString(contentStr)
-                            gson.toJson(jsonElement)
-                        } else {
-                            contentStr
-                        }
-                    } catch (e: Exception) {
-                        contentStr
-                    }
+                            gson.toJson(JsonParser.parseString(contentStr))
+                        } else contentStr
+                    }.getOrDefault(contentStr)
                     viewFileEvents.send(ViewFileEvent.Success(formattedContent, item.name))
-                } catch (e: Exception) {
-                    viewFileEvents.send(ViewFileEvent.Failed("Failed to parse file content: ${e.message}"))
+                } else {
+                    viewFileEvents.send(ViewFileEvent.Failed("Failed to load file content."))
                 }
-            } else {
-                viewFileEvents.send(ViewFileEvent.Failed("Failed to load file content."))
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false) }
+                viewFileEvents.send(ViewFileEvent.Failed("Failed to load file content: ${e.message}"))
             }
         }
     }

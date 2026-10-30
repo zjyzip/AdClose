@@ -39,7 +39,41 @@ class SubscriptionRepository private constructor(private val context: Context) {
     private fun defaultName() = "Sub ${SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date())}"
 
     suspend fun updateSource(source: SubscriptionSource) {
-        sourceDao.update(source)
+        val current = sourceDao.findById(source.id) ?: return
+        val normalizedUrl = source.url.trim()
+        val urlChanged = current.url != normalizedUrl
+        val enabledChanged = current.enabled != source.enabled
+        val enabledNow = !current.enabled && source.enabled
+
+        val updated = if (urlChanged) {
+            source.copy(
+                url = normalizedUrl,
+                etag = null,
+                lastModified = null,
+                lastAttemptAt = 0L,
+                lastSuccessAt = 0L,
+                nextRefreshAt = System.currentTimeMillis(),
+                refreshLeaseUntil = 0L,
+                ruleCount = 0,
+                skippedCount = 0,
+                lastError = null
+            )
+        } else if (enabledNow) {
+            source.copy(url = normalizedUrl, nextRefreshAt = System.currentTimeMillis(), refreshLeaseUntil = 0L)
+        } else {
+            source.copy(url = normalizedUrl)
+        }
+
+        if (urlChanged) {
+            db.withTransaction {
+                ruleDao.deleteBySourceId(source.id)
+                sourceDao.update(updated)
+            }
+        } else {
+            sourceDao.update(updated)
+        }
+
+        if (urlChanged || enabledChanged) notifyChange()
     }
 
     suspend fun deleteSource(source: SubscriptionSource) {
@@ -63,32 +97,41 @@ class SubscriptionRepository private constructor(private val context: Context) {
             val result = withContext(Dispatchers.IO) { SubscriptionFetcher.fetch(source) }
             when (result) {
                 is SubscriptionFetcher.Result.NotModified -> {
-                    val next = now + source.refreshIntervalMinutes * 60_000L
-                    sourceDao.markNotModified(sourceId, now, next)
+                    val completedAt = System.currentTimeMillis()
+                    val next = completedAt + source.refreshIntervalMinutes * 60_000L
+                    sourceDao.markNotModified(sourceId, completedAt, next, source.url)
                 }
                 is SubscriptionFetcher.Result.Content -> {
                     val parsed = SubscriptionRuleParser.parse(result.input)
                     val rules = parsed.rules.map { SubscriptionRule(sourceId = sourceId, type = it.type, value = it.value) }
-                    val next = now + source.refreshIntervalMinutes * 60_000L
-                    db.withTransaction {
-                        ruleDao.deleteBySourceId(sourceId)
-                        ruleDao.insertAll(rules)
-                        sourceDao.markRefreshSuccess(
-                            id = sourceId,
-                            etag = result.etag,
-                            lastModified = result.lastModified,
-                            now = now,
-                            nextRefreshAt = next,
-                            ruleCount = rules.size,
-                            skippedCount = parsed.skippedCount
-                        )
+                    val completedAt = System.currentTimeMillis()
+                    val next = completedAt + source.refreshIntervalMinutes * 60_000L
+                    val applied = db.withTransaction {
+                        val current = sourceDao.findById(sourceId)
+                        if (current?.url != source.url || !current.enabled) {
+                            false
+                        } else {
+                            ruleDao.deleteBySourceId(sourceId)
+                            ruleDao.insertAll(rules)
+                            sourceDao.markRefreshSuccess(
+                                id = sourceId,
+                                etag = result.etag,
+                                lastModified = result.lastModified,
+                                now = completedAt,
+                                nextRefreshAt = next,
+                                ruleCount = rules.size,
+                                skippedCount = parsed.skippedCount,
+                                expectedUrl = source.url
+                            )
+                            true
+                        }
                     }
-                    notifyChange()
+                    if (applied) notifyChange()
                 }
             }
         } catch (e: Exception) {
             val retryIn = 60 * 60_000L
-            sourceDao.markRefreshFailure(sourceId, e.message ?: "Unknown error", now + retryIn)
+            sourceDao.markRefreshFailure(sourceId, e.message ?: "Unknown error", now + retryIn, source.url)
         }
     }
 

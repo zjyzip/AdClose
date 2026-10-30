@@ -36,6 +36,7 @@ class CustomHookViewModel(
     private val _isLoading = MutableStateFlow(true)
     private val _isGlobalEnabled = MutableStateFlow(false)
     private val _autoDetectedHooksResult = MutableStateFlow<List<CustomHookInfo>?>(null)
+    private val _autoDetectError = MutableStateFlow<String?>(null)
 
     private val scanPrefs by lazy {
         getApplication<Application>().getSharedPreferences("custom_hook_scan", Context.MODE_PRIVATE)
@@ -49,6 +50,7 @@ class CustomHookViewModel(
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     val autoDetectedHooksResult: StateFlow<List<CustomHookInfo>?> = _autoDetectedHooksResult.asStateFlow()
+    val autoDetectError: StateFlow<String?> = _autoDetectError.asStateFlow()
 
     val filteredConfigs: StateFlow<List<CustomHookInfo>> =
         combine(_hookConfigs, _searchQuery) { configs, currentQuery ->
@@ -89,6 +91,7 @@ class CustomHookViewModel(
                 if (hooks != null && isWaitingForScanResult) {
                     _autoDetectedHooksResult.value = hooks
                     isWaitingForScanResult = false
+                    scanTimeoutJob?.cancel()
                 }
             }
         }
@@ -125,12 +128,23 @@ class CustomHookViewModel(
     }
 
     fun requestAutoDetectHooks(packageName: String) {
+        _autoDetectError.value = null
         isWaitingForScanResult = true
         val intent = Intent("com.close.hook.ads.ACTION_AUTO_DETECT_ADS").apply {
             putExtra("target_package", packageName)
             setPackage(packageName)
         }
         getApplication<Application>().sendBroadcast(intent)
+
+        scanTimeoutJob?.cancel()
+        scanTimeoutJob = viewModelScope.launch {
+            delay(SCAN_TIMEOUT_MS)
+            if (isWaitingForScanResult) {
+                isWaitingForScanResult = false
+                fallbackScanJob?.cancel()
+                _autoDetectError.value = "timeout"
+            }
+        }
 
         // Manager-process fallback for Xiaomi / OPPO / vivo: the hook-side scan
         // gets killed when the target app is backgrounded, so its push to the
@@ -152,16 +166,22 @@ class CustomHookViewModel(
     }
 
     private var fallbackScanJob: Job? = null
+    private var scanTimeoutJob: Job? = null
 
     fun clearAutoDetectHooksResult() {
         _autoDetectedHooksResult.value = null
+        _autoDetectError.value = null
+        isWaitingForScanResult = false
         CustomHookRepository.clearAutoDetectResult()
         fallbackScanJob?.cancel()
         fallbackScanJob = null
+        scanTimeoutJob?.cancel()
+        scanTimeoutJob = null
     }
 
     private companion object {
         private const val FALLBACK_DELAY_MS = 5_000L
+        private const val SCAN_TIMEOUT_MS = 30_000L
     }
 
     fun addHook(hookConfig: CustomHookInfo) {
