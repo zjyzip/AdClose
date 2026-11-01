@@ -397,4 +397,17 @@
     <string name="detail_response_code">响应码</string>
     <string name="detail_response_message">响应消息</string>
     <string name="detail_response_headers">响应头</string>
+
+    <!-- 补齐既有缺项 -->
+    <string name="remove_scope_dialog_title">移除作用域？</string>
+    <string name="action_remove">移除</string>
+    <string name="disable_scope_dialog_message">确定要对 %s 停用模块吗？</string>
+    <string name="remove_scope_dialog_message">%s 的所有开关均已关闭，是否将此应用完全移出模块作用域？</string>
+    <string name="sig_toolbar_title">签名分析</string>
+    <string name="sig_switch_java">启用 Java 签名 Hook</string>
+    <string name="sig_switch_native">启用 Native 签名 Hook</string>
+    <string name="sig_empty_hint">暂无签名检查记录</string>
+    <string name="sig_java_count">Java 检查：%d</string>
+    <string name="sig_native_count">Native 检查：%d</string>
+    <string name="sku">SKU</string>
 </resources>

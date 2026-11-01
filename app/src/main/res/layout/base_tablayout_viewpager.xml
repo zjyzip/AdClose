@@ -45,7 +45,7 @@
                         android:paddingLeft="16dp"
                         android:paddingRight="16dp"
                         android:src="@drawable/ic_magnifier_to_back"
-                        android:contentDescription="@null" />
+                        android:contentDescription="@string/search" />
 
                     <EditText
                         android:id="@+id/edit_text"

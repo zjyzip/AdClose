@@ -124,7 +124,7 @@
     <string name="hook_configurations_label">Hook Yapılandırmaları</string>
     <string name="copied_hooks_count">%d Hook kopyalandı</string>
     <string name="clear_all_hooks_title">Tüm Hook\'lar temizlensin mi?</string>
-    <string name="clear_all_hooks_message">Tüm Hook yapılandırmalarını temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.</string>
+    <string name="clear_all_hooks_message">Tüm Hook yapılandırmaları temizlensin mi? İşlemden hemen sonra geri alabilirsiniz.</string>
     <string name="all_hooks_cleared">Tüm Hook\'lar temizlendi</string>
     <string name="empty_hook_configs">Henüz özel Hook yapılandırması yok</string>
     <string name="hook_added_successfully">Hook başarıyla eklendi</string>
@@ -185,7 +185,7 @@
     <string name="clear_all_hooks">Tüm Hook\'ları Temizle</string>
 
     <string name="fab_auto_detect_ads">Reklam SDK\'sını Otomatik Algıla</string>
-    <string name="toast_return_to_check_results">Please return to the module to check results after entering the app home page.</string>
+    <string name="toast_return_to_check_results">Uygulamanın ana sayfasını açtıktan sonra sonuçları görmek için modüle dönün.</string>
     <string name="dialog_auto_detect_ads_title">Aşağıdaki reklam başlatma yöntemleri algılandı</string>
     <string name="import_selected_hooks_count">%d Hook kuralı içe aktarıldı.</string>
     <string name="no_hook_selected">Hiçbir Hook yapılandırması seçilmedi</string>
@@ -343,4 +343,77 @@
         <item>7 gün</item>
         <item>30 gün</item>
     </string-array>
+
+    <!-- Logging and automatic detection -->
+    <string name="log_search_hint">Günlüklerde ara</string>
+    <string name="log_enable">Günlüğü etkinleştir</string>
+    <string name="log_no_record">Henüz günlük kaydı yok</string>
+    <string name="log_disabled">Günlük kaydı devre dışı</string>
+    <string name="log_no_results">“%1$s” için sonuç bulunamadı</string>
+    <string name="log_no_stack_trace">Yığın izi mevcut değil.</string>
+    <string name="log_stack_trace">Yığın izi</string>
+    <string name="log_copy_stack">Yığın izini kopyala</string>
+    <string name="log_copy_log">Günlüğü kopyala</string>
+    <string name="copied_to_clipboard">Panoya kopyalandı</string>
+    <string name="auto_detect_waiting">Komut gönderiliyor ve tarama sonuçları bekleniyor…</string>
+    <string name="auto_detect_no_app">Uygulama başlatılamıyor</string>
+    <string name="auto_detect_select_app">Önce bir uygulama seçin</string>
+    <string name="auto_detect_timeout">Tarama zaman aşımına uğradı. Lütfen tekrar deneyin.</string>
+    <string name="import_clipboard_title">Panodan içe aktar</string>
+    <string name="subscription_refresh_started">Güncelleme başlatıldı</string>
+
+    <!-- Request details and large-body search -->
+    <string name="body_loading">İçerik yükleniyor…</string>
+    <string name="body_load_failed">İçerik yüklenemiyor: %1$s</string>
+    <string name="body_image_decode_failed">Bu görüntü gösterilemiyor.</string>
+    <string name="body_searching">Aranıyor…</string>
+    <string name="body_no_matches">Eşleşme yok</string>
+    <string name="body_match_count">%1$d/%2$s</string>
+    <string name="body_page_count">%1$d/%2$d</string>
+    <string name="body_previous_page">Önceki</string>
+    <string name="body_next_page">Sonraki</string>
+    <string name="body_previous_match">Önceki eşleşme</string>
+    <string name="body_next_match">Sonraki eşleşme</string>
+    <string name="body_request_title">İstek gövdesi</string>
+    <string name="body_response_title">Yanıt gövdesi</string>
+    <string name="body_collect_response">Yanıt gövdesini topla</string>
+    <string name="body_paging_hint">Büyük içerik sayfalar halinde gösterilir. Arama, yüklenen gövdenin tamamını kapsar.</string>
+    <string name="detail_dns">DNS bilgileri</string>
+    <string name="detail_request">İstek</string>
+    <string name="detail_response">Yanıt</string>
+    <string name="detail_dns_host">DNS ana bilgisayarı</string>
+    <string name="detail_address">Tam adres</string>
+    <string name="detail_method">İstek yöntemi</string>
+    <string name="detail_url">İstek URL adresi</string>
+    <string name="detail_request_headers">İstek başlıkları</string>
+    <string name="detail_response_code">Yanıt kodu</string>
+    <string name="detail_response_message">Yanıt mesajı</string>
+    <string name="detail_response_headers">Yanıt başlıkları</string>
+
+    <!-- Overview, feedback and accessibility -->
+    <string name="action_undo">Geri al</string>
+    <string name="operation_failed">İşlem tamamlanamıyor.</string>
+    <string name="operation_restored">%1$d öğe geri yüklendi</string>
+    <string name="rules_deleted_count">%1$d kural silindi</string>
+    <string name="logs_cleared_count">%1$d günlük kaydı temizlendi</string>
+    <string name="overview_rules">Yerel kurallar</string>
+    <string name="overview_subscriptions">Abonelikler</string>
+    <string name="overview_apps">Yüklü uygulamalar</string>
+    <string name="overview_configured_apps">Yapılandırılmış uygulamalar</string>
+    <string name="overview_recent_blocked">Son engellenenler</string>
+    <string name="overview_subscriptions_status">%2$d abonelikten %1$d tanesi etkin · %3$d tanesi kontrol edilmeli</string>
+    <string name="overview_session_hint">Son engellenen istekler, mevcut istek listesinden sayılır.</string>
+    <string name="overview_unavailable">Kullanılamıyor</string>
+    <string name="overview_recent_count">Son engellenenler: %1$d / %2$d istek</string>
+    <string name="search_close">Aramayı kapat</string>
+    <string name="fab_open_actions">İşlemleri aç</string>
+    <string name="fab_close_actions">İşlemleri kapat</string>
+    <string name="hook_parameter_number">Parametre %1$d</string>
+    <string name="framework_name_format">Çerçeve: %1$s</string>
+    <string name="framework_version_format">Sürüm: %1$s</string>
+    <string name="framework_api_format">API: %1$d</string>
+    <string name="database_not_text">Veritabanı dosyaları metin olarak gösterilemez.</string>
+    <string name="file_load_failed">Bu dosya okunamıyor.</string>
+    <string name="hook_tip_enable">Hook bildirimini etkinleştir</string>
+    <string name="invalid_file_format">Dosya biçimi geçersiz. Lütfen .rule uzantılı bir dosya seçin.</string>
 </resources>
