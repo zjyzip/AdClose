@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.databinding.ItemBlockListBinding
+import com.close.hook.ads.util.showFeedback
 import com.close.hook.ads.util.dp
 
 class BlockListAdapter(
@@ -100,7 +101,7 @@ class BlockListAdapter(
             val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clipData = ClipData.newPlainText(type, url)
             clipboardManager.setPrimaryClip(clipData)
-            Toast.makeText(context, context.getString(R.string.copied_to_clipboard_single, url), Toast.LENGTH_SHORT).show()
+            itemView.showFeedback(context.getString(R.string.copied_to_clipboard))
         }
     }
 

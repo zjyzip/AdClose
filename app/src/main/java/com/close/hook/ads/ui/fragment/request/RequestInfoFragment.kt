@@ -2,6 +2,7 @@ package com.close.hook.ads.ui.fragment.request
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Rect
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -27,8 +28,11 @@ import com.close.hook.ads.databinding.FragmentRequestInfoBinding
 import com.close.hook.ads.ui.adapter.RequestInfoPagerAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
+import com.close.hook.ads.util.MotionUtils
+import com.close.hook.ads.util.showFeedback
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
+import com.google.android.material.R as MaterialR
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
@@ -71,8 +75,10 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         super.onViewCreated(view, savedInstanceState)
 
         viewModel.setHighlightColors(
-            MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSecondaryContainer),
-            MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorTertiaryContainer)
+            MaterialColors.getColor(binding.root, MaterialR.attr.colorSecondaryContainer),
+            MaterialColors.getColor(binding.root, MaterialR.attr.colorTertiaryContainer),
+            MaterialColors.getColor(binding.root, MaterialR.attr.colorOnSecondaryContainer),
+            MaterialColors.getColor(binding.root, MaterialR.attr.colorOnTertiaryContainer)
         )
         viewModel.init(requireArguments())
         availableTabs = getAvailableTabs()
@@ -94,7 +100,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     }
 
     override fun onBackPressed(): Boolean {
-        if (binding.editText.isFocused) {
+        if (binding.editText.isFocused || !binding.editText.text.isNullOrEmpty()) {
             updateSearchUI(isFocused = false)
             return true
         }
@@ -123,26 +129,16 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 }
 
                 launch {
-                    viewModel.matches.collectLatest { updateSearchNavigationVisibility() }
-                }
-
-                launch {
-                    viewModel.currentMatchIndex.collectLatest { index ->
-                        updateSearchNavigationVisibility()
-                        if (index != -1) scrollToMatch(index)
-                    }
-                }
-
-                launch {
-                    viewModel.highlightedContent.collectLatest { content ->
-                        val position = binding.viewPager.currentItem
-                        val tab = availableTabs.getOrNull(position)
-                        if (content != null && tab in listOf(
-                                RequestInfoViewModel.TAB_REQUEST_BODY,
-                                RequestInfoViewModel.TAB_RESPONSE_BODY
-                            )
-                        ) {
-                            pagerAdapter.notifyItemChanged(position, content)
+                    viewModel.bodyDisplay.collectLatest { display ->
+                        updateSearchNavigationVisibility(display)
+                        if (display != null) {
+                            val position = availableTabs.indexOf(display.tab)
+                            if (position >= 0) pagerAdapter.notifyItemChanged(position, display)
+                            if (display.matchStart >= 0 && display.matchIndex >= 0 && !display.searching) {
+                                binding.viewPager.post {
+                                    if (_binding != null && viewModel.bodyDisplay.value === display) scrollToMatch(display)
+                                }
+                            }
                         }
                     }
                 }
@@ -169,6 +165,8 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     private fun setupSearchNavigation() {
         binding.buttonNextMatch.setOnClickListener { viewModel.navigateToNextMatch() }
         binding.buttonPrevMatch.setOnClickListener { viewModel.navigateToPreviousMatch() }
+        binding.buttonPrevPage.setOnClickListener { viewModel.changeBodyPage(-1) }
+        binding.buttonNextPage.setOnClickListener { viewModel.changeBodyPage(1) }
     }
 
     private fun setupToolbarAndSearch() {
@@ -183,13 +181,12 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
             updateSearchUI(isFocused = !binding.editText.isFocused)
         }
         binding.editText.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus != binding.searchIcon.isActivated) {
-                updateSearchUI(isFocused = hasFocus)
-            }
+            // Selecting body text must not clear the query or rebind the selected TextView.
+            updateSearchIcon(hasFocus)
         }
     }
 
-    private fun updateSearchUI(isFocused: Boolean) {
+    private fun updateSearchIcon(isFocused: Boolean) {
         binding.searchIcon.isActivated = isFocused
         val drawableId =
             if (isFocused) R.drawable.ic_magnifier_to_back else R.drawable.ic_back_to_magnifier
@@ -197,7 +194,11 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
             ContextCompat.getDrawable(requireContext(), drawableId)
         )
         (binding.searchIcon.drawable as? AnimatedVectorDrawable)?.start()
+        binding.searchIcon.contentDescription = getString(if (isFocused) R.string.search_close else R.string.search)
+    }
 
+    private fun updateSearchUI(isFocused: Boolean) {
+        updateSearchIcon(isFocused)
         if (isFocused) {
             binding.editText.showKeyboard()
         } else {
@@ -211,7 +212,14 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         binding.viewPager.adapter = pagerAdapter
 
         TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
-            tab.text = availableTabs[position]
+            tab.text = getString(when (availableTabs[position]) {
+                "DNS Info" -> R.string.detail_dns
+                "Request" -> R.string.detail_request
+                "Response" -> R.string.detail_response
+                "Stack" -> R.string.log_stack_trace
+                RequestInfoViewModel.TAB_REQUEST_BODY -> R.string.body_request_title
+                else -> R.string.body_response_title
+            })
         }.attach()
 
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
@@ -222,10 +230,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 binding.viewPager.post { bindFabToCurrentPage() }
 
                 viewModel.setCurrentTab(newTab)
-
-                if (binding.editText.isFocused) {
-                    viewModel.resetSearchState()
-                }
+                updateSearchNavigationVisibility(viewModel.displayFor(newTab))
             }
         })
 
@@ -237,43 +242,48 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         }
     }
 
-    private fun updateSearchNavigationVisibility() {
-        val matchesCount = viewModel.matches.value.size
-        val currentIndex = viewModel.currentMatchIndex.value
-        val currentTab = availableTabs.getOrNull(binding.viewPager.currentItem)
-        val hasFocus = binding.editText.isFocused
-        binding.searchNavigationContainer.isVisible = hasFocus &&
-                (currentTab == RequestInfoViewModel.TAB_REQUEST_BODY ||
-                        currentTab == RequestInfoViewModel.TAB_RESPONSE_BODY) &&
-                matchesCount > 0
-        binding.matchesCount.text = if (matchesCount > 0 && hasFocus) {
-            "${currentIndex + 1}/$matchesCount"
-        } else ""
+    private fun updateSearchNavigationVisibility(display: RequestInfoViewModel.BodyDisplay?) {
+        val bodyTab = isExportTab(availableTabs.getOrNull(binding.viewPager.currentItem))
+        val hasQuery = bodyTab && !binding.editText.text.isNullOrEmpty()
+        binding.searchProgressBar.isVisible = bodyTab && display?.searching == true
+        binding.searchNavigationContainer.isVisible = hasQuery
+        val count = display?.matchCount ?: 0
+        binding.buttonNextMatch.isEnabled = count > 0 && display?.searching == false
+        binding.buttonPrevMatch.isEnabled = binding.buttonNextMatch.isEnabled
+        binding.matchesCount.text = when {
+            display?.searching == true -> getString(R.string.body_searching)
+            count == 0 -> getString(R.string.body_no_matches)
+            else -> getString(R.string.body_match_count, display!!.matchIndex + 1,
+                count.toString() + if (display.truncated) "+" else "")
+        }
+        binding.bodyPageNavigation.isVisible = bodyTab && display != null && display.pageCount > 1
+        if (display != null) {
+            binding.bodyPageCount.text = getString(R.string.body_page_count, display.page + 1, display.pageCount)
+            binding.buttonPrevPage.isEnabled = display.page > 0 && !display.searching
+            binding.buttonNextPage.isEnabled = display.page + 1 < display.pageCount && !display.searching
+        }
     }
 
-    private fun scrollToMatch(index: Int) {
-        val vh = (binding.viewPager.getChildAt(0) as? RecyclerView)
+    private fun scrollToMatch(display: RequestInfoViewModel.BodyDisplay) {
+        if (availableTabs.getOrNull(binding.viewPager.currentItem) != display.tab) return
+        val holder = (binding.viewPager.getChildAt(0) as? RecyclerView)
             ?.findViewHolderForAdapterPosition(binding.viewPager.currentItem)
-                as? RequestInfoPagerAdapter.RequestInfoViewHolder ?: return
-
-        val scrollView = vh.binding.scrollView
-        val textView = when (availableTabs.getOrNull(binding.viewPager.currentItem)) {
-            RequestInfoViewModel.TAB_REQUEST_BODY -> vh.binding.requestBodyText
-            RequestInfoViewModel.TAB_RESPONSE_BODY -> vh.binding.responseBodyText
-            else -> null
-        } ?: return
-
-        val matches = viewModel.matches.value
-        if (index !in matches.indices) return
-
+            as? RequestInfoPagerAdapter.RequestInfoViewHolder ?: return
+        holder.showBody(display)
+        val scrollView = holder.binding.scrollView
+        val textView = if (display.tab == RequestInfoViewModel.TAB_REQUEST_BODY) {
+            holder.binding.requestBodyText
+        } else holder.binding.responseBodyText
         textView.post {
-            val layout: Layout? = textView.layout
-            if (layout != null) {
-                val line = layout.getLineForOffset(matches[index].first)
-                val y = layout.getLineTop(line)
-                val scrollY = textView.top + y - (scrollView.height / 3)
-                scrollView.smoothScrollTo(0, scrollY.coerceAtLeast(0))
-            }
+            if (_binding == null || viewModel.bodyDisplay.value !== display) return@post
+            val layout: Layout = textView.layout ?: return@post
+            val offset = display.matchStart.coerceIn(0, textView.length())
+            val line = layout.getLineForOffset(offset)
+            val rect = Rect(0, layout.getLineTop(line), 0, 0)
+            scrollView.offsetDescendantRectToMyCoords(textView, rect)
+            val y = (rect.top - scrollView.height / 3).coerceAtLeast(0)
+            if (MotionUtils.areAnimationsEnabled(textView.context)) scrollView.smoothScrollTo(0, y)
+            else scrollView.scrollTo(0, y)
         }
     }
 
@@ -340,7 +350,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
     private fun exportRequestBody() {
         val content = viewModel.requestBody.value
         if (content.isNullOrEmpty()) {
-            Toast.makeText(requireContext(), getString(R.string.content_empty_or_loading), Toast.LENGTH_SHORT).show()
+            binding.root.showFeedback(getString(R.string.content_empty_or_loading))
             return
         }
         contentToSave = content
@@ -353,7 +363,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
 
     private fun exportResponseBodyText(content: String) {
         if (content.isEmpty()) {
-            Toast.makeText(requireContext(), getString(R.string.content_empty_or_loading), Toast.LENGTH_SHORT).show()
+            binding.root.showFeedback(getString(R.string.content_empty_or_loading))
             return
         }
         contentToSave = content
@@ -371,11 +381,11 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                     it.write(content.toByteArray(Charsets.UTF_8))
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                    binding.root.showFeedback(getString(R.string.export_success))
                 }
             } catch (e: IOException) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), getString(R.string.export_failed), Toast.LENGTH_SHORT).show()
+                    binding.root.showFeedback(getString(R.string.export_failed), error = true)
                 }
             }
         }
@@ -388,8 +398,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 responseData.mimeType
             )
             is ResponseBodyContent.Text -> exportResponseBodyText(responseData.content)
-            else -> Toast.makeText(requireContext(), getString(R.string.content_empty_or_loading), Toast.LENGTH_SHORT)
-                .show()
+            else -> binding.root.showFeedback(getString(R.string.content_empty_or_loading))
         }
     }
 

@@ -46,7 +46,7 @@ import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.FooterSpaceItemDecoration
-import com.google.android.material.snackbar.Snackbar
+import com.close.hook.ads.util.showFeedback
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,16 +65,6 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     private lateinit var type: String
     private var tracker: SelectionTracker<RequestInfo>? = null
     private var mActionMode: ActionMode? = null
-
-    private val snackbarLayoutParams: CoordinatorLayout.LayoutParams by lazy {
-        CoordinatorLayout.LayoutParams(
-            CoordinatorLayout.LayoutParams.MATCH_PARENT,
-            CoordinatorLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.BOTTOM
-            setMargins(10.dp, 0, 10.dp, 90.dp)
-        }
-    }
 
     companion object {
         @JvmStatic
@@ -292,13 +282,7 @@ class RequestListFragment : BaseFragment<FragmentRequestListBinding>(), OnClearC
     }
 
     private fun showSnackbar(message: String) {
-        val snackBar = Snackbar.make(
-            requireParentFragment().requireView(),
-            message,
-            Snackbar.LENGTH_SHORT
-        )
-        snackBar.view.layoutParams = snackbarLayoutParams
-        snackBar.show()
+        requireParentFragment().requireView().showFeedback(message)
     }
 
     private fun onCopy() {

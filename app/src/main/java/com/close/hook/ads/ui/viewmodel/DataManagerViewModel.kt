@@ -3,6 +3,7 @@ package com.close.hook.ads.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.close.hook.ads.R
 import com.close.hook.ads.data.model.DataManagerState
 import com.close.hook.ads.data.model.ItemType
 import com.close.hook.ads.data.model.ManagedItem
@@ -82,7 +83,7 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
     fun loadFileForView(item: ManagedItem) {
         viewModelScope.launch {
             if (item.type == ItemType.DATABASE) {
-                viewFileEvents.send(ViewFileEvent.Failed("Database file cannot be viewed as text."))
+                viewFileEvents.send(ViewFileEvent.Failed(getApplication<Application>().getString(R.string.database_not_text)))
                 return@launch
             }
 
@@ -99,11 +100,11 @@ class DataManagerViewModel(application: Application) : AndroidViewModel(applicat
                     }.getOrDefault(contentStr)
                     viewFileEvents.send(ViewFileEvent.Success(formattedContent, item.name))
                 } else {
-                    viewFileEvents.send(ViewFileEvent.Failed("Failed to load file content."))
+                    viewFileEvents.send(ViewFileEvent.Failed(getApplication<Application>().getString(R.string.file_load_failed)))
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false) }
-                viewFileEvents.send(ViewFileEvent.Failed("Failed to load file content: ${e.message}"))
+                viewFileEvents.send(ViewFileEvent.Failed(getApplication<Application>().getString(R.string.file_load_failed)))
             }
         }
     }

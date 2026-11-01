@@ -2,6 +2,7 @@ package com.close.hook.ads.data
 
 import android.content.Context
 import android.net.Uri
+import androidx.room.withTransaction
 import com.close.hook.ads.data.database.UrlDatabase
 import com.close.hook.ads.data.model.Url
 import com.close.hook.ads.provider.UrlContentProvider
@@ -13,7 +14,8 @@ import java.util.Locale
 class DataSource(context: Context) {
 
     private val appContext = context.applicationContext
-    private val urlDao = UrlDatabase.getDatabase(appContext).urlDao
+    private val database = UrlDatabase.getDatabase(appContext)
+    private val urlDao = database.urlDao
 
     fun searchUrls(searchText: String): Flow<List<Url>> =
         if (searchText.isBlank()) urlDao.loadAllList() else urlDao.searchUrls(searchText)
@@ -23,6 +25,27 @@ class DataSource(context: Context) {
         return (urlDao.insertOrIgnore(normalized) > 0L).also {
             if (it) notifyRulesChanged()
         }
+    }
+
+    suspend fun removeRulesForUndo(items: List<Url>?): List<Url> = withContext(Dispatchers.IO) {
+        val removed = database.withTransaction {
+            val current = if (items == null) urlDao.findAllList() else {
+                // Chunk identifiers to stay below SQLite's bind-parameter limit.
+                items.map { it.id }.distinct().chunked(500).flatMap { urlDao.findByIds(it) }
+            }
+            if (current.isNotEmpty()) urlDao.deleteList(current)
+            current
+        }
+        if (removed.isNotEmpty()) notifyRulesChanged()
+        removed
+    }
+
+    suspend fun restoreRules(items: List<Url>): Int {
+        if (items.isEmpty()) return 0
+        val count = urlDao.insertAll(items.map { it.copy(type = canonicalType(it.type)) })
+            .count { it > 0 }
+        if (count > 0) notifyRulesChanged()
+        return count
     }
 
     suspend fun removeList(list: List<Url>) {

@@ -89,6 +89,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
                 behavior = fabViewBehavior
             }
             setImageResource(R.drawable.ic_export)
+            contentDescription = getString(R.string.export)
             tooltipText = getString(R.string.export)
             setOnClickListener { fabController?.onExport() }
         }

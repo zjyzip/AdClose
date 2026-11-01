@@ -23,6 +23,8 @@ import com.close.hook.ads.ui.viewmodel.DataManagerViewModel
 import com.close.hook.ads.ui.viewmodel.ExportEvent
 import com.close.hook.ads.ui.viewmodel.ViewFileEvent
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.close.hook.ads.util.showFeedback
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -81,9 +83,9 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                         binding.progressBar.isVisible = state.isLoading
 
                         state.frameworkInfo?.let {
-                            binding.frameworkName.text = "Framework: ${it.frameworkName}"
-                            binding.frameworkVersion.text = "Version: ${it.frameworkVersion}"
-                            binding.apiVersion.text = "API: ${it.apiVersion}"
+                            binding.frameworkName.text = getString(R.string.framework_name_format, it.frameworkName)
+                            binding.frameworkVersion.text = getString(R.string.framework_version_format, it.frameworkVersion)
+                            binding.apiVersion.text = getString(R.string.framework_api_format, it.apiVersion)
                         }
 
                         binding.filesCard.isVisible = state.managedFiles.isNotEmpty()
@@ -105,7 +107,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                                 createDocumentLauncher.launch(event.fileName)
                             }
                             is ExportEvent.Failed -> {
-                                Toast.makeText(requireContext(), R.string.export_failed, Toast.LENGTH_SHORT).show()
+                                binding.root.showFeedback(getString(R.string.export_failed), error = true)
                             }
                         }
                     }
@@ -115,7 +117,7 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
                     viewModel.viewFileEvent.collect { event ->
                         when (event) {
                             is ViewFileEvent.Success -> showFileContentDialog(event.title, event.content)
-                            is ViewFileEvent.Failed -> Toast.makeText(requireContext(), event.error, Toast.LENGTH_SHORT).show()
+                            is ViewFileEvent.Failed -> binding.root.showFeedback(event.error, error = true)
                         }
                     }
                 }
@@ -139,18 +141,18 @@ class DataManagerFragment : BaseFragment<FragmentDataManagerBinding>() {
         val content = pendingExportContent ?: return
         pendingExportContent = null
 
+        val resolver = requireContext().contentResolver
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(content)
-                }
+                val output = resolver.openOutputStream(uri) ?: throw IOException("Unable to open export destination")
+                output.use { it.write(content) }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), R.string.export_success, Toast.LENGTH_SHORT).show()
+                    binding.root.showFeedback(getString(R.string.export_success))
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), getString(R.string.export_failed) + ": ${e.message}", Toast.LENGTH_SHORT).show()
+                    binding.root.showFeedback(getString(R.string.export_failed), error = true)
                 }
             }
         }

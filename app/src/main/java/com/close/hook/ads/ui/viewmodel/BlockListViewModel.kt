@@ -5,6 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.DataSource
 import com.close.hook.ads.data.model.Url
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +20,35 @@ import kotlinx.coroutines.launch
 class BlockListViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dataSource: DataSource = DataSource.getDataSource(application)
+
+    sealed interface Operation {
+        data class Removed(val rules: List<Url>) : Operation
+        data class Restored(val count: Int) : Operation
+        data object Failed : Operation
+    }
+    private val operations = Channel<Operation>(Channel.BUFFERED)
+    val operationEvents = operations.receiveAsFlow()
+
+    fun removeWithUndo(items: List<Url>? = null) = viewModelScope.launch {
+        try {
+            val removed = dataSource.removeRulesForUndo(items)
+            if (removed.isNotEmpty()) operations.send(Operation.Removed(removed))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            operations.send(Operation.Failed)
+        }
+    }
+
+    fun restoreRemoved(items: List<Url>) = viewModelScope.launch {
+        try {
+            operations.send(Operation.Restored(dataSource.restoreRules(items)))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            operations.send(Operation.Failed)
+        }
+    }
 
     private val _searchQuery = MutableStateFlow("")
 

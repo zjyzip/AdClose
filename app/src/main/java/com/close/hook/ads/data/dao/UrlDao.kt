@@ -18,6 +18,12 @@ interface UrlDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertOrIgnore(url: Url): Long
 
+    @Query("SELECT COUNT(*) FROM url_info")
+    fun observeCount(): Flow<Int>
+
+    @Query("SELECT * FROM url_info WHERE id IN (:ids)")
+    suspend fun findByIds(ids: List<Long>): List<Url>
+
     @Query("SELECT * FROM url_info")
     fun findAllList(): List<Url>
 

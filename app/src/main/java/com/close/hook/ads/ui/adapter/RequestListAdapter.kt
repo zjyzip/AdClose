@@ -21,6 +21,7 @@ import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.databinding.ItemRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
 import com.close.hook.ads.util.AppIconLoader
+import com.close.hook.ads.util.showFeedback
 import com.close.hook.ads.util.resolveColorAttr
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -139,11 +140,7 @@ class RequestListAdapter(
             val context = itemView.context
             (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
                 ?.setPrimaryClip(ClipData.newPlainText("request", text))
-            Toast.makeText(
-                context,
-                context.getString(R.string.copied_to_clipboard_single, text),
-                Toast.LENGTH_SHORT
-            ).show()
+            itemView.showFeedback(context.getString(R.string.copied_to_clipboard))
         }
 
         private fun updateBlockStatusUI(request: RequestInfo) {

@@ -47,6 +47,7 @@ import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.OnCLearCLickContainer
 import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
+import com.close.hook.ads.util.showFeedback
 import com.close.hook.ads.util.resolveColorAttr
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -91,13 +92,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         override fun onScopeOperationSuccess(message: String) {
             Log.i("AppsFragmentScope", message)
             if (isAdded) {
-                Toast.makeText(requireContext(), R.string.save_success, Toast.LENGTH_SHORT).show()
+                view?.showFeedback(getString(R.string.save_success))
             }
         }
 
         override fun onScopeOperationFail(message: String) {
             if (isAdded) {
-                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                view?.showFeedback(message, error = true)
             }
         }
     }
@@ -395,11 +396,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         KeyboardUtils.hideKeyboard(requireView())
 
         if (!ServiceManager.isModuleActivated) {
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.module_not_activated),
-                Toast.LENGTH_SHORT
-            ).show()
+            binding.root.showFeedback(getString(R.string.module_not_activated), error = true)
             return
         }
 
@@ -443,7 +440,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     ) {
         val currentScope = ScopeManager.getScope() ?: run {
             withContext(Dispatchers.Main) {
-                Toast.makeText(ctx, ctx.getString(R.string.scope_get_failed), Toast.LENGTH_LONG).show()
+                binding.root.showFeedback(ctx.getString(R.string.scope_get_failed), error = true)
             }
             return
         }
@@ -451,7 +448,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         val isPackageInScope = pkgName in currentScope
 
         val showSuccessToast: () -> Unit = {
-            Toast.makeText(ctx, R.string.save_success, Toast.LENGTH_SHORT).show()
+            binding.root.showFeedback(getString(R.string.save_success))
         }
 
         when {
@@ -600,11 +597,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                                 }
                             }
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                requireContext(),
-                                getString(R.string.export_success),
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            binding.root.showFeedback(getString(R.string.export_success))
                         }
                     }.onFailure { e ->
                         if (e is CancellationException) throw e
@@ -641,11 +634,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                         HookPrefs.invalidateCaches()
 
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                requireContext(),
-                                getString(R.string.import_success),
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            binding.root.showFeedback(getString(R.string.import_success))
                             if (fragmentType == "configured") {
                                 viewModel.refreshApps()
                             }

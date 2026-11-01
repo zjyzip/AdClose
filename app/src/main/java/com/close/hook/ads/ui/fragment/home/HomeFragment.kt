@@ -16,10 +16,14 @@ import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
+import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.close.hook.ads.BuildConfig
+import com.close.hook.ads.ui.viewmodel.HomeViewModel
+import com.close.hook.ads.ui.viewmodel.RequestViewModel
 import com.close.hook.ads.R
 import com.close.hook.ads.databinding.FragmentHomeBinding
 import com.close.hook.ads.debug.PerformanceActivity
@@ -32,6 +36,9 @@ import com.close.hook.ads.util.resolveColorAttr
 import kotlinx.coroutines.launch
 
 class HomeFragment : BaseFragment<FragmentHomeBinding>() {
+
+    private val homeViewModel by viewModels<HomeViewModel>()
+    private val requestViewModel by activityViewModels<RequestViewModel>()
 
     private var lastStatusActivated: Boolean? = null
     private var statusColorAnimator: ValueAnimator? = null
@@ -50,18 +57,41 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
 
         setSystemInfo(requireContext())
         setHyperLinks()
+        observeOverview()
         animateHomeEntrance()
+    }
+
+    private fun observeOverview() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    requestViewModel.requestList.collect { requests ->
+                        binding.overviewRecentSummary.text = getString(R.string.overview_recent_count,
+                            requests.count { it.isBlocked == true }, requests.size)
+                    }
+                }
+                homeViewModel.overview.collect { overview ->
+                    binding.overviewRulesValue.text = overview.localRules?.toString()
+                        ?: getString(R.string.overview_unavailable)
+                    binding.overviewSubscriptionsValue.text = overview.subscriptionCount.toString()
+                    binding.overviewAppsValue.text = overview.configuredApps?.toString()
+                        ?: getString(R.string.overview_unavailable)
+                    binding.overviewSubscriptionSummary.text = getString(R.string.overview_subscriptions_status,
+                        overview.enabledSubscriptions, overview.subscriptionCount, overview.subscriptionsWithErrors)
+                }
+            }
+        }
     }
 
     private fun animateHomeEntrance() {
         if (!MotionUtils.areAnimationsEnabled(requireContext())) {
-            listOf(binding.status, binding.infoCard, binding.sponsorCard).forEach { target ->
+            listOf(binding.status, binding.overviewCard, binding.infoCard, binding.sponsorCard).forEach { target ->
                 target.alpha = 1f
                 target.translationY = 0f
             }
             return
         }
-        listOf(binding.status, binding.infoCard, binding.sponsorCard).forEachIndexed { index, target ->
+        listOf(binding.status, binding.overviewCard, binding.infoCard, binding.sponsorCard).forEachIndexed { index, target ->
             target.alpha = 0f
             target.translationY = 18f
             target.post {

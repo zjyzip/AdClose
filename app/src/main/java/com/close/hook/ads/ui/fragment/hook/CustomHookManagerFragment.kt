@@ -63,7 +63,7 @@ import com.close.hook.ads.util.MotionUtils
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.snackbar.Snackbar
+import com.close.hook.ads.util.showFeedback
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -105,16 +105,6 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             if (isAdded) {
                 Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
             }
-        }
-    }
-
-    private val snackbarLayoutParams: CoordinatorLayout.LayoutParams by lazy {
-        CoordinatorLayout.LayoutParams(
-            CoordinatorLayout.LayoutParams.MATCH_PARENT,
-            CoordinatorLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.BOTTOM
-            setMargins(10.dp, 0, 10.dp, 90.dp)
         }
     }
 
@@ -481,8 +471,11 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
             messageRes = R.string.delete_selected_hooks_message,
             onConfirmed = {
                 viewLifecycleOwner.lifecycleScope.launch {
-                    val deletedCount = viewModel.deleteHookConfigs(selectedItemsList)
-                    showSnackbar(getString(R.string.deleted_hooks_count, deletedCount))
+                    val ids = selectedItemsList.mapTo(mutableSetOf()) { it.id }
+                    val removed = viewModel.getExportableHooks().filter { it.id in ids }
+                    val deletedCount = viewModel.deleteHookConfigs(removed)
+                    binding.root.showFeedback(getString(R.string.deleted_hooks_count, deletedCount),
+                        undo = { viewModel.restoreHooks(removed) })
                     tracker?.clearSelection()
                 }
             }
@@ -537,6 +530,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun openFabMenu() {
         if (isFabMenuOpen) return
         isFabMenuOpen = true
+        binding.fabMain.contentDescription = getString(R.string.fab_close_actions)
         if (!MotionUtils.areAnimationsEnabled(requireContext())) {
             binding.scrim.visibility = View.VISIBLE
             binding.scrim.alpha = 1f
@@ -563,6 +557,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     private fun closeFabMenu() {
         if (!isFabMenuOpen) return
         isFabMenuOpen = false
+        binding.fabMain.contentDescription = getString(R.string.fab_open_actions)
         if (!MotionUtils.areAnimationsEnabled(requireContext())) {
             binding.scrim.visibility = View.GONE
             binding.fabMain.setImageResource(R.drawable.ic_add)
@@ -645,7 +640,11 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
 
     private fun showClearAllConfirmDialog() {
         showConfirmDialog(R.string.clear_all_hooks_title, R.string.clear_all_hooks_message) {
-            viewModel.clearAllHooks(); showSnackbar(getString(R.string.all_hooks_cleared)); tracker?.clearSelection()
+            val removed = viewModel.getExportableHooks().toList()
+            viewModel.clearAllHooks()
+            binding.root.showFeedback(getString(R.string.deleted_hooks_count, removed.size),
+                undo = { viewModel.restoreHooks(removed) })
+            tracker?.clearSelection()
         }
     }
 
@@ -653,7 +652,11 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
 
     private fun showDeleteConfigConfirmDialog(config: CustomHookInfo) {
         showConfirmDialog(R.string.delete_hook_title, R.string.delete_hook_message) {
-            viewModel.deleteHook(config); showSnackbar(getString(R.string.hook_deleted_successfully)); tracker?.clearSelection()
+            val removed = viewModel.getExportableHooks().filter { it.id == config.id }
+            viewModel.deleteHook(config)
+            binding.root.showFeedback(getString(R.string.hook_deleted_successfully),
+                undo = { viewModel.restoreHooks(removed) })
+            tracker?.clearSelection()
         }
     }
 
@@ -709,6 +712,7 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun setIconAndFocus(drawableId: Int, focus: Boolean) {
+        binding.searchIcon.contentDescription = getString(if (focus) R.string.search_close else R.string.search)
         binding.searchIcon.apply {
             setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
             (drawable as? AnimatedVectorDrawable)?.start()
@@ -771,9 +775,9 @@ class CustomHookManagerFragment : BaseFragment<FragmentCustomHookManagerBinding>
     }
 
     private fun showSnackbar(message: String) {
-        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).apply { view.layoutParams = snackbarLayoutParams }.show()
+        binding.root.showFeedback(message)
     }
-    private fun showToast(message: String) { Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show() }
+    private fun showToast(message: String) { binding.root.showFeedback(message) }
 
     private fun showConfirmDialog(titleRes: Int, messageRes: Int, onConfirmed: () -> Unit) {
         MaterialAlertDialogBuilder(requireContext()).setTitle(titleRes).setMessage(messageRes)

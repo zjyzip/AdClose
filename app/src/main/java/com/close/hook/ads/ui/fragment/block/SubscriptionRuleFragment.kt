@@ -23,6 +23,7 @@ import com.close.hook.ads.ui.fragment.base.BaseFragment
 import com.close.hook.ads.ui.viewmodel.SubscriptionViewModel
 import com.close.hook.ads.util.dp
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
+import com.close.hook.ads.util.showFeedback
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.launch
@@ -89,9 +90,9 @@ class SubscriptionRuleFragment : BaseFragment<FragmentSubscriptionRuleBinding>()
             viewModel.events.collect { event ->
                 when (event) {
                     is SubscriptionViewModel.Event.RefreshStarted ->
-                        Toast.makeText(requireContext(), R.string.subscription_refresh_started, Toast.LENGTH_SHORT).show()
+                        binding.root.showFeedback(getString(R.string.subscription_refresh_started))
                     is SubscriptionViewModel.Event.Error ->
-                        Toast.makeText(requireContext(), event.message, Toast.LENGTH_LONG).show()
+                        binding.root.showFeedback(event.message, error = true)
                 }
             }
         }
@@ -140,7 +141,7 @@ class SubscriptionRuleFragment : BaseFragment<FragmentSubscriptionRuleBinding>()
                 val url = dialogBinding.urlInput.text?.toString()?.trim().orEmpty()
                 val name = dialogBinding.nameInput.text?.toString()?.trim().orEmpty()
                 if (url.isEmpty()) {
-                    Toast.makeText(requireContext(), R.string.subscription_url_required, Toast.LENGTH_SHORT).show()
+                    binding.root.showFeedback(getString(R.string.subscription_url_required), error = true)
                     return@setPositiveButton
                 }
                 if (source != null) {

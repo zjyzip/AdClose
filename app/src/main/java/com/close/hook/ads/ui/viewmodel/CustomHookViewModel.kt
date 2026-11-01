@@ -243,6 +243,14 @@ class CustomHookViewModel(
 
     fun getExportableHooks(): List<CustomHookInfo> = _hookConfigs.value
 
+    fun restoreHooks(configs: List<CustomHookInfo>) {
+        if (configs.isEmpty()) return
+        updateAndSaveConfigs { currentList ->
+            val existingIds = currentList.mapTo(mutableSetOf()) { it.id }
+            configs.filterNot { it.id in existingIds } + currentList
+        }
+    }
+
     private fun updateConfigsList(
         currentConfigs: MutableList<CustomHookInfo>,
         importedConfigs: List<CustomHookInfo>,

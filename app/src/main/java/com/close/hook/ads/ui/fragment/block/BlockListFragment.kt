@@ -58,6 +58,7 @@ import com.close.hook.ads.util.readTextLimited
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.close.hook.ads.util.showFeedback
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -90,8 +91,12 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
         addObserverToTracker()
     }
 
+    private fun onRemoveUrl(url: Url) {
+        viewModel.removeWithUndo(listOf(url))
+    }
+
     private fun initView() {
-        mAdapter = BlockListAdapter(viewModel::removeUrl, this::onEditUrl)
+        mAdapter = BlockListAdapter(::onRemoveUrl, this::onEditUrl)
         footerSpaceDecoration = FooterSpaceItemDecoration(footerHeight = 96.dp)
 
         binding.recyclerView.apply {
@@ -114,6 +119,22 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
     private fun initObserve() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.operationEvents.collect { event ->
+                        when (event) {
+                            is BlockListViewModel.Operation.Removed -> binding.root.showFeedback(
+                                getString(R.string.rules_deleted_count, event.rules.size),
+                                undo = { viewModel.restoreRemoved(event.rules) }
+                            )
+                            is BlockListViewModel.Operation.Restored -> binding.root.showFeedback(
+                                getString(R.string.operation_restored, event.count)
+                            )
+                            BlockListViewModel.Operation.Failed -> binding.root.showFeedback(
+                                getString(R.string.operation_failed), error = true
+                            )
+                        }
+                    }
+                }
                 viewModel.blackList.collectLatest { blackList ->
                     mAdapter.submitList(blackList) {
                         binding.progressBar.visibility = View.GONE
@@ -215,8 +236,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
     private fun onRemove() {
         val selectedList = tracker?.selection?.toList()
         if (selectedList.isNullOrEmpty()) return
-        viewModel.removeList(selectedList)
-        Toast.makeText(requireContext(), getString(R.string.batch_remove_success), Toast.LENGTH_SHORT).show()
+        viewModel.removeWithUndo(selectedList)
         tracker?.clearSelection()
         (activity as? MainActivity)?.showNavigation()
     }
@@ -233,7 +253,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
         if (uniqueTypeUrls.isNotEmpty()) {
             val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("copied_type_urls", uniqueTypeUrls))
-            Toast.makeText(requireContext(), getString(R.string.batch_copy_to_clipboard), Toast.LENGTH_SHORT).show()
+            binding.root.showFeedback(getString(R.string.batch_copy_to_clipboard))
         }
 
         tracker?.clearSelection()
@@ -333,7 +353,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                 val newUrl = dialogBinding.editText.text.toString().trim()
 
                 if (newUrl.isEmpty()) {
-                    Toast.makeText(requireContext(), R.string.value_empty_error, Toast.LENGTH_SHORT).show()
+                    binding.root.showFeedback(getString(R.string.value_empty_error), error = true)
                     return@setPositiveButton
                 }
 
@@ -343,7 +363,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                     if (url == null) {
                         val added = viewModel.addUrlIfAbsent(newItem)
                         if (!added) {
-                            Toast.makeText(requireContext(), R.string.rule_exists, Toast.LENGTH_SHORT).show()
+                            binding.root.showFeedback(getString(R.string.rule_exists))
                         }
                     } else {
                         viewModel.updateUrl(newItem)
@@ -364,7 +384,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.clear_block_list_confirm))
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ -> viewModel.removeAll() }
+            .setPositiveButton(android.R.string.ok) { _, _ -> viewModel.removeWithUndo() }
             .show()
     }
 
@@ -386,7 +406,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                                 .forEach { line -> writer.write("$line\n") }
                         }
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), getString(R.string.export_success), Toast.LENGTH_SHORT).show()
+                            binding.root.showFeedback(getString(R.string.export_success))
                         }
                     }.onFailure {
                         if (it is CancellationException) throw it
@@ -447,7 +467,7 @@ class BlockListFragment : BaseSearchFragment<FragmentBlockListBinding>(), OnBack
                         }
 
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                            binding.root.showFeedback(message)
                         }
                     }.onFailure {
                         if (it is CancellationException) throw it

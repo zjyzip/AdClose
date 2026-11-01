@@ -51,7 +51,7 @@
                             android:paddingLeft="@dimen/spacing_normal"
                             android:paddingRight="@dimen/spacing_normal"
                             android:src="@drawable/ic_magnifier_to_back"
-                            android:contentDescription="@null" />
+                            android:contentDescription="@string/search" />
 
                         <EditText
                             android:id="@+id/editText"
@@ -142,6 +142,7 @@
         android:layout_height="wrap_content"
         android:src="@drawable/ic_add"
         android:tooltipText="@string/add"
+        android:contentDescription="@string/add"
         android:visibility="gone" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -150,6 +151,7 @@
         android:layout_height="wrap_content"
         android:src="@drawable/ic_clear_all"
         android:tooltipText="@string/clearAll"
+        android:contentDescription="@string/clearAll"
         android:visibility="gone" />
 
     <com.google.android.material.progressindicator.CircularProgressIndicator

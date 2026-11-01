@@ -8,283 +8,293 @@ import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
-import android.util.Log
+import android.text.style.ForegroundColorSpan
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.close.hook.ads.R
 import com.close.hook.ads.data.model.ResponseBodyContent
+import com.close.hook.ads.util.BodyTextSearch
+import com.close.hook.ads.util.readBytesLimited
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.brotli.dec.BrotliInputStream
 import java.io.IOException
-import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.util.Locale
 import java.util.zip.GZIPInputStream
 import java.util.zip.InflaterInputStream
 
 class RequestInfoViewModel(application: Application) : AndroidViewModel(application) {
-
-    private var initialized = false
-
-    private var highlightColor = Color.YELLOW
-    private var activeHighlightColor = Color.parseColor("#FF9800")
-
     companion object {
         const val TAB_REQUEST_BODY = "RequestBody"
         const val TAB_RESPONSE_BODY = "ResponseBody"
         private const val MAX_CONTENT_BYTES = 10 * 1024 * 1024
+        private const val MAX_FORMAT_BYTES = 1024 * 1024
     }
 
+    data class BodyDisplay(
+        val tab: String,
+        val query: String,
+        val text: CharSequence,
+        val page: Int,
+        val pageCount: Int,
+        val matchCount: Int = 0,
+        val matchIndex: Int = -1,
+        val truncated: Boolean = false,
+        val searching: Boolean = false,
+        val matchStart: Int = -1,
+        val matchEnd: Int = -1
+    )
+
+    private var initialized = false
+    private var currentTab: String? = null
+    private var searchJob: Job? = null
+    private var renderJob: Job? = null
+    private var revision = 0L
+    private var found = BodyTextSearch.Result(IntArray(0), false)
+    private var activeMatch = -1
+    private var appliedQuery = ""
+    private val pages = mutableMapOf<String, Int>()
+    private var highlightColor = Color.TRANSPARENT
+    private var activeHighlightColor = Color.TRANSPARENT
+    private var highlightTextColor: Int? = null
+    private var activeTextColor: Int? = null
+
     private val _requestBody = MutableStateFlow<String?>(null)
-    val requestBody: StateFlow<String?> = _requestBody.asStateFlow()
-
+    val requestBody = _requestBody.asStateFlow()
     private val _responseBody = MutableStateFlow<ResponseBodyContent>(ResponseBodyContent.Loading)
-    val responseBody: StateFlow<ResponseBodyContent> = _responseBody.asStateFlow()
-
+    val responseBody = _responseBody.asStateFlow()
     private val _currentQuery = MutableStateFlow("")
-    val currentQuery: StateFlow<String> = _currentQuery.asStateFlow()
-
-    private val _highlightedContent = MutableStateFlow<CharSequence?>(null)
-    val highlightedContent: StateFlow<CharSequence?> = _highlightedContent.asStateFlow()
-
-    private val _matches = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
-    val matches: StateFlow<List<Pair<Int, Int>>> = _matches.asStateFlow()
-
-    private val _currentMatchIndex = MutableStateFlow(-1)
-    val currentMatchIndex: StateFlow<Int> = _currentMatchIndex.asStateFlow()
-
-    private val _currentTabType = MutableStateFlow<String?>(null)
+    val currentQuery = _currentQuery.asStateFlow()
+    private val _bodyDisplay = MutableStateFlow<BodyDisplay?>(null)
+    val bodyDisplay = _bodyDisplay.asStateFlow()
 
     fun init(arguments: Bundle) {
         if (initialized) return
         initialized = true
-
-        arguments.getString("requestBodyUriString")?.let { loadRequestBody(it) }
-        arguments.getString("responseBodyUriString")?.let { loadResponseBody(it) }
-
-        viewModelScope.launch {
-            combine(
-                _currentQuery.debounce(300).distinctUntilChanged(),
-                _currentTabType,
-                _requestBody,
-                _responseBody
-            ) { query, tab, _, _ -> query to tab }
-                .flatMapLatest { (query, _) ->
-                    flow {
-                        val content = getCurrentContent()
-                        if (query.isEmpty() || content.isNullOrEmpty()) {
-                            emit(Triple(content, emptyList<Pair<Int, Int>>(), -1))
-                        } else {
-                            val matches = findMatches(content, query)
-                            val newIndex = if (matches.isNotEmpty()) 0 else -1
-                            emit(Triple(content, matches, newIndex))
-                        }
-                    }.flowOn(Dispatchers.Default)
-                }
-                .collect { (content, matches, index) ->
-                    _matches.value = matches
-                    _currentMatchIndex.value = index
-                    val query = _currentQuery.value
-                    _highlightedContent.value = content?.let {
-                        createHighlightedText(it, query = query, matches = matches, currentIndex = index)
-                    }
-                }
-        }
+        arguments.getString("requestBodyUriString")?.let(::loadRequestBody)
+        arguments.getString("responseBodyUriString")?.let(::loadResponseBody)
     }
 
     fun setCurrentTab(tabType: String) {
-        _currentTabType.value = tabType
+        if (currentTab == tabType) return
+        currentTab = tabType
+        restartSearch(false)
     }
 
     fun updateQuery(query: String) {
+        if (_currentQuery.value == query) return
         _currentQuery.value = query
+        restartSearch(true)
     }
 
-    private fun getCurrentContent(): String? = when (_currentTabType.value) {
+    fun setHighlightColors(normal: Int, active: Int, normalText: Int, activeText: Int) {
+        highlightColor = normal
+        activeHighlightColor = active
+        highlightTextColor = normalText
+        activeTextColor = activeText
+    }
+
+    private fun contentFor(tab: String?): String? = when (tab) {
         TAB_REQUEST_BODY -> _requestBody.value
         TAB_RESPONSE_BODY -> (_responseBody.value as? ResponseBodyContent.Text)?.content
         else -> null
     }
 
-    fun resetSearchState() {
-        val currentContent = getCurrentContent()
-        _matches.value = emptyList()
-        _currentMatchIndex.value = -1
-        _highlightedContent.value = currentContent
+    /** Offscreen pages also receive a bounded window, never the entire large body. */
+    fun displayFor(tab: String): BodyDisplay? {
+        _bodyDisplay.value?.takeIf { it.tab == tab }?.let { return it }
+        val content = contentFor(tab) ?: return null
+        val window = BodyTextSearch.window(content, pages[tab] ?: 0)
+        return BodyDisplay(tab, "", content.substring(window.start, window.end), window.page, window.pageCount)
     }
 
-    fun navigateToNextMatch() {
-        if (_matches.value.isEmpty()) return
-        _currentMatchIndex.value = (_currentMatchIndex.value + 1) % _matches.value.size
-        updateHighlight()
-    }
-
-    fun navigateToPreviousMatch() {
-        if (_matches.value.isEmpty()) return
-        _currentMatchIndex.value = (_currentMatchIndex.value - 1 + _matches.value.size) % _matches.value.size
-        updateHighlight()
-    }
-
-    private fun updateHighlight() {
-        val content = getCurrentContent()
-        if (content != null) {
-            _highlightedContent.value = createHighlightedText(
-                content, _currentQuery.value, _matches.value, _currentMatchIndex.value
-            )
+    private fun restartSearch(debounce: Boolean) {
+        val token = ++revision
+        searchJob?.cancel()
+        renderJob?.cancel()
+        found = BodyTextSearch.Result(IntArray(0), false)
+        activeMatch = -1
+        appliedQuery = ""
+        val tab = currentTab ?: return
+        val content = contentFor(tab)
+        if (content == null) {
+            _bodyDisplay.value = null
+            return
         }
-    }
-
-    fun setHighlightColors(normal: Int, active: Int) {
-        highlightColor = normal
-        activeHighlightColor = active
-    }
-
-    fun createHighlightedText(
-        text: String,
-        query: String,
-        matches: List<Pair<Int, Int>>? = null,
-        currentIndex: Int = -1
-    ): CharSequence {
-        if (query.isEmpty() || text.isEmpty()) return text
-        val foundMatches = matches ?: findMatches(text, query)
-        if (foundMatches.isEmpty()) return text
-
-        val spannable = SpannableString(text)
-        foundMatches.forEachIndexed { index, (start, end) ->
-            val color = if (currentIndex != -1 && index == currentIndex) {
-                activeHighlightColor
-            } else {
-                highlightColor
+        val query = _currentQuery.value
+        val window = BodyTextSearch.window(content, pages[tab] ?: 0)
+        _bodyDisplay.value = BodyDisplay(
+            tab, query, content.substring(window.start, window.end), window.page, window.pageCount,
+            searching = query.isNotEmpty()
+        )
+        searchJob = viewModelScope.launch {
+            if (debounce && query.isNotEmpty()) delay(300)
+            val result = withContext(Dispatchers.Default) {
+                val context = currentCoroutineContext()
+                BodyTextSearch.find(content, query) { context.ensureActive() }
             }
-            spannable.setSpan(
-                BackgroundColorSpan(color), start, end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
+            if (token != revision || currentTab != tab || _currentQuery.value != query) return@launch
+            found = result
+            appliedQuery = query
+            activeMatch = if (result.starts.isEmpty()) -1 else 0
+            if (activeMatch >= 0) pages[tab] = BodyTextSearch.pageForOffset(content, result.starts[0])
+            renderBody()
         }
-        return spannable
     }
 
-    private fun findMatches(text: String, query: String): List<Pair<Int, Int>> {
-        val positions = mutableListOf<Pair<Int, Int>>()
-        var index = text.indexOf(query, ignoreCase = true)
-        while (index >= 0) {
-            positions.add(Pair(index, index + query.length))
-            index = text.indexOf(query, index + 1, ignoreCase = true)
+    fun navigateToNextMatch() = navigateMatch(1)
+    fun navigateToPreviousMatch() = navigateMatch(-1)
+
+    private fun navigateMatch(delta: Int) {
+        if (found.starts.isEmpty() || appliedQuery != _currentQuery.value) return
+        activeMatch = (activeMatch + delta + found.starts.size) % found.starts.size
+        val tab = currentTab ?: return
+        val content = contentFor(tab) ?: return
+        pages[tab] = BodyTextSearch.pageForOffset(content, found.starts[activeMatch])
+        renderBody()
+    }
+
+    fun changeBodyPage(delta: Int) {
+        val tab = currentTab ?: return
+        val content = contentFor(tab) ?: return
+        val window = BodyTextSearch.window(content, (pages[tab] ?: 0) + delta)
+        pages[tab] = window.page
+        renderBody()
+    }
+
+    private fun renderBody() {
+        renderJob?.cancel()
+        val tab = currentTab ?: return
+        val content = contentFor(tab) ?: return
+        val query = appliedQuery
+        val result = found
+        val index = activeMatch
+        val window = BodyTextSearch.window(content, pages[tab] ?: 0, query.length)
+        val token = revision
+        renderJob = viewModelScope.launch {
+            val display = withContext(Dispatchers.Default) {
+                val matches = result.starts.withIndex().filter { (_, start) ->
+                    start >= window.start && start + query.length <= window.end
+                }
+                val text = content.substring(window.start, window.end)
+                val highlighted = if (matches.isEmpty()) text else SpannableString(text).apply {
+                    matches.take(512).forEach { (priority, start) ->
+                        applyHighlight(this, start - window.start, start - window.start + query.length, priority == index)
+                    }
+                    matches.firstOrNull { it.index == index }?.let { (_, start) ->
+                        applyHighlight(this, start - window.start, start - window.start + query.length, true)
+                    }
+                }
+                val start = result.starts.getOrNull(index) ?: -1
+                val visible = start >= window.start && start + query.length <= window.end
+                BodyDisplay(
+                    tab, query, highlighted, window.page, window.pageCount, result.starts.size, index,
+                    result.truncated, matchStart = if (visible) start - window.start else -1,
+                    matchEnd = if (visible) start - window.start + query.length else -1
+                )
+            }
+            if (token == revision && tab == currentTab && query == _currentQuery.value) _bodyDisplay.value = display
         }
-        return positions
+    }
+
+    fun createHighlightedText(text: String, query: String, currentIndex: Int = -1): CharSequence {
+        if (query.isEmpty()) return text
+        // Static headers/stack use the same bounded search; body rendering is handled above.
+        val matches = BodyTextSearch.find(text, query).starts
+        if (matches.isEmpty()) return text
+        return SpannableString(text).apply {
+            matches.forEachIndexed { index, start -> applyHighlight(this, start, start + query.length, index == currentIndex) }
+        }
+    }
+
+    private fun applyHighlight(text: SpannableString, start: Int, end: Int, active: Boolean) {
+        text.setSpan(BackgroundColorSpan(if (active) activeHighlightColor else highlightColor),
+            start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val foreground = if (active) activeTextColor else highlightTextColor
+        foreground?.let {
+            text.setSpan(ForegroundColorSpan(it), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
     }
 
     private fun loadRequestBody(uriString: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             try {
-                val bytes = getBytesFromUri(uriString)
-                val content = bytes?.let { formatText(it) } ?: "Error: Failed to load request body."
-                _requestBody.value = content
+                _requestBody.value = withContext(Dispatchers.IO) {
+                    getApplication<Application>().contentResolver.openInputStream(Uri.parse(uriString))
+                        ?.use { decodeText(it.readBytesLimited(MAX_CONTENT_BYTES), null) }
+                        ?: throw IOException("Failed to open request body")
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.e("RequestInfoViewModel", "Error loading request body", e)
-                _requestBody.value = "Error: ${e.message}"
+                _requestBody.value = getApplication<Application>().getString(R.string.body_load_failed, e.message.orEmpty())
             }
+            if (currentTab == TAB_REQUEST_BODY) restartSearch(false)
         }
     }
 
     private fun loadResponseBody(uriString: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             try {
-                val (stream, mime) = getResponseBodyStream(uriString)
-                    ?: throw IOException("Failed to open response body stream.")
-                stream.use { inputStream ->
-                    val encoding =
-                        mime?.split(";")?.find { it.trim().startsWith("encoding=") }
-                            ?.substringAfter("=")
-                    decompressStream(encoding, inputStream).use { decompressedStream ->
-                        val bytes = decompressedStream.readBytesLimited(MAX_CONTENT_BYTES)
-                        if (mime?.startsWith("image/") == true && isBitmap(bytes)) {
-                            _responseBody.value = ResponseBodyContent.Image(bytes, mime)
-                        } else {
-                            _responseBody.value =
-                                ResponseBodyContent.Text(formatText(bytes), mime)
-                        }
+                _responseBody.value = withContext(Dispatchers.IO) {
+                    val resolver = getApplication<Application>().contentResolver
+                    val uri = Uri.parse(uriString)
+                    val mime = resolver.getType(uri)
+                    val encoding = mime?.split(';')?.firstOrNull { it.trim().startsWith("encoding=", true) }
+                        ?.substringAfter('=')?.trim()
+                    val stream = resolver.openInputStream(uri) ?: throw IOException("Failed to open response body")
+                    val bytes = stream.use { original ->
+                        decompressStream(encoding, original).use { it.readBytesLimited(MAX_CONTENT_BYTES) }
                     }
+                    if (mime?.startsWith("image/", true) == true && isBitmap(bytes)) {
+                        ResponseBodyContent.Image(bytes, mime)
+                    } else ResponseBodyContent.Text(decodeText(bytes, mime), mime)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.e("RequestInfoViewModel", "Error processing response body", e)
-                _responseBody.value = ResponseBodyContent.Error("Error: ${e.message}")
+                _responseBody.value = ResponseBodyContent.Error(
+                    getApplication<Application>().getString(R.string.body_load_failed, e.message.orEmpty())
+                )
             }
+            if (currentTab == TAB_RESPONSE_BODY) restartSearch(false)
         }
     }
 
-    private fun isBitmap(bytes: ByteArray): Boolean = try {
-        BitmapFactory.Options().run {
-            inJustDecodeBounds = true
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, this)
-            outWidth != -1 && outHeight != -1
-        }
-    } catch (e: Exception) {
-        false
+    private fun isBitmap(bytes: ByteArray): Boolean = BitmapFactory.Options().run {
+        inJustDecodeBounds = true
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, this)
+        outWidth > 0 && outHeight > 0
     }
 
-    private fun getBytesFromUri(uriString: String): ByteArray? = try {
-        getApplication<Application>().contentResolver
-            .openInputStream(Uri.parse(uriString))?.use { it.readBytesLimited(MAX_CONTENT_BYTES) }
-    } catch (e: Exception) {
-        Log.e("RequestInfoViewModel", "Failed to get bytes from URI", e)
-        null
+    private fun decompressStream(encoding: String?, stream: InputStream): InputStream = when (encoding?.lowercase(Locale.ROOT)) {
+        "gzip" -> GZIPInputStream(stream)
+        "deflate" -> InflaterInputStream(stream)
+        "br" -> BrotliInputStream(stream)
+        else -> stream
     }
 
-    private fun getResponseBodyStream(uriString: String): Pair<InputStream, String?>? = try {
-        val uri = Uri.parse(uriString)
-        val resolver = getApplication<Application>().contentResolver
-        resolver.openInputStream(uri) to (resolver.getType(uri) ?: "application/octet-stream;")
-    } catch (e: Exception) {
-        Log.e("RequestInfoViewModel", "Failed to get response body stream", e)
-        null
-    }?.let { (stream, mime) ->
-        if (stream == null) null else stream to mime
+    private fun decodeText(bytes: ByteArray, mime: String?): String {
+        val charsetName = mime?.split(';')?.firstOrNull { it.trim().startsWith("charset=", true) }
+            ?.substringAfter('=')?.trim()?.trim('"')
+        val charset = runCatching { charsetName?.let(Charset::forName) ?: StandardCharsets.UTF_8 }
+            .getOrDefault(StandardCharsets.UTF_8)
+        val text = String(bytes, charset)
+        if (bytes.size > MAX_FORMAT_BYTES) return text
+        return runCatching { GsonBuilder().setPrettyPrinting().create().toJson(JsonParser.parseString(text)) }
+            .getOrDefault(text)
     }
-
-    private fun decompressStream(encoding: String?, stream: InputStream): InputStream = try {
-        when (encoding?.lowercase(Locale.ROOT)) {
-            "gzip" -> GZIPInputStream(stream)
-            "deflate" -> InflaterInputStream(stream)
-            "br" -> BrotliInputStream(stream)
-            else -> stream
-        }
-    } catch (e: Exception) {
-        Log.e("RequestInfoViewModel", "Decompression failed, using original stream", e)
-        stream
-    }
-
-    private fun formatText(bytes: ByteArray): String = try {
-        GsonBuilder().setPrettyPrinting().create()
-            .toJson(JsonParser.parseString(String(bytes, StandardCharsets.UTF_8)))
-    } catch (e: Exception) {
-        String(bytes, StandardCharsets.UTF_8)
-    }
-
-}
-
-private fun InputStream.readBytesLimited(limit: Int): ByteArray {
-    val output = ByteArrayOutputStream()
-    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    while (true) {
-        val count = read(buffer)
-        if (count < 0) break
-        if (output.size() + count > limit) {
-            throw IOException("Content exceeds ${limit / (1024 * 1024)} MiB")
-        }
-        output.write(buffer, 0, count)
-    }
-    return output.toByteArray()
 }

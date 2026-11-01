@@ -9,7 +9,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:paddingBottom="128dp">
+
+        <TextView
+            android:id="@+id/body_paging_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingBottom="12dp"
+            android:text="@string/body_paging_hint"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone" />
 
         <TableLayout
             android:id="@+id/dns_section"
@@ -22,7 +33,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="DNS Host" />
+                    android:text="@string/detail_dns_host" />
                 <TextView
                     android:id="@+id/dnsHostText"
                     android:layout_width="0dp"
@@ -38,7 +49,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Full Address" />
+                    android:text="@string/detail_address" />
                 <TextView
                     android:id="@+id/fullAddressText"
                     android:layout_width="0dp"
@@ -62,7 +73,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Request Method"/>
+                    android:text="@string/detail_method"/>
                 <TextView
                     android:id="@+id/methodText"
                     android:layout_width="0dp"
@@ -79,7 +90,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Request URL"/>
+                    android:text="@string/detail_url"/>
                 <TextView
                     android:id="@+id/urlStringText"
                     android:layout_width="0dp"
@@ -95,7 +106,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Request Headers"/>
+                    android:text="@string/detail_request_headers"/>
                 <TextView
                     android:id="@+id/requestHeadersText"
                     android:layout_width="0dp"
@@ -117,7 +128,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Request Body"
+                android:text="@string/body_request_title"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:paddingBottom="8dp"/>
@@ -146,7 +157,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Response Code"/>
+                    android:text="@string/detail_response_code"/>
                 <TextView
                     android:id="@+id/responseCodeText"
                     android:layout_width="0dp"
@@ -163,7 +174,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Response Message"/>
+                    android:text="@string/detail_response_message"/>
                 <TextView
                     android:id="@+id/responseMessageText"
                     android:layout_width="0dp"
@@ -179,7 +190,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Response Headers"/>
+                    android:text="@string/detail_response_headers"/>
                 <TextView
                     android:id="@+id/responseHeadersText"
                     android:layout_width="0dp"
@@ -205,12 +216,12 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:checked="false"
-                android:text="Collect Response Body" />
+                android:text="@string/body_collect_response" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Response Body"
+                android:text="@string/body_response_title"
                 android:textStyle="bold"
                 android:paddingBottom="8dp"/>
 

@@ -52,7 +52,7 @@
                             android:paddingLeft="@dimen/spacing_normal"
                             android:paddingRight="@dimen/spacing_normal"
                             android:src="@drawable/ic_magnifier_to_back"
-                            android:contentDescription="@null" />
+                            android:contentDescription="@string/search" />
 
                         <EditText
                             android:id="@+id/editText_search"
@@ -218,6 +218,7 @@
             android:layout_marginTop="@dimen/spacing_small"
             android:src="@drawable/ic_add"
             android:stateListAnimator="@null"
+            android:contentDescription="@string/fab_open_actions"
             app:elevation="0dp"
             app:pressedTranslationZ="0dp" />
 

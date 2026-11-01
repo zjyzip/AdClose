@@ -30,7 +30,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.snackbar.Snackbar
+import com.close.hook.ads.util.showFeedback
 
 class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
 
@@ -69,6 +69,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
                 behavior = HideBottomViewOnScrollBehavior<FloatingActionButton>()
             }
             setImageResource(image)
+            contentDescription = getString(tooltip)
             tooltipText = getString(tooltip)
             setOnClickListener { onClick() }
         }
@@ -110,6 +111,9 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
             ).apply { gravity = Gravity.CENTER }
             setPadding(16.dp, 0, 16.dp, 0)
             setImageResource(R.drawable.ic_filter)
+            contentDescription = getString(R.string.sort_filter)
+            minimumWidth = 48.dp
+            minimumHeight = 48.dp
 
             val outValue = TypedValue()
             context.theme.resolveAttribute(
@@ -257,7 +261,7 @@ class AppsPagerFragment : BasePagerFragment(), IOnFabClickContainer {
     }
 
     private fun showSnackbar(message: String) {
-        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
+        binding.root.showFeedback(message)
     }
 
     override fun search(text: String) {

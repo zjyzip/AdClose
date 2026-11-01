@@ -12,11 +12,13 @@ import android.widget.TextView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
+import com.close.hook.ads.R
 import com.close.hook.ads.data.model.ResponseBodyContent
 import com.close.hook.ads.databinding.ItemRequestInfoBinding
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -35,6 +37,11 @@ class RequestInfoPagerAdapter(
         val binding =
             ItemRequestInfoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return RequestInfoViewHolder(binding)
+    }
+
+    override fun onViewRecycled(holder: RequestInfoViewHolder) {
+        holder.recycle()
+        super.onViewRecycled(holder)
     }
 
     override fun getItemCount(): Int = tabs.size
@@ -56,8 +63,8 @@ class RequestInfoPagerAdapter(
         payloads.forEach { payload ->
             when (payload) {
                 Payload.REFRESH_HIGHLIGHT -> holder.refreshHighlights()
-                is CharSequence -> holder.updateTextHighlight(payload)
-                is String -> holder.updateRequestBodyContent(payload)
+                is RequestInfoViewModel.BodyDisplay -> holder.showBody(payload)
+                is CharSequence -> holder.updateRequestBodyContent(payload.toString())
                 is ResponseBodyContent -> holder.updateResponseBodyContent(payload)
             }
         }
@@ -65,6 +72,15 @@ class RequestInfoPagerAdapter(
 
     inner class RequestInfoViewHolder(val binding: ItemRequestInfoBinding) :
         RecyclerView.ViewHolder(binding.root) {
+
+        private var imageJob: Job? = null
+        private var shownBodyPage: Pair<String, Int>? = null
+
+        fun recycle() {
+            imageJob?.cancel()
+            imageJob = null
+            binding.responseBodyImage.setImageDrawable(null)
+        }
 
         private val stackGestureDetector = GestureDetector(
             binding.root.context,
@@ -83,6 +99,8 @@ class RequestInfoPagerAdapter(
                 binding.responseSection, binding.responseBodySection, binding.stackSection
             )
             sections.forEach { it.visibility = View.GONE }
+            imageJob?.cancel()
+            binding.bodyPagingHint.visibility = View.GONE
             binding.stackText.setOnTouchListener(null)
 
             when (tabTitle) {
@@ -140,22 +158,29 @@ class RequestInfoPagerAdapter(
         }
 
         fun refreshHighlights() {
-            bind(tabs[bindingAdapterPosition])
+            tabs.getOrNull(bindingAdapterPosition)?.let(::bind)
         }
 
-        fun updateTextHighlight(highlightedText: CharSequence) {
-            val textView = when (tabs.getOrNull(bindingAdapterPosition)) {
-                RequestInfoViewModel.TAB_REQUEST_BODY -> binding.requestBodyText
-                RequestInfoViewModel.TAB_RESPONSE_BODY -> binding.responseBodyText
-                else -> null
+        fun showBody(display: RequestInfoViewModel.BodyDisplay) {
+            if (tabs.getOrNull(bindingAdapterPosition) != display.tab) return
+            val textView = if (display.tab == RequestInfoViewModel.TAB_REQUEST_BODY) {
+                binding.requestBodyText
+            } else binding.responseBodyText
+            binding.bodyPagingHint.visibility = if (display.pageCount > 1) View.VISIBLE else View.GONE
+            val pageKey = display.tab to display.page
+            if (shownBodyPage != pageKey) {
+                binding.scrollView.scrollTo(0, 0)
+                shownBodyPage = pageKey
             }
-            textView?.text = highlightedText
+            textView.visibility = View.VISIBLE
+            // Do not reset the TextView/selection for duplicate state deliveries.
+            if (textView.text !== display.text) textView.text = display.text
         }
 
         fun updateRequestBodyContent(content: String) {
             binding.requestBodyText.visibility = View.VISIBLE
             binding.responseBodyImage.visibility = View.GONE
-            binding.requestBodyText.text = content
+            viewModel.displayFor(RequestInfoViewModel.TAB_REQUEST_BODY)?.let(::showBody)
         }
 
         fun updateResponseBodyContent(result: ResponseBodyContent) {
@@ -165,7 +190,7 @@ class RequestInfoPagerAdapter(
             when (result) {
                 is ResponseBodyContent.Text -> {
                     binding.responseBodyText.visibility = View.VISIBLE
-                    binding.responseBodyText.text = result.content
+                    viewModel.displayFor(RequestInfoViewModel.TAB_RESPONSE_BODY)?.let(::showBody)
                 }
                 is ResponseBodyContent.Image -> {
                     binding.responseBodyImage.visibility = View.VISIBLE
@@ -177,13 +202,14 @@ class RequestInfoPagerAdapter(
                 }
                 is ResponseBodyContent.Loading -> {
                     binding.responseBodyText.visibility = View.VISIBLE
-                    binding.responseBodyText.text = "Loading..."
+                    binding.responseBodyText.setText(R.string.body_loading)
                 }
             }
         }
 
         private fun decodeAndSetImage(bytes: ByteArray) {
-            lifecycleOwner.lifecycleScope.launch {
+            imageJob?.cancel()
+            imageJob = lifecycleOwner.lifecycleScope.launch {
                 val bitmap: Bitmap? = withContext(Dispatchers.IO) {
                     try {
                         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
@@ -196,7 +222,7 @@ class RequestInfoPagerAdapter(
                 } else {
                     binding.responseBodyImage.visibility = View.GONE
                     binding.responseBodyText.visibility = View.VISIBLE
-                    binding.responseBodyText.text = "Error: Failed to decode image."
+                    binding.responseBodyText.setText(R.string.body_image_decode_failed)
                 }
             }
         }

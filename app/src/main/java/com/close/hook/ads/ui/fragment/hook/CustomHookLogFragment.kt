@@ -37,6 +37,7 @@ import com.close.hook.ads.ui.viewmodel.LogViewModel
 import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.OnBackPressContainer
 import com.close.hook.ads.util.OnBackPressListener
+import com.close.hook.ads.util.showFeedback
 import com.close.hook.ads.util.dp
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.flow.collectLatest
@@ -109,7 +110,11 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
                 return when (menuItem.itemId) {
                     R.id.action_clear_logs -> {
-                        viewModel.clearLogs()
+                        val removed = viewModel.clearLogs()
+                        if (removed.isNotEmpty()) binding.root.showFeedback(
+                            getString(R.string.logs_cleared_count, removed.size),
+                            undo = { viewModel.restoreLogs(removed) }
+                        )
                         true
                     }
                     R.id.action_enable_log -> {
@@ -126,7 +131,10 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
     private fun onLogSwitchChanged(isChecked: Boolean) {
         HookPrefs.setEnableLogging(packageName, isChecked)
         updateUIForLogState(isChecked)
-        if (isChecked) viewModel.loadLogs()
+        if (isChecked) {
+            logAdapter.submitList(viewModel.logs.value)
+            updateEmptyView(viewModel.logs.value.isEmpty())
+        }
 
         requireActivity().invalidateOptionsMenu()
     }
@@ -173,6 +181,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
 
     private fun setIconAndFocus(isFocused: Boolean) {
         val drawableId = if (isFocused) R.drawable.ic_magnifier_to_back else R.drawable.ic_back_to_magnifier
+        binding.searchIcon.contentDescription = getString(if (isFocused) R.string.search_close else R.string.search)
         binding.searchIcon.apply {
             setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
             (drawable as? AnimatedVectorDrawable)?.start()
@@ -262,7 +271,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
         val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(requireContext(), R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
+        binding.root.showFeedback(getString(R.string.copied_to_clipboard))
     }
 
     private fun EditText.showKeyboard() {

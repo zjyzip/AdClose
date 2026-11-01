@@ -182,7 +182,7 @@ class CustomHookDialogFragment : DialogFragment() {
                 LayoutInflater.from(context), binding.llParameterReplacements, false
             )
 
-            paramBinding.parameterTitle.text = "参数 ${i + 1}"
+            paramBinding.parameterTitle.text = getString(R.string.hook_parameter_number, i + 1)
             paramBinding.parameterSignature.text = type
 
             val initialValue = existingReplacements?.get(i)

@@ -128,7 +128,7 @@
     <string name="hook_configurations_label">Hook Configurations</string>
     <string name="copied_hooks_count">%d Hooks copied</string>
     <string name="clear_all_hooks_title">Clear all Hooks?</string>
-    <string name="clear_all_hooks_message">Are you sure you want to clear all Hook configurations? This action cannot be undone.</string>
+    <string name="clear_all_hooks_message">Clear all Hook configurations? You can undo immediately afterward.</string>
     <string name="all_hooks_cleared">All Hooks cleared</string>
     <string name="empty_hook_configs">No custom Hook configurations yet</string>
     <string name="hook_added_successfully">Hook added successfully</string>
@@ -236,6 +236,9 @@
     <string name="build_type">Build Type</string>
     <string name="finger_print">Finger Print</string>
     <string name="support">Support</string>
+    <string name="overview_rules">Local rules</string>
+    <string name="overview_subscriptions">Subscriptions</string>
+    <string name="overview_apps">Installed apps</string>
     <string name="join_telegram_channel"><![CDATA[Join %1$s Channel]]></string>
     <string name="default_page">Default Page</string>
     <string name="activated">Activated</string>
@@ -361,4 +364,50 @@
         <item>7 days</item>
         <item>30 days</item>
     </string-array>
+    <string name="body_loading">Loading content…</string>
+    <string name="body_load_failed">Unable to load content: %1$s</string>
+    <string name="body_image_decode_failed">Unable to display this image.</string>
+    <string name="body_searching">Searching…</string>
+    <string name="body_no_matches">No matches</string>
+    <string name="body_match_count">%1$d/%2$s</string>
+    <string name="body_page_count">%1$d/%2$d</string>
+    <string name="body_previous_page">Previous</string>
+    <string name="body_next_page">Next</string>
+    <string name="body_previous_match">Previous match</string>
+    <string name="body_next_match">Next match</string>
+    <string name="body_request_title">Request body</string>
+    <string name="body_response_title">Response body</string>
+    <string name="body_collect_response">Collect response body</string>
+    <string name="body_paging_hint">Large content is shown in pages. Search covers the entire loaded body.</string>
+    <string name="action_undo">Undo</string>
+    <string name="operation_failed">Unable to complete this operation.</string>
+    <string name="operation_restored">Restored %1$d items</string>
+    <string name="rules_deleted_count">Deleted %1$d rules</string>
+    <string name="logs_cleared_count">Cleared %1$d log entries</string>
+    <string name="overview_configured_apps">Configured apps</string>
+    <string name="overview_recent_blocked">Recent blocked</string>
+    <string name="overview_subscriptions_status">%1$d of %2$d subscriptions enabled · %3$d need attention</string>
+    <string name="overview_session_hint">Recent blocked requests are counted from the current request list.</string>
+    <string name="overview_unavailable">Unavailable</string>
+    <string name="search_close">Close search</string>
+    <string name="fab_open_actions">Open actions</string>
+    <string name="fab_close_actions">Close actions</string>
+    <string name="hook_parameter_number">Parameter %1$d</string>
+    <string name="overview_recent_count">Recent blocked: %1$d / %2$d requests</string>
+    <string name="framework_name_format">Framework: %1$s</string>
+    <string name="framework_version_format">Version: %1$s</string>
+    <string name="framework_api_format">API: %1$d</string>
+    <string name="database_not_text">Database files cannot be displayed as text.</string>
+    <string name="file_load_failed">Unable to read this file.</string>
+    <string name="detail_dns">DNS info</string>
+    <string name="detail_request">Request</string>
+    <string name="detail_response">Response</string>
+    <string name="detail_dns_host">DNS host</string>
+    <string name="detail_address">Full address</string>
+    <string name="detail_method">Request method</string>
+    <string name="detail_url">Request URL</string>
+    <string name="detail_request_headers">Request headers</string>
+    <string name="detail_response_code">Response code</string>
+    <string name="detail_response_message">Response message</string>
+    <string name="detail_response_headers">Response headers</string>
 </resources>

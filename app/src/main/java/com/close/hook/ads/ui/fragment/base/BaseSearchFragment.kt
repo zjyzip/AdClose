@@ -7,6 +7,8 @@ import android.widget.EditText
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.viewbinding.ViewBinding
+import com.close.hook.ads.R
+import com.close.hook.ads.util.dp
 
 abstract class BaseSearchFragment<VB : ViewBinding> : BaseFragment<VB>() {
 
@@ -18,6 +20,9 @@ abstract class BaseSearchFragment<VB : ViewBinding> : BaseFragment<VB>() {
     protected abstract val searchEditTextView: EditText
 
     protected fun setIconAndFocus(drawableId: Int, focus: Boolean) {
+        searchIconView.contentDescription = getString(if (focus) R.string.search_close else R.string.search)
+        searchIconView.minimumWidth = 48.dp
+        searchIconView.minimumHeight = 48.dp
         searchIconView.setImageDrawable(ContextCompat.getDrawable(requireContext(), drawableId))
         (searchIconView.drawable as? AnimatedVectorDrawable)?.start()
         if (focus) {

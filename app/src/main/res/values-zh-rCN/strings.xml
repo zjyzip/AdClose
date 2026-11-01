@@ -113,7 +113,7 @@
     <string name="hook_configurations_label">Hook 配置</string>
     <string name="copied_hooks_count">已复制 %d 个 Hook</string>
     <string name="clear_all_hooks_title">清空所有 Hook?</string>
-    <string name="clear_all_hooks_message">您确定要清空所有 Hook 配置吗？此操作无法撤销。</string>
+    <string name="clear_all_hooks_message">确定清空所有 Hook 配置吗？清空后可以立即撤销。</string>
     <string name="all_hooks_cleared">所有 Hook 已清空</string>
     <string name="empty_hook_configs">暂无自定义 Hook 配置</string>
     <string name="hook_added_successfully">Hook 添加成功</string>
@@ -220,6 +220,9 @@
     <string name="build_type">构建种类</string>
     <string name="finger_print">构建指纹</string>
     <string name="support">支持</string>
+    <string name="overview_rules">本地规则</string>
+    <string name="overview_subscriptions">订阅</string>
+    <string name="overview_apps">已安装应用</string>
     <string name="join_telegram_channel"><![CDATA[加入我们的 %1$s 频道]]></string>
     <string name="default_page">默认打开页面</string>
     <string name="activated">已激活</string>
@@ -348,4 +351,50 @@
         <item>7 天</item>
         <item>30 天</item>
     </string-array>
+    <string name="body_loading">正在加载内容…</string>
+    <string name="body_load_failed">无法加载内容：%1$s</string>
+    <string name="body_image_decode_failed">无法显示这张图片。</string>
+    <string name="body_searching">正在搜索…</string>
+    <string name="body_no_matches">没有匹配项</string>
+    <string name="body_match_count">%1$d/%2$s</string>
+    <string name="body_page_count">%1$d/%2$d</string>
+    <string name="body_previous_page">上一页</string>
+    <string name="body_next_page">下一页</string>
+    <string name="body_previous_match">上一个匹配项</string>
+    <string name="body_next_match">下一个匹配项</string>
+    <string name="body_request_title">请求内容</string>
+    <string name="body_response_title">响应内容</string>
+    <string name="body_collect_response">收集响应内容</string>
+    <string name="body_paging_hint">大文本已分页显示，搜索覆盖已加载的完整内容。</string>
+    <string name="action_undo">撤销</string>
+    <string name="operation_failed">操作未完成，请重试。</string>
+    <string name="operation_restored">已恢复 %1$d 项</string>
+    <string name="rules_deleted_count">已删除 %1$d 条规则</string>
+    <string name="logs_cleared_count">已清空 %1$d 条日志</string>
+    <string name="overview_configured_apps">已配置应用</string>
+    <string name="overview_recent_blocked">近期拦截</string>
+    <string name="overview_subscriptions_status">已启用 %1$d/%2$d 个订阅 · %3$d 个需要关注</string>
+    <string name="overview_session_hint">近期拦截数来自当前请求列表。</string>
+    <string name="overview_unavailable">暂不可用</string>
+    <string name="search_close">退出搜索</string>
+    <string name="fab_open_actions">展开操作菜单</string>
+    <string name="fab_close_actions">收起操作菜单</string>
+    <string name="hook_parameter_number">参数 %1$d</string>
+    <string name="overview_recent_count">近期拦截：%1$d / %2$d 条请求</string>
+    <string name="framework_name_format">框架：%1$s</string>
+    <string name="framework_version_format">版本：%1$s</string>
+    <string name="framework_api_format">API：%1$d</string>
+    <string name="database_not_text">数据库文件无法以文本形式显示。</string>
+    <string name="file_load_failed">无法读取此文件。</string>
+    <string name="detail_dns">DNS 信息</string>
+    <string name="detail_request">请求</string>
+    <string name="detail_response">响应</string>
+    <string name="detail_dns_host">DNS 主机</string>
+    <string name="detail_address">完整地址</string>
+    <string name="detail_method">请求方法</string>
+    <string name="detail_url">请求 URL</string>
+    <string name="detail_request_headers">请求头</string>
+    <string name="detail_response_code">响应码</string>
+    <string name="detail_response_message">响应消息</string>
+    <string name="detail_response_headers">响应头</string>
 </resources>
