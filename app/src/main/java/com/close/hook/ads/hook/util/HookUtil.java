@@ -2,6 +2,8 @@ package com.close.hook.ads.hook.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Member;
+import java.util.Locale;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;   
@@ -39,7 +41,7 @@ public class HookUtil {
         return null;
     }
 
-    private static <T extends java.lang.reflect.Member> void performHook(T hookTarget, XC_MethodHook methodHook) {
+    private static <T extends Member> void performHook(T hookTarget, XC_MethodHook methodHook) {
         if (hookTarget == null) {
             XposedBridge.log("HookUtil - Attempted to hook a null target.");
             return;
@@ -192,19 +194,20 @@ public class HookUtil {
             String hookType,
             Consumer<XC_MethodHook.MethodHookParam> action) {
 
+        final String phase = hookType == null || hookType.trim().isEmpty()
+                ? "before" : hookType.trim().toLowerCase(Locale.ROOT);
+        if (!"before".equals(phase) && !"after".equals(phase)) {
+            throw new IllegalArgumentException("Unsupported hook phase: " + hookType);
+        }
         return new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if ("before".equals(hookType)) {
-                    action.accept(param);
-                }
+                if ("before".equals(phase)) action.accept(param);
             }
 
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if ("after".equals(hookType)) {
-                    action.accept(param);
-                }
+                if ("after".equals(phase)) action.accept(param);
             }
         };
     }

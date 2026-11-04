@@ -91,10 +91,10 @@ public class AntiEmulatorDetection {
                 }
             });
 
-            HookUtil.hookAllMethods(System.class, "getProperty", "before", param -> {
+            HookUtil.hookAllMethods(System.class, "getProperty", "after", param -> {
                 String key = (String) param.args[0];
                 if (key != null) {
-                    if (EMULATOR_SPECIFIC_BUILD_KEYS_VALUES.contains(key + "=" + System.getProperty(key))) {
+                    if (EMULATOR_SPECIFIC_BUILD_KEYS_VALUES.contains(key + "=" + param.getResult())) {
                         param.setResult("0");
                         return;
                     }

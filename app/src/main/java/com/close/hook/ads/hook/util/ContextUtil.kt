@@ -5,32 +5,26 @@ import android.app.Instrumentation
 import android.content.Context
 import android.content.ContextWrapper
 import de.robv.android.xposed.XposedBridge
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
 object ContextUtil {
 
     private const val TAG = "ContextUtil"
 
+    private val hooksInstalled = AtomicBoolean(false)
+
     private class ContextState {
-        val isInitialized = AtomicBoolean(false)
-        val callbacks = ConcurrentLinkedQueue<() -> Unit>()
+        private val callbacks = InitializationCallbacks { error ->
+            XposedBridge.log("$TAG | Context callback failed: $error")
+        }
 
         fun triggerCallbacks(context: Context, contextType: String) {
-            if (isInitialized.compareAndSet(false, true)) {
+            if (callbacks.complete()) {
                 XposedBridge.log("$TAG | Context Initialized ($contextType): $context")
-                callbacks.forEach { it() }
-                callbacks.clear()
             }
         }
 
-        fun addCallback(callback: () -> Unit, currentContext: Context?) {
-            if (isInitialized.get() && currentContext != null) {
-                callback()
-            } else {
-                callbacks.offer(callback)
-            }
-        }
+        fun addCallback(callback: () -> Unit) = callbacks.add(callback)
     }
 
     private val activityThreadState = ContextState()
@@ -55,6 +49,7 @@ object ContextUtil {
     var instrumentationContext: Context? = null
 
     fun setupContextHooks() {
+        if (!hooksInstalled.compareAndSet(false, true)) return
         HookUtil.hookAllMethods(
             "android.app.ActivityThread",
             "performLaunchActivity",
@@ -104,18 +99,18 @@ object ContextUtil {
     }
 
     fun addOnActivityThreadContextInitializedCallback(callback: () -> Unit) {
-        activityThreadState.addCallback(callback, activityThreadContext)
+        activityThreadState.addCallback(callback)
     }
 
     fun addOnApplicationContextInitializedCallback(callback: () -> Unit) {
-        applicationState.addCallback(callback, applicationContext)
+        applicationState.addCallback(callback)
     }
 
     fun addOnContextWrapperContextInitializedCallback(callback: () -> Unit) {
-        contextWrapperState.addCallback(callback, contextWrapperContext)
+        contextWrapperState.addCallback(callback)
     }
 
     fun addOnInstrumentationContextInitializedCallback(callback: () -> Unit) {
-        instrumentationState.addCallback(callback, instrumentationContext)
+        instrumentationState.addCallback(callback)
     }
 }

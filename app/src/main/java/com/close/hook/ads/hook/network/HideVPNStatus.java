@@ -8,6 +8,7 @@ import java.net.NetworkInterface;
 import java.util.regex.Pattern;
 
 import com.close.hook.ads.hook.util.HookUtil;
+import de.robv.android.xposed.XposedHelpers;
 
 public class HideVPNStatus {
 
@@ -77,13 +78,15 @@ public class HideVPNStatus {
         HookUtil.hookAllMethods(NetworkInterface.class, "isUp", "before", param -> {
             if (param.thisObject instanceof NetworkInterface) {
                 NetworkInterface networkInterface = (NetworkInterface) param.thisObject;
-                if (vpnInterfacePattern.matcher(networkInterface.getName()).matches()) {
+                // getName() itself is masked below; inspect its backing value to avoid our own hook.
+                String name = (String) XposedHelpers.getObjectField(networkInterface, "name");
+                if (name != null && vpnInterfacePattern.matcher(name).matches()) {
                     param.setResult(false);
                 }
             }
         });
 
-        HookUtil.hookAllMethods(NetworkInterface.class, "getName", "before", param -> {
+        HookUtil.hookAllMethods(NetworkInterface.class, "getName", "after", param -> {
             if (param.getResult() instanceof String) {
                 String originalName = (String) param.getResult();
                 if (originalName != null && vpnInterfacePattern.matcher(originalName).matches()) {

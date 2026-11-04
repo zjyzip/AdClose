@@ -1,37 +1,16 @@
 package com.close.hook.ads.hook.common;
 
-import android.util.Log;
-
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
+import com.close.hook.ads.hook.util.EnvironmentHookPolicy;
 import com.close.hook.ads.hook.util.HookUtil;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 public class HideEnvi {
-
-    private static final String TAG = "HideEnvi";
-
-    private static final Set<String> SENSITIVE_PATHS = new HashSet<>(Arrays.asList(
-            "/system/bin/su", "/system/xbin/su", "/sbin/su", "/su/bin/su",
-            "/data/local/xbin/su", "/data/local/bin/su", "/system/sd/xbin/su",
-            "/system/bin/.ext/.su", "/data/adb/magisk", "/data/adb/lspd",
-            "/system/usr/we-need-root/", "/cache/", "/data/local/", "/dev/"
-    ));
-
-    private static final Set<String> MEMORY_FEATURES = Set.of(
-            "xposed.installer", "app_process_xposed", "libriru_", "liblspd.so",
-            "libriruloader.so", "libxposed_art.so", "magisk"
-    );
 
     public static void handle() {
         hookFileExistenceChecks();
@@ -51,7 +30,7 @@ public class HideEnvi {
     }
 
     private static boolean isSensitivePath(String path) {
-        return SENSITIVE_PATHS.stream().anyMatch(path::contains) || path.contains("magisk");
+        return EnvironmentHookPolicy.isSensitivePath(path);
     }
 
     private static void hookRuntimeExecutions() {
@@ -66,42 +45,48 @@ public class HideEnvi {
 
             if (command.isEmpty()) return;
 
-            if (command.contains("su") || command.contains("which")) {
-                param.args[0] = new String[]{"sh", "-c", "exit 1"};
+            if (EnvironmentHookPolicy.isRootCommand(command)) {
+                // Returning a failed process preserves every exec overload's declared argument types.
+                param.setResult(createFakeProcess("", 1));
                 return;
             }
 
             if (command.contains("getprop")) {
-                param.setResult(createFakeProcess("[ro.debuggable]: [0]\n[ro.secure]: [1]\n[ro.build.tags]: [release-keys]"));
+                param.setResult(createFakeProcess("[ro.debuggable]: [0]\n[ro.secure]: [1]\n[ro.build.tags]: [release-keys]", 0));
             }
         });
     }
 
-    private static Process createFakeProcess(final String output) {
+    private static Process createFakeProcess(final String output, final int exitCode) {
+        final InputStream stdout = new ByteArrayInputStream(output.getBytes(StandardCharsets.UTF_8));
+        final InputStream stderr = new ByteArrayInputStream(new byte[0]);
+        final OutputStream stdin = new OutputStream() {
+            @Override public void write(int value) {}
+        };
         return new Process() {
             @Override
             public OutputStream getOutputStream() {
-                return null;
+                return stdin;
             }
 
             @Override
             public InputStream getInputStream() {
-                return new ByteArrayInputStream(output.getBytes());
+                return stdout;
             }
 
             @Override
             public InputStream getErrorStream() {
-                return new ByteArrayInputStream(new byte[0]);
+                return stderr;
             }
 
             @Override
             public int waitFor() {
-                return 0;
+                return exitCode;
             }
 
             @Override
             public int exitValue() {
-                return 0;
+                return exitCode;
             }
 
             @Override
@@ -112,11 +97,12 @@ public class HideEnvi {
     private static void hookSystemProperties() {
         HookUtil.hookAllMethods("android.os.SystemProperties", "get", "before", param -> {
             String key = (String) param.args[0];
+            if (key == null) return;
             if ("ro.debuggable".equals(key)) {
                 param.setResult("0");
             } else if ("ro.secure".equals(key)) {
                 param.setResult("1");
-            } else if (key.toLowerCase().contains("magisk") || key.toLowerCase().contains("xposed")) {
+            } else if (key.toLowerCase(Locale.ROOT).contains("magisk") || key.toLowerCase(Locale.ROOT).contains("xposed")) {
                 param.setResult("");
             }
         });

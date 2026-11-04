@@ -23,18 +23,23 @@ import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.util.AppUtils
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 object HookLogic {
 
     var xposedInterface: XposedInterface? = null
     private const val TAG = "com.close.hook.ads"
-    private val hookScope = CoroutineScope(Dispatchers.IO)
+    private val hookScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val packageInitialization = AtomicBoolean(false)
 
     fun loadPackage(param: XposedModuleInterface.PackageLoadedParam) {
-        if (!param.isFirstPackage || param.packageName == TAG) return
+        if (!param.isFirstPackage || param.packageName == TAG ||
+            !packageInitialization.compareAndSet(false, true)) return
 
         ContextUtil.addOnApplicationContextInitializedCallback {
             ContextUtil.applicationContext?.let { context ->
@@ -49,26 +54,37 @@ object HookLogic {
         }
     }
 
+    private inline fun hookStage(name: String, action: () -> Unit) {
+        try {
+            action()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            xposedInterface?.log(Log.ERROR, TAG, "$name failed: ${Log.getStackTraceString(error)}")
+        }
+    }
+
     private fun setupAppHooks(context: Context, manager: SettingsManager) {
         val classLoader = context.classLoader
         val packageName = context.packageName
 
         if (HookPrefs.getBoolean(HookPrefs.KEY_ENABLE_DEX_DUMP, false)) {
-            DexDumpUtil.dumpDexFilesByPackageName(packageName)
+            hookStage("DEX dump") { DexDumpUtil.dumpDexFilesByPackageName(packageName) }
         }
 
-        if (AppUtils.isMainProcess(context)) {
-            if (manager.isHookTipEnabled) {
-                AppUtils.showHookTip(context, packageName)
+        hookStage("App notification") {
+            if (AppUtils.isMainProcess(context)) {
+                if (manager.isHookTipEnabled) AppUtils.showHookTip(context, packageName)
+                val appName = AppUtils.getAppName(context, packageName)
+                xposedInterface?.log(Log.INFO, TAG, "Hooking App: $appName ($packageName)")
             }
-            val appName = AppUtils.getAppName(context, packageName)
-            xposedInterface?.log(Log.INFO, TAG, "Hooking App: $appName ($packageName)")
         }
 
-        SDKAdsKit.hookAds()
-        AppAds.progress(classLoader, packageName)
-
-        applyClassLoaderHooks(classLoader, manager.prefsHelper, packageName, context)
+        hookStage("SDK ads") { SDKAdsKit.hookAds() }
+        hookStage("App ads") { AppAds.progress(classLoader, packageName) }
+        hookStage("Custom hooks") {
+            applyClassLoaderHooks(classLoader, manager.prefsHelper, packageName, context)
+        }
     }
 
     private fun applyClassLoaderHooks(
@@ -78,6 +94,12 @@ object HookLogic {
         context: Context
     ) {
         val appHooksEnabled = hookPrefs.getOverallHookEnabled(packageName)
+        val enabledLogScopes = buildSet {
+            if (hookPrefs.getEnableLogging(null)) add(LogEntry.GLOBAL_HOOK_SCOPE)
+            if (appHooksEnabled && hookPrefs.getEnableLogging(packageName)) add(packageName)
+        }
+        if (enabledLogScopes.isNotEmpty()) hookStage("Logger") { LogProxy.init(context, enabledLogScopes) }
+
         CustomHook.hookCustomAds(
             classLoader,
             hookPrefs.getCustomHookConfigs(null),
@@ -91,18 +113,10 @@ object HookLogic {
             packageName = packageName
         )
 
-        val enabledLogScopes = buildSet {
-            if (hookPrefs.getEnableLogging(null)) add(LogEntry.GLOBAL_HOOK_SCOPE)
-            if (appHooksEnabled && hookPrefs.getEnableLogging(packageName)) add(packageName)
-        }
-        if (enabledLogScopes.isNotEmpty()) {
-            LogProxy.init(context, enabledLogScopes)
-        }
-
-        if (appHooksEnabled) {
-            AutoHookAds.registerAutoDetectReceiver(context)
+        if (appHooksEnabled && AppUtils.isMainProcess(context)) {
+            hookStage("Auto-detect receiver") { AutoHookAds.registerAutoDetectReceiver(context) }
             hookScope.launch {
-                AutoHookAds.findAndCacheSdkMethods(context, packageName)
+                hookStage("Ad SDK scan") { AutoHookAds.findAndCacheSdkMethods(context, packageName) }
             }
         }
 
@@ -113,17 +127,18 @@ object HookLogic {
             val needRequestHook = isRequestHookEnabled
             val needNativeHook  = isNativeRequestHookEnabled
 
-            if (needRequestHook || needNativeHook) {
-                RequestHook.init(context)
-                NativeRequestHook.init(needNativeHook)
+            hookStage("Request hooks") {
+                if (needRequestHook || needNativeHook) {
+                    RequestHook.init(context)
+                    NativeRequestHook.init(needNativeHook)
+                }
+                if (needRequestHook) RequestHookHandler.init(context)
             }
-            if (needRequestHook) RequestHookHandler.init(context)
-
-            if (isHideVPNStatusEnabled)     HideVPNStatus.proxy()
-            if (isDisableFlagSecureEnabled) DisableFlagSecure.process()
-            if (isDisableShakeAdEnabled)    DisableShakeAd.handle()
-            if (isHideEnivEnabled)          HideEnvi.handle()
-            if (isDisableClipboard)         DisableClipboard.handle()
+            if (isHideVPNStatusEnabled) hookStage("VPN status") { HideVPNStatus.proxy() }
+            if (isDisableFlagSecureEnabled) hookStage("Secure flags") { DisableFlagSecure.process() }
+            if (isDisableShakeAdEnabled) hookStage("Shake ads") { DisableShakeAd.handle() }
+            if (isHideEnivEnabled) hookStage("Environment checks") { HideEnvi.handle() }
+            if (isDisableClipboard) hookStage("Clipboard") { DisableClipboard.handle() }
         }
     }
 }

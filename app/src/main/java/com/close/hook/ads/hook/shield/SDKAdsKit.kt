@@ -1,9 +1,11 @@
 package com.close.hook.ads.hook.shield
 
 import android.os.BaseBundle
+import java.util.concurrent.atomic.AtomicBoolean
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import de.robv.android.xposed.XposedBridge
+import com.close.hook.ads.hook.util.HookValueParser
 import com.close.hook.ads.hook.util.DexKitUtil
 import com.close.hook.ads.hook.util.HookUtil.findAndHookMethod
 import com.close.hook.ads.hook.util.HookUtil.hookMethod
@@ -12,19 +14,29 @@ import org.luckypray.dexkit.result.MethodData
 
 object SDKAdsKit {
 
+    private val initialized = AtomicBoolean(false)
+
     private const val ENABLE_DEBUG_LOG = false
     private const val LOG_PREFIX = "[SDKAdsKit]"
 
     private val packageName: String by lazy { DexKitUtil.context.packageName }
 
     fun hookAds() {
-        handleIQIYI()
-        blockAnyThinkNet()
-
-        blockAdIdWithString()
-        blockAdIdWithBaseBundle()
-        blockGoogleAdsInitialize()
-        blockAdsWithPackageName()
+        if (!initialized.compareAndSet(false, true)) return
+        listOf(
+            "IQIYI" to ::handleIQIYI,
+            "AnyThink" to ::blockAnyThinkNet,
+            "Ad IDs" to ::blockAdIdWithString,
+            "Bundle ad ID" to ::blockAdIdWithBaseBundle,
+            "Google Ads" to ::blockGoogleAdsInitialize,
+            "Ad packages" to ::blockAdsWithPackageName
+        ).forEach { (name, install) ->
+            try {
+                install()
+            } catch (error: Throwable) {
+                XposedBridge.log("$LOG_PREFIX $name initialization failed: $error")
+            }
+        }
     }
 
     fun hookMethodsByStringMatch(cacheKey: String, strings: List<String>, action: (Method) -> Unit) {
@@ -33,11 +45,15 @@ object SDKAdsKit {
                 bridge.findMethod {
                     matcher { usingStrings = strings }
                 }
-            }?.forEach { methodData ->
-                if (isValidMethod(methodData)) {
-                    val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
-                    action(method)
-                    if (ENABLE_DEBUG_LOG) XposedBridge.log("$LOG_PREFIX Hooked method: $methodData")
+            }.forEach { methodData ->
+                try {
+                    if (isValidMethod(methodData)) {
+                        val method = methodData.getMethodInstance(DexKitUtil.context.classLoader)
+                        action(method)
+                        if (ENABLE_DEBUG_LOG) XposedBridge.log("$LOG_PREFIX Hooked method: $methodData")
+                    }
+                } catch (error: Throwable) {
+                    XposedBridge.log("$LOG_PREFIX Failed method $methodData: $error")
                 }
             }
         }
@@ -48,8 +64,9 @@ object SDKAdsKit {
             "$packageName:handleIQIYI",
             listOf("smartUpgradeResponse")
         ) { method ->
+            val value = HookValueParser.defaultValue(method.returnType)
             hookMethod(method, "before") { param ->
-                param.result = null
+                param.result = value
             }
         }
     }

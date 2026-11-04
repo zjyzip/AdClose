@@ -1,39 +1,37 @@
 package com.close.hook.ads.hook.common;
 
-import android.app.Dialog;
 import android.view.Window;
 import android.view.WindowManager;
 import com.close.hook.ads.hook.util.HookUtil;
 import de.robv.android.xposed.XposedBridge;
 
 public class DisableFlagSecure {
-
     public static void process() {
-        HookUtil.hookAllMethods(Window.class, "setFlags", "before", param -> handleWindowOrDialogFlags(param.args));
-        HookUtil.hookAllMethods(Window.class, "addFlags", "before", param -> handleWindowOrDialogFlags(param.args));
-        HookUtil.hookAllMethods(Dialog.class, "setFlags", "before", param -> handleWindowOrDialogFlags(param.args));
-        HookUtil.hookAllConstructors(WindowManager.LayoutParams.class, "before", param -> handleLayoutParamsConstructor(param.args));
+        HookUtil.hookAllMethods(Window.class, "setFlags", "before", param -> stripFlagArgument(param.args));
+        HookUtil.hookAllMethods(Window.class, "addFlags", "before", param -> stripFlagArgument(param.args));
+        HookUtil.hookAllMethods(Window.class, "setAttributes", "before", param -> {
+            if (param.args.length > 0 && param.args[0] instanceof WindowManager.LayoutParams) {
+                stripLayoutFlags((WindowManager.LayoutParams) param.args[0]);
+            }
+        });
+        // Constructor overloads have different argument positions. Inspect the initialized object.
+        HookUtil.hookAllConstructors(WindowManager.LayoutParams.class, "after", param -> {
+            if (param.thisObject instanceof WindowManager.LayoutParams) {
+                stripLayoutFlags((WindowManager.LayoutParams) param.thisObject);
+            }
+        });
     }
 
-    private static void handleWindowOrDialogFlags(Object[] args) {
+    private static void stripFlagArgument(Object[] args) {
         if (args != null && args.length > 0 && args[0] instanceof Integer) {
-            int currentFlags = (int) args[0];
-            if ((currentFlags & WindowManager.LayoutParams.FLAG_SECURE) != 0) {
-                args[0] = currentFlags & ~WindowManager.LayoutParams.FLAG_SECURE;
-                XposedBridge.log("DisableFlagSecure: Removed FLAG_SECURE from Window/Dialog setFlags/addFlags. Original: " + Integer.toHexString(currentFlags) + ", New: " + Integer.toHexString((int) args[0]));
-            }
+            args[0] = (int) args[0] & ~WindowManager.LayoutParams.FLAG_SECURE;
         }
     }
 
-    private static void handleLayoutParamsConstructor(Object[] args) {
-        if (args != null && args.length > 0) {
-            if (args[0] instanceof Integer) {
-                int currentFlags = (int) args[0];
-                if ((currentFlags & WindowManager.LayoutParams.FLAG_SECURE) != 0) {
-                    args[0] = currentFlags & ~WindowManager.LayoutParams.FLAG_SECURE;
-                    XposedBridge.log("DisableFlagSecure: Removed FLAG_SECURE from LayoutParams constructor (arg[0]). Original: " + Integer.toHexString(currentFlags) + ", New: " + Integer.toHexString((int) args[0]));
-                }
-            }
+    private static void stripLayoutFlags(WindowManager.LayoutParams params) {
+        if ((params.flags & WindowManager.LayoutParams.FLAG_SECURE) != 0) {
+            params.flags &= ~WindowManager.LayoutParams.FLAG_SECURE;
+            XposedBridge.log("DisableFlagSecure: Removed FLAG_SECURE from LayoutParams.flags");
         }
     }
 }
