@@ -72,6 +72,7 @@ android {
         applicationId = "com.close.hook.ads"
         minSdk = 26
         targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = calculateVersionCode()
         versionName = "4.3.7"
 
@@ -153,6 +154,8 @@ fun calculateVersionCode(): Int {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
 
     compileOnly(libs.xposedApi)
     compileOnly(libs.libxposed.api)
