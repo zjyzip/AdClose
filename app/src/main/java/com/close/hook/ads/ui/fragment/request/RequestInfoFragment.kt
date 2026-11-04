@@ -24,6 +24,8 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.ResponseBodyContent
+import com.close.hook.ads.data.model.RequestInfo
+import com.close.hook.ads.data.model.detailArguments
 import com.close.hook.ads.databinding.FragmentRequestInfoBinding
 import com.close.hook.ads.ui.adapter.RequestInfoPagerAdapter
 import com.close.hook.ads.ui.fragment.base.BaseFragment
@@ -87,6 +89,18 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         setupViewPagerAndTabs()
         setupSearchNavigation()
         observeViewModel()
+    }
+
+    fun updateRequest(item: RequestInfo) {
+        val args = arguments ?: return
+        args.putAll(item.detailArguments())
+        if (_binding == null || !::pagerAdapter.isInitialized) return
+        val selected = availableTabs.getOrNull(binding.viewPager.currentItem)
+        viewModel.updateSources(args)
+        availableTabs = getAvailableTabs()
+        pagerAdapter.updateTabs(availableTabs)
+        val position = availableTabs.indexOf(selected).takeIf { it >= 0 } ?: 0
+        if (availableTabs.isNotEmpty()) binding.viewPager.setCurrentItem(position, false)
     }
 
     override fun onResume() {
@@ -178,7 +192,8 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
             binding.clear.isVisible = !it.isNullOrEmpty()
         }
         binding.searchIcon.setOnClickListener {
-            updateSearchUI(isFocused = !binding.editText.isFocused)
+            val wasActive = binding.editText.isFocused
+            updateSearchUI(isFocused = !wasActive)
         }
         binding.editText.setOnFocusChangeListener { _, hasFocus ->
             // Selecting body text must not clear the query or rebind the selected TextView.
@@ -204,6 +219,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         } else {
             binding.editText.setText("")
             binding.editText.hideKeyboard()
+            viewModel.updateQuery("")
         }
     }
 
@@ -225,7 +241,7 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
-                val newTab = availableTabs[position]
+                val newTab = availableTabs.getOrNull(position) ?: return
                 updateFabVisibility(newTab)
                 binding.viewPager.post { bindFabToCurrentPage() }
 
@@ -299,7 +315,8 @@ class RequestInfoFragment : BaseFragment<FragmentRequestInfoBinding>(), OnBackPr
                 if (!getString("requestBodyUriString").isNullOrEmpty())
                     add(RequestInfoViewModel.TAB_REQUEST_BODY)
 
-                if (!getString("responseHeaders").isNullOrEmpty()) add("Response")
+                if ((getString("responseCode")?.toIntOrNull() ?: -1) >= 100 ||
+                    !getString("responseHeaders").isNullOrEmpty()) add("Response")
                 if (!getString("responseBodyUriString").isNullOrEmpty()) {
                     add(RequestInfoViewModel.TAB_RESPONSE_BODY)
                 }

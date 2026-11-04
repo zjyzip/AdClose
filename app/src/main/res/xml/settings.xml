@@ -14,6 +14,13 @@
             android:title="@string/data_manager"
             android:summary="@string/data_manager_summary" />
 
+        <SwitchPreferenceCompat
+            android:key="collect_response_body_enabled"
+            android:title="@string/body_collect_response"
+            android:summary="@string/body_collection_summary"
+            android:defaultValue="false"
+            android:icon="@drawable/ic_outline_data_object_24" />
+
         <ListPreference
             android:key="request_cache_expiration"
             android:title="@string/request_cache_expiration_title"

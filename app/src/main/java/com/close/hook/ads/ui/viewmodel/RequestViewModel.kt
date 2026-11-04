@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.data.DataSource
+import com.close.hook.ads.data.RequestListReducer
+import com.close.hook.ads.data.RequestDetailUpdates
 import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.data.model.Url
 import kotlinx.coroutines.Dispatchers
@@ -70,21 +72,16 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
         _requestSearchQuery.value = query
     }
 
-    fun updateRequestList(item: RequestInfo) {
-        _requestList.update { currentList ->
-            if (item.responseCode != -1 && item.requestId.isNotEmpty()) {
-                val idx = currentList.indexOfFirst {
-                    it.requestId == item.requestId && it.responseCode == -1
-                }
-                if (idx >= 0) {
-                    return@update ArrayList(currentList).also { it[idx] = item }
-                }
-            }
-            buildList {
-                add(item)
-                addAll(currentList)
-            }.take(MAX_REQUEST_LIST_SIZE)
+    fun updateRequestList(items: List<RequestInfo>) {
+        if (items.isEmpty()) return
+        items.forEach(RequestDetailUpdates::update)
+        _requestList.update { current ->
+            items.fold(current) { list, item -> RequestListReducer.append(list, item, MAX_REQUEST_LIST_SIZE) }
         }
+    }
+
+    fun updateRequestList(item: RequestInfo) {
+        updateRequestList(listOf(item))
     }
 
     fun onClearAllRequests() {
@@ -93,7 +90,7 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleBlockStatus(request: RequestInfo) = viewModelScope.launch {
         val requestType = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
-            if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
+            if (RequestListReducer.isDns(request)) "Domain" else "URL"
         }
         val urlToToggle = request.url ?: request.request
         val newIsBlocked = if (request.isBlocked == true) {

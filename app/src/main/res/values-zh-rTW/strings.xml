@@ -15,7 +15,7 @@
     <string name="dex_dump_title">DEX Dump</string>
     <string name="dex_dump_summary">為所有已啟用 Hook 的應用程式進行 DEX Dump \n儲存目錄：Download/DexKitDump</string>
     <string name="package_visibility_bypass_title">包可見性繞過</string>
-    <string name="package_visibility_bypass_summary">此設置需要重啟手機後生效 \n允許被 Hook 的應用在 Android 11+ 上查看所有已安裝的包</string>
+    <string name="package_visibility_bypass_summary">此設置需要重啟手機後生效 \n對本模組自身包名開放可見性，使其在 Android 11+ 上可被目標應用查詢到</string>
     <string name="request_cache_expiration_title">請求快取有效期</string>
     <string name="request_cache_expiration_summary">設定暫存的請求/回應主體資料的有效期 \n目前：%s</string>
 
@@ -392,7 +392,7 @@
     <string name="overview_subscriptions_status">已啟用 %1$d/%2$d 個訂閱 · %3$d 個需要注意</string>
     <string name="overview_session_hint">近期攔截數來自目前的請求列表。</string>
     <string name="overview_unavailable">暫時無法取得</string>
-    <string name="overview_recent_count">近期攔截：%1$d / %2$d 筆請求</string>
+    <string name="overview_recent_count">近期攔截：%1$d 次觀察 / 來自 %2$d 個目標</string>
     <string name="search_close">關閉搜尋</string>
     <string name="fab_open_actions">展開操作選單</string>
     <string name="fab_close_actions">收合操作選單</string>
@@ -416,4 +416,7 @@
     <string name="sig_java_count">Java 檢查：%d</string>
     <string name="sig_native_count">Native 檢查：%d</string>
     <string name="sku">SKU</string>
+    <string name="body_collection_summary">重新啟動目標應用程式後，收集新請求的回應內容。</string>
+    <string name="request_occurrence_count">×%1$d</string>
+    <string name="request_occurrence_description">已觀察到 %1$d 次</string>
 </resources>

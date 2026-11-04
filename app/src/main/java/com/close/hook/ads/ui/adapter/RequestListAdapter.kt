@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.lifecycle.LifecycleOwner
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.selection.SelectionTracker
@@ -18,6 +19,9 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.RequestInfo
+import com.close.hook.ads.data.model.detailArguments
+import com.close.hook.ads.data.RequestDetailUpdates
+import com.close.hook.ads.data.RequestListReducer
 import com.close.hook.ads.databinding.ItemRequestBinding
 import com.close.hook.ads.ui.activity.RequestInfoActivity
 import com.close.hook.ads.util.AppIconLoader
@@ -35,6 +39,11 @@ class RequestListAdapter(
 ) : ListAdapter<RequestInfo, RequestListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var tracker: SelectionTracker<RequestInfo>? = null
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty() && payloads.all { it == COUNT_UPDATE }) holder.bindCount(getItem(position))
+        else super.onBindViewHolder(holder, position, payloads)
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
         ViewHolder(ItemRequestBinding.inflate(LayoutInflater.from(parent.context), parent, false))
@@ -79,17 +88,24 @@ class RequestListAdapter(
 
             appName.text = request.appName
             this.request.text = request.request
-            timestamp.text = DATE_FORMATTER.format(
-                Instant.ofEpochMilli(request.timestamp).atZone(ZONE_ID)
-            )
+            bindCount(request)
 
             blockType.text = request.blockType.takeUnless { it.isNullOrEmpty() } ?: run {
-                if (request.appName.trim().endsWith("DNS", ignoreCase = true)) "Domain" else "URL"
+                if (RequestListReducer.isDns(request)) "Domain" else "URL"
             }
             blockType.visibility = if (request.blockType.isNullOrEmpty()) View.GONE else View.VISIBLE
 
             updateBlockStatusUI(request)
             loadAppIcon(request.packageName)
+        }
+
+        fun bindCount(request: RequestInfo) {
+            binding.root.tag = request
+            binding.timestamp.text = DATE_FORMATTER.format(Instant.ofEpochMilli(request.lastTimestamp).atZone(ZONE_ID))
+            binding.occurrenceCount.isVisible = request.occurrenceCount > 1
+            binding.occurrenceCount.text = binding.root.context.getString(R.string.request_occurrence_count, request.occurrenceCount)
+            binding.occurrenceCount.contentDescription = binding.root.context.getString(
+                R.string.request_occurrence_description, request.occurrenceCount)
         }
 
         private fun setupListeners() {
@@ -122,17 +138,7 @@ class RequestListAdapter(
 
         private fun openRequestInfoActivity(request: RequestInfo) {
             Intent(itemView.context, RequestInfoActivity::class.java).apply {
-                putExtra("method", request.method)
-                putExtra("urlString", request.urlString)
-                putExtra("requestHeaders", request.requestHeaders)
-                putExtra("requestBodyUriString", request.requestBodyUriString)
-                putExtra("responseCode", request.responseCode.toString())
-                putExtra("responseMessage", request.responseMessage)
-                putExtra("responseHeaders", request.responseHeaders)
-                putExtra("responseBodyUriString", request.responseBodyUriString)
-                putExtra("stack", request.stack)
-                putExtra("dnsHost", request.dnsHost)
-                putExtra("fullAddress", request.fullAddress)
+                putExtras(RequestDetailUpdates.current(request).detailArguments())
             }.also { itemView.context.startActivity(it) }
         }
 
@@ -159,6 +165,7 @@ class RequestListAdapter(
     }
 
     companion object {
+        private const val COUNT_UPDATE = "dns_count_update"
         private val ZONE_ID: ZoneId = ZoneId.systemDefault()
 
         private val DATE_FORMATTER: DateTimeFormatter =
@@ -166,10 +173,17 @@ class RequestListAdapter(
 
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<RequestInfo>() {
             override fun areItemsTheSame(oldItem: RequestInfo, newItem: RequestInfo): Boolean =
-                oldItem.requestId.isNotEmpty() && oldItem.requestId == newItem.requestId
+                oldItem.requestId.isNotEmpty() && oldItem.requestId == newItem.requestId &&
+                    oldItem.packageName == newItem.packageName
 
             override fun areContentsTheSame(oldItem: RequestInfo, newItem: RequestInfo): Boolean =
                 oldItem == newItem
+
+            override fun getChangePayload(oldItem: RequestInfo, newItem: RequestInfo): Any? =
+                if (RequestListReducer.isDns(oldItem) && oldItem.copy(
+                    occurrenceCount = newItem.occurrenceCount, lastTimestamp = newItem.lastTimestamp,
+                    fullAddress = newItem.fullAddress, stack = newItem.stack, lastRequestId = newItem.lastRequestId
+                ) == newItem) COUNT_UPDATE else null
         }
     }
 }

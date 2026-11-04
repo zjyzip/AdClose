@@ -11,11 +11,11 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.ResponseBodyContent
 import com.close.hook.ads.databinding.ItemRequestInfoBinding
-import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.ui.viewmodel.RequestInfoViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,10 +24,29 @@ import kotlinx.coroutines.withContext
 
 class RequestInfoPagerAdapter(
     private val arguments: Bundle,
-    private val tabs: List<String>,
+    private var tabs: List<String>,
     private val viewModel: RequestInfoViewModel,
     private val lifecycleOwner: LifecycleOwner
 ) : RecyclerView.Adapter<RequestInfoPagerAdapter.RequestInfoViewHolder>() {
+
+    init { setHasStableIds(true) }
+
+    override fun getItemId(position: Int): Long = tabs[position].hashCode().toLong()
+
+    fun updateTabs(updated: List<String>) {
+        val previous = tabs
+        tabs = updated
+        DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = previous.size
+            override fun getNewListSize() = updated.size
+            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
+                previous[oldItemPosition] == updated[newItemPosition]
+            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) = true
+        }).dispatchUpdatesTo(this)
+        updated.forEachIndexed { index, name ->
+            if (name == "Request" || name == "Response" || name == "DNS Info") notifyItemChanged(index)
+        }
+    }
 
     object Payload {
         const val REFRESH_HIGHLIGHT = 1
@@ -75,8 +94,44 @@ class RequestInfoPagerAdapter(
 
         private var imageJob: Job? = null
         private var shownBodyPage: Pair<String, Int>? = null
+        private val selectableTextViews = listOf(
+            binding.dnsHostText, binding.fullAddressText,
+            binding.methodText, binding.urlStringText, binding.requestHeadersText,
+            binding.requestBodyText, binding.responseCodeText, binding.responseMessageText,
+            binding.responseHeadersText, binding.responseBodyText, binding.stackText
+        )
+        private val restoreSelection = Runnable {
+            if (itemView.isAttachedToWindow && itemView.parent != null) {
+                selectableTextViews.filter { it.isShown && it.layout != null }.forEach { text ->
+                    // setText during a detached RecyclerView bind disables Editor's selection
+                    // controller because there is no window root. Reapply once back in the
+                    // window, after layout; onAttachedToWindow alone does not recalculate it.
+                    text.setText(text.text, TextView.BufferType.SPANNABLE)
+                }
+            }
+        }
+
+        init {
+            itemView.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(view: View) = scheduleSelectionRestore()
+                override fun onViewDetachedFromWindow(view: View) {
+                    view.removeCallbacks(restoreSelection)
+                }
+            })
+        }
+
+        private fun scheduleSelectionRestore() {
+            itemView.removeCallbacks(restoreSelection)
+            itemView.post(restoreSelection)
+        }
+
+        private fun restoreSelectionIfDetached() {
+            // Temporary detach keeps isAttachedToWindow=true while clearing the parent.
+            if (itemView.parent == null) scheduleSelectionRestore()
+        }
 
         fun recycle() {
+            itemView.removeCallbacks(restoreSelection)
             imageJob?.cancel()
             imageJob = null
             binding.responseBodyImage.setImageDrawable(null)
@@ -133,7 +188,6 @@ class RequestInfoPagerAdapter(
                 }
                 RequestInfoViewModel.TAB_RESPONSE_BODY -> {
                     binding.responseBodySection.visibility = View.VISIBLE
-                    setupCollectResponseBodySwitch()
                     updateResponseBodyContent(viewModel.responseBody.value)
                 }
                 "Stack" -> {
@@ -155,6 +209,7 @@ class RequestInfoPagerAdapter(
                     updateStaticTextViews(binding.stackText to arguments.getString("stack"))
                 }
             }
+            restoreSelectionIfDetached()
         }
 
         fun refreshHighlights() {
@@ -173,8 +228,9 @@ class RequestInfoPagerAdapter(
                 shownBodyPage = pageKey
             }
             textView.visibility = View.VISIBLE
-            // Do not reset the TextView/selection for duplicate state deliveries.
+            // Avoid resetting an active selection for duplicate state deliveries.
             if (textView.text !== display.text) textView.text = display.text
+            restoreSelectionIfDetached()
         }
 
         fun updateRequestBodyContent(content: String) {
@@ -205,6 +261,7 @@ class RequestInfoPagerAdapter(
                     binding.responseBodyText.setText(R.string.body_loading)
                 }
             }
+            restoreSelectionIfDetached()
         }
 
         private fun decodeAndSetImage(bytes: ByteArray) {
@@ -235,16 +292,6 @@ class RequestInfoPagerAdapter(
                     )
                 } else {
                     ""
-                }
-            }
-        }
-
-        private fun setupCollectResponseBodySwitch() {
-            binding.collectResponseBodySwitch.apply {
-                setOnCheckedChangeListener(null)
-                isChecked = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
-                setOnCheckedChangeListener { _, isChecked ->
-                    HookPrefs.setBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, isChecked)
                 }
             }
         }

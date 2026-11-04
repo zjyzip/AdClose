@@ -13,8 +13,10 @@ import android.provider.Settings
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.view.WindowManager
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -49,6 +51,7 @@ import com.close.hook.ads.util.OnClearClickListener
 import com.close.hook.ads.util.dp
 import com.close.hook.ads.util.showFeedback
 import com.close.hook.ads.util.resolveColorAttr
+import com.google.android.material.R as MaterialR
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.checkbox.MaterialCheckBox
@@ -103,8 +106,8 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
         }
     }
 
-    private val childrenCheckBoxes by lazy {
-        listOf(
+    private val childrenCheckBoxes: List<MaterialCheckBox>
+        get() = listOf(
             configBinding.switchOne,
             configBinding.switchTwo,
             configBinding.switchNine,
@@ -115,7 +118,6 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             configBinding.switchSeven,
             configBinding.switchEight
         )
-    }
     private val prefKeys = listOf(
         "switch_one_",
         "switch_two_",
@@ -166,17 +168,16 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
     private fun initSheet() {
         configBinding = BottomDialogSwitchesBinding.inflate(layoutInflater, null, false)
 
+        val sheetBinding = configBinding
         appConfigDialog = BottomSheetDialog(requireContext()).apply {
-            setContentView(configBinding.root)
+            setContentView(sheetBinding.root)
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
             setOnShowListener {
-                val bottomSheet =
-                    findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-                if (bottomSheet != null) {
-                    val behavior = BottomSheetBehavior.from(bottomSheet)
-                    val screenHeight = resources.displayMetrics.heightPixels
-                    behavior.peekHeight = screenHeight / 2
-                    behavior.state = BottomSheetBehavior.STATE_EXPANDED
+                findViewById<View>(MaterialR.id.design_bottom_sheet)?.let { sheet ->
+                    BottomSheetBehavior.from(sheet).apply {
+                        peekHeight = resources.displayMetrics.heightPixels / 2
+                        state = BottomSheetBehavior.STATE_EXPANDED
+                    }
                 }
             }
         }
@@ -188,6 +189,13 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         }
         initAppInfo()
+    }
+
+    private fun bindConfigLabel(checkBox: MaterialCheckBox, title: TextView, description: TextView? = null) {
+        title.labelFor = checkBox.id
+        checkBox.contentDescription = listOfNotNull(title.text, description?.text).joinToString("\n")
+        title.setOnClickListener { if (checkBox.isEnabled) checkBox.performClick() }
+        description?.setOnClickListener { if (checkBox.isEnabled) checkBox.performClick() }
     }
 
     private fun initAppInfo() {
@@ -222,20 +230,34 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
                 appConfigDialog?.dismiss()
             }
 
+            bindConfigLabel(selectAll, selectTitle)
+            bindConfigLabel(switchOne, titleOne)
+            bindConfigLabel(switchTwo, titleTwo, descriptionTwo)
+            bindConfigLabel(switchNine, titleNine, descriptionNine)
+            bindConfigLabel(switchThree, titleThree)
+            bindConfigLabel(switchFour, titleFour)
+            bindConfigLabel(switchFive, titleFive)
+            bindConfigLabel(switchSix, titleSix, descSix)
+            bindConfigLabel(switchSeven, titleSeven)
+            bindConfigLabel(switchEight, titleEight)
+
+            fun selectableCheckBoxes() = childrenCheckBoxes.filter { it.isVisible && it.isEnabled }
+
             var isUpdatingFromParent = false
 
             val parentListener =
                 MaterialCheckBox.OnCheckedStateChangedListener { _, state ->
                     if (state != MaterialCheckBox.STATE_INDETERMINATE) {
                         isUpdatingFromParent = true
-                        childrenCheckBoxes.forEach { it.isChecked = selectAll.isChecked }
+                        selectableCheckBoxes().forEach { it.isChecked = selectAll.isChecked }
                         isUpdatingFromParent = false
                     }
                 }
 
             fun updateParentState() {
-                val checkedCount = childrenCheckBoxes.count { it.isChecked }
-                val allChecked = checkedCount == childrenCheckBoxes.size
+                val selectable = selectableCheckBoxes()
+                val checkedCount = selectable.count { it.isChecked }
+                val allChecked = selectable.isNotEmpty() && checkedCount == selectable.size
                 val noneChecked = checkedCount == 0
 
                 selectAll.removeOnCheckedStateChangedListener(parentListener)
@@ -406,6 +428,7 @@ class AppsFragment : BaseFragment<FragmentAppsBinding>(), AppsAdapter.OnItemClic
             sheetAppName.text = appInfo.appName
             version.text = appInfo.versionName
             this.icon.setImageDrawable(icon)
+            ViewCompat.setAccessibilityPaneTitle(root, appInfo.appName)
 
             childrenCheckBoxes.forEachIndexed { index, checkBox ->
                 val key = prefKeys[index] + appInfo.packageName

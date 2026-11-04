@@ -59,6 +59,10 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     )
 
     private var initialized = false
+    private var requestBodySource: String? = null
+    private var responseBodySource: String? = null
+    private var requestLoadJob: Job? = null
+    private var responseLoadJob: Job? = null
     private var currentTab: String? = null
     private var searchJob: Job? = null
     private var renderJob: Job? = null
@@ -84,8 +88,20 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     fun init(arguments: Bundle) {
         if (initialized) return
         initialized = true
-        arguments.getString("requestBodyUriString")?.let(::loadRequestBody)
-        arguments.getString("responseBodyUriString")?.let(::loadResponseBody)
+        updateSources(arguments)
+    }
+
+    fun updateSources(arguments: Bundle) {
+        arguments.getString("requestBodyUriString")?.takeIf { it != requestBodySource }?.let {
+            requestBodySource = it
+            requestLoadJob?.cancel()
+            loadRequestBody(it)
+        }
+        arguments.getString("responseBodyUriString")?.takeIf { it != responseBodySource }?.let {
+            responseBodySource = it
+            responseLoadJob?.cancel()
+            loadResponseBody(it)
+        }
     }
 
     fun setCurrentTab(tabType: String) {
@@ -230,7 +246,7 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun loadRequestBody(uriString: String) {
-        viewModelScope.launch {
+        requestLoadJob = viewModelScope.launch {
             try {
                 _requestBody.value = withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openInputStream(Uri.parse(uriString))
@@ -247,7 +263,7 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun loadResponseBody(uriString: String) {
-        viewModelScope.launch {
+        responseLoadJob = viewModelScope.launch {
             try {
                 _responseBody.value = withContext(Dispatchers.IO) {
                     val resolver = getApplication<Application>().contentResolver

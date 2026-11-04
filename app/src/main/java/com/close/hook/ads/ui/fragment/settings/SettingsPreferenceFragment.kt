@@ -94,6 +94,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "followSystemAccent" -> PrefManager.followSystemAccent
                 "hideIcon" -> PrefManager.hideIcon
                 HookPrefs.KEY_ENABLE_DEX_DUMP,
+                HookPrefs.KEY_COLLECT_RESPONSE_BODY,
                 HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS ->
                     HookPrefs.getBoolean(key, defValue)
                 else -> defValue
@@ -106,6 +107,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 "followSystemAccent" -> PrefManager.followSystemAccent = value
                 "hideIcon" -> PrefManager.hideIcon = value
                 HookPrefs.KEY_ENABLE_DEX_DUMP,
+                HookPrefs.KEY_COLLECT_RESPONSE_BODY,
                 HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS ->
                     HookPrefs.setBoolean(key, value)
             }
@@ -160,6 +162,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     private fun syncHookPreferences() {
         listOf(
             HookPrefs.KEY_ENABLE_DEX_DUMP,
+            HookPrefs.KEY_COLLECT_RESPONSE_BODY,
             HookPrefs.KEY_ENABLE_PACKAGE_VISIBILITY_BYPASS
         ).forEach { key ->
             findPreference<SwitchPreferenceCompat>(key)?.let { pref ->

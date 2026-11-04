@@ -65,19 +65,23 @@
                 android:layout_margin="@dimen/spacing_medium"
                 android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/typeLayout"
+                app:layout_constraintEnd_toStartOf="@id/statusLayout"
                 app:layout_constraintStart_toEndOf="@id/icon"
                 app:layout_constraintTop_toTopOf="parent">
 
-                <TextView
-                    android:id="@+id/app_name"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:lines="1"
-                    android:maxLines="1"
-                    android:singleLine="true"
-                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/app_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textAppearance="?attr/textAppearanceTitleSmall" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/request"
@@ -98,38 +102,55 @@
 
             </LinearLayout>
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/typeLayout"
-                style="?materialCardViewFilledStyle"
+            <LinearLayout
+                android:id="@+id/statusLayout"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical"
                 android:layout_marginEnd="16dp"
-                app:cardBackgroundColor="?colorSecondaryContainer"
-                app:cardCornerRadius="3dp"
+                android:gravity="end|center_vertical"
+                android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
 
                 <TextView
-                    android:id="@+id/blockType"
+                    android:id="@+id/occurrence_count"
                     android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:fontFamily="sans-serif"
-                    android:paddingStart="6dp"
-                    android:paddingTop="3dp"
-                    android:paddingEnd="6dp"
-                    android:paddingBottom="3dp"
-                    android:textAllCaps="true"
-                    android:textColor="?colorOnSecondaryContainer"
-                    android:textFontWeight="600"
-                    android:textSize="10sp"
-                    tools:targetApi="p"
-                    tools:text="Host" />
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp"
+                    android:background="@drawable/background_request_count"
+                    android:textAppearance="?attr/textAppearanceLabelSmall"
+                    android:textColor="?attr/colorOnSecondaryContainer"
+                    android:visibility="gone"
+                    tools:text="×20"
+                    tools:visibility="visible" />
 
-            </com.google.android.material.card.MaterialCardView>
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/typeLayout"
+                    style="?materialCardViewFilledStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="?colorSecondaryContainer"
+                    app:cardCornerRadius="3dp">
 
-            <View
+                    <TextView
+                        android:id="@+id/blockType"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:paddingStart="6dp"
+                        android:paddingTop="3dp"
+                        android:paddingEnd="6dp"
+                        android:paddingBottom="3dp"
+                        android:textAllCaps="true"
+                        android:textColor="?colorOnSecondaryContainer"
+                        android:textFontWeight="600"
+                        android:textSize="10sp"
+                        tools:targetApi="p"
+                        tools:text="Host" />
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
                 android:layout_width="match_parent"
                 android:layout_height="1px"
                 android:background="?attr/colorSurfaceVariant"

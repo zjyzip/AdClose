@@ -14,7 +14,7 @@
     <string name="dex_dump_title">DEX Dökümü</string>
     <string name="dex_dump_summary">Hook etkinleştirilmiş tüm uygulamalar için DEX dökümü yapın \nDepolama dizini: Download/DexKitDump</string>
     <string name="package_visibility_bypass_title">Paket Görünürlüğü Kısıtlamasını Atla</string>
-    <string name="package_visibility_bypass_summary">Bu ayarın etkili olması için cihazın yeniden başlatılması gerekir \nKancalanmış uygulamaların Android 11+ sürümlerinde yüklü tüm paketleri görmesine izin verir</string>
+    <string name="package_visibility_bypass_summary">Bu ayarın etkili olması için cihazın yeniden başlatılması gerekir \nModülün kendi paket adını görünür kılar; hedef uygulamalar Android 11+ üzerinde bu paketi sorgulayabilir</string>
     <string name="request_cache_expiration_title">İstek Önbelleği Geçerlilik Süresi</string>
     <string name="request_cache_expiration_summary">Geçici istek/yanıt gövdesi verilerinin geçerlilik süresini ayarlayın \nMevcut: %s</string>
 
@@ -404,7 +404,7 @@
     <string name="overview_subscriptions_status">%2$d abonelikten %1$d tanesi etkin · %3$d tanesi kontrol edilmeli</string>
     <string name="overview_session_hint">Son engellenen istekler, mevcut istek listesinden sayılır.</string>
     <string name="overview_unavailable">Kullanılamıyor</string>
-    <string name="overview_recent_count">Son engellenenler: %1$d / %2$d istek</string>
+    <string name="overview_recent_count">Son engellenenler: %2$d gruptan %1$d gözlem</string>
     <string name="search_close">Aramayı kapat</string>
     <string name="fab_open_actions">İşlemleri aç</string>
     <string name="fab_close_actions">İşlemleri kapat</string>
@@ -416,4 +416,7 @@
     <string name="file_load_failed">Bu dosya okunamıyor.</string>
     <string name="hook_tip_enable">Hook bildirimini etkinleştir</string>
     <string name="invalid_file_format">Dosya biçimi geçersiz. Lütfen .rule uzantılı bir dosya seçin.</string>
+    <string name="body_collection_summary">Hedef uygulama yeniden başlatıldıktan sonra yeni isteklerin yanıt gövdelerini toplar.</string>
+    <string name="request_occurrence_count">×%1$d</string>
+    <string name="request_occurrence_description">%1$d kez gözlemlendi</string>
 </resources>

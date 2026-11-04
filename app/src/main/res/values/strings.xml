@@ -14,7 +14,7 @@
     <string name="dex_dump_title">DEX Dump</string>
     <string name="dex_dump_summary">Perform DEX Dump for all hooked apps \nStorage directory: Download/DexKitDump</string>
     <string name="package_visibility_bypass_title">Package visibility bypass</string>
-    <string name="package_visibility_bypass_summary">Reboot required to take effect \nAllow hooked apps to see all installed packages on Android 11+</string>
+    <string name="package_visibility_bypass_summary">Reboot required to take effect \nExpose the module\'s own package name so target apps can query it on Android 11+</string>
     <string name="request_cache_expiration_title">Request Cache Expiration</string>
     <string name="request_cache_expiration_summary">Set the expiration time for temporary request/response body data \nCurrent: %s</string>
 
@@ -393,7 +393,7 @@
     <string name="fab_open_actions">Open actions</string>
     <string name="fab_close_actions">Close actions</string>
     <string name="hook_parameter_number">Parameter %1$d</string>
-    <string name="overview_recent_count">Recent blocked: %1$d / %2$d requests</string>
+    <string name="overview_recent_count">Recent blocked: %1$d observations · %2$d targets</string>
     <string name="framework_name_format">Framework: %1$s</string>
     <string name="framework_version_format">Version: %1$s</string>
     <string name="framework_api_format">API: %1$d</string>
@@ -410,4 +410,7 @@
     <string name="detail_response_code">Response code</string>
     <string name="detail_response_message">Response message</string>
     <string name="detail_response_headers">Response headers</string>
+    <string name="body_collection_summary">Collect response bodies for new requests after restarting the target app.</string>
+    <string name="request_occurrence_count">×%1$d</string>
+    <string name="request_occurrence_description">Observed %1$d times</string>
 </resources>

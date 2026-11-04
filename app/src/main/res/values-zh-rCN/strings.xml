@@ -14,7 +14,7 @@
     <string name="dex_dump_title">DEX Dump</string>
     <string name="dex_dump_summary">为所有启用 Hook 的应用进行 DEX Dump \n存储目录：Download/DexKitDump</string>
     <string name="package_visibility_bypass_title">包可见性绕过</string>
-    <string name="package_visibility_bypass_summary">此设置需要重启手机后生效 \n允许被 Hook 的应用在 Android 11+ 上查看所有已安装的包</string>
+    <string name="package_visibility_bypass_summary">此设置需要重启手机后生效 \n对本模块自身包名开放可见性，使其在 Android 11+ 上可被目标应用查询到</string>
     <string name="request_cache_expiration_title">请求缓存有效期</string>
     <string name="request_cache_expiration_summary">设置临时的请求/响应体数据的有效期 \n当前：%s</string>
 
@@ -380,7 +380,7 @@
     <string name="fab_open_actions">展开操作菜单</string>
     <string name="fab_close_actions">收起操作菜单</string>
     <string name="hook_parameter_number">参数 %1$d</string>
-    <string name="overview_recent_count">近期拦截：%1$d / %2$d 条请求</string>
+    <string name="overview_recent_count">近期拦截：%1$d 次观察 / 来自 %2$d 个目标</string>
     <string name="framework_name_format">框架：%1$s</string>
     <string name="framework_version_format">版本：%1$s</string>
     <string name="framework_api_format">API：%1$d</string>
@@ -410,4 +410,7 @@
     <string name="sig_java_count">Java 检查：%d</string>
     <string name="sig_native_count">Native 检查：%d</string>
     <string name="sku">SKU</string>
+    <string name="body_collection_summary">重启目标应用后，收集新请求的响应内容。</string>
+    <string name="request_occurrence_count">×%1$d</string>
+    <string name="request_occurrence_description">已观察到 %1$d 次</string>
 </resources>

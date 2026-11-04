@@ -67,7 +67,8 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>() {
                 launch {
                     requestViewModel.requestList.collect { requests ->
                         binding.overviewRecentSummary.text = getString(R.string.overview_recent_count,
-                            requests.count { it.isBlocked == true }, requests.size)
+                            requests.filter { it.isBlocked == true }.sumOf { it.occurrenceCount },
+                            requests.count { it.isBlocked == true })
                     }
                 }
                 homeViewModel.overview.collect { overview ->

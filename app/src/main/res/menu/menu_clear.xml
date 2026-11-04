@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/clear"
         android:icon="@drawable/ic_clear_all"
         android:title="@string/clearAll" 
         android:showAsAction="ifRoom"/>
+    <item
+        android:id="@+id/action_collect_response"
+        android:title="@string/body_collect_response"
+        android:checkable="true"
+        app:showAsAction="never" />
 </menu>

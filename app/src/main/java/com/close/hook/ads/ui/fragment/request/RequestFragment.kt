@@ -18,6 +18,8 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.RequestInfo
+import com.close.hook.ads.hook.network.RequestHook
+import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.databinding.BaseTablayoutViewpagerBinding
 import com.close.hook.ads.ui.fragment.base.BasePagerFragment
 import com.close.hook.ads.ui.viewmodel.RequestViewModel
@@ -41,6 +43,16 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
 
     private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            val batch = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableArrayListExtra(RequestHook.REQUEST_BATCH, RequestInfo::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableArrayListExtra<RequestInfo>(RequestHook.REQUEST_BATCH)
+            }
+            if (!batch.isNullOrEmpty()) {
+                viewModel.updateRequestList(batch)
+                return
+            }
             val request = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra("request", RequestInfo::class.java)
             } else {
@@ -56,7 +68,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
     @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val filter = IntentFilter("com.rikkati.REQUEST")
+        val filter = IntentFilter(RequestHook.REQUEST_ACTION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requireContext().registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         } else {
@@ -113,12 +125,18 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
             inflateMenu(R.menu.menu_clear)
             setOnMenuItemClickListener {
                 when (it.itemId) {
+                    R.id.action_collect_response -> {
+                        val enabled = !HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
+                        HookPrefs.setBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, enabled)
+                        it.isChecked = enabled
+                    }
                     R.id.clear -> controller?.onClearAll()
                 }
                 true
             }
         }
-        binding.editText.hint = getString(R.string.search_hint)
+        binding.toolBar.menu.findItem(R.id.action_collect_response)?.isChecked =
+            HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
     }
 
     override fun initView() {
