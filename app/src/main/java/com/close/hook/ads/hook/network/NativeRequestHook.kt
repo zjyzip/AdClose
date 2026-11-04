@@ -1,276 +1,129 @@
 package com.close.hook.ads.hook.network
 
+import android.os.Process
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.preference.HookPrefs
-import com.google.common.cache.CacheBuilder
 import de.robv.android.xposed.XposedBridge
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import java.util.concurrent.TimeUnit
 
 object NativeRequestHook {
-
-    private const val LOG_PREFIX = "[NativeRequestHook] "
-    private var isInitialized = false
-
-    private val JAVA_NET_KEYWORDS = setOf(
-        "libjavacrypto.so", "libopenjdk.so",
-        "SocketOutputStream_socketWrite0", "NET_Send", "NET_Read"
-    )
-
+    private const val LOG_PREFIX = "[NativeRequestHook]"
     private const val MAX_BUFFER_SIZE = 5 * 1024 * 1024
+    @Volatile private var isInitialized = false
+    @Volatile var nativeInterceptionActive: Boolean = false
+        private set
+    private data class NativeConnectionKey(val id: Long, val ssl: Boolean)
 
-    private val h2RequestBuffers = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<String, ByteArrayOutputStream>()
+    private val bodies = H2BodyStore()
 
-    private val h2ResponseBuffers = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<String, ByteArrayOutputStream>()
-
-    private val h2OverflowedStreams = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<String, Boolean>()
-
+    @Synchronized
     fun init(enableNativeHook: Boolean) {
-        if (isInitialized) return
+        if (isInitialized && (!enableNativeHook || nativeInterceptionActive)) return
         try {
-            System.loadLibrary("native_hook")
-            initNativeHook(enableNativeHook)
+            if (!isInitialized) System.loadLibrary("native_hook")
+            nativeInterceptionActive = initNativeHook(enableNativeHook)
             isInitialized = true
-            XposedBridge.log("$LOG_PREFIX Native library loaded. Interception: $enableNativeHook")
-        } catch (e: Throwable) {
-            XposedBridge.log("$LOG_PREFIX Failed to load native library: ${e.message}")
+            XposedBridge.log("$LOG_PREFIX HTTP/2 decoder ready. Native interception requested: $enableNativeHook")
+        } catch (error: Throwable) {
+            XposedBridge.log("$LOG_PREFIX Failed to load native library: $error")
         }
     }
 
-    private external fun initNativeHook(enableNativeHook: Boolean)
+    private external fun initNativeHook(enableNativeHook: Boolean): Boolean
+    private external fun setJavaCaptureActive(active: Boolean)
+
+    internal fun beginJavaCapture(): Boolean {
+        if (!isInitialized) return false
+        return runCatching { setJavaCaptureActive(true); true }.getOrDefault(false)
+    }
+
+    internal fun endJavaCapture() {
+        if (isInitialized) runCatching { setJavaCaptureActive(false) }
+    }
     external fun feedH2Data(connId: Long, isLocal: Boolean, data: ByteArray, offset: Int, length: Int, collectRespBody: Boolean): Int
     external fun freeH2Conn(connId: Long)
 
+    fun feedH2DataIfAvailable(connId: Long, isLocal: Boolean, data: ByteArray, collectBody: Boolean): Int {
+        if (!isInitialized) return 0
+        return try { feedH2Data(connId, isLocal, data, 0, data.size, collectBody) }
+        catch (_: UnsatisfiedLinkError) { 0 }
+    }
+
+    fun closeJavaConnection(connId: Long) {
+        if (isInitialized) runCatching { freeH2Conn(connId) }
+        bodies.closeConnection(connId)
+    }
+
     @JvmStatic
-    fun onNativeData(
-        id: Long,
-        isWrite: Boolean,
-        buffer: ByteBuffer?,
-        address: String?,
-        stack: String?,
-        isSSL: Boolean
-    ): Boolean {
-        if (buffer == null || !buffer.hasRemaining()) return false
-
-        val dup = buffer.duplicate()
-        val data = ByteArray(dup.remaining())
-        dup.get(data)
-
-        return if (isSSL) {
-            processSSLData(id, isWrite, data, address, stack)
-        } else {
-            processTcpData(id.toInt(), isWrite, data, address, stack)
-        }
-    }
-
-    private fun processSSLData(sslId: Long, isWrite: Boolean, data: ByteArray, address: String?, stack: String?): Boolean {
-        val key = sslId.toInt() or Int.MIN_VALUE
-        var shouldBlock = false
-
-        val buffers = if (isWrite) RequestHook.requestBuffers else RequestHook.responseBuffers
-        val buffer = buffers.computeIfAbsent(key) { ByteArrayOutputStream() }
-
-        try {
-            synchronized(buffer) {
-                if (buffer.size() + data.size <= MAX_BUFFER_SIZE) {
-                    buffer.write(data)
-                    
-                    if (isWrite) {
-                        RequestHook.processRequestBuffer(key, isHttps = true)
-                        val requestInfo = RequestHook.pendingRequests[key]
-                        if (requestInfo != null) {
-                            val javaStack = HookUtil.getFormattedStackTrace()
-                            val isFromJavaNetworking = stack?.let { nativeStack ->
-                                JAVA_NET_KEYWORDS.any { keyword -> nativeStack.contains(keyword) }
-                            } ?: false
-
-                            val finalStack = if (isFromJavaNetworking || stack == null) javaStack else "$stack\n$javaStack"
-                            val enrichedInfo = requestInfo.copy(
-                                requestType = " NATIVE-SSL",
-                                fullAddress = address ?: requestInfo.fullAddress,
-                                stack = finalStack
-                            )
-                            RequestHook.pendingRequests[key] = enrichedInfo
-                            shouldBlock = RequestHook.checkShouldBlockRequest(enrichedInfo)
-                            if (shouldBlock) RequestHook.pendingRequests.remove(key)
-                        }
-                    } else {
-                        if (RequestHook.processResponseBuffer(key, null)) shouldBlock = true
-                    }
-                } else {
-                    buffer.reset()
-                }
-            }
-        } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX SSL processing error: ${e.message}")
-        }
-        return shouldBlock
-    }
-
-    private fun processTcpData(fd: Int, isWrite: Boolean, data: ByteArray, address: String?, stack: String?): Boolean {
-        var shouldBlock = false
-        val buffers = if (isWrite) RequestHook.requestBuffers else RequestHook.responseBuffers
-        val buffer = buffers.computeIfAbsent(fd) { ByteArrayOutputStream() }
-
-        try {
-            synchronized(buffer) {
-                if (buffer.size() + data.size <= MAX_BUFFER_SIZE) {
-                    buffer.write(data)
-                    
-                    if (isWrite) {
-                        RequestHook.processRequestBuffer(fd, isHttps = false)
-                        val requestInfo = RequestHook.pendingRequests[fd]
-                        if (requestInfo != null) {
-                            val javaStack = HookUtil.getFormattedStackTrace()
-                            val isFromJavaNetworking = stack?.let { nativeStack ->
-                                JAVA_NET_KEYWORDS.any { keyword -> nativeStack.contains(keyword) }
-                            } ?: false
-
-                            val finalStack = if (isFromJavaNetworking || stack == null) javaStack else "$stack\n$javaStack"
-                            val enrichedInfo = requestInfo.copy(
-                                requestType = " NATIVE-TCP",
-                                fullAddress = address ?: requestInfo.fullAddress,
-                                stack = finalStack
-                            )
-                            RequestHook.pendingRequests[fd] = enrichedInfo
-                            shouldBlock = RequestHook.checkShouldBlockRequest(enrichedInfo)
-                            if (shouldBlock) RequestHook.pendingRequests.remove(fd)
-                        }
-                    } else {
-                        if (RequestHook.processResponseBuffer(fd, null)) shouldBlock = true
-                    }
-                } else {
-                    buffer.reset()
-                }
-            }
-        } catch (e: Exception) {
-            XposedBridge.log("$LOG_PREFIX TCP processing error: ${e.message}")
-        }
-        return shouldBlock
+    fun onNativeData(id: Long, isWrite: Boolean, buffer: ByteBuffer?, address: String?, stack: String?, isSSL: Boolean): Boolean {
+        if (buffer == null || !buffer.hasRemaining() || buffer.remaining() > MAX_BUFFER_SIZE) return false
+        val bytes = ByteArray(buffer.remaining())
+        buffer.duplicate().get(bytes)
+        val key = NativeConnectionKey(id, isSSL)
+        return if (isWrite) {
+            RequestHook.processRequestData(key, bytes, isHttps = isSSL,
+                source = if (isSSL) " NATIVE-SSL" else " NATIVE-TCP", address = address, nativeStack = stack)
+        } else RequestHook.processResponseData(key, bytes)
     }
 
     @JvmStatic
     fun onH2DataChunk(connId: Long, streamId: Int, isWrite: Boolean, buffer: ByteBuffer?) {
-        if (buffer == null || !buffer.hasRemaining()) return
-        if (!isWrite && !getCollectResponseBody()) return
-
-        val key = "${connId}_$streamId"
-        val overflowKey = "$key:${if (isWrite) "request" else "response"}"
-        if (h2OverflowedStreams.getIfPresent(overflowKey) != null) return
-
-        val dup = buffer.duplicate()
-        val data = ByteArray(dup.remaining())
-        dup.get(data)
-
-        val buffers = if (isWrite) h2RequestBuffers else h2ResponseBuffers
-        val stream = buffers.get(key) { ByteArrayOutputStream() }
-
-        synchronized(stream) {
-            if (stream.size() + data.size <= MAX_BUFFER_SIZE) {
-                stream.write(data)
-            } else {
-                stream.reset()
-                h2OverflowedStreams.put(overflowKey, true)
-            }
-        }
+        if (buffer != null) bodies.append(connId, streamId, isWrite, buffer)
     }
 
     @JvmStatic
     fun onH2Request(
-        connId: Long, streamId: Int, method: String?, path: String?, authority: String?, scheme: String?, 
-        reqHeaders: String?, respHeaders: String?, statusCode: Int, isComplete: Boolean
+        connId: Long, streamId: Int, method: String?, path: String?, authority: String?, scheme: String?,
+        reqHeaders: String?, respHeaders: String?, statusCode: Int, isComplete: Boolean,
+        requestComplete: Boolean, responseComplete: Boolean
     ): Boolean {
-        val url = buildUrl(scheme, authority, path)
-        if (url.isEmpty()) return false
-
-        var contentType: String? = null
-        var contentEncoding: String? = null
-
-        fun parseHeaders(raw: String?): String? {
-            if (raw.isNullOrEmpty()) return null
-            val parts = raw.trimEnd('\n').split('\n')
-            if (parts.size < 2) return null
-            val sb = StringBuilder()
-            parts.chunked(2).forEach { (k, v) ->
-                sb.append(k).append(": ").append(v).append("\n")
-                if (k.equals("content-type", ignoreCase = true)) contentType = v
-                if (k.equals("content-encoding", ignoreCase = true)) contentEncoding = v
-            }
-            return sb.toString().trimEnd('\n')
-        }
-
-        val parsedReqHeaders = parseHeaders(reqHeaders)
-        val parsedRespHeaders = parseHeaders(respHeaders)
-        val mimeType = if (!contentEncoding.isNullOrEmpty()) "$contentType; encoding=$contentEncoding" else contentType
-
-        val key = "${connId}_$streamId"
-        val requestOverflowKey = "$key:request"
-        val responseOverflowKey = "$key:response"
-        val reqBody = if (isComplete) {
-            h2RequestBuffers.asMap().remove(key)
-                ?.takeIf { h2OverflowedStreams.getIfPresent(requestOverflowKey) == null }
-                ?.toByteArray()
-        } else null
-        val respBody = if (isComplete) {
-            h2ResponseBuffers.asMap().remove(key)
-                ?.takeIf { h2OverflowedStreams.getIfPresent(responseOverflowKey) == null }
-                ?.toByteArray()
-        } else null
-        if (isComplete) {
-            h2OverflowedStreams.invalidate(requestOverflowKey)
-            h2OverflowedStreams.invalidate(responseOverflowKey)
-        }
-
+        val requestHeaders = NetworkHeaders.alternating(reqHeaders)
+        val host = authority?.takeIf(String::isNotBlank) ?: requestHeaders
+            .firstOrNull { it.first.equals("host", true) }?.second
+        val url = host?.let { "${scheme?.ifBlank { "https" } ?: "https"}://$it${path?.ifBlank { "/" } ?: "/"}" }
+        val responseHeaders = NetworkHeaders.alternating(respHeaders)
+        val contentType = responseHeaders.firstOrNull { it.first.equals("content-type", true) }?.second
+            ?: "application/octet-stream"
+        val encoding = responseHeaders.firstOrNull { it.first.equals("content-encoding", true) }?.second
+        if (statusCode < 0 && !isComplete) bodies.begin(connId, streamId, getCollectResponseBody())
+        val requestBody = if (requestComplete) bodies.takeBody(connId, streamId, true) else null
+        val responseBody = if (responseComplete) bodies.takeBody(connId, streamId, false) else null
         val info = BlockedRequest(
-            requestType     = " H2",
-            requestValue    = buildUrlWithoutQuery(scheme, authority, path),
-            method          = method,
-            urlString       = url,
-            requestHeaders  = parsedReqHeaders,
-            requestBody     = reqBody,
-            responseCode    = statusCode,
-            responseMessage = null,
-            responseHeaders = parsedRespHeaders,
-            responseBody    = respBody,
-            responseBodyContentType = mimeType,
-            stack           = HookUtil.getFormattedStackTrace(),
-            dnsHost         = null,
-            fullAddress     = null,
-            requestId       = "${connId}_$streamId"
+            requestType = " H2", requestValue = url?.let(NetworkUrl::withoutQuery) ?: path.orEmpty().ifEmpty { "/" },
+            method = method, urlString = url,
+            requestHeaders = NetworkHeaders.format(requestHeaders), requestBody = requestBody,
+            responseCode = statusCode, responseMessage = null, responseHeaders = NetworkHeaders.format(responseHeaders),
+            responseBody = responseBody.takeIf { getCollectResponseBody() },
+            responseBodyContentType = if (encoding.isNullOrBlank()) contentType else "$contentType; encoding=$encoding",
+            stack = HookUtil.getFormattedStackTrace(), dnsHost = null, fullAddress = null,
+            requestId = "${Process.myPid()}:h2:$connId:$streamId"
         )
-        return RequestHook.checkShouldBlockRequest(info)
+        RequestHook.reportAllowedResponse(info)
+        return false
     }
 
     @JvmStatic
     fun onConnectionClosed(id: Long, isSSL: Boolean) {
-        val key = if (isSSL) id.toInt() or Int.MIN_VALUE else id.toInt()
-        RequestHook.requestBuffers.remove(key)
-        RequestHook.responseBuffers.remove(key)
-        RequestHook.pendingRequests.remove(key)
+        RequestHook.closeConnection(NativeConnectionKey(id, isSSL))
+        bodies.closeConnection(id)
     }
 
     @JvmStatic
+    fun onConnectionDiscarded(id: Long, isSSL: Boolean) {
+        RequestHook.discardConnection(NativeConnectionKey(id, isSSL))
+        bodies.closeConnection(id)
+    }
+
+    @JvmStatic
+    fun onH2StreamClosed(id: Long, streamId: Int) = bodies.close(id, streamId)
+
+    @JvmStatic
+    fun onH2ConnectionReset(id: Long) = bodies.closeConnection(id)
+
+    @JvmStatic
+    fun onH2BodyDiscarded(id: Long, streamId: Int, isWrite: Boolean) = bodies.discard(id, streamId, isWrite)
+
+    @JvmStatic
     fun getCollectResponseBody(): Boolean = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
-
-    private fun buildUrl(scheme: String?, authority: String?, path: String?): String {
-        val s = scheme?.ifEmpty { "https" } ?: "https"
-        val a = authority ?: return ""
-        val p = path ?: "/"
-        return "$s://$a$p"
-    }
-
-    private fun buildUrlWithoutQuery(scheme: String?, authority: String?, path: String?): String {
-        val s = scheme?.ifEmpty { "https" } ?: "https"
-        val a = authority ?: return ""
-        val p = (path ?: "/").substringBefore('?')
-        return "$s://$a$p"
-    }
 }

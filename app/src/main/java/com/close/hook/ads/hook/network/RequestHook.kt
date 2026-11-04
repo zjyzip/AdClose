@@ -2,618 +2,326 @@ package com.close.hook.ads.hook.network
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.os.Bundle
+import android.os.Parcel
 import android.util.Log
-import androidx.core.content.contentValuesOf
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.data.model.RequestInfo
+import com.close.hook.ads.data.repository.RuleRepository
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.preference.HookPrefs
 import com.close.hook.ads.provider.TemporaryFileProvider
-import com.close.hook.ads.data.repository.RuleRepository
+import com.close.hook.ads.util.BodyUploadStore
 import com.close.hook.ads.util.AppUtils
-import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import java.io.ByteArrayOutputStream
-import java.io.IOException
 import java.net.InetAddress
-import java.net.URL
-import java.net.URLDecoder
-import java.nio.charset.Charset
-import java.nio.charset.StandardCharsets
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 object RequestHook {
-
-    private const val LOG_PREFIX = "[RequestHook] "
-    private val UTF8: Charset = StandardCharsets.UTF_8
-
+    private const val LOG_PREFIX = "[RequestHook]"
+    const val REQUEST_ACTION = "com.rikkati.REQUEST"
+    const val REQUEST_BATCH = "requests"
+    private const val MAX_BATCH_BYTES = 192 * 1024
     internal lateinit var applicationContext: Context
-
-    internal val asyncBroadcastExecutor: ExecutorService = ThreadPoolExecutor(
-        1, 1,
-        0L, TimeUnit.MILLISECONDS,
-        LinkedBlockingQueue(500),
-        { runnable -> Thread(runnable, "AdClose-AsyncBroadcast").apply { isDaemon = true } },
-        ThreadPoolExecutor.DiscardOldestPolicy()
-    )
-
-    private val cachedAppLabel: String by lazy {
+    private val notifications = RequestBroadcastBuffer()
+    private val broadcaster = Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "AdClose-AsyncBroadcast").apply { isDaemon = true }
+    }.apply {
+        scheduleWithFixedDelay({
+            try { NetworkObservationScope.run { flushNotifications() } }
+            catch (error: Throwable) { Log.w(LOG_PREFIX, "Request notification flush failed", error) }
+        }, 200, 200, TimeUnit.MILLISECONDS)
+    }
+    private val cachedAppLabel by lazy {
         applicationContext.applicationInfo.loadLabel(applicationContext.packageManager).toString()
     }
+    private data class StoredBodies(val request: String? = null, val response: String? = null)
+    private val storedBodies = CacheBuilder.newBuilder().maximumSize(5000)
+        .expireAfterAccess(10, TimeUnit.MINUTES).build<String, StoredBodies>()
+    internal val dnsReverseCache = CacheBuilder.newBuilder().maximumSize(4000)
+        .expireAfterWrite(15, TimeUnit.MINUTES).build<String, MutableSet<String>>().asMap()
+    private val sessions = CacheBuilder.newBuilder().maximumWeight(32L * 1024 * 1024)
+        .weigher<Any, Session> { _, session -> session.cachedWeight }
+        .expireAfterAccess(3, TimeUnit.MINUTES).build<Any, Session>()
 
-    private val sentRequestsCache = CacheBuilder.newBuilder()
-        .maximumSize(5000)
-        .expireAfterWrite(10, TimeUnit.MINUTES)
-        .build<String, Boolean>()
-        .asMap()
+    private class Session(val https: Boolean) {
+        @Volatile var cachedWeight = 128 * 1024
+        var closed = false
+        var source: String? = null
+        var address: String? = null
+        var nativeStack: String? = null
+        val requests = LinkedHashMap<String, BlockedRequest>()
+        val parser = Http1Connection(https,
+            collectBody = { HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) },
+            onRequest = { request ->
+                val value = request.url?.let(NetworkUrl::withoutQuery) ?: request.target
+                val info = BlockedRequest(source ?: if (https) " HTTPS" else " HTTP", value,
+                    request.method, request.url, request.headers.substringAfter("\r\n", ""), null,
+                    -1, null, null, null, null, captureStack(nativeStack), null, address, request.id)
+                requests[request.id] = info
+                checkShouldBlockRequest(info)
+            },
+            onResponse = { response ->
+                responseInfo(response)?.let(::reportAllowedResponse)
+                false
+            },
+            onRequestBody = { request ->
+                requests[request.id]?.copy(requestBody = request.body)?.let { info ->
+                    requests[request.id] = info
+                    reportAllowedResponse(info)
+                }
+            },
+            onResponseHeaders = { response -> responseInfo(response)?.let(::reportAllowedResponse) })
 
-    // A CDN IP may serve multiple domains. Socket-level matching may use the
-    // hostname only while the mapping is unambiguous.
-    internal val dnsReverseCache = CacheBuilder.newBuilder()
-        .maximumSize(4000)
-        .expireAfterWrite(15, TimeUnit.MINUTES)
-        .build<String, MutableSet<String>>()
-        .asMap()
+        private fun responseInfo(response: Http1Connection.Response): BlockedRequest? {
+            val initial = requests[response.request.id] ?: return null
+            val headers = Http1Connection.parseHeaders(response.headers)
+            val encoding = headers["content-encoding"]?.firstOrNull()
+            val contentType = headers["content-type"]?.firstOrNull() ?: "application/octet-stream"
+            return initial.copy(
+                requestBody = response.request.body,
+                responseCode = response.code,
+                responseMessage = response.headers.substringBefore("\r\n").split(' ', limit = 3).getOrNull(2),
+                responseHeaders = response.headers.substringAfter("\r\n", ""),
+                responseBody = response.body,
+                responseBodyContentType = if (encoding.isNullOrBlank()) contentType else "$contentType; encoding=$encoding")
+        }
 
-    private fun recordDnsHost(ip: String, host: String) {
-        val normalizedHost = host.trim().lowercase(Locale.ROOT)
-        if (normalizedHost.isEmpty()) return
-        dnsReverseCache.computeIfAbsent(ip) { ConcurrentHashMap.newKeySet() }
-            .add(normalizedHost)
+        fun trimMetadata() { requests.keys.retainAll(parser.pendingRequestIds) }
+        fun weight(): Int = parser.cacheWeightBytes + requests.values.sumOf {
+            ((it.stack?.length ?: 0) + (it.requestHeaders?.length ?: 0)) * 2
+        }
     }
-
-    internal fun getUnambiguousDnsHost(ip: String): String? =
-        dnsReverseCache[ip]?.singleOrNull()
-
-    internal val requestBuffers = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Any, ByteArrayOutputStream>()
-        .asMap()
-
-    internal val responseBuffers = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Any, ByteArrayOutputStream>()
-        .asMap()
-
-    internal val pendingRequests = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Any, BlockedRequest>()
-        .asMap()
-
-    private val requestParsingStates = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Any, ParsingState>()
-        .asMap()
-
-    private val responseParsingStates = CacheBuilder.newBuilder()
-        .expireAfterAccess(3, TimeUnit.MINUTES)
-        .build<Any, ParsingState>()
-        .asMap()
-
-    private data class ParsingState(
-        var isHeaderParsed: Boolean = false,
-        var contentLength: Int = -1,
-        var isChunked: Boolean = false,
-        var headerSize: Int = 0,
-        var isIgnored: Boolean = false
-    )
-
-    private val headerEndMarker = "\r\n\r\n".toByteArray()
 
     fun init(context: Context) {
-        applicationContext = context
-        RuleRepository.init(context)
+        applicationContext = context.applicationContext ?: context
+        RuleRepository.init(applicationContext)
     }
 
-    internal fun formatUrlWithoutQuery(urlObject: Any?): String {
-        return try {
-            when (urlObject) {
-                is URL -> {
-                    val decodedPath = URLDecoder.decode(urlObject.path, UTF8.name())
-                    val portStr =
-                        if (urlObject.port != -1 && urlObject.port != urlObject.defaultPort) ":${urlObject.port}" else ""
-                    "${urlObject.protocol}://${urlObject.host}$portStr$decodedPath"
-                }
+    internal fun formatUrlWithoutQuery(urlObject: Any?): String =
+        urlObject?.toString()?.let(NetworkUrl::withoutQuery).orEmpty()
 
-                is Uri -> {
-                    val decodedPath = URLDecoder.decode(urlObject.path ?: "", UTF8.name())
-                    val port = urlObject.port
-                    val host = urlObject.host ?: ""
-                    val scheme = urlObject.scheme ?: "http"
-                    val portStr = if (port != -1) ":$port" else ""
-                    "$scheme://$host$portStr$decodedPath"
-                }
-
-                else -> urlObject?.toString() ?: ""
-            }
-        } catch (error: Exception) {
-            XposedBridge.log("$LOG_PREFIX URL format error: ${error.message}")
-            urlObject?.toString() ?: ""
-        }
-    }
-
-    internal fun checkShouldBlockRequest(info: BlockedRequest?): Boolean {
-        info ?: return false
-
-        val requestValue = info.requestValue
-        if (requestValue.isBlank()) {
-            sendBroadcast(info, false, null, null)
-            return false
-        }
-
-        val host = AppUtils.extractHostOrSelf(requestValue)
-        val match = RuleRepository.shouldBlock(requestValue = requestValue, host = host)
-
-        if (match.matched) {
-            sendBroadcast(info, true, match.ruleType, match.ruleUrl)
-            return true
-        }
-
-        sendBroadcast(info, false, null, null)
-        return false
-    }
-
-    internal fun processDnsRequest(hostObject: Any?, result: Any?): Boolean {
-        val host = hostObject as? String ?: return false
-        val fullAddress = when (result) {
-            is InetAddress -> {
-                result.hostAddress?.also { recordDnsHost(it, host) }
-            }
-            is Array<*> -> result.filterIsInstance<InetAddress>()
-                .mapNotNull { it.hostAddress?.also { ip -> recordDnsHost(ip, host) } }
-                .joinToString(", ")
-
-            else -> null
-        }
-
-        if (fullAddress.isNullOrEmpty()) return false
-
-        val info = BlockedRequest(
-            requestType = " DNS",
-            requestValue = host,
-            method = null,
-            urlString = null,
-            requestHeaders = null,
-            requestBody = null,
-            responseCode = -1,
-            responseMessage = null,
-            responseHeaders = null,
-            responseBody = null,
-            responseBodyContentType = null,
-            stack = HookUtil.getFormattedStackTrace(),
-            dnsHost = host,
-            fullAddress = fullAddress,
-            requestId = UUID.randomUUID().toString()
-        )
-
-        return checkShouldBlockRequest(info)
-    }
-
-    internal fun processRequestBuffer(key: Any, isHttps: Boolean): Boolean {
-        try {
-            val state = requestParsingStates.computeIfAbsent(key) { ParsingState() }
-
-            if (state.isIgnored) {
-                requestBuffers[key]?.reset()
-                return false
-            }
-
-            val bufferStream = requestBuffers[key] ?: return false
-            val currentSize = bufferStream.size()
-
-            if (!state.isHeaderParsed) {
-                if (currentSize < headerEndMarker.size) return false
-            } else if (state.contentLength > 0 && currentSize < state.headerSize + state.contentLength) {
-                return false
-            }
-
-            val buffer = bufferStream.toByteArray()
-
-            if (!state.isHeaderParsed) {
-                val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
-                if (headerEndIndex != -1) {
-                    state.isHeaderParsed = true
-                    state.headerSize = headerEndIndex + headerEndMarker.size
-                    val headerString = String(buffer, 0, headerEndIndex, Charsets.UTF_8)
-
-                    if (headerString.startsWith("CONNECT ", ignoreCase = true)) {
-                        cleanBuffer(bufferStream, buffer, state.headerSize)
-                        state.isHeaderParsed = false
-                        return false
-                    }
-
-                    state.contentLength = parseContentLength(headerString)
-
-                    val reqInfo = buildHttpRequestWithoutBody(headerString, isHttps)
-                    if (reqInfo != null) {
-                        pendingRequests[key] = reqInfo
-                        val shouldBlock = checkShouldBlockRequest(reqInfo)
-
-                        if (shouldBlock) {
-                            state.isIgnored = true
-                            requestBuffers.remove(key)
-                            return true
-                        } else {
-                            if (!HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false) && state.contentLength > 0) {
-                                state.isIgnored = true
-                                requestBuffers[key]?.reset()
-                                return false
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (state.isHeaderParsed && !state.isIgnored) {
-                if (buffer.size >= state.headerSize + state.contentLength) {
-                    val bodyBytes = if (state.contentLength > 0) {
-                        buffer.copyOfRange(state.headerSize, state.headerSize + state.contentLength)
-                    } else {
-                        null
-                    }
-
-                    pendingRequests[key]?.let { pending ->
-                        pendingRequests[key] = pending.copy(requestBody = bodyBytes)
-                    }
-
-                    cleanBuffer(bufferStream, buffer, state.headerSize + state.contentLength)
-                    state.isHeaderParsed = false
-                }
-            }
-        } catch (_: Exception) {
-            requestBuffers.remove(key)
-            requestParsingStates.remove(key)
-        }
-        return false
-    }
-
-    internal fun processResponseBuffer(key: Any, param: XC_MethodHook.MethodHookParam?): Boolean {
-        try {
-            val state = responseParsingStates.computeIfAbsent(key) { ParsingState() }
-
-            if (state.isIgnored) {
-                responseBuffers[key]?.reset()
-                return false
-            }
-
-            val requestInfo = pendingRequests[key] ?: return false
-            val bufferStream = responseBuffers[key] ?: return false
-            val currentSize = bufferStream.size()
-
-            if (!state.isHeaderParsed) {
-                if (currentSize < headerEndMarker.size) return false
-            } else if (!state.isChunked && state.contentLength > 0
-                && currentSize < state.headerSize + state.contentLength) {
-                return false
-            }
-
-            val buffer = bufferStream.toByteArray()
-
-            if (!state.isHeaderParsed) {
-                val headerEndIndex = findBytes(buffer, headerEndMarker, 0)
-                if (headerEndIndex != -1) {
-                    val headerString = String(buffer, 0, headerEndIndex, Charsets.ISO_8859_1)
-                    state.isHeaderParsed = true
-                    state.headerSize = headerEndIndex + headerEndMarker.size
-                    state.contentLength = parseContentLength(headerString)
-                    state.isChunked = headerString.contains("Transfer-Encoding: chunked", ignoreCase = true)
-
-                    val collectResponseBody = HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
-                    if (!collectResponseBody) {
-                        completeAndDispatchRequest(key, requestInfo, headerString, null, param)
-                        state.isIgnored = true
-                        responseBuffers[key]?.reset()
-                        return false
-                    }
-                }
-            }
-
-            if (state.isHeaderParsed && !state.isIgnored) {
-                val bodyStartIndex = state.headerSize
-                var totalResponseSize = 0
-                var bodyBytes: ByteArray? = null
-                var complete = false
-
-                if (state.isChunked) {
-                    parseChunkedBody(buffer, bodyStartIndex)?.let { parsed ->
-                        totalResponseSize = parsed.second
-                        bodyBytes = parsed.first
-                        complete = true
-                    }
-                } else {
-                    totalResponseSize = bodyStartIndex + state.contentLength
-                    if (buffer.size >= totalResponseSize) {
-                        bodyBytes = if (state.contentLength > 0) {
-                            buffer.copyOfRange(bodyStartIndex, totalResponseSize)
-                        } else {
-                            null
-                        }
-                        complete = true
-                    }
-                }
-
-                if (complete) {
-                    val headerString = String(
-                        buffer,
-                        0,
-                        state.headerSize - headerEndMarker.size,
-                        Charsets.ISO_8859_1
-                    )
-
-                    val isBlocked = completeAndDispatchRequest(
-                        key = key,
-                        requestInfo = requestInfo,
-                        headers = headerString,
-                        body = bodyBytes,
-                        param = param
-                    )
-
-                    cleanBuffer(bufferStream, buffer, totalResponseSize)
-                    responseParsingStates.remove(key)
-                    requestParsingStates.remove(key)
-                    pendingRequests.remove(key)
-
-                    return isBlocked
-                }
-            }
-        } catch (_: Exception) {
-            responseBuffers.remove(key)
-            responseParsingStates.remove(key)
-            pendingRequests.remove(key)
-        }
-
-        return false
-    }
-
-    private fun cleanBuffer(stream: ByteArrayOutputStream, buffer: ByteArray, processedSize: Int) {
-        stream.reset()
-        if (buffer.size > processedSize) {
-            stream.write(buffer, processedSize, buffer.size - processedSize)
-        }
-    }
-
-    private fun buildHttpRequestWithoutBody(headers: String, isHttps: Boolean): BlockedRequest? {
-        val lines = headers.lines()
-        val requestLine = lines.firstOrNull()?.split(" ") ?: return null
-        if (requestLine.size < 2) return null
-
-        val method = requestLine[0]
-        val path = requestLine[1]
-        val host = lines.find { it.startsWith("Host:", ignoreCase = true) }
-            ?.substringAfter(":")
-            ?.trim()
-            ?: return null
-
-        val scheme = if (isHttps) "https" else "http"
-        val url = "$scheme://$host$path"
-
-        val firstNewline = headers.indexOf("\r\n")
-        val cleanedHeaders = if (firstNewline != -1) headers.substring(firstNewline + 2) else headers
-
-        return BlockedRequest(
-            requestType = if (isHttps) " HTTPS" else " HTTP",
-            requestValue = formatUrlWithoutQuery(Uri.parse(url)),
-            method = method,
-            urlString = url,
-            requestHeaders = cleanedHeaders,
-            requestBody = null,
-            responseCode = -1,
-            responseMessage = null,
-            responseHeaders = null,
-            responseBody = null,
-            responseBodyContentType = null,
-            stack = HookUtil.getFormattedStackTrace(),
-            dnsHost = null,
-            fullAddress = null,
-            requestId = UUID.randomUUID().toString()
-        )
-    }
-
-    private fun completeAndDispatchRequest(
-        key: Any,
-        requestInfo: BlockedRequest,
-        headers: String,
-        body: ByteArray?,
-        param: XC_MethodHook.MethodHookParam?
+    internal fun processRequestData(
+        key: Any, bytes: ByteArray, offset: Int = 0, length: Int = bytes.size - offset,
+        isHttps: Boolean, source: String? = null, address: String? = null, nativeStack: String? = null
     ): Boolean {
-        val lines = headers.lines()
-        val statusLine = lines.firstOrNull()?.split(" ", limit = 3) ?: return false
-        val responseCode = statusLine.getOrNull(1)?.toIntOrNull() ?: -1
-        val responseMessage = statusLine.getOrNull(2) ?: ""
-
-        val contentType = lines.find { it.startsWith("Content-Type:", ignoreCase = true) }
-            ?.substring(13)
-            ?.trim()
-
-        val contentEncoding = lines.find { it.startsWith("Content-Encoding:", ignoreCase = true) }
-            ?.substring(17)
-            ?.trim()
-
-        val mimeTypeForProvider = if (!contentEncoding.isNullOrEmpty()) {
-            "$contentType; encoding=$contentEncoding"
-        } else {
-            contentType
-        }
-
-        val firstNewline = headers.indexOf("\r\n")
-        val cleanedHeaders = if (firstNewline != -1) headers.substring(firstNewline + 2) else headers
-
-        val finalInfo = requestInfo.copy(
-            responseCode = responseCode,
-            responseMessage = responseMessage,
-            responseHeaders = cleanedHeaders,
-            responseBody = body,
-            responseBodyContentType = mimeTypeForProvider
-        )
-
-        val shouldBlock = checkShouldBlockRequest(finalInfo)
-        if (shouldBlock) {
-            param?.throwable = IOException("Request blocked by AdClose")
-        }
-
-        pendingRequests.remove(key)
-        return shouldBlock
-    }
-
-    private fun findBytes(data: ByteArray, pattern: ByteArray, startIndex: Int = 0): Int {
-        if (pattern.isEmpty()) return startIndex
-        if (startIndex >= data.size || pattern.size > data.size - startIndex) return -1
-
-        val badCharShift = IntArray(256) { pattern.size }
-        for (index in 0 until pattern.size - 1) {
-            badCharShift[pattern[index].toInt() and 0xFF] = pattern.size - 1 - index
-        }
-
-        var offset = startIndex
-        while (offset <= data.size - pattern.size) {
-            var patternIndex = pattern.size - 1
-            while (patternIndex >= 0 && pattern[patternIndex] == data[offset + patternIndex]) {
-                patternIndex--
-            }
-
-            if (patternIndex < 0) return offset
-
-            val badCharIndex = data[offset + pattern.size - 1].toInt() and 0xFF
-            offset += badCharShift[badCharIndex]
-        }
-
-        return -1
-    }
-
-    private fun parseContentLength(headers: String): Int {
-        return headers.lines()
-            .find { it.startsWith("Content-Length:", ignoreCase = true) }
-            ?.substring(15)
-            ?.trim()
-            ?.toIntOrNull()
-            ?: 0
-    }
-
-    private fun parseChunkedBody(buffer: ByteArray, bodyStartIndex: Int): Pair<ByteArray, Int>? {
-        val bodyStream = ByteArrayOutputStream()
-        var currentIndex = bodyStartIndex
-        val crlf = "\r\n".toByteArray()
-
-        while (true) {
-            val crlfIndex = findBytes(buffer, crlf, currentIndex)
-            if (crlfIndex == -1) return null
-
-            val chunkSizeStr = String(
-                buffer,
-                currentIndex,
-                crlfIndex - currentIndex,
-                Charsets.US_ASCII
-            ).trim()
-
-            val hexPart = chunkSizeStr.substringBefore(';').trim()
-            val chunkSize = hexPart.toIntOrNull(16) ?: return null
-
-            if (chunkSize == 0) {
-                currentIndex = crlfIndex + 2
-                val finalCrlfIndex = findBytes(buffer, crlf, currentIndex)
-                if (finalCrlfIndex == -1) return null
-                return bodyStream.toByteArray() to (finalCrlfIndex + 2)
-            }
-
-            val chunkDataStart = crlfIndex + 2
-            val chunkDataEnd = chunkDataStart + chunkSize
-
-            if (buffer.size < chunkDataEnd + 2) return null
-
-            bodyStream.write(buffer, chunkDataStart, chunkSize)
-            currentIndex = chunkDataEnd + 2
-        }
-    }
-
-    private fun sendBroadcast(info: BlockedRequest, shouldBlock: Boolean, blockRuleType: String?, ruleUrl: String?) {
-        sendBlockedRequestBroadcast(info, shouldBlock, ruleUrl, blockRuleType)
-    }
-
-    private fun sendBlockedRequestBroadcast(
-        info: BlockedRequest,
-        isBlocked: Boolean,
-        ruleUrl: String?,
-        blockRuleType: String?
-    ) {
-        val key = info.requestId.ifBlank { info.dnsHost ?: info.urlString }
-        if (key.isNullOrEmpty()) return
-
-        val hasResponse = info.responseCode != -1
-
-        if (hasResponse) {
-            val replaced = sentRequestsCache.replace(key, false, true)
-            if (!replaced) {
-                val existing = sentRequestsCache.putIfAbsent(key, true)
-                if (existing != null) return
-            }
-        } else {
-            val previous = sentRequestsCache.putIfAbsent(key, false)
-            if (previous != null) return
-        }
-
-        asyncBroadcastExecutor.execute {
+        if (NetworkObservationScope.active) return false
+        val session = sessions.get(key) { Session(isHttps) }
+        return synchronized(session) {
+            if (session.closed) return@synchronized false
+            session.source = source
+            session.address = address
+            session.nativeStack = nativeStack
             try {
-                fun storeBody(body: ByteArray?, contentType: String?): String? {
-                    body ?: return null
-                    return runCatching {
-                        val values = contentValuesOf(
-                            "body_content" to body,
-                            "mime_type" to contentType
-                        )
-                        applicationContext.contentResolver
-                            .insert(TemporaryFileProvider.CONTENT_URI, values)
-                            ?.toString()
-                    }.getOrElse { error ->
-                        Log.e(LOG_PREFIX, "Error inserting body into provider: ${error.message}", error)
-                        null
-                    }
-                }
-
-                val requestBodyUriString = storeBody(info.requestBody, "text/plain")
-                val responseBodyUriString = storeBody(info.responseBody, info.responseBodyContentType)
-
-                val requestInfoForBroadcast = RequestInfo(
-                    appName = "$cachedAppLabel${info.requestType}",
-                    packageName = applicationContext.packageName,
-                    request = info.requestValue,
-                    timestamp = System.currentTimeMillis(),
-                    requestType = if (isBlocked) "block" else "pass",
-                    isBlocked = isBlocked,
-                    url = ruleUrl,
-                    blockType = blockRuleType,
-                    method = info.method,
-                    urlString = info.urlString,
-                    requestHeaders = info.requestHeaders,
-                    requestBodyUriString = requestBodyUriString,
-                    responseCode = info.responseCode,
-                    responseMessage = info.responseMessage,
-                    responseHeaders = info.responseHeaders,
-                    responseBodyUriString = responseBodyUriString,
-                    responseBodyContentType = info.responseBodyContentType,
-                    stack = info.stack,
-                    dnsHost = info.dnsHost,
-                    fullAddress = info.fullAddress,
-                    requestId = info.requestId
-                )
-
-                Intent("com.rikkati.REQUEST").apply {
-                    putExtra("request", requestInfoForBroadcast)
-                    setPackage("com.close.hook.ads")
-                }.also { intent ->
-                    applicationContext.sendBroadcast(intent)
-                }
+                val blocked = session.parser.requestBytes(bytes, offset, length)
+                session.trimMetadata()
+                session.cachedWeight = session.weight()
+                sessions.put(key, session)
+                blocked
             } catch (error: Exception) {
-                Log.w(LOG_PREFIX, "Broadcast send error.", error)
+                session.closed = true
+                sessions.asMap().remove(key, session)
+                Log.w(LOG_PREFIX, "Request observation failed", error)
+                false
             }
         }
+    }
+
+    internal fun processResponseData(key: Any, bytes: ByteArray, offset: Int = 0, length: Int = bytes.size - offset): Boolean {
+        if (NetworkObservationScope.active) return false
+        val session = sessions.getIfPresent(key) ?: return false
+        return synchronized(session) {
+            if (session.closed) return@synchronized false
+            try {
+                val blocked = session.parser.responseBytes(bytes, offset, length)
+                session.trimMetadata()
+                session.cachedWeight = session.weight()
+                sessions.put(key, session)
+                blocked
+            } catch (error: Exception) {
+                session.closed = true
+                sessions.asMap().remove(key, session)
+                Log.w(LOG_PREFIX, "Response observation failed", error)
+                false
+            }
+        }
+    }
+
+    internal fun discardConnection(key: Any) {
+        val session = sessions.asMap().remove(key) ?: return
+        synchronized(session) {
+            session.closed = true
+            sessions.asMap().remove(key, session)
+            session.requests.clear()
+        }
+    }
+
+    internal fun closeConnection(key: Any): Boolean {
+        val session = sessions.asMap().remove(key) ?: return false
+        return synchronized(session) {
+            if (session.closed) return@synchronized false
+            session.closed = true
+            sessions.asMap().remove(key, session)
+            try { session.parser.endOfInput() }
+            catch (error: Exception) { Log.w(LOG_PREFIX, "Connection cleanup failed", error); false }
+            finally { session.requests.clear() }
+        }
+    }
+
+    internal fun checkShouldBlockRequest(info: BlockedRequest?, reportAllowed: Boolean = true): Boolean {
+        if (info == null || NetworkObservationScope.active) return false
+        val match = if (info.requestValue.isBlank()) null else RuleRepository.shouldBlock(
+            info.requestValue, AppUtils.extractHostOrSelf(info.requestValue))
+        val blocked = match?.matched == true
+        if (blocked || reportAllowed) sendBlockedRequestBroadcast(info, blocked, match?.ruleUrl, match?.ruleType)
+        return blocked
+    }
+
+    internal fun reportAllowedResponse(info: BlockedRequest) {
+        if (NetworkObservationScope.active) return
+        // A passive tap reports bytes already delivered; it must not label them as newly blocked.
+        sendBlockedRequestBroadcast(info, false, null, null)
+    }
+
+    internal fun processDnsRequest(hostObject: Any?, result: Any?, failure: Throwable? = null): Boolean {
+        if (NetworkObservationScope.active) return false
+        val host = hostObject as? String ?: return false
+        val addresses = when (result) {
+            is InetAddress -> listOf(result)
+            is Array<*> -> result.filterIsInstance<InetAddress>()
+            else -> emptyList()
+        }.mapNotNull { it.hostAddress }
+        // Failed lookups are still observations, not a reason to hide the request.
+        if (host.isBlank()) return false
+        addresses.forEach { ip ->
+            dnsReverseCache.computeIfAbsent(ip) { ConcurrentHashMap.newKeySet() }.add(host.lowercase(Locale.ROOT))
+        }
+        return checkShouldBlockRequest(BlockedRequest(" DNS", host, null, null, null, null, -1,
+            failure?.let { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" }, null, null, null,
+            captureStack(null), host, addresses.joinToString(", "), UUID.randomUUID().toString()))
+    }
+
+    internal fun getUnambiguousDnsHost(ip: String): String? = dnsReverseCache[ip]?.singleOrNull()
+
+    private fun captureStack(nativeStack: String?): String {
+        val javaStack = HookUtil.getFormattedStackTrace()
+        return if (nativeStack.isNullOrBlank() || listOf("libjavacrypto.so", "libopenjdk.so", "NET_Send", "NET_Read")
+            .any(nativeStack::contains)) javaStack else "$nativeStack\n$javaStack"
+    }
+
+    private fun sendBlockedRequestBroadcast(info: BlockedRequest, blocked: Boolean, rule: String?, type: String?) {
+        notifications.offer(info, blocked, rule, type, System.currentTimeMillis())
+    }
+
+    private fun store(body: ByteArray?, mime: String?): String? {
+        val bytes = body ?: return null
+        if (bytes.isEmpty()) return null
+        return runCatching {
+            val resolver = applicationContext.contentResolver
+            val begin = Bundle().apply {
+                putInt(TemporaryFileProvider.KEY_BODY_SIZE, bytes.size)
+                putString(TemporaryFileProvider.KEY_MIME_TYPE, mime ?: "application/octet-stream")
+            }
+            val token = requireNotNull(resolver.call(TemporaryFileProvider.CONTENT_URI,
+                TemporaryFileProvider.METHOD_BEGIN_BODY, null, begin)
+                ?.getString(TemporaryFileProvider.KEY_UPLOAD_TOKEN))
+            var committed = false
+            try {
+                var offset = 0
+                while (offset < bytes.size) {
+                    val end = minOf(bytes.size, offset + BodyUploadStore.CHUNK_BYTES)
+                    val chunk = Bundle().apply {
+                        putByteArray(TemporaryFileProvider.KEY_BODY_CONTENT, bytes.copyOfRange(offset, end))
+                    }
+                    resolver.call(TemporaryFileProvider.CONTENT_URI,
+                        TemporaryFileProvider.METHOD_APPEND_BODY, token, chunk)
+                    offset = end
+                }
+                val uri = requireNotNull(resolver.call(TemporaryFileProvider.CONTENT_URI,
+                    TemporaryFileProvider.METHOD_FINISH_BODY, token, null)
+                    ?.getString(TemporaryFileProvider.KEY_BODY_URI))
+                committed = true
+                uri
+            } finally {
+                if (!committed) runCatching { resolver.call(TemporaryFileProvider.CONTENT_URI,
+                    TemporaryFileProvider.METHOD_ABORT_BODY, token, null) }
+            }
+        }.getOrElse { Log.w(LOG_PREFIX, "Cannot store request body", it); null }
+    }
+
+    private fun notification(event: RequestBroadcastBuffer.Event): RequestInfo {
+        val snapshot = event.info
+        val key = snapshot.requestId
+        val previous = storedBodies.getIfPresent(key) ?: StoredBodies()
+        val requestUri = previous.request ?: store(snapshot.requestBody, "text/plain")
+        val responseUri = previous.response ?: store(snapshot.responseBody, snapshot.responseBodyContentType)
+        storedBodies.put(key, StoredBodies(requestUri, responseUri))
+        return RequestInfo(
+            appName = "$cachedAppLabel${snapshot.requestType}", packageName = applicationContext.packageName,
+            request = snapshot.requestValue, timestamp = event.timestamp,
+            requestType = if (event.blocked) "block" else "pass", isBlocked = event.blocked,
+            url = event.rule, blockType = event.ruleType, method = snapshot.method,
+            urlString = snapshot.urlString, requestHeaders = snapshot.requestHeaders,
+            requestBodyUriString = requestUri, responseCode = snapshot.responseCode,
+            responseMessage = snapshot.responseMessage, responseHeaders = snapshot.responseHeaders,
+            responseBodyUriString = responseUri, responseBodyContentType = snapshot.responseBodyContentType,
+            stack = snapshot.stack, dnsHost = snapshot.dnsHost, fullAddress = snapshot.fullAddress,
+            requestId = key, captureType = snapshot.requestType.trim(), occurrenceCount = event.count,
+            lastTimestamp = event.lastTimestamp)
+    }
+
+    private fun flushNotifications() {
+        if (!::applicationContext.isInitialized) return
+        val events = notifications.drain(64)
+        if (events.isEmpty()) return
+        val failed = ArrayList<RequestBroadcastBuffer.Event>()
+        val batch = ArrayList<RequestInfo>()
+        val batchEvents = ArrayList<RequestBroadcastBuffer.Event>()
+        var batchBytes = 0
+        fun send() {
+            if (batch.isEmpty()) return
+            try {
+                applicationContext.sendBroadcast(Intent(REQUEST_ACTION).setPackage("com.close.hook.ads")
+                    .putParcelableArrayListExtra(REQUEST_BATCH, ArrayList(batch)))
+            } catch (error: Throwable) {
+                failed += batchEvents
+                Log.w(LOG_PREFIX, "Request batch broadcast failed", error)
+            } finally {
+                batch.clear()
+                batchEvents.clear()
+                batchBytes = 0
+            }
+        }
+        for (event in events) {
+            try {
+                var item = notification(event)
+                fun parcelSize(value: RequestInfo): Int {
+                    val parcel = Parcel.obtain()
+                    return try { value.writeToParcel(parcel, 0); parcel.dataSize() }
+                    finally { parcel.recycle() }
+                }
+                var bytes = parcelSize(item)
+                if (bytes > MAX_BATCH_BYTES) {
+                    item = item.copy(stack = item.stack?.take(8192), requestHeaders = item.requestHeaders?.take(16384),
+                        responseHeaders = item.responseHeaders?.take(16384))
+                    bytes = parcelSize(item)
+                }
+                if (batchBytes + bytes > MAX_BATCH_BYTES) send()
+                if (bytes <= MAX_BATCH_BYTES) {
+                    batch += item
+                    batchEvents += event
+                    batchBytes += bytes
+                }
+            } catch (error: Throwable) {
+                failed += event
+                Log.w(LOG_PREFIX, "Request notification conversion failed", error)
+            }
+        }
+        send()
+        if (failed.isNotEmpty()) notifications.retry(failed)
     }
 }

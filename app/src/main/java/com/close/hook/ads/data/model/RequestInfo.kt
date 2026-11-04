@@ -26,7 +26,13 @@ data class RequestInfo(
     var stack: String?,
     var dnsHost: String?,
     var fullAddress: String?,
-    var requestId: String = ""
+    var requestId: String = "",
+    var captureType: String? = null,
+    var occurrenceCount: Long = 1L,
+    var lastTimestamp: Long = timestamp,
+    var lastRequestId: String = requestId,
+    @IgnoredOnParcel @Transient
+    var occurrenceSources: Map<String, Long> = emptyMap()
 ) : Parcelable {
     @IgnoredOnParcel
     @Transient var requestBody: ByteArray? = null

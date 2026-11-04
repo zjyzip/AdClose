@@ -6,7 +6,10 @@ import android.content.UriMatcher
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.os.Binder
+import android.os.Bundle
 import android.util.Log
+import com.close.hook.ads.util.BodyUploadStore
 import com.close.hook.ads.util.SimpleMemoryCache
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -22,6 +25,13 @@ class TemporaryFileProvider : ContentProvider() {
         val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/temporary_files")
         const val KEY_BODY_CONTENT = "body_content"
         const val KEY_MIME_TYPE = "mime_type"
+        const val METHOD_BEGIN_BODY = "begin_body"
+        const val METHOD_APPEND_BODY = "append_body"
+        const val METHOD_FINISH_BODY = "finish_body"
+        const val METHOD_ABORT_BODY = "abort_body"
+        const val KEY_UPLOAD_TOKEN = "upload_token"
+        const val KEY_BODY_SIZE = "body_size"
+        const val KEY_BODY_URI = "body_uri"
         private const val TEMPORARY_FILES = 1
         private const val TEMPORARY_FILE_ID = 2
         private val uriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
@@ -30,6 +40,7 @@ class TemporaryFileProvider : ContentProvider() {
         }
     }
 
+    private val uploads = BodyUploadStore()
     private val contentStore by lazy { SimpleMemoryCache() }
     private val ioExecutor: ExecutorService by lazy {
         Executors.newCachedThreadPool { r ->
@@ -38,6 +49,31 @@ class TemporaryFileProvider : ContentProvider() {
     }
 
     override fun onCreate(): Boolean = true
+
+    override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        val owner = Binder.getCallingUid()
+        return when (method) {
+            METHOD_BEGIN_BODY -> Bundle().apply {
+                val size = extras?.getInt(KEY_BODY_SIZE, -1) ?: -1
+                val mime = extras?.getString(KEY_MIME_TYPE).orEmpty().ifEmpty { "application/octet-stream" }
+                putString(KEY_UPLOAD_TOKEN, uploads.begin(owner, size, mime))
+            }
+            METHOD_APPEND_BODY -> {
+                val token = requireNotNull(arg)
+                val bytes = requireNotNull(extras?.getByteArray(KEY_BODY_CONTENT))
+                uploads.append(owner, token, bytes)
+                Bundle.EMPTY
+            }
+            METHOD_FINISH_BODY -> {
+                val token = requireNotNull(arg)
+                val body = uploads.finish(owner, token)
+                contentStore.put(token, body.bytes to body.mime)
+                Bundle().apply { putString(KEY_BODY_URI, Uri.withAppendedPath(CONTENT_URI, token).toString()) }
+            }
+            METHOD_ABORT_BODY -> { uploads.abort(owner, requireNotNull(arg)); Bundle.EMPTY }
+            else -> super.call(method, arg, extras)
+        }
+    }
 
     override fun query(
         uri: Uri,
@@ -83,6 +119,7 @@ class TemporaryFileProvider : ContentProvider() {
             Log.w(TAG, "insert: missing body_content")
             return null
         }
+        if (bodyContent.size > 5 * 1024 * 1024) return null
         val mimeType = values.getAsString(KEY_MIME_TYPE)?.takeIf { it.isNotEmpty() }
             ?: "application/octet-stream"
         val id = UUID.randomUUID().toString()

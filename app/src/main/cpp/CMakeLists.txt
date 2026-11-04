@@ -25,6 +25,8 @@ add_library(
         ${NGHTTP2_SOURCES}
 )
 
+target_compile_features(native_hook PRIVATE cxx_std_17)
+
 target_include_directories(native_hook PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/nghttp2
