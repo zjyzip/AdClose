@@ -9,6 +9,12 @@ Run the UI regression on an Android device/emulator:
 
 The fixtures open the real `RequestInfoActivity` with local request/response bodies. They do not require Xposed or intercepted network traffic. Tests show the keyboard, search, click the real tab strip, long press selectable text, click the floating Copy menu and compare the clipboard with the selected text. They cover closing search, keeping search active, leaving search through the back handler and repeated page recycling, across DNS, request/response headers, both bodies and stack traces.
 
+## Log dialog and response collection toggle
+
+Run `com.close.hook.ads.LogAndCollectionUiTest` with the same runner argument to check the retained Request menu and settings switch in both directions, stack frame layout and complete copying, and actual Parcel sizes for large log batches. The stack dialog test uses the public `WindowInspector` API and runs on Android 10+; the other cases run on the app's supported versions.
+
+The regression control without the fixes reproduced a 61-line stack rendered as 181 wrapped lines, and a Request checkbox still showing false after the settings switch became true. With the fixes, all three cases passed on the Android 16 emulator. `LogPayloadPolicyTest` separately covers the stack limit, explicit truncation markers, Unicode boundaries and batch splitting.
+
 ## Cause
 
 A `RecyclerView` bind can run after an existing page has been temporarily detached. The page root then has no parent, although `isAttachedToWindow` may still be true. Search highlight refreshes and keyboard layout changes exercise this path.

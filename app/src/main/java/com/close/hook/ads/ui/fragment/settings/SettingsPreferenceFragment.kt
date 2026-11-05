@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.TextUtils
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
@@ -15,6 +16,9 @@ import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.close.hook.ads.BuildConfig
 import com.close.hook.ads.R
 import com.close.hook.ads.preference.HookPrefs
@@ -27,6 +31,7 @@ import com.close.hook.ads.util.INavContainer
 import com.close.hook.ads.util.LangList
 import com.close.hook.ads.util.isNightMode
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
@@ -125,6 +130,17 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         setupThemePreferences()
         setupCacheClearing()
         setupAboutPreference()
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                HookPrefs.generalSettingsFlow.collect {
+                    syncHookPreferences()
+                }
+            }
+        }
     }
 
     override fun onResume() {

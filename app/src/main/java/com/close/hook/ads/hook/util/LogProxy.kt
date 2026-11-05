@@ -28,8 +28,6 @@ object LogProxy {
 
     private const val BATCH_SIZE = 50
 
-    private const val MAX_STACK_TRACE_LENGTH = 2000
-
     private const val FLUSH_INTERVAL_MS = 1000L
     private const val CHANNEL_CAPACITY = 1000
 
@@ -114,10 +112,10 @@ object LogProxy {
         val entry = LogEntry(
             id = UUID.randomUUID().toString(),
             timestamp = System.currentTimeMillis(),
-            tag = tag,
-            message = message,
+            tag = tag.take(256),
+            message = LogPayloadPolicy.message(message),
             packageName = pkgName,
-            stackTrace = stackTrace?.take(MAX_STACK_TRACE_LENGTH),
+            stackTrace = LogPayloadPolicy.stack(stackTrace),
             hookScope = hookScope
         )
         logChannel.trySend(entry)
@@ -132,9 +130,9 @@ object LogProxy {
             batch.add(entry)
         }
 
-        if (batch.isNotEmpty()) {
+        for (payload in LogPayloadPolicy.batches(batch)) {
             try {
-                loggerService?.logBatch(batch)
+                loggerService?.logBatch(payload)
             } catch (e: RemoteException) {
                 XposedBridge.log("LogProxy: Failed to send log batch. Error: ${e.message}")
             }

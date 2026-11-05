@@ -16,6 +16,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.RequestInfo
 import com.close.hook.ads.hook.network.RequestHook
@@ -27,6 +30,7 @@ import com.close.hook.ads.util.IOnFabClickContainer
 import com.close.hook.ads.util.IOnFabClickListener
 import com.close.hook.ads.util.OnBackPressListener
 import com.close.hook.ads.util.dp
+import kotlinx.coroutines.launch
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
@@ -89,6 +93,22 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
         super.onViewCreated(view, savedInstanceState)
         setupFab()
         initBar()
+        observeCollectionPreference()
+    }
+
+    private fun observeCollectionPreference() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                HookPrefs.generalSettingsFlow.collect {
+                    syncCollectionMenu()
+                }
+            }
+        }
+    }
+
+    private fun syncCollectionMenu() {
+        binding.toolBar.menu.findItem(R.id.action_collect_response)?.isChecked =
+            HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
     }
 
     private fun setupFab() {
@@ -135,8 +155,7 @@ class RequestFragment : BasePagerFragment(), IOnFabClickContainer {
                 true
             }
         }
-        binding.toolBar.menu.findItem(R.id.action_collect_response)?.isChecked =
-            HookPrefs.getBoolean(HookPrefs.KEY_COLLECT_RESPONSE_BODY, false)
+        syncCollectionMenu()
     }
 
     override fun initView() {

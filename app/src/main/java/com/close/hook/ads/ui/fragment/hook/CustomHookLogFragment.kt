@@ -250,7 +250,7 @@ class CustomHookLogFragment : BaseFragment<FragmentCustomHookLogBinding>(), OnBa
             return
         }
 
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_selectable_text, null)
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_stack_trace, null)
         val textView = dialogView.findViewById<TextView>(R.id.textViewDetails)
         textView.text = stackTrace
 

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="20dp"
+    android:paddingTop="16dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="16dp">
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="true">
+
+        <TextView
+            android:id="@+id/textViewDetails"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:gravity="start"
+            android:lineSpacingMultiplier="1.2"
+            android:scrollHorizontally="true"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textDirection="ltr"
+            android:textIsSelectable="true"
+            android:textSize="12sp"
+            android:textStyle="normal" />
+    </HorizontalScrollView>
+</ScrollView>
