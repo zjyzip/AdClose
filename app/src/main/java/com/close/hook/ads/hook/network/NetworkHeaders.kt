@@ -17,6 +17,21 @@ internal object NetworkHeaders {
         return "$scheme://$host$path"
     }
 
+    fun lines(raw: String?): List<Pair<String, String>> = raw.orEmpty().lineSequence().mapNotNull { line ->
+        val separator = line.indexOf(':')
+        if (separator <= 0) null else line.substring(0, separator).trim() to line.substring(separator + 1).trim()
+    }.toList()
+
+    fun bodyContentType(headers: List<Pair<String, String>>, fallback: String = "application/octet-stream"): String {
+        fun value(name: String) = headers.firstOrNull { it.first.equals(name, true) }?.second?.takeIf(String::isNotBlank)
+        val type = value("content-type") ?: fallback
+        return buildString {
+            append(type)
+            value("content-encoding")?.let { append("; encoding=").append(it) }
+            value("grpc-encoding")?.let { append("; grpc-encoding=").append(it) }
+        }
+    }
+
     fun format(headers: List<Pair<String, String>>): String? =
         headers.takeIf { it.isNotEmpty() }?.joinToString("\n") { (name, value) -> "$name: $value" }
 }

@@ -8,6 +8,7 @@ struct shadowhook_cpu_context_t;
 #include <iostream>
 #include <thread>
 #include <functional>
+#include "support/capture_jni.h"
 #ifdef NDEBUG
 #error Native regression tests require assertions enabled
 #endif
@@ -347,6 +348,66 @@ void peek_skips_observation_but_respects_an_existing_block() {
     assert(hook_recv(fd, buffer, sizeof(buffer), MSG_PEEK) == -1 && errno == ECONNRESET);
     hook_close(fd);
 }
+void cleartext_h2_uses_the_real_socket_observer_without_blocking_other_streams() {
+    CaptureJni capture;
+    const int fd = socket(AF_INET, SOCK_STREAM, 0);
+    Encoder tx, rx;
+    Bytes bytes(H2_CLIENT_PREFACE, H2_CLIENT_PREFACE + H2_CLIENT_PREFACE_LEN);
+    const auto headers = frame(H2_FRAME_HEADERS, 4, 1, tx.encode({{":method", "POST"}, {":scheme", "http"},
+        {":authority", "localhost:50051"}, {":path", "/fixture.Service/Echo"}, {"content-type", "application/grpc"}}));
+    bytes.insert(bytes.end(), headers.begin(), headers.end());
+    const auto data = frame(H2_FRAME_DATA, 1, 1, {0,0,0,0,2,'u','p'});
+    bytes.insert(bytes.end(), data.begin(), data.end());
+    int writes = 0;
+    for (auto byte : bytes) {
+        const auto ret = write_fd(fd, &byte, 1, [&]() -> ssize_t { ++writes; errno = EDOM; return 1; });
+        assert(ret == 1 && errno == EDOM);
+    }
+    const auto& request = capture.streams.at(1);
+    assert(request.scheme == "http" && request.path == "/fixture.Service/Echo" && request.request_complete);
+    assert(request.request_body == Bytes({0,0,0,0,2,'u','p'}));
+    auto response = frame(H2_FRAME_HEADERS, 4, 1, rx.encode({{":status", "200"}, {"content-type", "application/grpc"}}));
+    const auto payload = frame(H2_FRAME_DATA, 0, 1, {0,0,0,0,2,'o','k'});
+    response.insert(response.end(), payload.begin(), payload.end());
+    const auto trailer = frame(H2_FRAME_HEADERS, 5, 1, rx.encode({{"grpc-status", "0"}}));
+    response.insert(response.end(), trailer.begin(), trailer.end());
+    for (auto byte : response) {
+        uint8_t buffer = 0;
+        assert(read_fd(fd, &buffer, 1, [&]() -> ssize_t { buffer = byte; errno = EDOM; return 1; }) == 1);
+        assert(buffer == byte && errno == EDOM);
+    }
+    assert(capture.streams.at(1).response_complete && capture.streams.at(1).status == 200);
+    assert(capture.streams.at(1).response_headers.find("grpc-status\n0\n") != std::string::npos);
+    assert(capture.streams.at(1).response_body == Bytes({0,0,0,0,2,'o','k'}));
+    const auto second = frame(H2_FRAME_HEADERS, 5, 3, tx.encode({{":method", "GET"}, {":scheme", "http"},
+        {":authority", "localhost:50051"}, {":path", "/normal"}}));
+    assert(write_fd(fd, second.data(), second.size(), [&]() -> ssize_t { return second.size(); }) == ssize_t(second.size()));
+    assert(capture.streams.count(3) && !fd_state(fd)->blocked && writes == int(bytes.size()));
+    assert(capture.resets == 0);
+    orig_close = ::close; hook_close(fd);
+}
+void cleartext_http1_fallback_preserves_every_byte_and_block_decision() {
+    CaptureJni capture;
+    const int fd = socket(AF_INET, SOCK_STREAM, 0);
+    const std::string request = "POST /upload HTTP/1.1\r\nHost: example.com\r\nContent-Length: 2\r\n\r\nup";
+    for (auto byte : request) {
+        assert(write_fd(fd, &byte, 1, []() -> ssize_t { return 1; }) == 1);
+    }
+    assert(std::string(capture.h1_tx.begin(), capture.h1_tx.end()) == request && capture.streams.empty());
+    capture.block_h1 = true;
+    int forwarded = 0;
+    assert(write_fd(fd, request.data(), request.size(), [&]() -> ssize_t { ++forwarded; return request.size(); }) == -1);
+    assert(errno == ECONNRESET && forwarded == 0);
+    orig_close = ::close; hook_close(fd);
+}
+void server_first_preface_probe_is_bounded() {
+    auto connection = std::make_shared<Http2Connection>();
+    Bytes bytes(H2_MAX_FEED_BYTES, 'x');
+    assert(!h2_feed(connection, bytes.data(), bytes.size(), false, true).reset);
+    auto result = h2_feed(connection, bytes.data(), 1, false, true);
+    assert(result.reset && connection->disabled && connection->remote.buffer.empty());
+}
+
 void ssl_abi_error_and_reentrant_free() {
     int token;
     auto* ssl = &token;
@@ -383,6 +444,9 @@ int main() {
         {"streamed_padding_and_empty_end_frames_finish_once", streamed_padding_and_empty_end_frames_finish_once},
         {"java_capture_suppresses_only_the_current_native_call", java_capture_suppresses_only_the_current_native_call},
         {"peek_skips_observation_but_respects_an_existing_block", peek_skips_observation_but_respects_an_existing_block},
+        {"cleartext_h2_uses_the_real_socket_observer_without_blocking_other_streams", cleartext_h2_uses_the_real_socket_observer_without_blocking_other_streams},
+        {"cleartext_http1_fallback_preserves_every_byte_and_block_decision", cleartext_http1_fallback_preserves_every_byte_and_block_decision},
+        {"server_first_preface_probe_is_bounded", server_first_preface_probe_is_bounded},
         {"ssl_abi_error_and_reentrant_free", ssl_abi_error_and_reentrant_free}
     };
     for (const auto& test : tests) { std::cout << "RUN " << test.first << std::endl; test.second(); std::cout << "PASS " << test.first << std::endl; }

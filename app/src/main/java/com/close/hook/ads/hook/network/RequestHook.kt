@@ -257,7 +257,8 @@ object RequestHook {
         val snapshot = event.info
         val key = snapshot.requestId
         val previous = storedBodies.getIfPresent(key) ?: StoredBodies()
-        val requestUri = previous.request ?: store(snapshot.requestBody, "text/plain")
+        val requestUri = previous.request ?: store(snapshot.requestBody,
+            NetworkHeaders.bodyContentType(NetworkHeaders.lines(snapshot.requestHeaders), "text/plain"))
         val responseUri = previous.response ?: store(snapshot.responseBody, snapshot.responseBodyContentType)
         storedBodies.put(key, StoredBodies(requestUri, responseUri))
         return RequestInfo(

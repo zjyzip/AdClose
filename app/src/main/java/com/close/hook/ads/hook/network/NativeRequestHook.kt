@@ -4,6 +4,7 @@ import android.os.Process
 import com.close.hook.ads.data.model.BlockedRequest
 import com.close.hook.ads.hook.util.HookUtil
 import com.close.hook.ads.preference.HookPrefs
+import com.close.hook.ads.util.GrpcBodyPreview
 import de.robv.android.xposed.XposedBridge
 import java.nio.ByteBuffer
 
@@ -44,9 +45,10 @@ object NativeRequestHook {
     external fun feedH2Data(connId: Long, isLocal: Boolean, data: ByteArray, offset: Int, length: Int, collectRespBody: Boolean): Int
     external fun freeH2Conn(connId: Long)
 
-    fun feedH2DataIfAvailable(connId: Long, isLocal: Boolean, data: ByteArray, collectBody: Boolean): Int {
+    fun feedH2DataIfAvailable(connId: Long, isLocal: Boolean, data: ByteArray, collectBody: Boolean,
+        offset: Int = 0, length: Int = data.size - offset): Int {
         if (!isInitialized) return 0
-        return try { feedH2Data(connId, isLocal, data, 0, data.size, collectBody) }
+        return try { feedH2Data(connId, isLocal, data, offset, length, collectBody) }
         catch (_: UnsatisfiedLinkError) { 0 }
     }
 
@@ -83,19 +85,19 @@ object NativeRequestHook {
             .firstOrNull { it.first.equals("host", true) }?.second
         val url = host?.let { "${scheme?.ifBlank { "https" } ?: "https"}://$it${path?.ifBlank { "/" } ?: "/"}" }
         val responseHeaders = NetworkHeaders.alternating(respHeaders)
-        val contentType = responseHeaders.firstOrNull { it.first.equals("content-type", true) }?.second
-            ?: "application/octet-stream"
-        val encoding = responseHeaders.firstOrNull { it.first.equals("content-encoding", true) }?.second
+        val contentType = NetworkHeaders.bodyContentType(responseHeaders)
+        val requestContentType = NetworkHeaders.bodyContentType(requestHeaders)
         if (statusCode < 0 && !isComplete) bodies.begin(connId, streamId, getCollectResponseBody())
         val requestBody = if (requestComplete) bodies.takeBody(connId, streamId, true) else null
         val responseBody = if (responseComplete) bodies.takeBody(connId, streamId, false) else null
         val info = BlockedRequest(
-            requestType = " H2", requestValue = url?.let(NetworkUrl::withoutQuery) ?: path.orEmpty().ifEmpty { "/" },
+            requestType = if (GrpcBodyPreview.isGrpc(requestContentType) || GrpcBodyPreview.isGrpc(contentType)) " gRPC" else " H2",
+            requestValue = url?.let(NetworkUrl::withoutQuery) ?: path.orEmpty().ifEmpty { "/" },
             method = method, urlString = url,
             requestHeaders = NetworkHeaders.format(requestHeaders), requestBody = requestBody,
             responseCode = statusCode, responseMessage = null, responseHeaders = NetworkHeaders.format(responseHeaders),
             responseBody = responseBody.takeIf { getCollectResponseBody() },
-            responseBodyContentType = if (encoding.isNullOrBlank()) contentType else "$contentType; encoding=$encoding",
+            responseBodyContentType = contentType,
             stack = HookUtil.getFormattedStackTrace(), dnsHost = null, fullAddress = null,
             requestId = "${Process.myPid()}:h2:$connId:$streamId"
         )

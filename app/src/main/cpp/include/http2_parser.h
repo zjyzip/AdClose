@@ -10,7 +10,7 @@
 #include <vector>
 
 extern "C" {
-#include "nghttp2/nghttp2.h"
+#include <nghttp2/nghttp2.h>
 }
 
 using H2ConnectionId = uint64_t;

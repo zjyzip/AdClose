@@ -52,6 +52,14 @@ materialThemeBuilder {
     generatePalette = true
 }
 
+val nghttp2Source by configurations.creating {
+    isCanBeConsumed = false
+    isTransitive = false
+}
+dependencies {
+    add(nghttp2Source.name, "org.nghttp2:nghttp2:${libs.versions.nghttp2.get()}@tar.xz")
+}
+
 android {
     namespace = "com.close.hook.ads"
     compileSdk = 36
@@ -72,6 +80,11 @@ android {
         applicationId = "com.close.hook.ads"
         minSdk = 26
         targetSdk = 36
+        externalNativeBuild {
+            cmake {
+                arguments += "-DNGHTTP2_ARCHIVE=${nghttp2Source.singleFile.absolutePath}"
+            }
+        }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = calculateVersionCode()
         versionName = "4.3.7"
@@ -134,13 +147,7 @@ android {
         aidl = true
         viewBinding = true
         buildConfig = true
-        prefab = false
-    }
-
-    sourceSets {
-        getByName("main") {
-            jniLibs.srcDirs("src/main/cpp/libs")
-        }
+        prefab = true
     }
 }
 
@@ -163,7 +170,7 @@ dependencies {
     implementation(libs.libxposed.`interface`)
     implementation(libs.dexkit)
 
-    implementation("com.bytedance.android:shadowhook:2.0.0")
+    implementation(libs.shadowhook)
 
     implementation(libs.appcompat)
     implementation(libs.preferenceKtx)
@@ -187,6 +194,16 @@ dependencies {
     implementation(libs.appcenterAnalytics)
     implementation(libs.appcenterCrashes)
     implementation(libs.mpandroidchart)
+}
+
+// Optional real gRPC fixtures are produced by the TCP capture + Native replay harness.
+val grpcIntegrationFixtures = providers.gradleProperty("grpcIntegrationFixtures")
+if (grpcIntegrationFixtures.isPresent) {
+    tasks.withType<Test>().configureEach {
+        val fixtures = rootProject.file(grpcIntegrationFixtures.get())
+        inputs.dir(fixtures)
+        systemProperty("adclose.grpcFixtures", fixtures.absolutePath)
+    }
 }
 
 // Opt-in benchmark: ./gradlew :app:testDebugUnitTest --tests '*KeywordBenchmark*' -PkeywordBenchmark

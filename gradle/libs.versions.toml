@@ -25,6 +25,8 @@ mpandroidchart = "v3.1.0"
 kotlinxSerialization = "1.10.0"
 kotlinSerializationPlugin = "2.3.10"
 brotli = "0.1.2"
+shadowhook = "2.0.0"
+nghttp2 = "1.68.1"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -52,6 +54,7 @@ appcenterCrashes = { module = "com.microsoft.appcenter:appcenter-crashes", versi
 mpandroidchart = { module = "com.github.PhilJay:MPAndroidChart", version.ref = "mpandroidchart" }
 kotlinxSerializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 brotli-dec = { group = "org.brotli", name = "dec", version.ref = "brotli" }
+shadowhook = { module = "com.bytedance.android:shadowhook", version.ref = "shadowhook" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "androidApplicationPlugin" }

@@ -325,6 +325,11 @@ H2FeedResult h2_feed(const std::shared_ptr<Http2Connection>& conn, const uint8_t
     }
     d.buffer.insert(d.buffer.end(), data, data + len);
     if (!c.h2_checked) {
+        // Server-first non-HTTP traffic must not retain an unbounded preface probe.
+        if (c.remote.buffer.size() > H2_MAX_HEADER_BYTES) {
+            disable(c, result);
+            return result;
+        }
         const size_t prefix = std::min(c.local.buffer.size(), H2_CLIENT_PREFACE_LEN);
         if (prefix && std::memcmp(c.local.buffer.data(), H2_CLIENT_PREFACE, prefix) != 0) {
             c.h2_checked = true;

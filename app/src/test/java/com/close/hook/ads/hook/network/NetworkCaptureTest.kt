@@ -13,6 +13,12 @@ class NetworkCaptureTest {
         assertNull(NetworkHeaders.http2Url(listOf(":method" to "GET", ":path" to "/relative")))
     }
 
+    @Test fun grpcBodyMimeKeepsHttpAndPerMessageCompressionSeparate() {
+        val headers = NetworkHeaders.lines("Content-Type: application/grpc+proto\r\nGrpc-Encoding: gzip\r\nContent-Encoding: br")
+        assertEquals("application/grpc+proto; encoding=br; grpc-encoding=gzip", NetworkHeaders.bodyContentType(headers))
+        assertEquals("text/plain", NetworkHeaders.bodyContentType(emptyList(), "text/plain"))
+    }
+
     @Test fun engineSnapshotsUseOnlyTheSelectedPlaintextBuffersAndActualAdvancement() {
         val ignored = ByteBuffer.wrap("ignored".toByteArray())
         val first = ByteBuffer.wrap("xxabc".toByteArray()).apply { position(2) }

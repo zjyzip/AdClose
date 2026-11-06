@@ -62,6 +62,21 @@ class RequestBroadcastBufferTest {
         assertTrue(events.any { it.blocked })
     }
 
+    @Test fun grpcTrailersArePublishedEvenWithResponseCaptureDisabled() {
+        val buffer = RequestBroadcastBuffer(now = { 1L })
+        val initial = item("grpc", type = " gRPC", response = 200)
+            .copy(responseHeaders = "content-type: application/grpc")
+        buffer.offer(initial, false, null, null, 1L)
+        assertEquals(1, buffer.drain().size)
+        buffer.offer(initial.copy(responseHeaders = "content-type: application/grpc\ngrpc-status: 7\ngrpc-message: denied"),
+            false, null, null, 2L)
+        val trailer = buffer.drain().single()
+        assertTrue(trailer.info.responseHeaders!!.contains("grpc-status: 7"))
+        assertEquals(1L, trailer.count)
+        buffer.offer(trailer.info, false, null, null, 3L)
+        assertTrue(buffer.drain().isEmpty())
+    }
+
     @Test fun failedDrainCanBeRetriedWithoutDuplicatingTheSameEvent() {
         val buffer = RequestBroadcastBuffer(now = { 1L })
         buffer.offer(item("one"), true, "one", "URL", 1L)

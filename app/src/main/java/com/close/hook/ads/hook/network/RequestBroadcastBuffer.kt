@@ -111,7 +111,10 @@ internal class RequestBroadcastBuffer(
         responseBodyContentType = incoming.responseBodyContentType ?: previous?.responseBodyContentType)
 
     private fun fields(info: BlockedRequest, blocked: Boolean) = 1 or (if (info.requestBody != null) 2 else 0) or
-        (if (info.responseCode >= 0) 4 else 0) or (if (info.responseBody != null) 8 else 0) or (if (blocked) 16 else 0)
+        (if (info.responseCode >= 0) 4 else 0) or (if (info.responseBody != null) 8 else 0) or (if (blocked) 16 else 0) or
+        (if (info.responseHeaders?.lineSequence()?.any {
+            it.substringBefore(':').trim().equals("grpc-status", true)
+        } == true) 32 else 0)
     private fun size(info: BlockedRequest) = (info.requestBody?.size ?: 0).toLong() + (info.responseBody?.size ?: 0)
     private fun trim() {
         while (pending.size > maxPending) {

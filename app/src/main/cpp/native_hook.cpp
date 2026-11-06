@@ -88,7 +88,7 @@ jstring java_string(JNIEnv* env, const std::string& text) {
 }
 struct State {
     uint64_t id = next_id.fetch_add(1);
-    std::atomic<bool> blocked{false}, observing{true}, eof{false};
+    std::atomic<bool> blocked{false}, observing{true}, eof{false}, h1_only{false};
     std::atomic<uint64_t> active{get_current_ms()};
     std::mutex tx, rx, peer_mutex;
     std::string peer_address;
@@ -268,7 +268,7 @@ void h2_callback(const std::shared_ptr<Http2Connection>& conn, const H2FeedResul
     }
 }
 bool observe(uint64_t id, bool write, const uint8_t* bytes, size_t size, bool ssl, int fd = -1,
-              const std::string& cached_address = {}, bool address_cached = false) {
+              const std::string& cached_address = {}, bool address_cached = false, State* state = nullptr) {
     if (!bytes || !size) return false;
     auto* env = callback_env();
     if (!env) return false;
@@ -276,8 +276,8 @@ bool observe(uint64_t id, bool write, const uint8_t* bytes, size_t size, bool ss
     // No fd-keyed stack cache: fd/SSL pointer reuse must not retain another connection's metadata.
     thread_local unsigned sample = 0;
     const auto stack = write && (++sample % 10 == 0) ? native_stack() : std::string{};
-    auto conn = ssl ? h2_get_or_create(id) : nullptr;
-    const bool collect = ssl && should_collect();
+    auto conn = state && state->h1_only ? nullptr : h2_get_or_create(id);
+    const bool collect = conn && (!conn->h2_checked || conn->is_h2) && should_collect();
     for (size_t offset = 0; offset < size;) {
         const size_t count = std::min(size - offset, H2_MAX_FEED_BYTES);
         if (conn) {
@@ -287,6 +287,10 @@ bool observe(uint64_t id, bool write, const uint8_t* bytes, size_t size, bool ss
             auto result = h2_feed(conn, bytes + offset, count, write, collect);
             h2_callback(conn, result);
             if (conn->is_h2) { offset += count; continue; }
+            if (state && (conn->h2_checked || conn->disabled)) {
+                state->h1_only = true;
+                h2_free(id); // HTTP/1 sockets must not occupy the H2 connection budget.
+            }
         }
         LocalFrame refs(env);
         if (!refs.ready) { clear_callback_exception(env); return false; }
@@ -329,7 +333,7 @@ ssize_t write_fd(int fd, const void* buffer, size_t count, Original original, bo
             const size_t skip = state->writes.begin(bytes, count);
             if (!state->writes.enabled()) discard_state(state, false);
             else if (observe(state->id, true, bytes + skip, count - skip, false, fd,
-                cached_socket_address(*state, fd), true)) {
+                cached_socket_address(*state, fd), true, state.get())) {
                 state->blocked = true; error.value = ECONNRESET; return -1;
             }
         }
@@ -360,7 +364,7 @@ ssize_t read_fd(int fd, void* buffer, size_t count, Original original, bool capt
     error.value = errno;
     try {
         if (capture && state->observing && ret > 0 && size_t(ret) <= count && observe(state->id, false,
-            static_cast<uint8_t*>(buffer), size_t(ret), false, fd, cached_socket_address(*state, fd), true)) {
+            static_cast<uint8_t*>(buffer), size_t(ret), false, fd, cached_socket_address(*state, fd), true, state.get())) {
             state->blocked = true; error.value = ECONNRESET; return -1;
         }
         if (state->observing && ret == 0 && !state->eof.exchange(true)) notify(state->id, false, false);
@@ -429,7 +433,7 @@ int ssl_write(void* ssl, const void* buffer, int count) {
         if (state->observing) {
             const size_t skip = state->writes.begin(bytes, size_t(count));
             if (!state->writes.enabled()) discard_state(state, true);
-            else if (observe(state->id, true, bytes + skip, size_t(count) - skip, true)) {
+            else if (observe(state->id, true, bytes + skip, size_t(count) - skip, true, -1, {}, false, state.get())) {
                 state->blocked = true; error.value = ECONNRESET; return -1;
             }
         }
@@ -463,7 +467,7 @@ int ssl_read(void* ssl, void* buffer, int count) {
     const bool clean_eof = ret == 0 && ssl_hooks[I].error && ssl_hooks[I].error(ssl, ret) == 6;
     try {
         if (state->observing && ret > 0 && ret <= count && observe(state->id, false,
-            static_cast<uint8_t*>(buffer), size_t(ret), true)) {
+            static_cast<uint8_t*>(buffer), size_t(ret), true, -1, {}, false, state.get())) {
             state->blocked = true; error.value = ECONNRESET; return -1;
         }
         if (ret == 0 && state->observing && !state->eof.exchange(true)) {
@@ -537,7 +541,10 @@ Java_com_close_hook_ads_hook_network_NativeRequestHook_feedH2Data(
             h2_callback(conn, result);
             consumed += count;
         }
-        return conn->is_h2 ? 1 : 0;
+        if (conn->is_h2) return 1;
+        if (!conn->h2_checked && !conn->disabled) return -1; // Matching but incomplete client preface.
+        h2_free(uint64_t(id));
+        return 0;
     } catch (...) { return 0; }
 }
 extern "C" JNIEXPORT void JNICALL

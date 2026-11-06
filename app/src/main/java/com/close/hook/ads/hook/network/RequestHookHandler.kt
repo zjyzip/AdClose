@@ -45,7 +45,7 @@ internal object RequestHookHandler {
     private val webDepth = ThreadLocal.withInitial { 0 }
     private val dnsDepth = ThreadLocal.withInitial { 0 }
     private val engineDepth = ThreadLocal.withInitial { IdentityHashMap<Any, IntArray>() }
-    private data class TlsObservation(val id: Long, val lock: Any = Any())
+    private data class TlsObservation(val id: Long, val lock: Any = Any(), var h2Candidate: Boolean = true)
     private val tlsConnections = CacheBuilder.newBuilder().weakKeys().maximumSize(2048)
         .expireAfterAccess(10, TimeUnit.MINUTES).build<Any, TlsObservation>()
     private val tlsId = AtomicLong(1L shl 48)
@@ -109,7 +109,7 @@ internal object RequestHookHandler {
             val offset = param.args[2] as? Int ?: return@socketWrite
             val length = param.args[3] as? Int ?: return@socketWrite
             if (offset < 0 || length <= 0 || offset > bytes.size - length) return@socketWrite
-            if (RequestHook.processRequestData(socket, bytes, offset, length, false)) {
+            if (processConnectionData(socket, true, bytes, false, offset, length)) {
                 param.throwable = IOException("Request blocked by AdClose")
             }
         }, after = {}, javaScope = true)
@@ -118,15 +118,18 @@ internal object RequestHookHandler {
             val socket = XposedHelpers.getObjectField(param.thisObject, "socket") ?: return@socketRead
             if (socket is SSLSocket) return@socketRead
             val count = param.result as? Int ?: return@socketRead
-            val blocked = if (count == -1) RequestHook.closeConnection(socket) else {
+            val blocked = if (count == -1) {
+                closeObservedConnection(socket)
+                false
+            } else {
                 val bytes = param.args[1] as? ByteArray ?: return@socketRead
                 val offset = param.args[2] as? Int ?: return@socketRead
                 if (count <= 0 || offset < 0 || offset > bytes.size - count) return@socketRead
-                RequestHook.processResponseData(socket, bytes, offset, count)
+                processConnectionData(socket, false, bytes, false, offset, count)
             }
             if (blocked) param.throwable = IOException("Request blocked by AdClose")
         }, javaScope = true)
-        HookUtil.hookAllMethods("java.net.Socket", "close", "after") { param -> RequestHook.closeConnection(param.thisObject) }
+        HookUtil.hookAllMethods("java.net.Socket", "close", "after") { param -> closeObservedConnection(param.thisObject) }
     }
 
     private fun observation(connection: Any): TlsObservation =
@@ -164,22 +167,28 @@ internal object RequestHookHandler {
                 // Closing just the outbound half still permits reading the pending response.
                 val inboundDone = XposedHelpers.callMethod(param.thisObject, "isInboundDone") == true
                 val outboundDone = XposedHelpers.callMethod(param.thisObject, "isOutboundDone") == true
-                if (inboundDone && outboundDone) closeTlsConnection(param.thisObject)
+                if (inboundDone && outboundDone) closeObservedConnection(param.thisObject)
             }
         }
     }
 
-    private fun processTlsData(connection: Any, write: Boolean, bytes: ByteArray): Boolean {
+    private fun processTlsData(connection: Any, write: Boolean, bytes: ByteArray): Boolean =
+        processConnectionData(connection, write, bytes, true)
+
+    private fun processConnectionData(connection: Any, write: Boolean, bytes: ByteArray, https: Boolean,
+        offset: Int = 0, length: Int = bytes.size - offset): Boolean {
         val state = observation(connection)
         return synchronized(state.lock) {
-            val h2 = NativeRequestHook.feedH2DataIfAvailable(state.id, write, bytes,
-                NativeRequestHook.getCollectResponseBody())
-            h2 == 0 && if (write) RequestHook.processRequestData(connection, bytes, isHttps = true)
-            else RequestHook.processResponseData(connection, bytes)
+            val h2 = if (state.h2Candidate) NativeRequestHook.feedH2DataIfAvailable(state.id, write, bytes,
+                NativeRequestHook.getCollectResponseBody(), offset, length) else 0
+            if (h2 == 0) state.h2Candidate = false
+            // Pending preface bytes still reach H1: a fragmented POST prefix must not be lost.
+            h2 != 1 && if (write) RequestHook.processRequestData(connection, bytes, offset, length, isHttps = https)
+            else RequestHook.processResponseData(connection, bytes, offset, length)
         }
     }
 
-    private fun closeTlsConnection(connection: Any) {
+    private fun closeObservedConnection(connection: Any) {
         tlsConnections.getIfPresent(connection)?.id?.let(NativeRequestHook::closeJavaConnection)
         tlsConnections.invalidate(connection)
         RequestHook.closeConnection(connection)
@@ -229,7 +238,7 @@ internal object RequestHookHandler {
                     }, javaScope = true)
                 }
             }
-            HookUtil.hookAllMethods(socketClass, "close", "after") { param -> closeTlsConnection(param.thisObject) }
+            HookUtil.hookAllMethods(socketClass, "close", "after") { param -> closeObservedConnection(param.thisObject) }
         }
     }
 

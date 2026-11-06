@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import com.close.hook.ads.R
 import com.close.hook.ads.data.model.ResponseBodyContent
 import com.close.hook.ads.util.BodyTextSearch
+import com.close.hook.ads.util.GrpcBodyPreview
 import com.close.hook.ads.util.readBytesLimited
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
@@ -249,9 +250,14 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
         requestLoadJob = viewModelScope.launch {
             try {
                 _requestBody.value = withContext(Dispatchers.IO) {
-                    getApplication<Application>().contentResolver.openInputStream(Uri.parse(uriString))
-                        ?.use { decodeText(it.readBytesLimited(MAX_CONTENT_BYTES), null) }
-                        ?: throw IOException("Failed to open request body")
+                    val resolver = getApplication<Application>().contentResolver
+                    val uri = Uri.parse(uriString)
+                    val mime = resolver.getType(uri)
+                    resolver.openInputStream(uri)?.use { original ->
+                        decompressStream(contentEncoding(mime), original).use {
+                            decodeText(it.readBytesLimited(MAX_CONTENT_BYTES), mime)
+                        }
+                    } ?: throw IOException("Failed to open request body")
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -269,8 +275,7 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
                     val resolver = getApplication<Application>().contentResolver
                     val uri = Uri.parse(uriString)
                     val mime = resolver.getType(uri)
-                    val encoding = mime?.split(';')?.firstOrNull { it.trim().startsWith("encoding=", true) }
-                        ?.substringAfter('=')?.trim()
+                    val encoding = contentEncoding(mime)
                     val stream = resolver.openInputStream(uri) ?: throw IOException("Failed to open response body")
                     val bytes = stream.use { original ->
                         decompressStream(encoding, original).use { it.readBytesLimited(MAX_CONTENT_BYTES) }
@@ -303,7 +308,12 @@ class RequestInfoViewModel(application: Application) : AndroidViewModel(applicat
         else -> stream
     }
 
+    private fun contentEncoding(mime: String?): String? = mime?.split(';')?.drop(1)
+        ?.firstOrNull { it.substringBefore('=').trim().equals("encoding", true) }
+        ?.substringAfter('=')?.trim()
+
     private fun decodeText(bytes: ByteArray, mime: String?): String {
+        if (GrpcBodyPreview.isGrpc(mime)) return GrpcBodyPreview.render(bytes, checkNotNull(mime))
         val charsetName = mime?.split(';')?.firstOrNull { it.trim().startsWith("charset=", true) }
             ?.substringAfter('=')?.trim()?.trim('"')
         val charset = runCatching { charsetName?.let(Charset::forName) ?: StandardCharsets.UTF_8 }
