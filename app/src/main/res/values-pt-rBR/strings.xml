@@ -1,0 +1,416 @@
+<resources>
+    <string name="app_name">AdClose</string>
+    <string name="app_description">Bloqueia anúncios de SDKs e intercepta requisições de rede. Gratuito, apenas para fins educacionais.</string>
+
+    <string name="error_title">Ocorreu um erro inesperado.\nDesculpe pelo transtorno.</string>
+
+    <string name="bottom_item_1">Apps</string>
+    <string name="bottom_item_2">Requisição</string>
+    <string name="bottom_item_3">Configurações</string>
+    <string name="bottom_item_4">Bloqueio</string>
+    <string name="bottom_item_5">Início</string>
+
+    <string name="advanced_settings">Avançado</string>
+    <string name="dex_dump_title">Dump DEX</string>
+    <string name="dex_dump_summary">Realiza o dump DEX de todos os apps com hook \nDiretório de armazenamento: Download/DexKitDump</string>
+    <string name="package_visibility_bypass_title">Burlar visibilidade de pacotes</string>
+    <string name="package_visibility_bypass_summary">Requer reinicialização para entrar em vigor \nExpõe o nome do pacote do próprio módulo para que os apps-alvo possam consultá-lo no Android 11+</string>
+    <string name="request_cache_expiration_title">Expiração do cache de requisições</string>
+    <string name="request_cache_expiration_summary">Define o tempo de expiração dos dados temporários de corpo de requisição/resposta \nAtual: %s</string>
+
+    <string name="data_manager">Gerenciador de dados</string>
+    <string name="data_manager_summary">Gerencie os arquivos e preferências do módulo</string>
+    <string name="delete_file_title">Excluir arquivo?</string>
+    <string name="delete_prefs_title">Excluir grupo de preferências?</string>
+    <string name="delete_file_message">Tem certeza de que deseja excluir permanentemente o arquivo \"%1$s\"?</string>
+    <string name="delete_prefs_message">Tem certeza de que deseja excluir permanentemente todas as preferências do grupo \"%1$s\"? Isso não pode ser desfeito.</string>
+    <string name="delete_db_title">Excluir banco de dados?</string>
+    <string name="delete_db_message">Tem certeza de que deseja excluir o banco de dados \"%1$s\"? Esta ação não pode ser desfeita.</string>
+    <string name="action_delete">Excluir</string>
+
+    <string name="sig_toolbar_title">Análise de assinatura</string>
+    <string name="sig_switch_java">Ativar hook de assinatura Java</string>
+    <string name="sig_switch_native">Ativar hook de assinatura nativa</string>
+    <string name="sig_empty_hint">Nenhuma verificação de assinatura registrada</string>
+    <string name="sig_java_count">Verificação Java: %d</string>
+    <string name="sig_native_count">Verificação nativa: %d</string>
+
+    <string name="remove_scope_dialog_title">Remover do escopo?</string>
+    <string name="action_remove">Remover</string>
+    <string name="disable_scope_dialog_message">Tem certeza de que deseja desativar o módulo para %s?</string>
+    <string name="remove_scope_dialog_message">Todas as opções de %s estão desativadas. Deseja remover este app completamente do escopo do módulo?</string>
+
+    <string name="search_hint">Pesquisar</string>
+    <string name="search_hint_with_count">Pesquisar %1$d apps</string>
+
+    <string name="sort_filter">Ordenar e filtrar</string>
+    <string name="reset">redefinir</string>
+    <string name="sort_by">Ordenar por</string>
+    <string name="reverse">Inverter</string>
+    <string name="filter">Filtrar</string>
+
+    <string name="tab_user_apps">Apps do usuário</string>
+    <string name="tab_configured_apps">Apps configurados</string>
+    <string name="tab_system_apps">Apps do sistema</string>
+
+    <string name="tab_request_list">Lista de requisições</string>
+    <string name="tab_block_list">Lista de bloqueio</string>
+    <string name="tab_pass_list">Lista de permissões</string>
+
+    <string name="export">Exportar</string>
+    <string name="restore">Importar</string>
+
+    <string name="update_checkbox_status">Salvar</string>
+    <string name="description_two">Ative para gerenciar o bloqueio de requisições de anúncios na web pela página de Requisições</string>
+    <string name="description_six">Apenas para detecção geral de root e de máquina virtual</string>
+    <string name="handle_platform_ad">Impedir a inicialização de anúncios da plataforma</string>
+    <string name="check_request">Verificação de requisições do app</string>
+    <string name="native_request_hook">Aplicar verificação de requisições nativas</string>
+    <string name="description_nine">Captura algumas requisições de rede da camada nativa, o que é relativamente instável.</string>
+
+    <string name="remove_flag_secure">Remover Flag Secure</string>
+    <string name="remove_vpn_state">Remover detecção de VPN e proxy do sistema</string>
+    <string name="remove_sensor_monitor">Remover registro do sensor de aceleração</string>
+    <string name="remove_envi_detection">Remover detecção de ambiente</string>
+    <string name="remove_clipboard">Remover leitura e escrita da área de transferência</string>
+    <string name="hook_tip_enable">Ativar dica de hook</string>
+
+    <string name="settings_theme">Tema</string>
+    <string name="settings_system_theme_color_summary">Cor do tema a partir do sistema</string>
+    <string name="settings_system_theme_color">Cor do tema do sistema</string>
+    <string name="settings_theme_color">Cor do tema</string>
+    <string name="theme_color_dynamic">Plano de fundo</string>
+    <string name="theme_color_summary_dynamic">A cor do tema segue o plano de fundo do sistema</string>
+    <string name="theme_color_summary_custom">Cor manual: %s</string>
+    <string name="dark_theme">Tema escuro</string>
+    <string name="settings_pure_black_dark_theme">Tema escuro preto puro</string>
+    <string name="settings_pure_black_dark_theme_summary">Use o tema preto puro quando o tema escuro estiver ativado</string>
+    <string name="dark_theme_off">Sempre desativado</string>
+    <string name="dark_theme_on">Sempre ativado</string>
+    <string name="follow_system">Seguir o sistema</string>
+    <string name="dark_theme_follow_system">@string/follow_system</string>
+
+    <!-- Colors -->
+    <string name="color_default">Padrão</string>
+    <string name="color_sakura">Sakura</string>
+    <string name="color_red">Vermelho</string>
+    <string name="color_pink">Rosa</string>
+    <string name="color_purple">Roxo</string>
+    <string name="color_deep_purple">Roxo profundo</string>
+    <string name="color_indigo">Azul-anil</string>
+    <string name="color_blue">Azul</string>
+    <string name="color_light_blue">Azul claro</string>
+    <string name="color_cyan">Ciano</string>
+    <string name="color_teal">Verde-azulado</string>
+    <string name="color_green">Verde</string>
+    <string name="color_light_green">Verde claro</string>
+    <string name="color_lime">Verde-limão</string>
+    <string name="color_yellow">Amarelo</string>
+    <string name="color_amber">Âmbar</string>
+    <string name="color_orange">Laranja</string>
+    <string name="color_deep_orange">Laranja profundo</string>
+    <string name="color_brown">Marrom</string>
+    <string name="color_blue_grey">Cinza-azulado</string>
+
+    <string name="none">Nenhum</string>
+    <string name="hint_search_hooks">Pesquisar configurações de hook</string>
+
+    <string name="title_custom_hook">Hook personalizado</string>
+    <string name="global_title_custom_hook">Hook personalizado global</string>
+    <string name="hook_configs">Configurações de hook</string>
+    <string name="title_global_hook_configs">Configurações de hook globais</string>
+
+    <string name="app_version_format">%1$s (%2$d)</string>
+    <string name="selected_items_count">%d itens selecionados</string>
+    <string name="delete_selected_hooks_title">Excluir hooks selecionados?</string>
+    <string name="delete_selected_hooks_message">Tem certeza de que deseja excluir todas as configurações de hook selecionadas?</string>
+    <string name="deleted_hooks_count">%d hooks excluídos</string>
+    <string name="hook_configurations_label">Configurações de hook</string>
+    <string name="copied_hooks_count">%d hooks copiados</string>
+    <string name="clear_all_hooks_title">Limpar todos os hooks?</string>
+    <string name="clear_all_hooks_message">Limpar todas as configurações de hook? Você pode desfazer logo em seguida.</string>
+    <string name="all_hooks_cleared">Todos os hooks foram limpos</string>
+    <string name="empty_hook_configs">Ainda não há configurações de hook personalizadas</string>
+    <string name="hook_added_successfully">Hook adicionado com sucesso</string>
+    <string name="hook_updated_successfully">Hook atualizado com sucesso</string>
+    <string name="delete_hook_title">Excluir hook?</string>
+    <string name="delete_hook_message">Tem certeza de que deseja excluir esta configuração de hook?</string>
+    <string name="hook_deleted_successfully">Hook excluído com sucesso</string>
+    <string name="select_valid_hook_method">Selecione um método de hook válido</string>
+
+    <string name="add_hook_config_title">Adicionar configuração de hook</string>
+    <string name="edit_hook_config_title">Editar configuração de hook</string>
+
+    <string name="hook_method_type_format">Método de hook: %1$s</string>
+    <string name="class_name_format">Nome da classe: %1$s</string>
+    <string name="method_names_format">Nomes dos métodos: %1$s</string>
+    <string name="parameter_types_format">Tipos de parâmetro: %1$s</string>
+    <string name="return_value_format">Valor de retorno: %1$s</string>
+    <string name="field_name_format">Nome do campo: %1$s</string>
+    <string name="field_value_format">Valor do campo: %1$s</string>
+    <string name="search_strings_format">Strings de pesquisa: %1$s</string>
+
+    <string name="hint_hook_method_type">Tipo de método de hook</string>
+    <string name="hint_class_name">Nome da classe</string>
+    <string name="hint_method_names">Nomes dos métodos (separados por vírgula)</string>
+    <string name="hint_parameter_types">Tipos de parâmetro (nome completo da classe ou primitivo, separados por vírgula)</string>
+    <string name="hint_return_value">Valor de retorno (true/false/null/número/string)</string>
+    <string name="hint_field_name">Nome do campo</string>
+    <string name="hint_field_value">Valor do campo (true/false/null/número/string)</string>
+    <string name="hint_search_strings">Strings de pesquisa (separadas por vírgula)</string>
+
+    <string name="parameter_replacements_format">Substituições de parâmetro: %s</string>
+    <string name="parameter_replacements_label">Substituições de valor de parâmetro</string>
+    <string name="hint_replace_with_value">Substituir por este valor</string>
+
+    <string name="hook_point_after">Após a execução do método</string>
+    <string name="hook_point_before">Antes da execução do método</string>
+
+    <string name="auto_detect_from_clipboard">Detectar automaticamente da área de transferência</string>
+    <string name="clipboard_content_unrecognized">Formato do conteúdo da área de transferência não reconhecido</string>
+
+    <string name="hint_hook_point">Ponto de hook</string>
+    <string-array name="hook_points_array">
+        <item>Após a execução do método (after)</item>
+        <item>Antes da execução do método (before)</item>
+    </string-array>
+    <string name="hook_point_format">Ponto de hook: %1$s</string>
+
+    <string name="error_class_name_empty">O nome da classe não pode ficar vazio</string>
+    <string name="error_method_name_empty">O nome do método não pode ficar vazio</string>
+    <string name="error_parameter_types_empty">Os tipos de parâmetro não podem ficar vazios</string>
+    <string name="error_field_name_empty">O nome do campo não pode ficar vazio</string>
+    <string name="error_search_strings_empty">As strings de pesquisa não podem ficar vazias</string>
+
+    <string name="enabled">Ativado</string>
+    <string name="disabled">Desativado</string>
+    <string name="enabled_format">Status de ativação: %s</string>
+    <string name="add_hook">Adicionar hook</string>
+    <string name="clear_all_hooks">Limpar todos os hooks</string>
+
+    <string name="fab_auto_detect_ads">Detectar SDKs de anúncios automaticamente</string>
+    <string name="toast_return_to_check_results">Volte ao módulo para verificar os resultados depois de abrir a página inicial do app.</string>
+    <string name="auto_detect_waiting">Enviando comando e aguardando os resultados da verificação…</string>
+    <string name="auto_detect_no_app">Não foi possível abrir o aplicativo</string>
+    <string name="auto_detect_select_app">Selecione um aplicativo primeiro</string>
+    <string name="auto_detect_timeout">A verificação expirou. Tente novamente.</string>
+    <string name="import_clipboard_title">Importar da área de transferência</string>
+    <string name="dialog_auto_detect_ads_title">Métodos de inicialização de anúncios detectados</string>
+    <string name="import_selected_hooks_count">%d regras de hook importadas.</string>
+    <string name="no_hook_selected">Nenhuma configuração de hook selecionada</string>
+
+    <string name="import_global_rules_title">Importar regras globais?</string>
+    <string name="import_global_rules_message">Esta configuração pertence às regras de hook globais. Deseja prosseguir com a importação?</string>
+    <string name="import_to_global">Importar</string>
+    <string name="imported_to_global_successfully">Regras de hook globais importadas com sucesso.</string>
+    <string name="imported_global_rules_app_specific_skipped">Regras de hook globais importadas. %d regras específicas de app foram ignoradas, pois esta é uma página global.</string>
+    <string name="no_new_hooks_to_import">Nenhuma regra de hook de aplicativo para importar.</string>
+    <string name="error_empty_or_invalid_json">O arquivo JSON está vazio ou em formato inválido.</string>
+    <string name="no_new_hooks_to_import_global">Nenhuma regra de hook global para importar.</string>
+    <string name="no_global_hooks_found_to_import">Nenhuma regra de hook global encontrada na configuração.</string>
+
+    <string name="others">Outros</string>
+    <string name="about">Sobre</string>
+    <string name="about_view_source_code"><![CDATA[Veja o código-fonte em %1$s]]></string>
+    <string name="feedback">Feedback</string>
+    <string name="cache_clean">Limpar cache</string>
+    <string name="select_all">Selecionar tudo</string>
+    <string name="hide_icon">Ocultar ícone</string>
+    <string name="filter_disabled">Desativado</string>
+    <string name="sort_by_default">O método de ordenação padrão foi alterado para</string>
+    <string name="block">bloquear</string>
+    <string name="copy">copiar para a área de transferência</string>
+    <string name="clearAll">limpar tudo</string>
+    <string name="block_list">Lista de bloqueio</string>
+    <string name="edit">editar</string>
+    <string name="settings_language">Idioma</string>
+    <string name="delete">Excluir</string>
+    <string name="add">adicionar</string>
+    <string name="info">Informações</string>
+    <string name="android_version">Versão do Android</string>
+    <string name="sdk_level">Nível do SDK</string>
+    <string name="android_id">Android ID</string>
+    <string name="brand">Marca</string>
+    <string name="model">Modelo</string>
+    <string name="sku">SKU</string>
+    <string name="build_type">Tipo de build</string>
+    <string name="finger_print">Impressão digital</string>
+    <string name="support">Suporte</string>
+    <string name="overview_rules">Regras locais</string>
+    <string name="overview_subscriptions">Assinaturas</string>
+    <string name="overview_apps">Apps instalados</string>
+    <string name="join_telegram_channel"><![CDATA[Entre no canal %1$s]]></string>
+    <string name="default_page">Página padrão</string>
+    <string name="activated">Ativado</string>
+    <string name="not_activated">Não ativado</string>
+    <string name="version_format">Versão: %1$s(%2$d)</string>
+    <string name="export_empty_request_list">A lista de requisições está vazia e não pode ser exportada</string>
+    <string name="export_failed">Falha na exportação</string>
+    <string name="log_search_hint">Pesquisar registros</string>
+    <string name="log_enable">Ativar registro</string>
+    <string name="log_no_record">Nenhum registro</string>
+    <string name="log_disabled">O registro está desativado</string>
+    <string name="log_no_results">Nenhum resultado para \"%1$s\"</string>
+    <string name="log_no_stack_trace">Nenhum rastreamento de pilha disponível.</string>
+    <string name="log_stack_trace">Rastreamento de pilha</string>
+    <string name="log_copy_stack">Copiar pilha</string>
+    <string name="log_copy_log">Copiar registro</string>
+    <string name="copied_to_clipboard">Copiado para a área de transferência</string>
+    <string name="export_no_app_found">Não é possível exportar o arquivo, nenhum aplicativo adequado foi encontrado para criá-lo</string>
+    <string name="add_to_blocklist_success">Adicionado à lista de bloqueio em lote</string>
+    <string name="import_success">Importação bem-sucedida</string>
+    <string name="import_failed">Falha na importação</string>
+    <string name="export_success">Exportação bem-sucedida</string>
+    <string name="crash_log">Registro de falhas</string>
+    <string name="import_success_count">%1$d novas regras importadas com sucesso.</string>
+    <string name="import_no_new_rules">Importação bem-sucedida. Nenhuma nova regra foi encontrada para adicionar.</string>
+    <string name="clear_block_list_confirm">Tem certeza de que deseja limpar todas as listas de bloqueio? </string>
+    <string name="batch_remove_success">Removido da lista de bloqueio em lote</string>
+    <string name="batch_copy_to_clipboard">Copiado para a área de transferência em lote</string>
+    <string name="add_rule">Adicionar regra</string>
+    <string name="edit_rule">Editar regra</string>
+    <string name="value_empty_error">O valor não pode ficar vazio</string>
+    <string name="rule_exists">A regra já existe</string>
+    <string name="open_app_details_failed">Não é possível abrir os detalhes do aplicativo</string>
+    <string name="launch_app_failed">Falha ao abrir</string>
+    <string name="module_not_activated">O módulo não foi ativado</string>
+    <string name="save_success">Salvo com sucesso</string>
+    <string name="apk_package_name">Nome do pacote APK</string>
+    <string name="apk_size">Tamanho do APK</string>
+    <string name="version_name">Nome da versão</string>
+    <string name="version_code">Número da versão</string>
+    <string name="target_sdk">SDK alvo</string>
+    <string name="min_sdk">SDK mínimo</string>
+    <string name="install_time">Hora da instalação</string>
+    <string name="update_time">Hora da atualização</string>
+    <string name="sort_by_app_name">Nome do aplicativo</string>
+    <string name="sort_by_app_size">Tamanho do app</string>
+    <string name="sort_by_last_update">Hora da última atualização</string>
+    <string name="sort_by_install_date">Data de instalação</string>
+    <string name="sort_by_target_version">Versão alvo</string>
+    <string name="filter_configured">Configurado</string>
+    <string name="filter_recent_update">Atualizado recentemente</string>
+    <string name="updated">Atualizado</string>
+    <string name="open">Abrir</string>
+    <string name="details">Detalhes</string>
+    <string name="remove_from_blocklist">Remover da lista de bloqueio</string>
+    <string name="add_to_blocklist">Adicionar à lista de bloqueio</string>
+    <string name="copied_to_clipboard_single">Copiado: %1$s</string>
+    <string name="copied_to_clipboard_batch">Copiado para a área de transferência em lote</string>
+    <string name="confirm_clear_cache_title">Tem certeza de que deseja limpar o cache? </string>
+    <string name="confirm_clear_cache_message">Cache atual %1$s</string>
+    <string name="cache_cleared_recently">Acabou de limpar</string>
+    <string name="invalid_file_format">O formato do arquivo é inválido, selecione um arquivo terminado em .rule</string>
+
+    <string name="action_mode_select">Selecionar itens</string>
+    <string name="rule_type_select_title">Selecionar tipo de regra</string>
+    <string name="content_empty_or_loading">O conteúdo está vazio ou ainda carregando</string>
+    <string name="image_saved_to_gallery">Imagem salva na galeria</string>
+    <string name="image_save_failed">Falha ao salvar a imagem: %s</string>
+    <string name="scope_get_failed">Falha ao obter a lista de escopo. O serviço pode estar indisponível.</string>
+    <string name="scope_remove_failed">Falha ao remover %1$s: %2$s</string>
+
+    <string name="about_section_intro">Introdução</string>
+    <string name="about_section_developers">Desenvolvedores</string>
+    <string name="about_section_adrules">Fontes de regras de anúncios</string>
+    <string name="about_section_feedback">Feedback</string>
+    <string name="about_section_open_source">Licenças de código aberto</string>
+    <string name="about_intro_text">Um módulo Xposed. Executado dentro do framework LSPosed.\n\nEste módulo tem como objetivo melhorar a experiência do usuário, reduzindo a interferência desnecessária de anúncios e aumentando a eficiência dos apps.\n\nApenas para fins educacionais e de pesquisa. Não use para fins ilegais. O módulo é gratuito.\n\nPrincipais recursos:\n• Bloquear a inicialização de SDKs de anúncios comuns e de SDKs de análise selecionados.\n• Interceptar e bloquear requisições de anúncios de rede dentro dos apps.\n\nTambém são fornecidos utilitários de hook adicionais e adaptações de remoção de anúncios por app.</string>
+    <string name="about_role_developer">Desenvolvedor &amp; Designer</string>
+    <string name="about_role_collaborator">Desenvolvedor &amp; Colaborador</string>
+    <string name="about_feedback_telegram_channel">Canal do Telegram</string>
+    <string name="about_feedback_telegram_group">Grupo do Telegram</string>
+    <string name="empty_state_title">Ainda não há nada aqui</string>
+    <string name="empty_state_subtitle">Os itens que você adicionar aparecerão aqui.</string>
+    <string name="search">Pesquisar</string>
+    <string name="clear">Limpar</string>
+    <string name="export_action">Exportar</string>
+    <string name="import_action">Importar</string>
+    <string name="app_icon">Ícone do app</string>
+    <string name="status_icon">Indicador de status</string>
+    <string name="close">Fechar</string>
+    <string name="response_body_image">Imagem do corpo da resposta</string>
+
+    <string name="tab_local_rules">Regras locais</string>
+    <string name="tab_subscription_rules">Assinaturas</string>
+    <string name="subscription_add_title">Adicionar assinatura</string>
+    <string name="subscription_edit_title">Editar assinatura</string>
+    <string name="subscription_delete_title">Excluir assinatura?</string>
+    <string name="subscription_delete_message">Excluir a assinatura \"%1$s\"?</string>
+    <string name="subscription_url_hint">URL da assinatura (http/https)</string>
+    <string name="subscription_name_hint">Nome (opcional)</string>
+    <string name="subscription_interval_hint">Intervalo de atualização</string>
+    <string name="subscription_url_required">A URL da assinatura é obrigatória</string>
+    <string name="subscription_empty">Ainda não há assinaturas</string>
+    <string name="subscription_add">Adicionar assinatura</string>
+    <string name="subscription_refresh">Atualizar agora</string>
+    <string name="subscription_refresh_enqueued">Atualização enfileirada</string>
+    <string name="subscription_refresh_started">Atualização iniciada</string>
+    <string name="subscription_rule_count">%1$d regras</string>
+    <string name="subscription_more_actions">Mais ações</string>
+    <string name="subscription_url_helper">https:// ou http://</string>
+    <string name="subscription_author">Autor: %1$s</string>
+    <string name="subscription_unknown_author">Desconhecido</string>
+    <string name="subscription_never_updated">Nunca atualizado</string>
+    <string name="subscription_just_now">Agora mesmo</string>
+    <string name="subscription_status">%1$d regras · %2$s</string>
+    <string-array name="subscription_intervals">
+        <item>15 minutos</item>
+        <item>1 hora</item>
+        <item>6 horas</item>
+        <item>12 horas</item>
+        <item>24 horas (padrão)</item>
+        <item>3 dias</item>
+        <item>7 dias</item>
+        <item>30 dias</item>
+    </string-array>
+    <string name="body_loading">Carregando conteúdo…</string>
+    <string name="body_load_failed">Não foi possível carregar o conteúdo: %1$s</string>
+    <string name="body_image_decode_failed">Não foi possível exibir esta imagem.</string>
+    <string name="body_searching">Pesquisando…</string>
+    <string name="body_no_matches">Nenhuma correspondência</string>
+    <string name="body_match_count">%1$d/%2$s</string>
+    <string name="body_page_count">%1$d/%2$d</string>
+    <string name="body_previous_page">Anterior</string>
+    <string name="body_next_page">Próxima</string>
+    <string name="body_previous_match">Correspondência anterior</string>
+    <string name="body_next_match">Próxima correspondência</string>
+    <string name="body_request_title">Corpo da requisição</string>
+    <string name="body_response_title">Corpo da resposta</string>
+    <string name="body_collect_response">Coletar corpo da resposta</string>
+    <string name="body_paging_hint">Conteúdos grandes são exibidos em páginas. A pesquisa abrange todo o corpo carregado.</string>
+    <string name="action_undo">Desfazer</string>
+    <string name="operation_failed">Não foi possível concluir esta operação.</string>
+    <string name="operation_restored">%1$d itens restaurados</string>
+    <string name="rules_deleted_count">%1$d regras excluídas</string>
+    <string name="logs_cleared_count">%1$d entradas de registro limpas</string>
+    <string name="overview_configured_apps">Apps configurados</string>
+    <string name="overview_recent_blocked">Bloqueados recentemente</string>
+    <string name="overview_subscriptions_status">%1$d de %2$d assinaturas ativadas · %3$d precisam de atenção</string>
+    <string name="overview_session_hint">As requisições bloqueadas recentemente são contadas a partir da lista de requisições atual.</string>
+    <string name="overview_unavailable">Indisponível</string>
+    <string name="search_close">Fechar pesquisa</string>
+    <string name="fab_open_actions">Abrir ações</string>
+    <string name="fab_close_actions">Fechar ações</string>
+    <string name="hook_parameter_number">Parâmetro %1$d</string>
+    <string name="overview_recent_count">Bloqueados recentemente: %1$d observações · %2$d alvos</string>
+    <string name="framework_name_format">Framework: %1$s</string>
+    <string name="framework_version_format">Versão: %1$s</string>
+    <string name="framework_api_format">API: %1$d</string>
+    <string name="database_not_text">Arquivos de banco de dados não podem ser exibidos como texto.</string>
+    <string name="file_load_failed">Não foi possível ler este arquivo.</string>
+    <string name="detail_dns">Informações de DNS</string>
+    <string name="detail_request">Requisição</string>
+    <string name="detail_response">Resposta</string>
+    <string name="detail_dns_host">Host DNS</string>
+    <string name="detail_address">Endereço completo</string>
+    <string name="detail_method">Método da requisição</string>
+    <string name="detail_url">URL da requisição</string>
+    <string name="detail_request_headers">Cabeçalhos da requisição</string>
+    <string name="detail_response_code">Código da resposta</string>
+    <string name="detail_response_message">Mensagem da resposta</string>
+    <string name="detail_response_headers">Cabeçalhos da resposta</string>
+    <string name="body_collection_summary">Colete os corpos de resposta de novas requisições após reiniciar o app-alvo.</string>
+    <string name="request_occurrence_count">×%1$d</string>
+    <string name="request_occurrence_description">Observado %1$d vezes</string>
+</resources>
